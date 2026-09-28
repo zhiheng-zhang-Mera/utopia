@@ -1,0 +1,1 @@
+{"name":"utopia","version":"0.1.0","private":true,"type":"module","engines":{"node":">=24"},"scripts":{"test":"node --test tests/*.test.mjs","start":"node services/dev-gateway/main.mjs","agent":"node agents/reference-node/main.mjs","check:docs":"node scripts/check-bilingual.mjs"},"dependencies":{"ws":"8.18.3"},"devDependencies":{"playwright":"1.55.1"}}

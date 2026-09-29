@@ -4,6 +4,19 @@ import {mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createGateway} from '../services/dev-gateway/server.mjs';
+import {Store} from '../services/dev-gateway/store.mjs';
+import {createBridge} from '../services/capability-bridge/bridge.mjs';
+
+test('dependency failure degrades the same descriptor used to gate invocations',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'utopia-degrade-')),store=new Store(dir);let calls=0;
+ const bridge=createBridge(store,()=>{},{execute:async()=>{calls++;return{errorCode:'ENGINE_UNAVAILABLE'};}});
+ try{
+  await bridge.invoke('planning.document.intake',{operationId:'read',input:{}});
+  assert.equal(bridge.registry().find(d=>d.capabilityId==='planning.document.intake').bridgeState,'DEGRADED');
+  await assert.rejects(bridge.invoke('planning.document.intake',{operationId:'read',input:{}}),{code:'BRIDGE_PENDING'});
+  assert.equal(calls,1);
+ }finally{bridge.close();store.close();await rm(dir,{recursive:true,force:true});}
+});
 
 test('capabilities use control auth, canonical results, typed refusal and durable history',async()=>{
  const dir=await mkdtemp(join(tmpdir(),'utopia-cap-'));let g=await createGateway({dir,port:0,token:'control-test',nodeToken:'node-test'});

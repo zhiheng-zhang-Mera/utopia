@@ -22,5 +22,12 @@ test('Windows Services invokes real document, knowledge, skill, evidence and the
   }
   assert.ok(await page.locator('#theme-preview').getAttribute('src'));
   await page.locator('[data-service="research.evidence.review"]').click();await page.locator('#service-tamper').click();await page.locator('#service-state').filter({hasText:'FAILED'}).waitFor();assert.match(await page.locator('#service-summary').innerText(),/ARTIFACT_HASH_MISMATCH/);
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.route('**/capabilities/*/invoke',async route=>{await new Promise(r=>setTimeout(r,500));await route.continue();});
+  await page.locator('[data-service="presentation.theme.lab"]').click();await page.locator('#service-invoke').click();
+  await page.locator('[data-page="Home"]').click();await page.waitForTimeout(1200);
+  assert.deepEqual(errors,[],'late completion must not mutate a detached Services editor');
+  await page.locator('[data-page="Services"]').click();
+  assert.equal(await page.locator('#service-state').innerText(),'','late result stays in shared history, not a different view');
  }finally{await browser.close();await g.close();await rm(dir,{recursive:true,force:true});}
 });

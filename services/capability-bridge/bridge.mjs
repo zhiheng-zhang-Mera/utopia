@@ -3,7 +3,7 @@ import {randomUUID} from 'node:crypto';
 import {registry} from './registry.mjs';
 import {canonical,digest,objectInput,refuse} from '../../contracts/capability-bridge-v1/protocol.mjs';
 
-export function createBridge(store,emit){
+export function createBridge(store,emit,{execute}={}){
  store.db.exec('CREATE TABLE IF NOT EXISTS invocations(id TEXT PRIMARY KEY,json TEXT NOT NULL)');
  const workers=new Set(),degraded=new Set();let closed=false;
  const descriptors=()=>registry().map(c=>degraded.has(c.capabilityId)?{...c,bridgeState:'DEGRADED'}:c);
@@ -14,14 +14,14 @@ export function createBridge(store,emit){
  }
  return {registry:descriptors,list:()=>store.list('invocations'),get:id=>store.get('invocations',id),
  async invoke(capabilityId,request){
-  objectInput(request);const descriptor=registry().find(c=>c.capabilityId===capabilityId);if(!descriptor)refuse('CAPABILITY_NOT_FOUND',404);
+  objectInput(request);const descriptor=descriptors().find(c=>c.capabilityId===capabilityId);if(!descriptor)refuse('CAPABILITY_NOT_FOUND',404);
   if(descriptor.bridgeState!=='AVAILABLE')refuse('BRIDGE_PENDING',409);
   if(!descriptor.operations.some(o=>o.operationId===request.operationId))refuse('OPERATION_BLOCKED');
   objectInput(request.input);if(workers.size>=2)refuse('BUSY',429);
   const invocationId='I-'+randomUUID(),startedAt=new Date().toISOString();
   let row={invocationId,capabilityId,operationId:request.operationId,startedAt,finishedAt:null,status:'RUNNING',resultDigest:null,errorCode:null,result:null};
   save(row);emit('CAPABILITY_INVOKED',null,{invocationId,capabilityId,operationId:row.operationId});
-  const outcome=await new Promise(resolve=>{
+  const outcome=execute?await execute({capabilityId,operationId:request.operationId,input:request.input}):await new Promise(resolve=>{
    const worker=new Worker(new URL('./worker.mjs',import.meta.url),{workerData:{capabilityId,operationId:request.operationId,input:request.input},stdout:true,stderr:true,resourceLimits:{maxOldGenerationSizeMb:128}});workers.add(worker);
    let settled=false;const done=value=>{if(settled)return;settled=true;clearTimeout(timer);workers.delete(worker);worker.terminate();resolve(value);};
    const timer=setTimeout(()=>done({errorCode:'EXECUTION_TIMEOUT'}),20000);

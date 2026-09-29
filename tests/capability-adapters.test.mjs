@@ -19,6 +19,7 @@ test('evidence review is deterministic and tampering never gets rehashed',async(
  const input={sample:true};const a=await run('research.evidence.review','review',input),b=await run('research.evidence.review','review',input);
  assert.equal(digest(a),digest(b));assert.ok(a.bundle.integrityRoot);assert.equal(a.bundle.decision,'PASS');
  await assert.rejects(run('research.evidence.review','tamper',input),{code:'ARTIFACT_HASH_MISMATCH'});
+ await assert.rejects(run('research.evidence.review','review',{artifacts:[]}),{code:'TASK_REQUIRED'});
 });
 test('theme generation returns a reproducible PNG and validation',async()=>{
  const a=await run('presentation.theme.lab','generate',{seed:'same'}),b=await run('presentation.theme.lab','generate',{seed:'same'});

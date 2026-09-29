@@ -26,7 +26,7 @@ function showResult(){
 }
 async function fileInput(){const file=document.querySelector('#service-file')?.files[0];if(!file)throw Error(L('Choose a file first','请先选择文件'));if(file.size>1024*1024)throw Error('INPUT_TOO_LARGE');const bytes=new Uint8Array(await file.arrayBuffer());let raw='';for(let i=0;i<bytes.length;i+=8192)raw+=String.fromCharCode(...bytes.subarray(i,i+8192));return{fileName:file.name,base64:btoa(raw)};}
 async function submit(tamper=false){
- if(busy||!online)return;const descriptor=snapshot.capabilities.find(c=>c.capabilityId===selected);let operationId=descriptor.operations[0].operationId,input={};
+ if(busy||!online)return;const startedCapability=selected,editorNode=document.querySelector('#service-editor');const isCurrent=()=>selected===startedCapability&&document.querySelector('#service-editor')===editorNode;busy=true;const descriptor=snapshot.capabilities.find(c=>c.capabilityId===selected);let operationId=descriptor.operations[0].operationId,input={};
  try{
   switch(descriptor.inputKind){
    case 'document':input=await fileInput();break;
@@ -36,10 +36,10 @@ async function submit(tamper=false){
    case 'theme':input={seed:document.querySelector('#theme-seed').value,style:document.querySelector('#theme-style').value,palette:{accent:document.querySelector('#theme-accent').value}};break;
   }
   busy=true;current=null;showResult();document.querySelector('#service-invoke').disabled=true;
-  current=await call('capabilities/'+selected+'/invoke',{operationId,input});
+  const completed=await call('capabilities/'+startedCapability+'/invoke',{operationId,input});if(!isCurrent())return;current=completed;
   if(current.capabilityId==='planning.document.intake'&&current.status==='COMPLETED')documentResult=current.result;
- }catch(error){current={status:'FAILED',errorCode:error.message};}
- finally{busy=false;showResult();document.querySelector('#service-invoke').disabled=!online;}
+ }catch(error){if(isCurrent())current={status:'FAILED',errorCode:error.message};}
+ finally{busy=false;if(isCurrent())showResult();const button=document.querySelector('#service-invoke');if(button)button.disabled=!online;}
 }
 export function renderServices(container,city,isOnline,api){
  snapshot=city;call=api;online=isOnline;

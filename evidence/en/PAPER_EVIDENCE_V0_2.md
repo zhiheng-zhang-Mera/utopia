@@ -12,9 +12,9 @@ FACT: PRODUCT_CI=36521350387_PASS
 FACT: ANDROID_UNIT=16_PASS
 FACT: LATEST_TASK_AND_TELEMETRY=PASS
 FACT: MANUAL_RESTORATION=PASS
-FACT: BUNDLE_MANIFEST=150_FILES_VALID
-FACT: DELIVERY_AUDIT=273_FILES_ZERO_KNOWN_FINDINGS
-FACT: MAIN_INTEGRATION=IN_PROGRESS_NOT_VERIFIED
+FACT: BUNDLE_MANIFEST=158_FILES_VALID
+FACT: DELIVERY_AUDIT=381_FILES_ZERO_KNOWN_FINDINGS
+FACT: MAIN_INTEGRATION=LOCAL_MERGED_937e1dc_VERIFIED
 FACT: RELEASE=NOT_PUBLISHED
 
 All six claims remain PILOT. Artifact provenance controls applicability; integration/release is not complete. Preserve failed, interrupted and unknown-provenance attempts.
@@ -121,3 +121,5 @@ LIMITATIONS: Historical stack pair: CPU 0.817%/0.966% of one core; mean combined
 
 NOTES: Each raw record retains its own source/APK binding; the header does not relabel historical runs.
 
+
+Final integration update: local merge 937e1dc preserves main f28422b and the unchanged Android tree from 2607912. Root tests 26/26, Rooms 67/67, City 44/44, promotion history 4/4, bilingual checks and read-only review passed. Post-integration physical task/result and telemetry checks passed; City identity and all six previous tasks survived Gateway restart. One additional camera restoration passed after one preserved pre-camera driver timeout. The 158-file manifest passed the bounded 381-file audit with zero known findings. Earlier pending-integration prose above is superseded by this update. Cloud PR merge and release remain pending at this checkpoint.

@@ -12,9 +12,9 @@ FACT: PRODUCT_CI=36521350387_PASS
 FACT: ANDROID_UNIT=16_PASS
 FACT: LATEST_TASK_AND_TELEMETRY=PASS
 FACT: MANUAL_RESTORATION=PASS
-FACT: BUNDLE_MANIFEST=150_FILES_VALID
-FACT: DELIVERY_AUDIT=273_FILES_ZERO_KNOWN_FINDINGS
-FACT: MAIN_INTEGRATION=IN_PROGRESS_NOT_VERIFIED
+FACT: BUNDLE_MANIFEST=158_FILES_VALID
+FACT: DELIVERY_AUDIT=381_FILES_ZERO_KNOWN_FINDINGS
+FACT: MAIN_INTEGRATION=LOCAL_MERGED_937e1dc_VERIFIED
 FACT: RELEASE=NOT_PUBLISHED
 
 六项结论均保持 PILOT。适用范围由文件溯源决定，集成/发布尚未完成。保留失败、中断及溯源未知的尝试。
@@ -121,3 +121,5 @@ LIMITATIONS: 历史全栈一组试验：单核 CPU 0.817%/0.966%，平均合计�
 
 NOTES: 各原始记录保留自身源码/APK 绑定，文件头不重新标记历史运行。
 
+
+最终集成更新：本地合并 937e1dc 保留 main f28422b 的改动，Android 文件树与 2607912 完全一致。主测试 26/26、Rooms 67/67、City 44/44、晋升历史 4/4、双语校验及只读审查通过。合入后实机任务、结果与遥测核验通过；网关重启后城市身份与此前六项任务均保留。另一次真实摄像头恢复扫码通过，保留此前一次启动摄像头前的驱动超时。158 文件清单通过 381 文件的有限审计，已知问题为零。本段替代上文尚未完成本地集成的旧状态；云端 PR 合并及发布在此检查点仍待完成。

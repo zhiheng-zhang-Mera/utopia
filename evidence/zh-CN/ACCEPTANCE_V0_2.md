@@ -12,9 +12,9 @@ FACT: PRODUCT_CI=36521350387_PASS
 FACT: ANDROID_UNIT=16_PASS
 FACT: LATEST_TASK_AND_TELEMETRY=PASS
 FACT: MANUAL_RESTORATION=PASS
-FACT: BUNDLE_MANIFEST=150_FILES_VALID
-FACT: DELIVERY_AUDIT=273_FILES_ZERO_KNOWN_FINDINGS
-FACT: MAIN_INTEGRATION=IN_PROGRESS_NOT_VERIFIED
+FACT: BUNDLE_MANIFEST=158_FILES_VALID
+FACT: DELIVERY_AUDIT=381_FILES_ZERO_KNOWN_FINDINGS
+FACT: MAIN_INTEGRATION=LOCAL_MERGED_937e1dc_VERIFIED
 FACT: RELEASE=NOT_PUBLISHED
 
 真实正向与负向摄像头试验已关闭 QR 产品缺口。Gate I 集成/发布仍待完成，因此整体保持 **NOT_ACCEPTED**；不声称已完成合并或发布。独立改变的 main 正在隔离检出中进行语义集成，尚未验证。
@@ -32,9 +32,11 @@ FACT: RELEASE=NOT_PUBLISHED
 | E — BLE | 基线配对 5/5、无线电修复切换 2/2 及之后定向配对 1/1 各保留自己的版本。不适用硬件阻塞例外，也不声称当前 APK 做了五次。 |
 | F — Manual | 基线 5/5 和较早恢复通过。当前 ec30 manual 恢复已通过，绑定采集源码 ee3f313。 |
 | G — 恢复/故障 | 历史 Wi-Fi/Node/Gateway 各 3/3 和九次中断审计，API 负向 8/8 与新的真实摄像头负向分开记录。不声称全过程零过期。 |
-| H — 证据 | 源码/APK 版本与未成功尝试保留；150 文件清单已校验，273 个交付文件的有限审计无已知匹配。候选结论均为 PILOT，不是普适结论。 |
+| H — 证据 | 源码/APK 版本与未成功尝试保留；150 文件清单已校验，381 个交付文件的有限审计无已知匹配。候选结论均为 PILOT，不是普适结论。 |
 | I — 集成/发布 | 语义集成与候选验证进行中，release 为 NOT_PUBLISHED。并行 main 工作保留，不声称已完成合并。 |
 
-当前 APK 任务 `Q-688f30f7-11b5-451a-a7d8-52a4fa69bfb0` 完成，Android/Web 均匹配结果 SHA-256 `b2cd04407ccb978ee9c04ae504e1c1d724372540e3abc49b56cf193f106b91de`。时间戳一致性和当前任务证据位于 [telemetry](../raw/v0.2/telemetry-consistency.json) 与[任务](../raw/v0.2/task-regression.json)。
+当前 APK 任务 `Q-a70d95e6-264d-4f6b-8c1f-e9fca97145c7` 完成，Android/Web 均匹配结果 SHA-256 `ac930c195bd26b7bce6c4f61b6112a7ed35be04e668c6916e3c53a84985419c3`。时间戳一致性和当前任务证据位于 [telemetry](../raw/v0.2/telemetry-consistency.json) 与[任务](../raw/v0.2/task-regression.json)。
 
 证据目标：[autozoom 试验](../raw/v0.2/qr-autozoom-trials.json)、[放大负向](../raw/v0.2/qr-negative-2026-09-29T04-39-14.835Z-runs.json)、[负向索引](../raw/v0.2/qr-negative-index.json)、[autozoom 单测](../raw/v0.2/android-autozoom-unit-tests.json)、[产品 CI](../raw/v0.2/ci-autozoom-product.json)、[manifest](../raw/v0.2/manifest.json)、[候选台账](PAPER_EVIDENCE_V0_2.md)。新增证据已纳入校验后的证据包；发布证据不需要秘密或摄像头预览。
+
+最终集成更新：本地合并 937e1dc 保留 main f28422b 的改动，Android 文件树与 2607912 完全一致。主测试 26/26、Rooms 67/67、City 44/44、晋升历史 4/4、双语校验及只读审查通过。合入后实机任务、结果与遥测核验通过；网关重启后城市身份与此前六项任务均保留。另一次真实摄像头恢复扫码通过，保留此前一次启动摄像头前的驱动超时。158 文件清单通过 381 文件的有限审计，已知问题为零。本段替代上文尚未完成本地集成的旧状态；云端 PR 合并及发布在此检查点仍待完成。

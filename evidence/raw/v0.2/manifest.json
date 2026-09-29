@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-29T04:50:43.969Z",
+  "generatedAt": "2026-09-29T05:03:19.041Z",
   "files": [
     {
       "file": "android-autozoom-initial-unit-tests.json",
@@ -11,7 +11,7 @@
     },
     {
       "file": "android-devices.png",
-      "sha256": "f3cef35326ae3c18daf8903456991c0fa8d4b0719ead5a61609aba8f0a5cc499"
+      "sha256": "9d7cd7648070cf0208e8b05bea70c3645027c588a6a447dc0ee3d80c98c563e7"
     },
     {
       "file": "android-errorfix-unit-tests.json",
@@ -23,7 +23,7 @@
     },
     {
       "file": "android-telemetry.xml",
-      "sha256": "ce9c7d34a83bd71c57379b8eeecad50c84ed6355873d1e591d34242715897670"
+      "sha256": "ccc44bdfa509aae3767df17868f5159ca3fd7868a1755a1845114fad2855f579"
     },
     {
       "file": "android-unit-tests.json",
@@ -163,7 +163,7 @@
     },
     {
       "file": "historical-attempts.json",
-      "sha256": "312f4c3f3b846adfbe4e41273a4df3d86260f2ebeb3c7dbd2e146bfa71a3b24a"
+      "sha256": "a908acc15903057d7341793d9c9d25c74d1c2277ce9135edb2ebcd2a1222d839"
     },
     {
       "file": "historical-discovery-recovery-driver-attempt.json",
@@ -214,6 +214,14 @@
       "sha256": "3290190f0eb7e5a689e69c8cac3c16e130332ef6608bc4f95d4df2dcfd2b5ced"
     },
     {
+      "file": "historical-pre-integration-task-regression.json",
+      "sha256": "e4f380f23757bd922ef430b8dc7322e218cac6774566327ab782d4dbcb21b04d"
+    },
+    {
+      "file": "historical-pre-integration-telemetry-consistency.json",
+      "sha256": "083c9a365992193782c81e34d2ab92be14ff269cc87771aada76e421e7c65988"
+    },
+    {
       "file": "historical-pre-permission-fix-ble-runs.json",
       "sha256": "fff9d83dc81ab5fafebb0c522ae386971ef012f70f3c9363aa3b9c41770f719b"
     },
@@ -236,6 +244,10 @@
     {
       "file": "historical-qr-usb-interrupted-runs.json",
       "sha256": "832c7e2f74a1c8a232b4096a64389615c6b09de6593236b5326ebc76aedc980d"
+    },
+    {
+      "file": "integration-preservation.json",
+      "sha256": "6834e077966d97bc94b583a54ffeb6376ad13953a8701a82c8eedc2935a90c0d"
     },
     {
       "file": "manual-1-events.jsonl",
@@ -474,6 +486,26 @@
       "sha256": "d2bdd65274c2dfcae3ce4e1a5379d5ce0474cc1967b1cf1b9c63ed995da74b8f"
     },
     {
+      "file": "qr-autozoom-restoration-1-events.jsonl",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "file": "qr-autozoom-restoration-2-events.jsonl",
+      "sha256": "39c801280ec6ea6f0f5a2fa7e94e4a9cdb07f2f2714e95056d92fb9caa51447b"
+    },
+    {
+      "file": "qr-autozoom-restoration-events.jsonl",
+      "sha256": "39c801280ec6ea6f0f5a2fa7e94e4a9cdb07f2f2714e95056d92fb9caa51447b"
+    },
+    {
+      "file": "qr-autozoom-restoration-runs.json",
+      "sha256": "6b11796cdd5bd16485612841bba963f2bafe5fdfc65e7bc1742173f9d398a2a0"
+    },
+    {
+      "file": "qr-autozoom-restoration-trials.json",
+      "sha256": "f06d4e84c68ef305451d51ed6ff3cee633d7b0640dbedf2e92d31eb4435f9e21"
+    },
+    {
       "file": "qr-autozoom-runs.json",
       "sha256": "a483cf5a91e05ff2228a37aa42fba85adc99a6ca7f5a5e0e02f104e4291ed351"
     },
@@ -563,15 +595,15 @@
     },
     {
       "file": "task-regression.json",
-      "sha256": "5fd30a094f3adec789979a8338def5e27be89bea92e4dccef4470d3a1b5eef5e"
+      "sha256": "93eed61226e5f2fb6bfac2652cdcc827e1f0cd28f0197b5b5794b98ec58b99ea"
     },
     {
       "file": "telemetry-consistency.json",
-      "sha256": "4e7b23ba11df35b12751b064045980271db3539024e3b6377d48e17cdc2a9a27"
+      "sha256": "3c6b848e4009fc56d449ffd090092e4a585f6e1d859bce13a85a91c46b5874c2"
     },
     {
       "file": "web-devices.png",
-      "sha256": "036ead92542aa9902ab3e6533841c3351aae57e6793ef13a878eeec10324efaf"
+      "sha256": "7f87e51fc1c22e6ad1150677c6a8610e316014f161d1e9e1b36e5f5d424aa8a5"
     },
     {
       "file": "wifi-1-connection-events.jsonl",

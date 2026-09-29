@@ -7,8 +7,8 @@ const {url}=JSON.parse(readFileSync('.runtime/processes.json'));
 const browser=await chromium.launch({channel:'msedge',headless:false});
 const page=await browser.newPage({viewport:{width:1440,height:1000}});
 await page.goto(url+'/pairing');
-await page.getByLabel('Pairing token').fill(config.token);
-await page.getByRole('button',{name:'Connect',exact:true}).click();
+await page.locator('#token').fill(config.token);
+await page.locator('#connect').click();
 await page.locator('#generate-pairing').waitFor();
 // Private transient IPC. Never capture screenshots or print pairing material.
 page.on('response',async response=>{if(response.url().endsWith('/pairing/session')&&response.ok())writeFileSync('.runtime/active-pairing.json',JSON.stringify(await response.json()));});

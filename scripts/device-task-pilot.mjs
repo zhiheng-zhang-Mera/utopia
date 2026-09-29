@@ -21,9 +21,9 @@ if(!node)throw Error('Run Test Task is not visible');const bounds=node[1].match(
 const startedAt=new Date().toISOString();cmd('shell','input','tap',String((bounds[0]+bounds[2])>>1),String((bounds[1]+bounds[3])>>1));
 let task,after;for(let i=0;i<30;i++){await wait(1000);after=await snapshot();task=after.tasks.find(t=>!before.tasks.some(p=>p.id===t.id));if(task&&['COMPLETED','FAILED'].includes(task.state))break;}
 if(!task)throw Error('No new task observed');cmd('shell','uiautomator','dump','/sdcard/utopia-task.xml');xml=cmd('shell','cat','/sdcard/utopia-task.xml');
-const browser=await chromium.launch({channel:'msedge',headless:true}),page=await browser.newPage();
+const browser=await chromium.launch({channel:'msedge',headless:true}),page=await browser.newPage({locale:'en-US'});
 try{
- await page.goto(url);await page.getByLabel('Pairing token').fill(config.token);await page.getByRole('button',{name:'Connect',exact:true}).click();await page.locator('#connection').filter({hasText:'ONLINE'}).waitFor();
+ await page.goto(url);await page.locator('#token').fill(config.token);await page.locator('#connect').click();await page.locator('#connection').filter({hasText:'ONLINE'}).waitFor();
  await page.locator('[data-task="'+task.id+'"]').first().click();const web=await page.locator('#detail').innerText();
  const result={codeSha,apkSha256,localApkSha256,installedApkMatchesLocal,startedAt,completedAt:new Date().toISOString(),taskId:task.id,state:task.state,androidShowsTaskAndCompletion:xml.includes(task.id)&&xml.includes('COMPLETED'),webShowsTaskAndCompletion:web.includes(task.id)&&web.includes('COMPLETED'),eventTypes:after.events.filter(e=>e.taskId===task.id).map(e=>e.type),resultAvailable:!!task.result,checkpointAvailable:!!task.lastCheckpoint,scope:'Android UI submitted task; real reference node; Web UI observes same task identity and completion'};
  const texts=[...xml.matchAll(/text=(?:"([^"]*)"|'([^']*)')/g)].map(m=>(m[1]??m[2]).replace(/&quot;/g,'"').replace(/&amp;/g,'&')).filter(Boolean);

@@ -49,9 +49,9 @@ async function find(text){const start=Date.now();while(Date.now()-start<20000){c
 async function unpair(){cmd('shell','am','force-stop','city.utopia.control');cameraMayBeOpen=false;cmd('shell','am','start','-n','city.utopia.control/.MainActivity');await sleep(2500);await find('Settings');cmd('shell','input','tap','970','2195');await sleep(500);tap(await find('Clear pairing / Find your City'));await find('Scan QR');}
 let browser,page,qrBox;
 async function measureRealPairingGeometry(){
- await page.goto(url+'/pairing');await page.getByLabel('Pairing token').fill(config.token);await page.getByRole('button',{name:'Connect',exact:true}).click();await page.locator('#connection.online').waitFor();
+ await page.goto(url+'/pairing');await page.locator('#token').fill(config.token);await page.locator('#connect').click();await page.locator('#connection.online').waitFor();
  // Setup session measures only the real UI. All test sessions are created AFTER this step.
- await page.getByRole('button',{name:'Generate pairing session',exact:true}).click();await page.locator('#pairing-qr svg').waitFor();await page.evaluate(()=>window.scrollTo(0,0));
+ await page.locator('#generate-pairing').click();await page.locator('#pairing-qr svg').waitFor();await page.evaluate(()=>window.scrollTo(0,0));
  qrBox=await page.locator('#pairing-qr').boundingBox();
  if(!qrBox||Math.abs(qrBox.width-240)>1||qrBox.height<=0)fail('REAL_PAIRING_QR_GEOMETRY_UNEXPECTED');
  result.displayGeometry={displayScale,viewport:{width:1440,height:1000},qrBox,source:'Measured real authenticated Web pairing QR before test-session creation',windowPosition:'Browser default; physical alignment still requires confirmation'};save();

@@ -14,10 +14,10 @@ const apkSha256=(await command('shell','sha256sum',apkPath)).trim().split(/\s/)[
 const localApkSha256=createHash('sha256').update(readFileSync('apps/android/app/build/outputs/apk/debug/app-debug.apk')).digest('hex');
 const installedApkMatchesLocal=apkSha256===localApkSha256;
 if(!/^[a-f0-9]{64}$/.test(apkSha256)||!installedApkMatchesLocal)throw Error('INSTALLED_APK_MISMATCH');
-const browser=await chromium.launch({channel:'msedge',headless:true}),page=await browser.newPage({viewport:{width:1440,height:1100}});
+const browser=await chromium.launch({channel:'msedge',headless:true}),page=await browser.newPage({locale:'en-US',viewport:{width:1440,height:1100}});
 let webTelemetry=null;
 page.on('response',async r=>{if(r.url()===url+'/api/v0/city'&&r.ok()){try{webTelemetry=(await r.json()).nodes.find(n=>n.id==='alien-reference-node')?.telemetry;}catch{}}});
-await page.goto(url);await page.getByLabel('Pairing token').fill(config.token);await page.getByRole('button',{name:'Connect',exact:true}).click();await page.locator('#connection').filter({hasText:'ONLINE'}).waitFor();
+await page.goto(url);await page.locator('#token').fill(config.token);await page.locator('#connect').click();await page.locator('#connection').filter({hasText:'ONLINE'}).waitFor();
 await page.locator('[data-page="Devices"]').click();await page.getByRole('button',{name:'Alien-PC',exact:true}).click();
 await command('shell','input','tap','324','2195');await command('shell','input','tap','380','525');
 const samples=[];let sampling=false;

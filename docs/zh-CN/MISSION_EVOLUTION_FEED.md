@@ -55,3 +55,17 @@ pnpm mission:finalize -- \
 ## 安全/数据规则
 
 不得记录 credential、token、secret、设备序列号、模型私有推理或无界 terminal dump。跨主机需要共享时，只发布有界、非敏感、确有验证价值的 candidate evidence。
+
+
+## 精确收口 / CI 顺序
+
+Finalize 只修改 evolution 元数据，但仍会产生一个新的 branch HEAD，因此验证主机使用两个 CI 检查点：
+
+1. 完成维修和真实使用验证；
+2. 跑 required **implementation CI**，并记录 PASS `CI_RESULT`；
+3. 记录 PASS `VERIFICATION_COMPLETE`；
+4. 执行 `mission:finalize`，提交 episode 和 inbox 删除；
+5. 对这个**最终 branch HEAD**再次跑 required CI；
+6. 第二次 CI 也全绿后才允许 merge。
+
+Episode 记录授权 finalize 的 implementation CI；Digital-City Verification Report 同时记录 implementation CI 和 final-branch CI。

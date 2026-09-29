@@ -55,3 +55,17 @@ On success it creates the verified episode and removes the current-tree inbox fi
 ## Safety/data rules
 
 Do not record credentials, tokens, secrets, device serials, private model reasoning, or unbounded terminal dumps. Publish only bounded non-sensitive candidate evidence needed for cross-host verification.
+
+
+## Exact closeout / CI order
+
+Finalization changes only evolution metadata, but that still creates a new branch HEAD. Therefore the verifier uses two CI checkpoints:
+
+1. finish repair and real-use verification;
+2. run required **implementation CI** and record a PASS `CI_RESULT`;
+3. record PASS `VERIFICATION_COMPLETE`;
+4. run `mission:finalize`, commit the episode and inbox removal;
+5. run required CI again on that **final branch HEAD**;
+6. merge only if this second CI is also green.
+
+The episode records the implementation CI used to authorize finalization. The Digital-City Verification Report records both the implementation CI and the final-branch CI.

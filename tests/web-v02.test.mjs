@@ -10,7 +10,7 @@ test('Web Devices and ephemeral pairing share the authoritative Gateway',async()
  try{
  app=await createGateway({host:'127.0.0.1',port:0,dir,token:'web-test',nodeToken:'node-test'});
  browser=await chromium.launch({channel:process.platform==='win32'?'msedge':undefined,headless:true});
- const page=await browser.newPage();await page.goto(app.url);
+ const page=await browser.newPage({locale:'en-US'});await page.goto(app.url);
  await page.getByLabel('Pairing token').fill('web-test');await page.getByRole('button',{name:'Connect',exact:true}).click();
  await page.locator('#connection.online').waitFor();
  await page.locator('[data-page="Devices"]').click({timeout:2000});
@@ -18,6 +18,16 @@ test('Web Devices and ephemeral pairing share the authoritative Gateway',async()
  await page.locator('[data-page="Pairing"]').click();
  await page.getByRole('button',{name:'Generate pairing session',exact:true}).click();
  await page.locator('#pairing-qr svg').waitFor();
+ // Localization must not reconnect, rotate the live session, or turn protocol state into translated logic.
+ const connectionsBefore=app.store.events().filter(e=>e.type==='CLIENT_CONNECTED').length;
+ const qrBefore=await page.locator('#pairing-qr svg').evaluate(el=>el.outerHTML);
+ await page.evaluate(()=>window.UtopiaI18n.setLocale('zh-CN'));
+ assert.equal(await page.locator('#connection').innerText(),'在线');
+ assert.equal(await page.locator('#run').isDisabled(),false);
+ assert.equal(await page.locator('#generate-pairing').innerText(),'撤销并刷新会话');
+ assert.ok(await page.locator('#pairing-qr svg').evaluate((el,expected)=>el.outerHTML===expected,qrBefore));
+ assert.equal(app.store.events().filter(e=>e.type==='CLIENT_CONNECTED').length,connectionsBefore);
+ await page.evaluate(()=>window.UtopiaI18n.setLocale('en'));
  const priorSession=await page.evaluate(()=>fetch('/api/v0/pairing/info',{headers:{'X-City-Api-Version':'0','X-City-Schema-Version':'0'}}).then(r=>r.json()).then(x=>x.descriptor.pairingSessionId));
  await page.getByRole('button',{name:'Revoke and refresh session',exact:true}).click();
  await page.locator('#pairing-qr svg').waitFor();
@@ -43,7 +53,7 @@ test('Web freshness, device detail, node offline and pairing expiry',async()=>{
  const headers={Authorization:'Bearer node-test','Content-Type':'application/json','X-City-Api-Version':'0','X-City-Schema-Version':'0'};
  const telemetry={observedAt:new Date().toISOString(),cpu:{usagePercent:18},memory:{usedBytes:1024**3,totalBytes:2*1024**3},disk:{usedBytes:3*1024**3,freeBytes:5*1024**3,totalBytes:8*1024**3},uptimeSeconds:3660};
  const register=await fetch(app.url+'/api/v0/node/register',{method:'POST',headers,body:JSON.stringify({id:'test-device',displayName:'Test device',metadata:{platform:'Windows'},capabilities:['task.execute.safe'],agentVersion:'0.2.0',telemetry})});assert.equal(register.status,200);
- browser=await chromium.launch({channel:process.platform==='win32'?'msedge':undefined,headless:true});const page=await browser.newPage();await page.goto(app.url);
+ browser=await chromium.launch({channel:process.platform==='win32'?'msedge':undefined,headless:true});const page=await browser.newPage({locale:'en-US'});await page.goto(app.url);
  await page.getByLabel('Pairing token').fill('web-test');await page.getByRole('button',{name:'Connect',exact:true}).click();await page.locator('#connection.online').waitFor();
  await page.locator('[data-page="Devices"]').click();await page.locator('.telemetry.fresh').waitFor();
  assert.match(await page.locator('#view').innerText(),/18.0%/);

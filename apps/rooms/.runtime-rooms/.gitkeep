@@ -1,0 +1,3 @@
+# Room Pack runtime data (knowledge.json, bookmarks.json, …) is written here.
+# Per MECH ROOM PACK V1 §6.3 it is not committed; only this placeholder and the
+# nested .gitignore are tracked so the directory always exists after a clone.

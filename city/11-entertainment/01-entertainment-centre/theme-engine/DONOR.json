@@ -1,0 +1,42 @@
+{
+  "module": "theme-engine",
+  "cityPath": "city/11-entertainment/01-entertainment-centre/theme-engine",
+  "district": "11-entertainment",
+  "building": "01-entertainment-centre",
+  "room": "theme-engine-lab",
+  "repository": "zhiheng-zhang-Mera/DS-Hns",
+  "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+  "sourcePaths": [
+    "app/extensions/mega/theme/color.js",
+    "app/extensions/mega/theme/png.js"
+  ],
+  "portedFiles": {
+    "app/extensions/mega/theme/color.js": "color/color.mjs",
+    "app/extensions/mega/theme/png.js": "raster/png.mjs"
+  },
+  "adaptation": [
+    "CommonJS modules converted to ESM with named exports.",
+    "readability() and the WCAG threshold constants were added so the contrast verdict lives in one place instead of being recomputed by each caller.",
+    "ramp() was added: the deterministic lightness ramp used by the incubator room now has a single home instead of living in the room handler.",
+    "buildSwatch() was added on top of the donor canvas helpers so a palette becomes an image deterministically.",
+    "Only color.js and png.js were copied: the donor theme directory also contains contract/builder/asset-factory/designer/orchestrator modules, which belong to later waves."
+  ],
+  "knownDifferences": [
+    "No theme contract, validator, builder, asset factory or preview: those are wave 2.",
+    "Nothing is applied to the Alien Web UI; this module produces colours and images only.",
+    "No theme registry, lifecycle or recovery: the donor's orchestration layer is out of scope."
+  ],
+  "parity": {
+    "vectorSource": "DS-Hns app/extensions/mega/theme/color.js and png.js @ eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+    "vectors": [
+      "hex / rgb() / rgba() / percentage grammar including transparent and rejection cases",
+      "channel clamping, hex round-trip, alpha compositing",
+      "HSL conversion round-trip",
+      "WCAG contrast ratio (21:1 extremes) and readability levels",
+      "shade / mix / distance / isLight / bestOn",
+      "PNG encode -> independent decode round-trip for RGB and RGBA",
+      "PNG header reading and rejection of non-PNG input",
+      "swatch determinism, column layout and alpha preservation"
+    ]
+  }
+}

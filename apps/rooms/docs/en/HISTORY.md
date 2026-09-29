@@ -6,6 +6,41 @@ stays in Git history.
 
 ---
 
+## D4 · document-intake-lab → city/09-planning-knowledge/02-document-intake/ingestion-core
+
+| Item | Value |
+| --- | --- |
+| Donor repository | `zhiheng-zhang-Mera/Codex-Boss` |
+| Donor SHA | `8df428eaa437a409368401e95194e40266b83080` |
+| Donor source files | `electron/ingestion/xml-text.ts`, `electron/ingestion/text-parsers.ts` |
+| Incubator room | `apps/rooms/rooms/document-intake-lab/` (removed from the live tree) |
+| Accepted incubator commit | `165e2664ad4e2d777889d8dec47893144e8c81dd` |
+| Promotion record | `../promotions/document-intake-lab.json` (holds the full promotion commit) |
+| Final city path | `city/09-planning-knowledge/02-document-intake/ingestion-core` |
+| Lifecycle | `PROMOTED` (during wave 1) |
+| D4a scope | UTF-8/UTF-16 decoding, TXT/Markdown, JSON/JSON Lines, CSV/TSV, XML text, section splitting and input limits |
+| D4b deferred | YAML/yml: the donor's YAML branch needs the external `yaml` package, which must first be isolated inside this building |
+
+### Adaptation
+
+- TypeScript → ESM JavaScript with the algorithms unchanged;
+- the donor's GBK fallback becomes an explicit warning: the runtime's `TextDecoder` does not always ship the GBK table, and a silent guess is never acceptable;
+- the YAML branch is not carried; `detectFormat()` marks yaml/yml as explicitly deferred instead of letting them fall through to a wrong parser;
+- the parser guards (`maxSections` / `maxBytes` / `maxContentLength` / `maxCsvRows`) match the donor defaults and can be overridden per request;
+- `docx-reader.ts` / `xlsx-reader.ts` / `pdf-reader.ts` are untouched and belong to later waves in the same building.
+
+### Known differences
+
+- No persistence and no knowledge write: the module is pure and the incubator processed documents in the page only;
+- no OCR, no PDF text extraction, no spreadsheet workbook model;
+- the module emits offset-carrying sections and does not include the donor's downstream identity/hashing/redaction pipeline.
+
+### Parity tests
+
+Coverage: UTF-8/UTF-16 BOMs and strict UTF-8 validation with a warned lossy fallback, markdown splitting (ATX/setext headings, bullets, numbered items, fenced code, key/value lines), Chinese numbered headings in plain text, JSON parsing and JSON Lines detection, empty/corrupt input refusal, the YAML deferral message, structured flattening and deterministic rendering, CSV quoting/escaping/embedded newlines/CRLF/row cap/unterminated-quote warning, delimiter detection, grouping by the first column with a column cap, XML entities (named, decimal, hex, invalid left alone, decoded once), XML text-run extraction and block matching, and parser guards producing TOO_LARGE.
+
+---
+
 ## D3 · knowledge-core-lab → city/09-planning-knowledge/01-knowledge-service/knowledge-core
 
 | Item | Value |

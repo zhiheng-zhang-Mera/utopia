@@ -4,6 +4,41 @@
 
 ---
 
+## D4 · document-intake-lab → city/09-planning-knowledge/02-document-intake/ingestion-core
+
+| 项 | 值 |
+| --- | --- |
+| Donor 仓库 | `zhiheng-zhang-Mera/Codex-Boss` |
+| Donor SHA | `8df428eaa437a409368401e95194e40266b83080` |
+| Donor 源文件 | `electron/ingestion/xml-text.ts`、`electron/ingestion/text-parsers.ts` |
+| 孵化房间 | `apps/rooms/rooms/document-intake-lab/`（已从活跃树移除） |
+| 孵化验收 commit | `165e2664ad4e2d777889d8dec47893144e8c81dd` |
+| 晋升记录 | `../promotions/document-intake-lab.json`（含晋升 commit 完整 SHA） |
+| 最终城市路径 | `city/09-planning-knowledge/02-document-intake/ingestion-core` |
+| Lifecycle | `PROMOTED`（Wave 1 期间） |
+| D4a 范围 | UTF-8/UTF-16 解码、TXT/Markdown、JSON/JSON Lines、CSV/TSV、XML 文本、分节与输入上限 |
+| D4b 延后 | YAML/yml：donor 的 YAML 分支依赖外部 `yaml` 包，必须先把该依赖隔离在本 Building 内 |
+
+### 适配说明
+
+- TypeScript → ESM JavaScript，算法不变；
+- donor 的 GBK 回退改为显式 warning：运行时 TextDecoder 不保证提供 GBK 码表，**不允许静默猜测**；
+- 不携带 YAML 分支，`detectFormat()` 把 yaml/yml 明确标记为 deferred，而不是落到“未知格式”后乱解析；
+- 解析守卫（`maxSections` / `maxBytes` / `maxContentLength` / `maxCsvRows`）与 donor 默认值一致，并可按请求覆盖；
+- `docx-reader.ts` / `xlsx-reader.ts` / `pdf-reader.ts` 未触碰，属于同一 Building 的后续 wave。
+
+### 已知差异
+
+- 无持久化、不写入 Knowledge Room：模块是纯函数，孵化房间只在页面内处理文档；
+- 无 OCR、无 PDF 文本抽取、无工作簿模型；
+- 输出的是带 offset 的分节，不包含 donor 下游的身份/哈希/脱敏流水线。
+
+### Parity 测试
+
+覆盖：UTF-8/UTF-16 BOM 与严格 UTF-8 校验（含 lossy 警告）、markdown 分节（ATX/setext 标题、项目符号、编号、围栏代码、key/value）、纯文本中文编号标题、JSON 解析与 JSON Lines 识别、空与损坏输入拒绝、YAML 延后提示、结构化展开与确定性渲染、CSV 引号/转义/内嵌换行/CRLF/行数上限/未闭合引号警告、分隔符检测、按首列分组与列数上限、XML 实体（命名/十进制/十六进制/非法保留/只解一次）、XML 文本串抽取与块匹配、解析守卫触发 TOO_LARGE。
+
+---
+
 ## D3 · knowledge-core-lab → city/09-planning-knowledge/01-knowledge-service/knowledge-core
 
 | 项 | 值 |

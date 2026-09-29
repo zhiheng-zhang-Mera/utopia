@@ -1,0 +1,64 @@
+{
+  "module": "evidence-engine",
+  "cityPath": "city/06-research/01-research-institute/evidence-engine",
+  "district": "06-research",
+  "building": "01-research-institute",
+  "incubationRooms": [
+    "evidence-engine-lab"
+  ],
+  "waves": [
+    {
+      "wave": "D8",
+      "room": "evidence-engine-lab",
+      "sourcePaths": [
+        "electron/evidence-engine.ts"
+      ]
+    }
+  ],
+  "repository": "zhiheng-zhang-Mera/Codex-Boss",
+  "commit": "8df428eaa437a409368401e95194e40266b83080",
+  "sourcePaths": [
+    "electron/evidence-engine.ts"
+  ],
+  "referenceTypes": [
+    "src/shared/contracts.ts",
+    "src/shared/provider-contracts.ts"
+  ],
+  "portedFiles": {
+    "electron/evidence-engine.ts": "evidence-engine.mjs"
+  },
+  "adaptation": [
+    "TypeScript -> ESM JavaScript. The hashing, manifest sorting, integrityRoot, structured-claim extraction, claim statuses and decision rule are unchanged.",
+    "The donor's runtime types (`BossTask`, `ClaimRecord`, `CouncilSession`, `DisputeRecord`, `EvidenceBundle`, `RawArtifact`) are replaced by plain value shapes in `contracts.mjs`: EvidenceTask, EvidenceArtifact, EvidenceClaim, EvidenceDispute, EvidenceBundle. Nothing here needs a task runtime, provider automation, a council process or root trust.",
+    "`src/shared/contracts.ts` and `src/shared/provider-contracts.ts` are reference types only; no field of the Boss runtime was copied.",
+    "Every otherwise non-deterministic input is injectable: `idFactory` (default `crypto.randomUUID`), `now`, and `hash`. The same artifacts therefore always produce the same manifest, the same integrityRoot and the same bundle.",
+    "A resolved dispute no longer marks a claim DISPUTED: the donor had no resolution concept, and carrying a flag that changed nothing would be worse than either. An unresolved dispute still marks and still blocks.",
+    "`buildRehydrationPrompts` keeps the donor's prompt shape. It builds text; this module contacts nobody.",
+    "`describeBundle` and a `reasons` list make the decision explainable without re-deriving it from the claims."
+  ],
+  "knownDifferences": [
+    "No task runtime, no provider automation, no council runtime, no research conductor and no root trust: those are explicitly out of scope.",
+    "No persistence and no network: the module is pure, and the incubator surface held its sample in the page only.",
+    "No provider call is ever made, so rehydration is a prompt document rather than a request.",
+    "No claim verification against the outside world: REFERENCED_NOT_VERIFIED means the declared evidence labels resolve, not that the claim is true."
+  ],
+  "parity": {
+    "vectorSource": "Codex-Boss electron/evidence-engine.ts @ 8df428eaa437a409368401e95194e40266b83080",
+    "vectors": [
+      "artifact SHA-256 is computed over UTF-8 content and recorded at capture",
+      "a stored hash that no longer matches the content raises ARTIFACT_HASH_MISMATCH and is never re-hashed",
+      "the manifest is sorted by artifact id and carries provider, kind, hash, bytes and capture time",
+      "the integrityRoot is the SHA-256 of the sorted manifest's `id:hash` lines, and is order-independent",
+      "artifacts belonging to another task are excluded from the manifest",
+      "structured claims are read from the `{\"claims\"` block; a missing or unparsable block yields no claims",
+      "Proposal A/B/C labels map to proposal artifact ids in artifact-id order",
+      "claim statuses: DISPUTED beats a resolved reference; a missing label is INSUFFICIENT; no labels is INSUFFICIENT",
+      "a synthesis with no structured block becomes one INSUFFICIENT claim naming the missing block",
+      "with no synthesis, proposals and responses become UNVERIFIED claims, recorded but not treated as evidence",
+      "PASS requires no missing provider, no unresolved dispute and no DISPUTED or INSUFFICIENT claim",
+      "task completion is never evidence: the decision is derived from the claim and dispute state",
+      "rehydration addresses only the unresolved claims and quotes only their artifacts",
+      "the bundle is deterministic when ids and the clock are injected"
+    ]
+  }
+}

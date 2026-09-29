@@ -8,8 +8,7 @@
       "id": "02-engineering",
       "zh": "工务区",
       "en": "Engineering Works District",
-      "buildings": [
-        {
+      "buildings": [        {
           "id": "02-worker-gateway",
           "zh": "施工队接入站",
           "en": "Worker Gateway",
@@ -33,6 +32,37 @@
               "incubationRooms": [
                 "skill-intake-lab",
                 "skill-discovery-lab"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "06-research",
+      "zh": "研究区",
+      "en": "Research District",
+      "buildings": [
+        {
+          "id": "01-research-institute",
+          "zh": "研究所",
+          "en": "Research Institute",
+          "modules": [
+            {
+              "id": "evidence-engine",
+              "zh": "证据引擎",
+              "en": "Evidence Engine",
+              "path": "city/06-research/01-research-institute/evidence-engine",
+              "lifecycle": "PROMOTED",
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/Codex-Boss",
+                "commit": "8df428eaa437a409368401e95194e40266b83080",
+                "sourcePaths": [
+                  "electron/evidence-engine.ts"
+                ]
+              },
+              "incubationRooms": [
+                "evidence-engine-lab"
               ]
             }
           ]

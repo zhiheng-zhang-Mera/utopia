@@ -26,6 +26,7 @@ import {
 
 const WAVE1 = [
   'city/02-engineering/02-worker-gateway/skill-intake',
+  'city/06-research/01-research-institute/evidence-engine',
   'city/09-planning-knowledge/01-knowledge-service/knowledge-core',
   'city/09-planning-knowledge/02-document-intake/ingestion-core',
   'city/09-planning-knowledge/02-document-intake/document-readers',
@@ -38,8 +39,8 @@ test('the real manifest describes exactly the wave 1 districts and modules', asy
   assert.equal(manifest.schemaVersion, 2);
   assert.deepEqual(
     manifest.districts.map((district) => district.id),
-    ['02-engineering', '09-planning-knowledge', '11-entertainment'],
-    'only the three districts that actually exist are declared',
+    ['02-engineering', '06-research', '09-planning-knowledge', '11-entertainment'],
+    'only the districts that actually exist are declared',
   );
   for (const district of manifest.districts) {
     assert.ok(district.zh.length > 0 && district.en.length > 0, `${district.id} has bilingual names`);
@@ -193,14 +194,20 @@ test('module directories and lifecycles must not contradict each other', async (
   assert.equal(problems.length, 1, JSON.stringify(problems));
   assert.match(problems[0], /knowledge-core: .*exists but lifecycle is only PLANNED/);
 
-  // declaring that module implemented resolves it
+  // declaring that module implemented resolves it (looked up by id, so a new
+  // district never shifts the test)
+  const districtById = (value, id) => value.districts.find((district) => district.id === id);
+  const moduleById = (value, buildingId, moduleId) => districtById(value, '09-planning-knowledge')
+    .buildings.find((building) => building.id === buildingId)
+    .modules.find((module) => module.id === moduleId);
+
   const promoted = JSON.parse(JSON.stringify(planned));
-  promoted.districts[1].buildings[0].modules[0].lifecycle = 'PROMOTED';
+  moduleById(promoted, '01-knowledge-service', 'knowledge-core').lifecycle = 'PROMOTED';
   assert.deepEqual(await checkManifestAgainstTree(promoted, root), [], 'the promoted module now matches the tree');
 
   // an implemented module whose directory is missing is a contradiction
   const missing = JSON.parse(JSON.stringify(promoted));
-  missing.districts[1].buildings[1].modules[0].lifecycle = 'ACTIVE';
+  moduleById(missing, '02-document-intake', 'ingestion-core').lifecycle = 'ACTIVE';
   const problems2 = await checkManifestAgainstTree(missing, root);
   assert.equal(problems2.length, 1, 'only the missing implemented module is reported');
   assert.match(problems2[0], /ingestion-core: lifecycle ACTIVE but .* does not exist/);

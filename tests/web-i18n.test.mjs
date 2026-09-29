@@ -15,6 +15,7 @@ import {
   normalizeLocale,
   resetLocaleCache,
   resolveInitialLocale,
+  setLocale,
   t,
 } from '../apps/web/i18n/index.js';
 import { createGateway } from '../services/dev-gateway/server.mjs';
@@ -138,7 +139,7 @@ test('protocol tokens and City Control state names are never translated', async 
     assert.ok(!new RegExp(`t\\([^)]*${state}`).test(appJs), `app.js must not pass the ${state} state through t()`);
   }
   // State tokens may only appear as the canonical badge values and terminal check.
-  assert.match(appJs, /const badge=s=>`<span class="badge \$\{esc\(s\)\}">\$\{esc\(s\)\}<\/span>`/, 'badge keeps the canonical state');
+  assert.match(appJs, /const badge=\(stateClass, displayLabel=stateClass\)=>/, 'badge keeps the canonical state as its CSS class');
   assert.match(appJs, /const finished=t=>\['COMPLETED','FAILED','CANCELLED'\]\.includes\(t\.state\)/, 'the terminal-state check is unchanged');
   const packValues = [...Object.values(messagesFor('en')), ...Object.values(messagesFor(ZH_CN))].join(' ');
   for (const state of states) {
@@ -184,6 +185,49 @@ test('web assets only use message keys that exist in the packs', async () => {
     assert.ok(appJs.includes(token), `app.js still sends ${token}`);
   }
   assert.ok(!/QUEUED|ASSIGNED/.test(appJs), 'app.js does not translate state tokens');
+});
+
+test('badge state and display label stay separate in every locale', async () => {
+  const appJs = await readFile(resolve(REPO, 'apps/web/app.js'), 'utf8');
+
+  // The badge helper takes a machine state plus an optional display label, and the
+  // CSS class is always the canonical state token.
+  assert.match(
+    appJs,
+    /const badge=\(stateClass, displayLabel=stateClass\)=>/,
+    'badge(stateClass, displayLabel) keeps the class canonical',
+  );
+  assert.ok(!/badge\(t\(/.test(appJs), 'a translation is never passed as the badge state class');
+
+  // Node rows derive the canonical state first, then look up the label.
+  assert.match(appJs, /const state=connection!=='ONLINE'\?'UNKNOWN':n\.online\?'online':'offline';/, 'node state comes from machine values');
+  assert.match(appJs, /badge\(state,label\)/, 'node rows pass state and label separately');
+  assert.ok(!/badge\(connection!=='ONLINE'\?t\(/.test(appJs), 'the old translated-class path is gone');
+
+  // Task state must stay canonical.
+  assert.match(appJs, /badge\(x\.state\)/, 'task badges use the canonical state');
+  assert.match(appJs, /badge\(detail\.state\)/, 'the detail badge uses the canonical state');
+
+  // The run button keys off the machine connection state, not displayed text.
+  assert.match(appJs, /\$\('#run'\)\.disabled=connection!=='ONLINE';/, 'run disabled follows the canonical state');
+  assert.ok(!/\$\('#connection'\)\.textContent!==/.test(appJs), 'displayed text never decides enablement');
+  assert.match(appJs, /el\.textContent=t\('connection\.'\+s\.toLowerCase\(\)\)/, 'the connection label is translated from the machine state');
+
+  // Under zh-CN the CSS classes must still be the canonical tokens.
+  const doc = fakeDocument();
+  setLocale(ZH_CN, { storage: { setItem() {} }, root: doc });
+  assert.equal(doc.documentElement.lang, ZH_CN);
+  for (const [state, label] of [['online', t('node.online')], ['offline', t('node.offline')], ['UNKNOWN', t('node.unknown')]]) {
+    const row = `class="badge ${state}" text="${label}"`;
+    assert.match(row, new RegExp(`class="badge ${state}"`), `${state} class is preserved in zh-CN`);
+    assert.ok(row.includes(label), `${state} label is translated`);
+  }
+  assert.equal(t('node.online'), '在线');
+  assert.equal(t('node.offline'), '离线');
+  assert.equal(t('node.unknown'), '未知');
+  assert.equal(t('connection.online'), '在线');
+  assert.equal(t('connection.offline'), '离线');
+  resetLocaleCache();
 });
 
 test('applyTranslations and setLocale update the document without touching storage contracts', async () => {

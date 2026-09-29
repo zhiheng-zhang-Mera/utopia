@@ -89,13 +89,25 @@ ACTIVE       formally in service
 DEPRECATED   kept but no longer developed
 ```
 
-Manifest validation (`city/manifest.mjs`) enforces:
+Manifest validation (`city/manifest.mjs`) enforces (schema v2):
 
+- `schemaVersion` must be `2`;
 - `district.id` looks like `02-engineering` and `module.path` equals `city/<district>/<building>/<module>`;
 - every module declares one of the lifecycles above;
-- an implemented module (`PROMOTED` / `ACTIVE` / `DEPRECATED`) must name the incubator `roomId` it came from;
+- an implemented module (`PROMOTED` / `ACTIVE` / `DEPRECATED`) must declare `incubationRooms` with at least one non-empty, unique entry;
+- **the same incubation room may not be claimed by two modules**;
 - an implemented module's directory must exist, while a `PLANNED` / `INCUBATING` module's directory must **not** exist yet;
 - a `donor`, when present, must carry a `repository` and a valid git SHA.
+
+### Why a list and not a single value
+
+From wave 2 on, one city module can be strengthened by several incubations, for example:
+
+```json
+"incubationRooms": ["skill-intake-lab", "skill-discovery-lab"]
+```
+
+Each incubator still keeps its own `apps/rooms/promotions/<room>.json` record, and wave 1 records are never overwritten. The single `roomId` field is retired (the validator can still read it for compatibility, but new writes must use the list).
 
 `city/tests/manifest.test.mjs` runs these checks for real.
 

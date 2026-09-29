@@ -14,11 +14,13 @@ import { join } from 'node:path';
 import {
   CITY_LIFECYCLES,
   IMPLEMENTED_LIFECYCLES,
+  MANIFEST_SCHEMA_VERSION,
   ManifestError,
   checkManifestAgainstTree,
   discoverTests,
   flattenModules,
   loadManifest,
+  moduleIncubationRooms,
   validateManifest,
 } from '../manifest.mjs';
 
@@ -31,7 +33,8 @@ const WAVE1 = [
 
 test('the real manifest describes exactly the wave 1 districts and modules', async () => {
   const manifest = await loadManifest();
-  assert.equal(manifest.schemaVersion, 1);
+  assert.equal(manifest.schemaVersion, MANIFEST_SCHEMA_VERSION);
+  assert.equal(manifest.schemaVersion, 2);
   assert.deepEqual(
     manifest.districts.map((district) => district.id),
     ['02-engineering', '09-planning-knowledge', '11-entertainment'],
@@ -43,11 +46,28 @@ test('the real manifest describes exactly the wave 1 districts and modules', asy
 
   const modules = flattenModules(manifest);
   assert.deepEqual(modules.map((entry) => entry.module.path), WAVE1);
-  for (const { module } of modules) {
+  for (const entry of modules) {
+    const { module } = entry;
     assert.ok(CITY_LIFECYCLES.includes(module.lifecycle), `${module.id} lifecycle is valid`);
-    assert.ok(module.roomId, `${module.id} names its incubator room`);
-    assert.ok(['PLANNED', 'INCUBATING', 'PROMOTED', 'ACTIVE', 'DEPRECATED'].includes(module.lifecycle));
+    assert.ok(Array.isArray(module.incubationRooms), `${module.id} records incubationRooms as a list`);
+    assert.ok(module.incubationRooms.length > 0, `${module.id} names at least one incubator room`);
+    assert.equal(
+      new Set(module.incubationRooms).size,
+      module.incubationRooms.length,
+      `${module.id} incubationRooms are unique`,
+    );
+    assert.deepEqual(entry.incubationRooms, module.incubationRooms, 'flattenModules exposes the rooms');
+    assert.equal(module.roomId, undefined, `${module.id} no longer uses the single roomId field`);
   }
+
+  // a room may not be claimed by two modules
+  const claimed = modules.flatMap((entry) => entry.incubationRooms);
+  assert.equal(new Set(claimed).size, claimed.length, 'no incubation room is claimed twice');
+
+  // D1 is PROMOTED, not ACTIVE, until a real city runtime consumer exists
+  const skillIntake = modules.find((entry) => entry.module.id === 'skill-intake').module;
+  assert.equal(skillIntake.lifecycle, 'PROMOTED');
+  assert.deepEqual(skillIntake.incubationRooms, ['skill-intake-lab']);
 
   const active = modules.filter(({ module }) => IMPLEMENTED_LIFECYCLES.includes(module.lifecycle));
   assert.ok(active.length <= modules.length);
@@ -65,7 +85,7 @@ test('the manifest rejects malformed hierarchy, paths and lifecycles', async () 
   const clone = () => JSON.parse(JSON.stringify(base));
   const cases = [
     ['root not an object', () => []],
-    ['wrong schemaVersion', () => ({ ...clone(), schemaVersion: 2 })],
+    ['wrong schemaVersion', () => ({ ...clone(), schemaVersion: 1 })],
     ['no districts', () => ({ ...clone(), districts: [] })],
     ['district id shape', () => {
       const next = clone();
@@ -96,7 +116,27 @@ test('the manifest rejects malformed hierarchy, paths and lifecycles', async () 
       const next = clone();
       const module = next.districts[0].buildings[0].modules[0];
       module.lifecycle = 'ACTIVE';
-      delete module.roomId;
+      module.incubationRooms = [];
+      return next;
+    }],
+    ['incubationRooms that is not an array', () => {
+      const next = clone();
+      next.districts[0].buildings[0].modules[0].incubationRooms = 'skill-intake-lab';
+      return next;
+    }],
+    ['the same room listed twice inside one module', () => {
+      const next = clone();
+      next.districts[0].buildings[0].modules[0].incubationRooms = ['skill-intake-lab', 'skill-intake-lab'];
+      return next;
+    }],
+    ['one incubation room claimed by two modules', () => {
+      const next = clone();
+      next.districts[1].buildings[0].modules[0].incubationRooms = ['skill-intake-lab'];
+      return next;
+    }],
+    ['an empty incubation room entry', () => {
+      const next = clone();
+      next.districts[0].buildings[0].modules[0].incubationRooms = [''];
       return next;
     }],
     ['donor without a valid commit', () => {

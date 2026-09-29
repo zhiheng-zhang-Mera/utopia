@@ -9,9 +9,12 @@ function setError(message){$('#error').textContent=message||'';}
 async function refresh(){if(refreshing){pending=true;return;}refreshing=true;try{city=await api('city');$('#pair').hidden=true;$('#content').hidden=false;setError('');render();}finally{refreshing=false;if(pending){pending=false;refresh().catch(disconnected);}}}
 function disconnected(e){status('OFFLINE');if(e?.message)setError(e.message);}
 async function connect(){const gen=++generation;clearTimeout(timer);ws?.close();status('RECONNECTING');try{await refresh();if(gen!==generation)return;ws=new WebSocket(location.origin.replace(/^http/,'ws')+'/api/v0/events/stream?apiVersion=0&schemaVersion=0',['city-v0','city-token.'+btoa(token).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_')]);ws.onopen=()=>{if(gen===generation)status('ONLINE');};ws.onmessage=()=>refresh().catch(disconnected);ws.onerror=()=>disconnected();ws.onclose=()=>{if(gen===generation){disconnected();timer=setTimeout(connect,1800);}};}catch(e){if(gen===generation){disconnected(e);timer=setTimeout(connect,2500);}}}
-const badge=s=>`<span class="badge ${esc(s)}">${esc(s)}</span>`;
+// Machine state and display label are separate: the CSS class must always be the
+// canonical token (online/offline/UNKNOWN, COMPLETED/RUNNING/...), never a
+// translation. Only the visible text is localized.
+const badge=(stateClass, displayLabel=stateClass)=>`<span class="badge ${esc(stateClass)}">${esc(displayLabel)}</span>`;
 const taskRows=tasks=>tasks.length?tasks.slice().reverse().map(x=>`<div class="row"><button class="task-open" data-task="${esc(x.id)}">${esc(x.type)}<div class="task-id">${esc(x.id)}</div></button>${badge(x.state)}</div>`).join(''):`<p class="muted">${esc(t('empty.noTasks'))}</p>`;
-const nodeRows=()=>city.nodes.map(n=>`<div class="row"><div class="node-info"><span class="node-icon">▣</span><div><strong>${esc(n.displayName)}</strong><p class="muted">${esc(n.metadata.platform)} · ${esc(n.capabilities.join(' / '))}</p><small>${esc(t('task.heartbeat',{time:n.lastHeartbeatAt}))}</small></div></div>${badge(connection!=='ONLINE'?t('node.unknown'):n.online?t('node.online'):t('node.offline'))}</div>`).join('')||`<p class="muted">${esc(t('empty.waitingRuntimeNode'))}</p>`;
+const nodeRows=()=>city.nodes.map(n=>{const state=connection!=='ONLINE'?'UNKNOWN':n.online?'online':'offline';const label=state==='UNKNOWN'?t('node.unknown'):state==='online'?t('node.online'):t('node.offline');return `<div class="row"><div class="node-info"><span class="node-icon">▣</span><div><strong>${esc(n.displayName)}</strong><p class="muted">${esc(n.metadata.platform)} · ${esc(n.capabilities.join(' / '))}</p><small>${esc(t('task.heartbeat',{time:n.lastHeartbeatAt}))}</small></div></div>${badge(state,label)}</div>`;}).join('')||`<p class="muted">${esc(t('empty.waitingRuntimeNode'))}</p>`;
 const events=list=>list.slice().reverse().map(e=>`<div class="event"><time>${esc(formatTime(e.timestamp))}</time><strong>${esc(e.type)}</strong><div class="task-id">#${e.seq} · ${esc(e.taskId||'City')}</div></div>`).join('');
 // The Settings language control: switching rerenders, it never reloads or reconnects.
 function languageSection(){const current=getLocale();return `<h2>${esc(t('settings.interface'))}</h2><p>${esc(t('settings.language'))}</p><div class="lang-row" id="language">${SUPPORTED_LOCALES.map(l=>`<button class="lang-option${l===current?' selected':''}" data-locale="${esc(l)}" aria-pressed="${l===current}">${esc(localeLabel(l))}</button>`).join('')}</div><p class="muted">${esc(t('settings.languageHint'))}</p>`;}
@@ -29,7 +32,7 @@ document.addEventListener('click',async e=>{const nav=e.target.closest('[data-pa
 // A locale change rerenders in place: no reconnect, no reload, no Gateway call.
 subscribe(()=>{applyTranslations();render();});
 $('#connect').onclick=()=>{token=$('#token').value.trim();sessionStorage.setItem('city-token',token);connect();};
-$('#run').onclick=async()=>{try{$('#run').disabled=true;const task=await api('tasks',{type:'CHECKPOINT_DEMO'});selected=task.id;await refresh();}catch(e){setError(e.message);}finally{$('#run').disabled=$('#connection').textContent!==t('connection.online');}};
+$('#run').onclick=async()=>{try{$('#run').disabled=true;const task=await api('tasks',{type:'CHECKPOINT_DEMO'});selected=task.id;await refresh();}catch(e){setError(e.message);}finally{$('#run').disabled=connection!=='ONLINE';}};
 window.addEventListener('offline',()=>{disconnected();ws?.close();});window.addEventListener('online',connect);
 setInterval(()=>{if(token&&ws?.readyState===1)refresh().catch(e=>{disconnected(e);ws.close();});},4000);
 applyTranslations();

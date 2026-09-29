@@ -18,7 +18,7 @@ async function invoke(name,expected='COMPLETED',button='Run service',inputFile=n
  const before=new Set((await snapshot()).invocations.map(i=>i.invocationId));await tap(button);let row;
  for(let i=0;i<25;i++){await pause(400);row=(await snapshot()).invocations.find(i=>!before.has(i.invocationId));if(row&&row.status!=='RUNNING')break;}
  if(!row)throw Error('NO_UI_INVOCATION:'+name);
- let nodes=await tree(),texts=nodes.map(n=>n.text).join('\n');for(let i=0;i<3&&!texts.includes(row.invocationId);i++){await scroll('down',nodes);nodes=await tree();texts=nodes.map(n=>n.text).join('\n');}
+ let nodes=await tree(),texts=nodes.map(n=>n.text).join('\n');for(let i=0;i<4&&(!texts.includes(row.invocationId)||(row.resultDigest&&!texts.includes(row.resultDigest)));i++){await scroll('down',nodes);nodes=await tree();texts+='\n'+nodes.map(n=>n.text).join('\n');}
  const uiId=texts.includes(row.invocationId),uiDigest=row.resultDigest?texts.includes(row.resultDigest):true,uiStatus=texts.includes(row.status);
  await page.reload();await page.locator('[data-page="Services"]').click();await page.locator('[data-invocation="'+row.invocationId+'"]').click();await page.locator('#service-state').filter({hasText:row.status}).waitFor();
  const webIdentity=await page.locator('#service-id').innerText();const windows=JSON.parse(readFileSync('.runtime/v03/windows/runs.json')).rows.find(r=>r.case===name);

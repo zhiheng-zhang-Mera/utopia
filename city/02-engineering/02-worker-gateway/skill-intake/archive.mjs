@@ -106,7 +106,7 @@ export function parsePax(text) {
  * Iterate the entries of a tar buffer.
  * @returns {Array<{path: string, type: 'file'|'directory'|'unsupported'|'other', mode: number, size: number, data: Buffer, linkName: string|null}>}
  */
-export function readEntries(buffer, { maxEntries = DEFAULT_MAX_ENTRIES } = {}) {
+export function readEntries(buffer, { maxEntries = DEFAULT_MAX_ENTRIES, rejectUnsafePaths = false } = {}) {
   const entries = [];
   let offset = 0;
   let longName = null;
@@ -142,6 +142,7 @@ export function readEntries(buffer, { maxEntries = DEFAULT_MAX_ENTRIES } = {}) {
     paxPath = null;
 
     const normalized = safeRelativePath(fullName);
+    if (!normalized && rejectUnsafePaths) throw new Error('unsafe archive path');
     if (normalized) {
       entries.push({
         path: normalized,

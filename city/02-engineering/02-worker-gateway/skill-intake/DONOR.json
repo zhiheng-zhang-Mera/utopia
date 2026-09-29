@@ -49,7 +49,8 @@
     "GitHub resolution stays a plan: archive URL forms, ref splits and subpaths are produced as data, and the module has no fetch, request or download entry point.",
     "The catalog's live GitHub code search takes an injectable fetchJson; without one it answers 'unavailable' and the curated and bundled entries stand.",
     "describeRef was moved out of the incubator room wiring into source.mjs, because it only describes a parsed reference.",
-    "V0.3 consumption repair: catalog installable/install metadata renamed to resolvable/source; bundled entries explicitly previewable. Source resolution is not installation. Search and parsing algorithms unchanged."
+    "V0.3 consumption repair: catalog installable/install metadata renamed to resolvable/source; bundled entries explicitly previewable. Source resolution is not installation. Search and parsing algorithms unchanged.",
+    "V0.3 explicit strict archive consumer option: readEntries rejectUnsafePaths=true refuses the archive instead of silently skipping unsafe paths. Default donor behavior retained. Bridge uses strict mode and typed UNSAFE_ARCHIVE."
   ],
   "knownDifferences": [
     "No skill installation: this module validates, inspects and discovers; it never writes a skill to disk.",

@@ -1,0 +1,25 @@
+{
+  "codeSha": "ecd4c8626e3aa2d20f056746931c09f43e7aad27",
+  "startedAt": "2026-09-29T07:39:31.025Z",
+  "checks": [
+    {
+      "name": "android-wifi-offline-disabled",
+      "pass": true
+    },
+    {
+      "name": "windows-authority-remains-online",
+      "pass": true
+    },
+    {
+      "name": "android-wifi-reconnected",
+      "pass": true
+    },
+    {
+      "name": "wifi-no-duplicate-invocations",
+      "pass": true
+    }
+  ],
+  "status": "FAIL",
+  "failure": "spawnSync powershell ETIMEDOUT",
+  "finishedAt": "2026-09-29T07:40:28.797Z"
+}

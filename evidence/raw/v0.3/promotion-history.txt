@@ -1,0 +1,11 @@
+promotion history:
+  OK   document-intake-lab: 165e2664ad4e -> e3d6bbd9dd91 -> city/09-planning-knowledge/02-document-intake/ingestion-core
+  OK   document-readers-lab: e9a4c2370544 -> 6a95bf4502f1 -> city/09-planning-knowledge/02-document-intake/document-readers
+  OK   evidence-engine-lab: ec4202f774a9 -> e1dcfd73e9b3 -> city/06-research/01-research-institute/evidence-engine
+  OK   knowledge-core-lab: 01f932bd2aad -> b82fcfd0f153 -> city/09-planning-knowledge/01-knowledge-service/knowledge-core
+  OK   skill-discovery-lab: b4dff8150312 -> 48494263d755 -> city/02-engineering/02-worker-gateway/skill-intake
+  OK   skill-intake-lab: 1ba5b4809f05 -> 140287250ef1 -> city/02-engineering/02-worker-gateway/skill-intake
+  OK   theme-engine-lab: 9819ed7a4a21 -> a18b1e80b740 -> city/11-entertainment/01-entertainment-centre/theme-engine
+  OK   theme-package-lab: 95d958ddacc6 -> 5d1abecdc38a -> city/11-entertainment/01-entertainment-centre/theme-engine
+  OK   yaml-intake-lab: b6d7733c9272 -> e068d58ee890 -> city/09-planning-knowledge/02-document-intake/ingestion-core
+promotion-history: 9 record(s) verified against local Git history at 05307163ab8a

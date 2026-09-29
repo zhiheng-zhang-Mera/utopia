@@ -1,4 +1,6 @@
 import http from 'node:http';
+import {createBridge} from '../capability-bridge/bridge.mjs';
+import {MAX_REQUEST_BYTES,refuse} from '../../contracts/capability-bridge-v1/protocol.mjs';
 import { readFile } from 'node:fs/promises';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { WebSocketServer } from 'ws';
@@ -25,14 +27,15 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   emit('CITY_STARTED',null,{schemaVersion:0});
   const auth=(req,node=false)=>{const raw=req.headers.authorization||'';if(!equals(raw,'Bearer '+(node?nodeToken:token)))fail(401,'Invalid pairing token');};
   const version=req=>{if(req.headers['x-city-api-version']!=='0'||req.headers['x-city-schema-version']!=='0')fail(409,'Protocol mismatch: apiVersion=0 and schemaVersion=0 required');};
-  const body=async req=>{let s='';for await(const c of req){s+=c;if(s.length>16384)fail(413,'Request too large');}try{return JSON.parse(s||'{}');}catch{fail(400,'Invalid JSON');}};
+  const bridge=createBridge(store,emit);
+  const body=async (req,limit=16384)=>{let size=0;const chunks=[];for await(const c of req){size+=c.length;if(size>limit){if(limit===MAX_REQUEST_BYTES)refuse('INPUT_TOO_LARGE',413);fail(413,'Request too large');}chunks.push(c);}try{return JSON.parse(Buffer.concat(chunks).toString('utf8')||'{}');}catch{if(limit===MAX_REQUEST_BYTES)refuse('INVALID_JSON');fail(400,'Invalid JSON');}};
   const required=(table,id)=>store.get(table,id)||fail(404,'Not found');
-  const snapshot=()=>envelope({status:'ONLINE',updatedAt:now(),cityId:store.cityId,displayName:'Utopia · Alien',descriptor:pairing.descriptor(),discovery:discoveryState,nodes:store.list('nodes'),tasks:store.list('tasks'),events:store.events()});
+  const snapshot=()=>envelope({status:'ONLINE',updatedAt:now(),cityId:store.cityId,displayName:'Utopia · Alien',descriptor:pairing.descriptor(),discovery:discoveryState,nodes:store.list('nodes'),tasks:store.list('tasks'),events:store.events(),capabilities:bridge.registry(),invocations:bridge.list()});
   const server=http.createServer(async(req,res)=>{
     try {
       const path=new URL(req.url,'http://city').pathname;
       if(!path.startsWith('/api/')){
-        const file={'/':'index.html','/pairing':'index.html','/app.js':'app.js','/style.css':'style.css','/i18n/en.js':'i18n/en.js','/i18n/zh-CN.js':'i18n/zh-CN.js','/i18n/index.js':'i18n/index.js','/devices.js':'devices.js','/pairing.js':'pairing.js'}[path];if(!file)fail(404,'Not found');
+        const file={'/':'index.html','/pairing':'index.html','/app.js':'app.js','/services.js':'services.js','/style.css':'style.css','/i18n/en.js':'i18n/en.js','/i18n/zh-CN.js':'i18n/zh-CN.js','/i18n/index.js':'i18n/index.js','/devices.js':'devices.js','/pairing.js':'pairing.js'}[path];if(!file)fail(404,'Not found');
         const data=await readFile(new URL('../../apps/web/'+file,import.meta.url));
         res.writeHead(200,{'Content-Type':file.endsWith('.html')?'text/html':file.endsWith('.js')?'text/javascript':'text/css','Cache-Control':'no-store','Referrer-Policy':'no-referrer'});res.end(data);return;
       }
@@ -44,6 +47,11 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       if(req.method==='GET' && path==='/api/v0/pairing/info')out=pairing.info();
       else if(req.method==='POST' && path==='/api/v0/pairing/session'){await body(req);out=await pairing.create();}
       else if(req.method==='POST' && path==='/api/v0/pairing/exchange')out=pairing.exchange(await body(req));
+      else if(req.method==='GET' && path==='/api/v0/capabilities')out={capabilities:bridge.registry()};
+      else if(req.method==='GET' && path==='/api/v0/capability-invocations')out={invocations:bridge.list()};
+      else if(req.method==='GET' && /^\/api\/v0\/capability-invocations\/[^/]+$/.test(path))out=bridge.get(path.split('/').at(-1))||fail(404,'Invocation not found');
+      else if(req.method==='GET' && /^\/api\/v0\/capabilities\/[^/]+$/.test(path))out=bridge.registry().find(c=>c.capabilityId===path.split('/').at(-1))||fail(404,'Capability not found');
+      else if(req.method==='POST' && /^\/api\/v0\/capabilities\/[^/]+\/invoke$/.test(path))out=await bridge.invoke(path.split('/').at(-2),await body(req,MAX_REQUEST_BYTES));
       else if(req.method==='GET' && path==='/api/v0/city')out=snapshot();
       else if(req.method==='GET' && path==='/api/v0/nodes')out={nodes:store.list('nodes')};
       else if(req.method==='GET' && path==='/api/v0/tasks')out={tasks:store.list('tasks')};
@@ -78,7 +86,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         }
       }else fail(404,'Not found');
       res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(envelope(out)));
-    }catch(e){res.writeHead(e.status||500,{'Content-Type':'application/json'});res.end(JSON.stringify(envelope({error:e.status?e.message:'Gateway error'})));if(!e.status)console.error(e);}
+    }catch(e){res.writeHead(e.status||500,{'Content-Type':'application/json'});res.end(JSON.stringify(envelope({error:e.status?e.message:'Gateway error',...(e.code?{errorCode:e.code}:{})})));if(!e.status)console.error(e);}
   });
   server.on('upgrade',(req,socket,head)=>{
     try {
@@ -94,5 +102,5 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,host,resolve);});
   pairing.endpoint=`http://${host}:${server.address().port}`;
   if(discoveryEnabled)discovery=await startDiscovery({descriptor:pairing.descriptor(),onStatus:s=>{discoveryState=s;}});
-  return {url:pairing.endpoint,store,close:async()=>{if(closed)return;closed=true;clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();}};
+  return {url:pairing.endpoint,store,close:async()=>{if(closed)return;closed=true;bridge.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();}};
 }

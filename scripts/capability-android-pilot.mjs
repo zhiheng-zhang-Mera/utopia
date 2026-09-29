@@ -29,8 +29,15 @@ try{
  await page.goto(url);await page.locator('#token').fill(config.token);await page.locator('#connect').click();await page.locator('#connection').filter({hasText:'ONLINE'}).waitFor();
  await tap('Services');await top();const nodes=await tree();selected=['Document Intake','Knowledge Query','Skill Inspect','Evidence Review','Theme Lab'].find(name=>nodes.some(n=>n.text===name))??'Document Intake';
  if(phase==='documents')for(const name of ['sample.txt','sample.json','sample.yaml','sample.docx','sample.xlsx','sample.pdf']){if(passed(name))continue;await select('Document Intake');await chooseFile(name);await invoke(name,'COMPLETED','Run service',name);}
+ if(phase==='document-errors'){
+  for(const name of ['malformed.json','truncated.pdf']){await select('Document Intake');await chooseFile(name);await invoke(name,'FAILED','Run service',name);}
+  await select('Document Intake');const before=(await snapshot()).invocations.length;await chooseFile('oversize.txt');let nodes=await tree();if(!nodes.some(n=>n.text==='INPUT_TOO_LARGE')){await scroll('down',nodes);nodes=await tree();}const pass=nodes.some(n=>n.text==='INPUT_TOO_LARGE')&&(await snapshot()).invocations.length===before;report.rows.push({case:'oversize.txt',status:'FAILED',expected:'FAILED',errorCode:'INPUT_TOO_LARGE',inputBytes:1048577,invocationId:null,pass,scope:'Native picker preflight; no invocation created'});save();if(!pass)throw Error('OVERSIZE_PREFLIGHT_FAILED');
+ }
  if(phase==='knowledge'){
   await select('Document Intake');await chooseFile('sample.txt');await invoke('document-for-knowledge','COMPLETED','Run service','sample.txt');await tap('Query this document');selected='Knowledge Query';await invoke('document-to-knowledge');
+ }
+ if(phase==='knowledge-temporary'){
+  await select('Knowledge Query');const nodes=await tree();const box=nodes.find(n=>n.checkable==='true');if(box?.checked==='true'){const {tapNode}=await import('./android-ui-driver.mjs');tapNode(box);}await invoke('knowledge-temporary');
  }
  if(phase==='skills'){
   await select('Skill Inspect');
@@ -41,8 +48,8 @@ try{
   for(const name of ['valid.tar','unsafe.tar']){await top();await chooseFile(name,'Choose archive');await invoke(name,name==='valid.tar'?'COMPLETED':'FAILED');}
  }
  if(phase==='evidence-theme'){
-  await select('Evidence Review');if(!passed('evidence-review'))await invoke('evidence-review');await top();if(!passed('evidence-tamper'))await invoke('evidence-tamper','FAILED','Tamper Test');
-  await select('Theme Lab');if(!passed('theme-generate'))await invoke('theme-generate');
+  await select('Evidence Review');if(!passed('evidence-review'))await invoke('evidence-review');await tree();writeFileSync('.runtime/v03/android/evidence.png',execFileSync(process.env.ADB||'adb',['exec-out','screencap','-p'],{windowsHide:true}));await top();if(!passed('evidence-tamper'))await invoke('evidence-tamper','FAILED','Tamper Test');
+  await select('Theme Lab');if(!passed('theme-generate'))await invoke('theme-generate');await tree();writeFileSync('.runtime/v03/android/theme.png',execFileSync(process.env.ADB||'adb',['exec-out','screencap','-p'],{windowsHide:true}));
  }
  report.status='PASS';delete report.failure;report.finishedAt=new Date().toISOString();save();
 }catch(e){report.status='FAIL';report.failure=String(e.message).split('\n')[0];save();console.log(report.failure);process.exitCode=1;}

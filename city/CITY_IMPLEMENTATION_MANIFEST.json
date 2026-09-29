@@ -88,8 +88,15 @@
               "zh": "主题引擎",
               "en": "Theme Engine",
               "path": "city/11-entertainment/01-entertainment-centre/theme-engine",
-              "lifecycle": "PLANNED",
-              "donor": null,
+              "lifecycle": "PROMOTED",
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/DS-Hns",
+                "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+                "sourcePaths": [
+                  "app/extensions/mega/theme/color.js",
+                  "app/extensions/mega/theme/png.js"
+                ]
+              },
               "roomId": "theme-engine-lab"
             }
           ]

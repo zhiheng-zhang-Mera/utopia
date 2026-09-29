@@ -30,7 +30,7 @@ const WAVE1 = [
   'city/09-planning-knowledge/01-knowledge-service/knowledge-core',
   'city/09-planning-knowledge/02-document-intake/ingestion-core',
   'city/09-planning-knowledge/02-document-intake/document-readers',
-  'city/11-entertainment/01-entertainment-centre/theme-engine',
+  'city/00-foundation/05-control-centre/theme-engine',
 ];
 
 test('the real manifest describes exactly the wave 1 districts and modules', async () => {
@@ -39,8 +39,8 @@ test('the real manifest describes exactly the wave 1 districts and modules', asy
   assert.equal(manifest.schemaVersion, 2);
   assert.deepEqual(
     manifest.districts.map((district) => district.id),
-    ['02-engineering', '06-research', '09-planning-knowledge', '11-entertainment'],
-    'only the districts that actually exist are declared',
+    ['02-engineering', '06-research', '09-planning-knowledge', '00-foundation'],
+    'only the districts that actually exist are declared, in manifest order; 00-foundation now owns the theme engine after the MB-009 relocation, and 11-entertainment is no longer declared because it holds no module',
   );
   for (const district of manifest.districts) {
     assert.ok(district.zh.length > 0 && district.en.length > 0, `${district.id} has bilingual names`);

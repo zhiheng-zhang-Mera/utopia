@@ -154,20 +154,20 @@
       ]
     },
     {
-      "id": "11-entertainment",
-      "zh": "娱乐区",
-      "en": "Entertainment District",
+      "id": "00-foundation",
+      "zh": "城市地基",
+      "en": "City Foundation",
       "buildings": [
         {
-          "id": "01-entertainment-centre",
-          "zh": "娱乐中心",
-          "en": "Entertainment Centre",
+          "id": "05-control-centre",
+          "zh": "城市控制中心",
+          "en": "City Control Centre",
           "modules": [
             {
               "id": "theme-engine",
               "zh": "主题引擎",
               "en": "Theme Engine",
-              "path": "city/11-entertainment/01-entertainment-centre/theme-engine",
+              "path": "city/00-foundation/05-control-centre/theme-engine",
               "lifecycle": "PROMOTED",
               "donor": {
                 "repository": "zhiheng-zhang-Mera/DS-Hns",
@@ -192,7 +192,9 @@
                 "theme-engine-lab",
                 "theme-package-lab",
                 "theme-builder-lab"
-              ]
+              ],
+              "relocatedFrom": "city/11-entertainment/01-entertainment-centre/theme-engine",
+              "relocatedByMission": "MB-009"
             }
           ]
         }

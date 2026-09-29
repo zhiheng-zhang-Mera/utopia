@@ -1,5 +1,5 @@
 /**
- * City module tests — Theme Engine (city/11-entertainment/01-entertainment-centre/theme-engine).
+ * City module tests — Theme Engine (city/00-foundation/05-control-centre/theme-engine).
  *
  * Donor parity suite: the vectors below follow the DS-Hns donor modules
  * (`app/extensions/mega/theme/color.js`, `png.js` @
@@ -202,7 +202,7 @@ test('provenance stays honest: DONOR.json pins the donor and records the adaptat
   const donor = JSON.parse(await readFile(join(import.meta.dirname, '..', 'DONOR.json'), 'utf8'));
   assert.equal(donor.repository, 'zhiheng-zhang-Mera/DS-Hns');
   assert.equal(donor.commit, 'eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b');
-  assert.equal(donor.cityPath, 'city/11-entertainment/01-entertainment-centre/theme-engine');
+  assert.equal(donor.cityPath, 'city/00-foundation/05-control-centre/theme-engine');
   // One module, three incubation rooms: D2 raster/colour, D6 package, D9 builder.
   assert.deepEqual(donor.incubationRooms, ['theme-engine-lab', 'theme-package-lab', 'theme-builder-lab']);
   assert.deepEqual(donor.waves.map((entry) => [entry.wave, entry.room]), [['D2', 'theme-engine-lab'], ['D6', 'theme-package-lab'], ['D9','theme-builder-lab']]);

@@ -21,7 +21,7 @@ try{
  for(let i=0;i<12;i++){await pause(1000);nodes=await tree();if(texts(nodes).includes('Live City authority'))break;}
  check('android-wifi-reconnected',texts(nodes).includes('Live City authority')&&runEnabled(nodes));
  const afterWifi=await snapshot();check('wifi-no-duplicate-invocations',afterWifi.invocations.length===before.invocations.length);
- execFileSync('powershell',['-NoProfile','-File','scripts/restart-gateway.ps1'],{windowsHide:true,timeout:30000});
+ execFileSync('powershell',['-NoProfile','-File','scripts/restart-gateway.ps1'],{windowsHide:true,timeout:30000,stdio:'ignore'});
  await page.locator('#connection').filter({hasText:'ONLINE'}).waitFor({timeout:30000});let after;
  for(let i=0;i<15;i++){await pause(1000);try{after=await snapshot();nodes=await tree();if(texts(nodes).includes('Live City authority'))break;}catch{}}
  check('gateway-city-and-results-preserved',after?.cityId===before.cityId&&retained.every(r=>after.invocations.some(i=>i.invocationId===r.id&&i.resultDigest===r.digest&&i.status==='COMPLETED')),{retainedCount:retained.length});

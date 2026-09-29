@@ -1,0 +1,23 @@
+import assert from 'node:assert/strict';
+import {readFileSync,writeFileSync,mkdirSync,readdirSync,copyFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+import {execFileSync} from 'node:child_process';
+const source='.runtime/evidence/v0.3-hardening',out='evidence/raw/v0.3-hardening';mkdirSync(out,{recursive:true});
+const hash=file=>createHash('sha256').update(readFileSync(file)).digest('hex');
+const read=file=>JSON.parse(readFileSync(file));
+const migration=read(source+'/runtime-migration.json'),windows=read(source+'/windows/runs.json');
+const attempts=readdirSync(source+'/android',{withFileTypes:true}).filter(x=>x.isDirectory()).map(x=>x.name).sort();
+const android=read(source+'/android/'+attempts.at(-1)+'/runs.json');
+assert.equal(migration.status,'PASS');assert.equal(windows.status,'PASS');assert.equal(android.status,'PASS');assert.equal(windows.rows.length,26);assert.equal(android.rows.length,7);
+copyFileSync(source+'/runtime-migration.json',out+'/runtime-migration.json');copyFileSync(source+'/windows/runs.json',out+'/windows-runs.json');
+for(const file of ['evidence.png','theme.png'])copyFileSync(source+'/windows/'+file,out+'/windows-'+file);
+for(const [i,attempt] of attempts.entries())copyFileSync(source+'/android/'+attempt+'/runs.json',out+'/android-attempt-'+(i+1)+'.json');
+for(const name of ['theme-generate','evidence-review'])copyFileSync(source+'/android/'+attempts.at(-1)+'/'+name+'.png',out+'/android-'+name+'.png');
+const suites={};for(const [name,log,want] of [['root','hardening-root.log',46],['rooms','hardening-rooms.log',67],['city','hardening-city.log',114]]){const text=readFileSync('.runtime/'+log,'utf8');assert.match(text,new RegExp('tests '+want+'\\b'));assert.match(text,/fail 0\b/);suites[name]={tests:want,failures:0,logSha256:hash('.runtime/'+log)};}
+const androidLog=readFileSync('.runtime/hardening-android-green.log','utf8');assert.match(androidLog,/BUILD SUCCESSFUL/);
+const unitDir='apps/android/app/build/test-results/testDebugUnitTest';let units=0;for(const name of readdirSync(unitDir).filter(n=>n.endsWith('.xml'))){const xml=readFileSync(unitDir+'/'+name,'utf8');units+=Number(xml.match(/<testsuite[^>]*\btests="(\d+)"/)[1]);assert.match(xml,/<testsuite[^>]*\bfailures="0"/);assert.match(xml,/<testsuite[^>]*\berrors="0"/);}assert.equal(units,21);
+suites.android={tests:units,failures:0,assembleDebug:'PASS',apkSha256:android.apkSha256,logSha256:hash('.runtime/hardening-android-green.log')};
+assert.match(readFileSync('.runtime/hardening-promotion.log','utf8'),/9 record\(s\) verified/);
+const regression={checkedAt:new Date().toISOString(),implementationSha:migration.codeSha,packagingSha:execFileSync('git',['rev-parse','HEAD']).toString().trim(),suites,promotionRecordsVerified:9,windowsCases:26,physicalAndroidCases:7,canonicalMatches:5,privateBackupPublished:false,drivers:Object.fromEntries(['hardening-runtime-pilot','capability-windows-pilot','hardening-android-pilot'].map(n=>[n,hash('scripts/'+n+'.mjs')])),claims:['C-HARDEN-01','C-HARDEN-02','C-HARDEN-03'].map(id=>({id,level:'PILOT'}))};
+writeFileSync(out+'/regression-summary.json',JSON.stringify(regression,null,2)+'\n');
+const files=readdirSync(out).filter(n=>n!=='manifest.json').sort().map(file=>({file,sha256:hash(out+'/'+file)}));writeFileSync(out+'/manifest.json',JSON.stringify({scope:'Generated/public hardening evidence; independent from historical v0.3 evidence',files},null,2)+'\n');console.log(JSON.stringify({files:files.length,rootTests:suites.root.tests,androidTests:units}));

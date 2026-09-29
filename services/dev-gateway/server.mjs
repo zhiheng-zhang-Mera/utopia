@@ -48,10 +48,10 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       else if(req.method==='POST' && path==='/api/v0/pairing/session'){await body(req);out=await pairing.create();}
       else if(req.method==='POST' && path==='/api/v0/pairing/exchange')out=pairing.exchange(await body(req));
       else if(req.method==='GET' && path==='/api/v0/capabilities')out={capabilities:bridge.registry()};
-      else if(req.method==='GET' && path==='/api/v0/capability-invocations')out={invocations:bridge.list()};
-      else if(req.method==='GET' && /^\/api\/v0\/capability-invocations\/[^/]+$/.test(path))out=bridge.get(path.split('/').at(-1))||fail(404,'Invocation not found');
-      else if(req.method==='GET' && /^\/api\/v0\/capabilities\/[^/]+$/.test(path))out=bridge.registry().find(c=>c.capabilityId===path.split('/').at(-1))||fail(404,'Capability not found');
-      else if(req.method==='POST' && /^\/api\/v0\/capabilities\/[^/]+\/invoke$/.test(path))out=await bridge.invoke(path.split('/').at(-2),await body(req,MAX_REQUEST_BYTES));
+      else if(req.method==='GET' && path==='/api/v0/capability-invocations')out={invocations:bridge.list(new URL(req.url,'http://city').searchParams.get('limit')??undefined)};
+      else if(req.method==='GET' && /^\/api\/v0\/capability-invocations\/[^/]+$/.test(path))out=bridge.get(decodeURIComponent(path.split('/').at(-1)))||refuse('INVOCATION_NOT_FOUND',404);
+      else if(req.method==='GET' && /^\/api\/v0\/capabilities\/[^/]+$/.test(path))out=bridge.registry().find(c=>c.capabilityId===decodeURIComponent(path.split('/').at(-1)))||refuse('CAPABILITY_NOT_FOUND',404);
+      else if(req.method==='POST' && /^\/api\/v0\/capabilities\/[^/]+\/invoke$/.test(path))out=await bridge.invoke(decodeURIComponent(path.split('/').at(-2)),await body(req,MAX_REQUEST_BYTES));
       else if(req.method==='GET' && path==='/api/v0/city')out=snapshot();
       else if(req.method==='GET' && path==='/api/v0/nodes')out={nodes:store.list('nodes')};
       else if(req.method==='GET' && path==='/api/v0/tasks')out={tasks:store.list('tasks')};

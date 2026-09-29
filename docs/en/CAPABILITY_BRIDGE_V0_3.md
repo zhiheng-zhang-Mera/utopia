@@ -1,5 +1,7 @@
 # Capability Bridge v1
 
+Current retention, qualified identity and operation semantics are defined in [V0.3 hardening](V0_3_HARDENING.md). Its bounded summary/detail contract supersedes the original durable-history description below.
+
 PAIR_STATUS: SYNCHRONIZED
 FACT: API_VERSION=0
 FACT: CAPABILITY_CONTRACT_VERSION=1

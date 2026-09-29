@@ -8,7 +8,9 @@
         "capabilityId",
         "cityLifecycle",
         "bridgeState",
-        "operations"
+        "operations",
+        "moduleRefs",
+        "moduleLifecycles"
       ],
       "properties": {
         "capabilityId": {
@@ -21,13 +23,40 @@
           "enum": [
             "AVAILABLE",
             "DEGRADED",
-            "BRIDGE_PENDING"
+            "BRIDGE_PENDING",
+            "UNAVAILABLE"
           ]
         },
         "operations": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/CapabilityOperation"
+          }
+        },
+        "moduleRefs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/ModuleRef"
+          }
+        },
+        "moduleLifecycles": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "moduleRef",
+              "lifecycle"
+            ],
+            "properties": {
+              "moduleRef": {
+                "$ref": "#/$defs/ModuleRef"
+              },
+              "lifecycle": {
+                "type": "string"
+              }
+            }
           }
         }
       }
@@ -44,24 +73,7 @@
       }
     },
     "CapabilityInvocation": {
-      "type": "object",
-      "required": [
-        "invocationId",
-        "capabilityId",
-        "operationId",
-        "startedAt",
-        "status"
-      ],
-      "properties": {
-        "status": {
-          "enum": [
-            "RUNNING",
-            "COMPLETED",
-            "FAILED",
-            "INTERRUPTED"
-          ]
-        }
-      }
+      "$ref": "#/$defs/InvocationSummary"
     },
     "CapabilityResult": {
       "type": "object",
@@ -88,6 +100,104 @@
         "errorCode": {
           "type": "string"
         }
+      }
+    },
+    "ModuleRef": {
+      "type": "object",
+      "required": [
+        "districtId",
+        "buildingId",
+        "moduleId"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "districtId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "buildingId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "moduleId": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "InvocationSummary": {
+      "type": "object",
+      "required": [
+        "invocationId",
+        "capabilityId",
+        "operationId",
+        "status",
+        "resultDigest",
+        "resultAvailable"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "invocationId": {
+          "type": "string"
+        },
+        "capabilityId": {
+          "type": "string"
+        },
+        "operationId": {
+          "type": "string"
+        },
+        "inputClass": {
+          "type": "string"
+        },
+        "startedAt": {
+          "type": "string"
+        },
+        "inputBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "finishedAt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "enum": [
+            "RUNNING",
+            "COMPLETED",
+            "FAILED",
+            "INTERRUPTED"
+          ]
+        },
+        "resultDigest": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "errorCode": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "resultAvailable": {
+          "type": "boolean"
+        }
+      }
+    },
+    "InvocationDetail": {
+      "type": "object",
+      "required": [
+        "invocationId",
+        "result"
+      ],
+      "properties": {
+        "invocationId": {
+          "type": "string"
+        },
+        "result": {}
       }
     }
   }

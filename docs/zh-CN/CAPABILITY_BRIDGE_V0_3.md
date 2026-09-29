@@ -1,5 +1,7 @@
 # 能力桥 v1
 
+当前保留策略、完整模块身份和操作语义见 [V0.3 加固](V0_3_HARDENING.md)。下文原始持久历史说明由该文档的有界摘要/详情契约更新。
+
 PAIR_STATUS: SYNCHRONIZED
 FACT: API_VERSION=0
 FACT: CAPABILITY_CONTRACT_VERSION=1

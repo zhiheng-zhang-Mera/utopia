@@ -1,0 +1,36 @@
+{
+  "startedAt": "2026-09-29T09:12:18.973Z",
+  "codeSha": "8c1106e3b6685a123dd5e75ef98ee52e8c9bba43",
+  "legacyRows": 98,
+  "inlineResultRows": 98,
+  "privateBackupCreated": true,
+  "checks": [
+    {
+      "name": "legacy-metadata-preserved",
+      "pass": true,
+      "count": 98
+    },
+    {
+      "name": "retained-detail-digests",
+      "pass": true,
+      "count": 50
+    },
+    {
+      "name": "idempotent-restart",
+      "pass": true
+    },
+    {
+      "name": "summary-only-snapshot",
+      "pass": true
+    },
+    {
+      "name": "five-capabilities-available",
+      "pass": true
+    }
+  ],
+  "summaryCount": 98,
+  "detailCount": 50,
+  "snapshotSummaryBytes": 18519,
+  "status": "PASS",
+  "finishedAt": "2026-09-29T09:12:23.796Z"
+}

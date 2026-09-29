@@ -9,8 +9,16 @@ export const ADAPTERS=[
  {id:'research.evidence.review',name:'Evidence Review',moduleRefs:[ref('06-research','01-research-institute','evidence-engine')],operations:['review','tamper'],inputKind:'evidence'},
  {id:'presentation.theme.lab',name:'Theme Lab',moduleRefs:[ref('11-entertainment','01-entertainment-centre','theme-engine')],operations:['generate','build'],inputKind:'theme'},
 ];
+/**
+ * District kinds. `infrastructure` districts (00-foundation) own the city's runtime
+ * kernel, not user-facing capabilities, so their modules are never enumerated as
+ * capability descriptors. Without this, a kernel module would appear on the Web and
+ * Android capability lists as an "unavailable" capability awaiting a bridge — which
+ * would advertise something that by design has no product operation.
+ */
+export const DISTRICT_KINDS=['infrastructure','domain'];
 export function registry(manifest=JSON.parse(readFileSync(new URL('city/CITY_IMPLEMENTATION_MANIFEST.json',root))),adapters=ADAPTERS){
- const modules=manifest.districts.flatMap(d=>d.buildings.flatMap(b=>b.modules.map(m=>({...m,ref:ref(d.id,b.id,m.id)}))));
+ const modules=manifest.districts.filter(d=>(d.kind??'domain')!=='infrastructure').flatMap(d=>d.buildings.flatMap(b=>b.modules.map(m=>({...m,ref:ref(d.id,b.id,m.id)}))));
  const index=new Map();
  for(const m of modules){const key=moduleKey(m.ref);if(index.has(key))throw Error('Duplicate qualified module identity');index.set(key,m);}
  const covered=new Set(adapters.flatMap(a=>a.moduleRefs.map(moduleKey)));

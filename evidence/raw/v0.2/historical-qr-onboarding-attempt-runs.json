@@ -1,0 +1,25 @@
+{
+  "sourceFile": "qr-onboarding-attempt-runs.json",
+  "sourceSha256": "698f0e70731ea7831b59a1d77af00bed003b39c469202c4af4e0c97eaa4f7f6e",
+  "applicability": "Historical or driver evidence, not final candidate passes",
+  "record": [
+    {
+      "mode": "qr",
+      "run": 1,
+      "codeSha": "f8285134f6ac8ef58f34c9c48bc6e21f21c1317e",
+      "apkSha256": "7acd40e0d1d39b412b4cbd0e916cb2b66c38a2c944f0914f598cb4a9fbf85451",
+      "startTimestamp": "2026-09-29T03:38:10.391Z",
+      "discoveryTimestamp": null,
+      "pairingSubmittedTimestamp": null,
+      "authenticatedTimestamp": null,
+      "snapshotLoadedTimestamp": null,
+      "websocketOnlineTimestamp": null,
+      "trialId": null,
+      "success": false,
+      "errorClass": "ONBOARDING_NOT_READY",
+      "driver": "ADB onboarding plus physical camera; no QR injection",
+      "cameraLaunchRequestedAt": null,
+      "endTimestamp": "2026-09-29T03:38:58.188Z"
+    }
+  ]
+}

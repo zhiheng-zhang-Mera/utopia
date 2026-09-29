@@ -4,41 +4,39 @@ STATUS: NOT_ACCEPTED
 PAIR_STATUS: SYNCHRONIZED
 CODE-SHA: 5410fa8ade8c671189cd37bff0d2c34de8b55c6f
 FACT: UTOPIA_V0_2=NOT_ACCEPTED
-FACT: PILOT_BASELINE_SOURCE_SHA=cb50fdd6ba5f23c16167672f32853485701772fb
-FACT: PILOT_BASELINE_APK_SHA256=3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db
-FACT: RADIO_FIX_SOURCE_SHA=3d7b8c9647fa13f75bc62829b5c96966dfba6dd2
-FACT: RADIO_FIX_APK_SHA256=0f2c3091661bf8818cd0995741ce6fea1f8fe00b4a0cf5867e705294dd383b77
-FACT: RADIO_FIX_TARGETED_RADIO=2_OF_2_PASS
-FACT: RADIO_FIX_CI=36514942297_PASS
-FACT: QR_CAMERA=0_OF_5_SUCCESS_1_NO_DECODE_ATTEMPT
-FACT: LATEST_SOURCE_SHA=5410fa8ade8c671189cd37bff0d2c34de8b55c6f
-FACT: LATEST_APK_SHA256=7acd40e0d1d39b412b4cbd0e916cb2b66c38a2c944f0914f598cb4a9fbf85451
-FACT: LATEST_WRONG_CODE_UI=2_OF_2_PASS
-FACT: LATEST_ANDROID_UNIT=13_PASS
-FACT: LATEST_CI=36515630417_PASS
-FACT: LATEST_BLE_PAIRING=1_OF_1_PASS
-FACT: LATEST_TELEMETRY_AND_TASK=PASS
-FACT: BUNDLE_MANIFEST=103_FILES_VALID
-FACT: DELIVERY_AUDIT=219_FILES_ZERO_KNOWN_FINDINGS
+FACT: PRODUCT_APK_SHA256=7acd40e0d1d39b412b4cbd0e916cb2b66c38a2c944f0914f598cb4a9fbf85451
+FACT: QR_RUN_SOURCE_SHA=f8285134f6ac8ef58f34c9c48bc6e21f21c1317e
+FACT: QR_DEVICE_OBSERVER_SOURCE_SHA=5855a927e42ae2945728f509a7b4ef07bcd372bf
+FACT: QR_POSITIVE=5_PASS_2_PRE_CAMERA_DRIVER_ERRORS
+FACT: QR_NEGATIVE=0_PASS_3_NO_DECODE_ATTEMPTS_1_GUARD_INVOCATION
+FACT: QR_NEGATIVE_LEGACY_DRIVER_HASH=UNKNOWN
+FACT: MANUAL_RESTORATION=PASS
+FACT: PRODUCT_CI=36515630417_PASS
+FACT: BUNDLE_MANIFEST=126_FILES_VALID
+FACT: DELIVERY_AUDIT=244_FILES_ZERO_KNOWN_FINDINGS
 FACT: RELEASE=NOT_PUBLISHED
 FACT: MERGE=NOT_DONE
 
-**NOT_ACCEPTED：**要求五次真实摄像头 QR 试验，目前成功为零；一次真实尝试在允许系统相机权限后结束为 NO_CAMERA_DECODE_OBSERVED。API 过期/旧 session 拒绝不等于摄像头或 Android 负向 QR UI 验收。[草稿 PR #1](https://github.com/zhiheng-zhang-Mera/utopia/pull/1) 尚未合并，不声称已发布。
+**NOT_ACCEPTED：**真实 QR 摄像头正向配对现已有五次成功，但实物负向 QR 拒绝验证和发布交付仍未完成。用户定位了手机；成功运行序号为 1、2、5、6、7。摄像头启动前的驱动失败 3、4 保留可见，不计为摄像头失败。
 
-各版本分别溯源。Pilot 基线完成 Manual/mDNS/BLE 各 5/5 以及恢复/资源矩阵。无线电修复版本完成蓝牙切换 2/2 和 CI。最新配对错误修复使错误独立于发现状态保留：Android 错码 UI 拒绝现已通过 2/2，单元测试 13/13。最新 BLE 配对通过 1/1，telemetry/任务重跑通过且明确记录已安装 APK 溯源，CI 36515630417 两个作业通过。此前发现状态覆盖拒绝文本的尝试是历史失败，不是本次 UI 通过。历史 telemetry/任务观测遗漏已安装 APK 哈希；保留的 pre-APK-provenance 记录继续标记 UNKNOWN，不重新归属于任何 APK。
+APK 产品源码仍为 5410fa8/7acd40…。QR 试验绑定仓库源码 f828513…；Device Center 观测绑定采集器 5855a9…。这些采集器修订不代表新 APK。Pilot 基线 cb50fdd/315262… 保留 Manual/mDNS/BLE 各 5/5；无线电修复 3d7b8c9/0f2c30… 保留切换 2/2。最新产品错码 UI 2/2、定向 BLE 配对 1/1、精确 APK 的 telemetry/任务及 CI 已通过。此前错误文本覆盖、未解码、USB/首次进入界面及未知 APK 尝试保留为历史记录。
 
 | 门禁 | 证据与剩余边界 |
 |---|---|
-| A — V0 回归 | 基线恢复保留历史。最新真实任务完成，两个 UI 的结果 SHA-256 一致，源码/已安装 APK 溯源明确。历史未知 APK 记录单独保留。最新 CI 36515630417 两个作业通过，无线电修复 CI 已通过。 |
-| B — Device Center | 最新精确 APK 的 host 时间戳、Web 精确样本及 Android/Web 显示值检查全部通过。历史未知 APK 记录单独保留。 |
-| C — QR | 成功 0/5，一次真实未解码尝试。摄像头交换与 Android 过期/旧 QR UI 路径未验证。 |
+| A — V0 回归 | 最新 APK 的真实任务完成，Android/Web 任务与结果文件一致。基线恢复保留历史。产品 CI 已通过；证据提交后再验证最终分支 CI/干净工作区。 |
+| B — Device Center | 最新 telemetry 时间戳/精确样本/显示值检查通过。QR 成功后 Alien 最初显示 UNKNOWN · Cached，随后无需重新配对自动 ONLINE。这是两个采样观测，不证明零过期时长。 |
+| C — QR | 摄像头正向五次成功，另保留两次摄像头前驱动错误。负向摄像头拒绝仍为零次通过：过期一次、已替换 session 两次均未观察到解码/拒绝。门禁未完成。 |
 | D — mDNS | Pilot 基线发现/配对 5/5；原生消失/重现 2/2。最新错码 UI 拒绝 2/2 单独绑定。 |
-| E — BLE | Pilot 基线发现/配对 5/5；无线电修复切换 2/2，检查关闭文本、启用/重试提示和原生重新发现。最新定向配对通过 1/1。硬件具备能力，不适用硬件阻塞验收。 |
-| F — Manual | Pilot 基线干净 manual 试验 5/5。不声称最新 APK 也做过五次。 |
-| G — 恢复/故障 | Wi-Fi/Node/Gateway 各 3/3；九份已发布中断 XML 均审核了明确 Utopia 中断状态且与记录一致。这是指定中断时刻的采样证据，不是全过程零过期。API 负向 8/8；最新错码 UI 2/2。QR 负向 UI 覆盖仍缺失。 |
-| H — 证据 | 已有双语台账、筛查后试验、资源数据及 manifest。103 文件证据包 manifest 有效；219 文件审计未发现已知 secret、私人路径或已连接设备 serial，两张发布图片经过目视检查。这是有边界的审计，不证明所有潜在秘密均不存在。历史失败/未知记录继续可见。 |
-| I — 发布 | 仅草稿 PR。没有已验收 release、合并或最终干净工作区/资产验证。最新 CI 已通过；最终干净工作区/资产验证仍待完成。 |
+| E — BLE | Pilot 基线配对 5/5；无线电修复切换 2/2；最新定向配对 1/1。不声称最新 APK 做了五次，不适用硬件阻塞例外。 |
+| F — Manual | 基线干净 manual 试验 5/5；最新 QR 后 manual 恢复通过，主机已恢复可用在线状态。 |
+| G — 故障/恢复 | Wi-Fi/Node/Gateway 各 3/3，九份中断 XML 审计通过。API 负向 8/8 与摄像头 UI 分别记录。要求的过期/已替换 QR 摄像头拒绝重复试验尚未验证。 |
+| H — 证据 | 已有双语台账和有边界 pilot。刷新后的 manifest 覆盖 126 文件，244 文件交付审计报告零项已知发现。历史负向驱动哈希保持 UNKNOWN，不从新版源码补填。 |
+| I — 发布 | [草稿 PR #1](https://github.com/zhiheng-zhang-Mera/utopia/pull/1) 仍开放，release 为 NOT_PUBLISHED。并行 main 变更保留且未合并，不声称已经测试它们。经验证的功能分支发布不要求覆盖或合并 main。 |
 
-证据：[基线试验](../raw/v0.2/manual-trials.json)、[mDNS 试验](../raw/v0.2/mdns-trials.json)、[BLE 试验](../raw/v0.2/ble-trials.json)、[mDNS 恢复](../raw/v0.2/mdns-discovery-recovery.json)、[中断审计](../raw/v0.2/recovery-outage-audit.json)、[最新 Android 单测](../raw/v0.2/android-errorfix-unit-tests.json)、[API 负向](../raw/v0.2/pairing-api-failures.json)、[资源 pilot](../raw/v0.2/stack-resource-pilot.json)、[候选台账](PAPER_EVIDENCE_V0_2.md)。最新定向记录：[错码 UI](../raw/v0.2/mdns-wrong-code-runs.json)、[BLE 配对](../raw/v0.2/ble-radiofix-trials.json)、[telemetry](../raw/v0.2/telemetry-consistency.json)、[任务](../raw/v0.2/task-regression.json)、[产品 CI](../raw/v0.2/ci-errorfix-product.json)、[交付审计](../raw/v0.2/delivery-audit.json)。截至本检查点可自主工作已完成；仍缺真实 QR 成功与负向 QR UI 覆盖、已验收发布，以及提交后的分支 CI/干净工作区验证。
+负向尝试分三次调用保留：03:46 UTC 含一次过期、一次已替换 session 的未解码尝试；03:58 在摄像头前触发几何 guard，零行试验；03:59 含一次已替换 session 的未解码尝试。尝试的过期协议计划复用一个过期 session 重复扫描，不是两个独立过期 session。不因 API 测试通过而把任何摄像头尝试升级为 PASS。
 
-基线认证间隔中位数：Manual 103 ms、mDNS 24 ms、BLE 32 ms；QR 为 null。ADB 驱动的整体中位数为 24987 / 37301 / 30358 ms，包含驱动/输入等待，不能用于真人速度比较。单组 30 秒全栈试验测得单 CPU 核 0.817% / 0.966%，合计工作集 125.73 / 223.60 MB；normal 包含 PowerShell BLE。噪声、共享页及测量扰动使其不能支持普适低开销结论。
+已发布来源包括[基线试验](../raw/v0.2/manual-trials.json)、[mDNS](../raw/v0.2/mdns-trials.json)、[BLE](../raw/v0.2/ble-trials.json)、[telemetry](../raw/v0.2/telemetry-consistency.json)、[任务](../raw/v0.2/task-regression.json)、[中断审计](../raw/v0.2/recovery-outage-audit.json) 和[候选台账](PAPER_EVIDENCE_V0_2.md)。新增发布记录：[QR 试验](../raw/v0.2/qr-trials.json)、[QR Device Center](../raw/v0.2/qr-device-center.json)、[负向尝试索引](../raw/v0.2/qr-negative-index.json) 和 [manual 恢复](../raw/v0.2/manual-qr-restoration-trials.json)。筛查后证据包保留未成功尝试，manifest 已验证。
+
+基线认证间隔中位数为 Manual 103 ms、mDNS 24 ms、BLE 32 ms。整体 ADB 中位数 24987 / 37301 / 30358 ms 包含驱动/输入等待，不能用于真人比较；较新的 QR 计时不混入该基线。单组全栈资源试验是 PILOT，不是普适低开销证据。仍待实物负向 QR 验证，不声称全部自主工作已经完成。
+
+恢复后的主机观测：[在线主机](../raw/v0.2/post-qr-restoration-host.json)。

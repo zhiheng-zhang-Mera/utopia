@@ -23,7 +23,9 @@ const installed=cmd('shell','pm','path','city.utopia.control').trim().replace(/^
 const apkSha256=cmd('shell','sha256sum',installed).trim().split(/\s/)[0];
 if(apkSha256!==createHash('sha256').update(readFileSync('apps/android/app/build/outputs/apk/debug/app-debug.apk')).digest('hex'))fail('INSTALLED_APK_MISMATCH');
 const directory='.runtime/evidence/v0.2/qr-negative-'+now().replaceAll(':','-');mkdirSync(directory,{recursive:true});
-const result={codeSha,apkSha256,startedAt:now(),driver:'ADB onboarding plus physical camera; no QR or descriptor injection',scope:'Expired QR: two physical scans share one genuinely expired five-minute session. Replaced QR: two independent original sessions, each replaced before scanning.',fakeClock:false,shortenedTtl:false,runs:[]};
+const driverSha256=createHash('sha256').update(readFileSync(new URL(import.meta.url))).digest('hex');
+const workingTreeDirty=!!execFileSync('git',['status','--porcelain'],{windowsHide:true}).toString().trim();
+const result={codeSha,driverSha256,workingTreeDirty,apkSha256,startedAt:now(),driver:'ADB onboarding plus physical camera; no QR or descriptor injection',scope:'Expired QR: two physical scans share one genuinely expired five-minute session. Replaced QR: two independent original sessions, each replaced before scanning.',fakeClock:false,shortenedTtl:false,runs:[]};
 const recordedEvents=[],privateMaterials=[config.token,config.nodeToken];
 function save(){for(const [file,value] of [['runs.json',JSON.stringify(result,null,2)+'\n'],['events.jsonl',recordedEvents.map(e=>JSON.stringify(e)).join('\n')+'\n']]){if(privateMaterials.some(s=>s&&value.includes(s))||/utopia:\/\/pair\?|qrSvg|qrPayload/.test(value))fail('SECRET_OUTPUT_GUARD');writeFileSync(directory+'/'+file,value);}}
 async function api(path,body){const response=await fetch(url+'/api/v0/'+path,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+config.token,'Content-Type':'application/json','X-City-Api-Version':'0','X-City-Schema-Version':'0'},body:body?JSON.stringify(body):undefined,signal:AbortSignal.any([abort.signal,AbortSignal.timeout(10000)])});if(!response.ok)fail('HOST_API_REJECTED');const data=await response.json();if(data.apiVersion!==0||data.schemaVersion!==0)fail('HOST_VERSION_MISMATCH');return data;}
@@ -43,19 +45,33 @@ async function nodes(stage='UI'){
 function tap(node){if(!node?.bounds)fail('ONBOARDING_TARGET_MISSING');const b=node.bounds.match(/\d+/g).map(Number);if(b[2]<=b[0]||b[3]<=b[1])fail('ONBOARDING_TARGET_ZERO_BOUNDS');cmd('shell','input','tap',String((b[0]+b[2])>>1),String((b[1]+b[3])>>1));}
 async function find(text){const start=Date.now();while(Date.now()-start<20000){const node=(await nodes('ONBOARDING')).find(n=>n.text===text);if(node)return node;await sleep(600);}fail('ONBOARDING_NOT_READY');}
 async function unpair(){cmd('shell','am','force-stop','city.utopia.control');cameraMayBeOpen=false;cmd('shell','am','start','-n','city.utopia.control/.MainActivity');await sleep(2500);await find('Settings');cmd('shell','input','tap','970','2195');await sleep(500);tap(await find('Clear pairing / Find your City'));await find('Scan QR');}
-let browser,page;
+let browser,page,qrBox;
+async function measureRealPairingGeometry(){
+ await page.goto(url+'/pairing');await page.getByLabel('Pairing token').fill(config.token);await page.getByRole('button',{name:'Connect',exact:true}).click();await page.locator('#connection.online').waitFor();
+ // Setup session measures only the real UI. All test sessions are created AFTER this step.
+ await page.getByRole('button',{name:'Generate pairing session',exact:true}).click();await page.locator('#pairing-qr svg').waitFor();await page.evaluate(()=>window.scrollTo(0,0));
+ qrBox=await page.locator('#pairing-qr').boundingBox();
+ if(!qrBox||Math.abs(qrBox.width-240)>1||qrBox.height<=0)fail('REAL_PAIRING_QR_GEOMETRY_UNEXPECTED');
+ result.displayGeometry={viewport:{width:1440,height:1000},qrBox,source:'Measured real authenticated Web pairing QR before test-session creation',windowPosition:'Browser default; physical alignment still requires confirmation'};save();
+}
 async function display(s,label){
- // Genuine authenticated Gateway SVG goes only to a private, ephemeral browser DOM.
- await page.setContent('<!doctype html><meta charset="utf-8"><title>Utopia private negative QR trial</title><style>body{margin:0;background:white;color:#111;font-family:Arial;text-align:center}h1{font-size:24px}#qr{width:600px;height:600px;margin:20px auto}svg{width:100%;height:100%}</style><h1 id="label"></h1><div id="qr"></div><p>PRIVATE TEST · No screenshot or recording · Camera input only</p>');
- await page.evaluate(({svg,label})=>{document.querySelector('#label').textContent=label;document.querySelector('#qr').innerHTML=svg;},{svg:s.qrSvg,label});await page.bringToFront();
+ // Preserve the real Web QR's exact viewport box. Overlay sits outside #view so
+ // ordinary polling/session expiry cannot remove the retained negative-test SVG.
+ await page.evaluate(({svg,label,box})=>{
+  let qr=document.getElementById('private-negative-qr');if(!qr){qr=document.createElement('div');qr.id='private-negative-qr';document.body.append(qr);}
+  Object.assign(qr.style,{position:'fixed',left:box.x+'px',top:box.y+'px',width:box.width+'px',height:box.height+'px',zIndex:'2147483646',background:'#fff',pointerEvents:'none'});qr.innerHTML=svg;
+  const image=qr.querySelector('svg');if(image){image.style.width='100%';image.style.height='100%';image.style.display='block';}
+  let banner=document.getElementById('private-negative-label');if(!banner){banner=document.createElement('div');banner.id='private-negative-label';document.body.append(banner);}
+  banner.textContent=label+' · PRIVATE TEST · No capture';Object.assign(banner.style,{position:'fixed',left:'0',right:'0',top:'0',padding:'8px',background:'#fff5ce',color:'#111',zIndex:'2147483647',font:'bold 14px Arial',textAlign:'center',pointerEvents:'none'});
+ },{svg:s.qrSvg,label,box:qrBox});await page.bringToFront();
 }
 async function scan(kind,index,s,extra={}){
  const row={kind,run:index,codeSha,apkSha256,driverStartTimestamp:now(),cameraLaunchRequestedAt:null,trialId:null,rejectionObservedAt:null,returnedToMainActivity:false,uiRejectionObserved:false,noAuthenticationObserved:null,success:false,errorClass:null,stage:'PREPARING',...extra};result.runs.push(row);save();let selected=[];
  try{
-  row.stage='ONBOARDING';save();await unpair();row.stage='READY_TO_SCAN';save();const prior=new Set(events().map(e=>e.trialId));const scanNode=await find('Scan QR');row.cameraLaunchRequestedAt=now();cameraMayBeOpen=true;tap(scanNode);row.stage='CAMERA_LAUNCHED';save();
+  row.stage='ONBOARDING';save();await unpair();row.stage='READY_TO_SCAN';save();const prior=new Set(events().map(e=>e.trialId));const scanNode=await find('Scan QR');if(kind==='replaced'&&Date.now()>=Date.parse(s.expiresAt))fail('REPLACED_QR_EXPIRED_BEFORE_CAMERA_LAUNCH');row.cameraLaunchRequestedAt=now();row.unexpiredAtCameraLaunchRequested=kind==='replaced'?Date.parse(row.cameraLaunchRequestedAt)<Date.parse(s.expiresAt):null;cameraMayBeOpen=true;tap(scanNode);row.cameraLaunchCompletedAt=now();if(kind==='replaced'&&Date.parse(row.cameraLaunchCompletedAt)>=Date.parse(s.expiresAt))fail('REPLACED_QR_EXPIRED_DURING_CAMERA_LAUNCH');row.stage='CAMERA_LAUNCHED';save();
   const deadline=Date.now()+60000,expected=kind==='expired'?'descriptorError':'pairingError';
   while(Date.now()<deadline){const all=events();row.trialId??=all.find(e=>e.event==='start'&&!prior.has(e.trialId))?.trialId||null;selected=all.filter(e=>e.trialId===row.trialId);if(selected.some(e=>e.event===expected)){row.rejectionObservedAt=selected.find(e=>e.event===expected).timestamp;break;}if(selected.some(e=>e.event==='authenticated'))fail('UNEXPECTED_AUTHENTICATION');await sleep(700);}
-  if(!row.rejectionObservedAt)fail('NO_EXPECTED_CAMERA_REJECTION_OBSERVED');row.stage='REJECTION_EVENT_OBSERVED';save();
+  if(!row.rejectionObservedAt)fail('NO_EXPECTED_CAMERA_REJECTION_OBSERVED');if(kind==='replaced'&&Date.parse(row.rejectionObservedAt)>=Date.parse(s.expiresAt))fail('REPLACED_QR_EXPIRED_BEFORE_REJECTION');row.stage='REJECTION_EVENT_OBSERVED';save();
   const returnDeadline=Date.now()+10000;while(Date.now()<returnDeadline){if(mainActivityResumed()){row.returnedToMainActivity=true;break;}await sleep(400);}
   if(!row.returnedToMainActivity)fail('CAMERA_RETURN_NOT_CONFIRMED');cameraMayBeOpen=false;row.stage='CAMERA_RETURN_CONFIRMED';save();
   // Only after the rejection callback AND resumed MainActivity: inspect UI, never persist its tree.
@@ -69,7 +85,7 @@ async function scan(kind,index,s,extra={}){
 }
 save();
 try{
- browser=await chromium.launch({channel:process.platform==='win32'?'msedge':undefined,headless:false,args:['--window-position=0,0','--window-size=1100,850']});page=await browser.newPage({viewport:{width:1080,height:780}});
+ browser=await chromium.launch({channel:process.platform==='win32'?'msedge':undefined,headless:false});page=await browser.newPage({viewport:{width:1440,height:1000}});await measureRealPairingGeometry();
  if(mode==='all'||mode==='expired'){
   const s=await session();await display(s,'TEST: five-minute expiry preparation — do not scan yet');
   const until=Date.parse(s.expiresAt)+1500;console.log('Waiting for genuine default five-minute expiry; position camera at private display.');
@@ -87,6 +103,6 @@ try{
 }catch(e){result.driverExitStatus=e.driverExitStatus??(Number.isInteger(e.status)?e.status:null);result.driverError=e.pilotCode||(abort.signal.aborted?'INTERRUPTED':'DRIVER_OR_PLATFORM_ERROR');process.exitCode=1;}
 finally{
  if(cameraMayBeOpen){try{cmd('shell','am','force-stop','city.utopia.control');cameraMayBeOpen=false;}catch{result.cameraExitConfirmed=false;}}
- try{await page?.setContent('<title>Negative QR pilot closed</title><p>Test material cleared.</p>');}catch{}
+ try{await page?.evaluate(()=>{document.getElementById('private-negative-qr')?.remove();document.getElementById('private-negative-label')?.remove();});await page?.setContent('<title>Negative QR pilot closed</title><p>Test material cleared.</p>');}catch{}
  await browser?.close();result.finishedAt=now();result.status=!result.driverError&&result.runs.length===(mode==='all'?4:2)&&result.runs.every(r=>r.success)?'PASS':'INCOMPLETE';if(result.status!=='PASS')process.exitCode=1;save();console.log('Sanitized camera-negative evidence: '+directory+'/runs.json');
 }

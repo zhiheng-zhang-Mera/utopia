@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-29T03:15:22.916Z",
+  "generatedAt": "2026-09-29T04:08:09.740Z",
   "files": [
     {
       "file": "android-devices.png",
@@ -111,7 +111,7 @@
     },
     {
       "file": "delivery-audit.json",
-      "sha256": "30e9cd0ccc1ba08498d5984f0c90fef0ceee81a2f6b29b560c785aa753f7abfe"
+      "sha256": "c9500d6f70b0f9aa5d99040c2c6476f7159c897be20830962a2a708ac28a0276"
     },
     {
       "file": "discovery-recovery.json",
@@ -151,7 +151,7 @@
     },
     {
       "file": "historical-attempts.json",
-      "sha256": "2f6bebe26f412f45395b9de2173de9924c78078b90a52bf3073a3a8216a2c95b"
+      "sha256": "c464df5dbcf6646daa4c1358acbcd10c0e190a6920397f625dd9c21677de3966"
     },
     {
       "file": "historical-discovery-recovery-driver-attempt.json",
@@ -198,8 +198,24 @@
       "sha256": "fff9d83dc81ab5fafebb0c522ae386971ef012f70f3c9363aa3b9c41770f719b"
     },
     {
+      "file": "historical-pre-position-qr-events.jsonl",
+      "sha256": "05bb53bd0931ead9c687ddf3d5f40b263bb2750fc4ee9d93d40103e669430327"
+    },
+    {
+      "file": "historical-pre-position-qr-runs.json",
+      "sha256": "fbcd054514a15e53ea033d1db77fa5c442e3308d03c764e5889c58eb4641b8dd"
+    },
+    {
       "file": "historical-pre-radio-fix-discovery-recovery.json",
       "sha256": "d0fe3462f986715d6922020a087a0c7e607089938fc4847e06d732ba3d04a10f"
+    },
+    {
+      "file": "historical-qr-onboarding-attempt-runs.json",
+      "sha256": "8e4fa47712a897d68dabc026f26b1ee6d9fb05701d5120cedbbf9c9540022949"
+    },
+    {
+      "file": "historical-qr-usb-interrupted-runs.json",
+      "sha256": "832c7e2f74a1c8a232b4096a64389615c6b09de6593236b5326ebc76aedc980d"
     },
     {
       "file": "manual-1-events.jsonl",
@@ -224,6 +240,22 @@
     {
       "file": "manual-events.jsonl",
       "sha256": "4917968c2aacfb2ebfaebfdaf3aa2cf504f58d3e0f88edaeab50870aa26c19d5"
+    },
+    {
+      "file": "manual-qr-restoration-1-events.jsonl",
+      "sha256": "9779529dd47c97e5c162531df5e11485540f11b1b2a054b84e7e50a7e0603d39"
+    },
+    {
+      "file": "manual-qr-restoration-events.jsonl",
+      "sha256": "9779529dd47c97e5c162531df5e11485540f11b1b2a054b84e7e50a7e0603d39"
+    },
+    {
+      "file": "manual-qr-restoration-runs.json",
+      "sha256": "e3d7cd4ec26342332645f74f2f60f79aaeead607bee03560e93da6ec85fb2155"
+    },
+    {
+      "file": "manual-qr-restoration-trials.json",
+      "sha256": "05f1ff53df76d9ae226e98449d7ba2c53fb6ad877232aedb6ca503614b514095"
     },
     {
       "file": "manual-runs.json",
@@ -346,20 +378,80 @@
       "sha256": "86256297a2a9d3829ed1dc6787c1d0df2453a548e6e540fe19179438d13956cd"
     },
     {
+      "file": "post-qr-restoration-host.json",
+      "sha256": "00c009a6de9459d230697e80ce67a54b59614cf357af352193688f00cac033ac"
+    },
+    {
       "file": "qr-1-events.jsonl",
-      "sha256": "05bb53bd0931ead9c687ddf3d5f40b263bb2750fc4ee9d93d40103e669430327"
+      "sha256": "5f85debae8ccd8b98b3263606838b1de91cc7bdd0b4990a33f48e76657f634b6"
+    },
+    {
+      "file": "qr-2-events.jsonl",
+      "sha256": "899197b2fba6b44b9e3c9aa49f85f716644b287e5c3b963c539861da1c99f525"
+    },
+    {
+      "file": "qr-3-events.jsonl",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "file": "qr-4-events.jsonl",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "file": "qr-5-events.jsonl",
+      "sha256": "18f3e7002d9081a3bb80aa1f409ca773e2df419d16ddaa154239dad6834a946d"
+    },
+    {
+      "file": "qr-6-events.jsonl",
+      "sha256": "230633c580860a7af17dfd4ba7302365baccd36bc97398acbbe7e8f6d5aade9a"
+    },
+    {
+      "file": "qr-7-events.jsonl",
+      "sha256": "99ab554557d7061aee160970ffc56501ac5d69c3c75b04af1e6b5812238c56f0"
+    },
+    {
+      "file": "qr-device-center.json",
+      "sha256": "5bb30f4d00cb164c214d4136603265764dc9632034d13094a21b9c1022fb7de5"
     },
     {
       "file": "qr-events.jsonl",
-      "sha256": "05bb53bd0931ead9c687ddf3d5f40b263bb2750fc4ee9d93d40103e669430327"
+      "sha256": "c950589768dba4a23f75f2059f8122dc69208799488a5eac85b57ba4d985539d"
+    },
+    {
+      "file": "qr-negative-2026-09-29T03-46-18.823Z-events.jsonl",
+      "sha256": "55342c1434b6f055b9f2b35355148fb2ee9a044236a5403cca862126891034ca"
+    },
+    {
+      "file": "qr-negative-2026-09-29T03-46-18.823Z-runs.json",
+      "sha256": "e2e2fd688a8dc907b9a19fdbfcb344601e80f2747383d95aa787277fbd992587"
+    },
+    {
+      "file": "qr-negative-2026-09-29T03-58-55.426Z-events.jsonl",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "file": "qr-negative-2026-09-29T03-58-55.426Z-runs.json",
+      "sha256": "aef6aac55479e3134e925af758d470691aef6b7ab6d2705bfc00c05907b1df89"
+    },
+    {
+      "file": "qr-negative-2026-09-29T03-59-31.144Z-events.jsonl",
+      "sha256": "c2d20952ca37b801d4e313db10e8571042ca9e49fcb9dfc13e164c8470b334bb"
+    },
+    {
+      "file": "qr-negative-2026-09-29T03-59-31.144Z-runs.json",
+      "sha256": "70467892c768b8cc4f48ecc78d7dca0cbc277981bdc2acb3b7b49df635755871"
+    },
+    {
+      "file": "qr-negative-index.json",
+      "sha256": "b1d046f5687692040977323b55e0a29f38538195ebd06e438626a7af526fe57e"
     },
     {
       "file": "qr-runs.json",
-      "sha256": "2d529f44aa5811f6ea611bcd6b6805db80bfafe7439f61d9db08afe5c839bd59"
+      "sha256": "68c745c960e5d07a0b3dd0c224663507cc446d983c7186acc4d76d83655e74ec"
     },
     {
       "file": "qr-trials.json",
-      "sha256": "e88787815372f382ac13de1179c2460ea4c60962025a4b09ad78372823e58070"
+      "sha256": "f4d7a77c78acfbd0d3c2df9fbbeb15cd9c388fead64b1166d904c6658e3a519b"
     },
     {
       "file": "recovery-outage-audit.json",

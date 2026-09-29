@@ -5,6 +5,81 @@
   ],
   "historical": [
     {
+      "file": "pre-position-qr-runs.json",
+      "sourceSha256": "a9620080c8c0ca2b29f10345005b917806bf17c8934f98e2071039a50d0ac340",
+      "applicability": "Historical or driver attempt; not counted as final candidate passes. Mechanism-specific selected observations, if published separately, retain their original source/APK.",
+      "record": [
+        {
+          "mode": "qr",
+          "run": 1,
+          "codeSha": "3d7b8c9647fa13f75bc62829b5c96966dfba6dd2",
+          "apkSha256": "0f2c3091661bf8818cd0995741ce6fea1f8fe00b4a0cf5867e705294dd383b77",
+          "startTimestamp": "2026-09-29T03:00:35.993Z",
+          "discoveryTimestamp": null,
+          "pairingSubmittedTimestamp": null,
+          "authenticatedTimestamp": null,
+          "snapshotLoadedTimestamp": null,
+          "websocketOnlineTimestamp": null,
+          "trialId": "4702df23-80ff-482f-b816-a9cb89172c11",
+          "success": false,
+          "errorClass": "NO_CAMERA_DECODE_OBSERVED",
+          "driver": "ADB onboarding plus physical camera; no QR injection",
+          "cameraLaunchRequestedAt": "2026-09-29T03:01:08.179Z",
+          "endTimestamp": "2026-09-29T03:01:53.648Z"
+        }
+      ]
+    },
+    {
+      "file": "qr-usb-interrupted-runs.json",
+      "sourceSha256": "a99e00a2adcb9148d96c635e6f79824d3333d900adbbb93998573f3eb1cf375e",
+      "applicability": "Historical or driver attempt; not counted as final candidate passes. Mechanism-specific selected observations, if published separately, retain their original source/APK.",
+      "record": [
+        {
+          "mode": "qr",
+          "run": 1,
+          "codeSha": "f8285134f6ac8ef58f34c9c48bc6e21f21c1317e",
+          "apkSha256": "7acd40e0d1d39b412b4cbd0e916cb2b66c38a2c944f0914f598cb4a9fbf85451",
+          "startTimestamp": "2026-09-29T03:37:01.893Z",
+          "discoveryTimestamp": null,
+          "pairingSubmittedTimestamp": null,
+          "authenticatedTimestamp": null,
+          "snapshotLoadedTimestamp": null,
+          "websocketOnlineTimestamp": null,
+          "trialId": null,
+          "success": false,
+          "errorClass": "DRIVER_OR_PLATFORM_ERROR",
+          "driver": "ADB onboarding plus physical camera; no QR injection",
+          "cameraLaunchRequestedAt": null,
+          "endTimestamp": "2026-09-29T03:37:18.889Z"
+        }
+      ]
+    },
+    {
+      "file": "qr-onboarding-attempt-runs.json",
+      "sourceSha256": "698f0e70731ea7831b59a1d77af00bed003b39c469202c4af4e0c97eaa4f7f6e",
+      "applicability": "Historical or driver attempt; not counted as final candidate passes. Mechanism-specific selected observations, if published separately, retain their original source/APK.",
+      "record": [
+        {
+          "mode": "qr",
+          "run": 1,
+          "codeSha": "f8285134f6ac8ef58f34c9c48bc6e21f21c1317e",
+          "apkSha256": "7acd40e0d1d39b412b4cbd0e916cb2b66c38a2c944f0914f598cb4a9fbf85451",
+          "startTimestamp": "2026-09-29T03:38:10.391Z",
+          "discoveryTimestamp": null,
+          "pairingSubmittedTimestamp": null,
+          "authenticatedTimestamp": null,
+          "snapshotLoadedTimestamp": null,
+          "websocketOnlineTimestamp": null,
+          "trialId": null,
+          "success": false,
+          "errorClass": "ONBOARDING_NOT_READY",
+          "driver": "ADB onboarding plus physical camera; no QR injection",
+          "cameraLaunchRequestedAt": null,
+          "endTimestamp": "2026-09-29T03:38:58.188Z"
+        }
+      ]
+    },
+    {
       "file": "pre-fix-mdns-runs.json",
       "sourceSha256": "4584df69efb55d610870ed9b15e9586817a67acb318b879af0a6f159dd246903",
       "applicability": "Historical or driver attempt; not counted as final candidate passes. Mechanism-specific selected observations, if published separately, retain their original source/APK.",

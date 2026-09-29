@@ -23,6 +23,12 @@ node scripts/device-pairing-pilot.mjs mdns 2 wrong-code
 
 通用配对驱动有意排除 `qr`。独立的 `node scripts/device-qr-pilot.mjs 5` 驱动仅用 ADB 操作首次配对界面，必须实际摆放相机，使其朝向主机上可见的二维码。请求启动相机后，它只观察白名单应用私有事件，不保存相机截图或 UI 转储。输出为 `qr-runs.json` 和 `qr-events.jsonl`；超时或未解码仍保留为失败观察。不得用注入 URI、深链、描述符或 API 交换替代物理扫码。应读取实际结果，不能因驱动存在就推断扫码成功。
 
+使用 `node scripts/device-qr-pilot.mjs 5 --resume`，可保留已有行与事件并继续配置的运行序列。记录中保留阶段和驱动诊断，包括相机启动前的失败。包含成功扫码及 UIAutomator exit-255 失败的文件，不能汇总为全成功序列，也不能删除该失败行。较早的 `pre-position-qr-runs.json`、`qr-usb-interrupted-runs.json` 和 `qr-onboarding-attempt-runs.json` 应作为历史尝试保留。
+
+审查工具并完成其他手机操作后，`node scripts/device-qr-negative-pilot.mjs --run all` 会打开新的私有可见浏览器窗口。工具在 1440×1000 视口中认证进入真实 Web 配对页，创建仅用于布局测量的会话，测量二维码区域后才创建试验会话。本环境实测区域为 240×360 像素，并非正方形。固定覆盖层按实测 x/y/宽/高保留真实试验 SVG，TEST 标签不会移动二维码。仍需确认手机与此窗口的物理对准；相同视口几何不保证操作系统窗口位置相同。停止竞争的手机驱动和自动刷新会话的显示工具。过期场景等待超过真实默认五分钟有效期，然后请求对同一过期会话进行两次物理扫描。这是两次扫描，不是两个独立过期会话。替换场景则为两次扫描分别创建并替换独立会话。可用 `expired` 或 `replaced` 替换 `all`，只运行一种场景。
+
+负向工具仅将 Gateway 经认证生成的真实二维码材料保留在私有浏览器 DOM/内存中，Android 只能通过相机接收。它要求观察白名单 `descriptorError` 或 `pairingError` 事件、确认返回 MainActivity，并在相机关闭后观察到匹配的拒绝提示；被替换会话可能在本地显示“QR session changed; scan a new QR”，也可能显示 HTTP 410。工具检查未出现认证事件及 City 身份稳定，不转储相机预览界面，保存阶段/错误诊断而非原始异常文本。每次运行创建 `.runtime/evidence/v0.2/qr-negative-<timestamp>/runs.json` 和 `events.jsonl`，保留先前输出；缺失证明仍标为失败/不完整。
+
 ## 连接与发现恢复
 
 ```powershell
@@ -75,6 +81,10 @@ QR 记录独立发布为 `qr-runs.json`、`qr-trials.json`、`qr-events.jsonl` �
 
 历史发现记录包装层明确设置 `originalSnapshotReferencesUnresolved: true`。其中的快照名是原始私有文件名，不是当前发布 XML 的链接：重跑前没有保留旧 XML，且文件名发生重叠。不得仅因文件名相同，就把较新的 XML 当作旧历史观察的证据。
 
+每个负向相机目录发布为独立前缀的 `qr-negative-<timestamp>-runs.json` 和 `qr-negative-<timestamp>-events.jsonl`，列于 `qr-negative-index.json`。源码哈希、commit/APK 身份、阶段、失败、`sessionGroup` 和 `sharedExpiredSession` 均被保留。索引只统计记录行，不将行数等同于成功次数或独立试验次数。QR 历史文件另外包装在 `historical-<原文件名>` 及历史索引中。应在采集器完成写入后再打包。
+
 对于复制或生成的文本记录，打包脚本拒绝已知本地凭据及部分敏感字段或 Windows 路径。PNG 副本需要另外目视检查，脚本不会脱敏图像像素。清单也会覆盖目标目录中原有文件，因此应审查过时文件或手工加入的文件。不得捕获仍有效的配对短码/二维码、永久凭据、不必要的设备标识或私有路径。应保留失败尝试及其适用范围限制；脱敏和哈希不会把不完整观察转化为验收证据。
 
 补充计数限制：Manual 入口点击和输入框聚焦点击没有埋点，不能把 userActions 当作不同方式的完整操作成本进行比较。
+
+`manual-qr-restoration` 系列以独立 runs/trials/events 前缀发布，保留原始手工配对基线。`post-qr-restoration-host.json` 保存另外的恢复后主机观察。后续负向工具在启动时记录 `driverSha256` 和 `workingTreeDirty`。未记录工具哈希的旧包明确标注 `driverHashMissingInOriginal: true`，工具哈希为空，不会事后套用当前脚本哈希。驱动曾被修改时，相同 Git HEAD 不代表执行过程相同。

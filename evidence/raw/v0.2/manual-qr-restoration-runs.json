@@ -1,0 +1,14 @@
+[
+  {
+    "mode": "manual",
+    "scenario": "qr-restoration",
+    "run": 1,
+    "codeSha": "5855a927e42ae2945728f509a7b4ef07bcd372bf",
+    "apkSha256": "7acd40e0d1d39b412b4cbd0e916cb2b66c38a2c944f0914f598cb4a9fbf85451",
+    "start": "2026-09-29T04:01:48.588Z",
+    "end": "2026-09-29T04:03:31.154Z",
+    "success": true,
+    "errorClass": null,
+    "driver": "ADB UI; no discovery injection"
+  }
+]

@@ -1,2 +1,11 @@
-{"trialId":"4702df23-80ff-482f-b816-a9cb89172c11","mode":"qr","event":"start","timestamp":"2026-09-29T03:01:06.760253Z","userActions":0,"retryCount":0}
-{"trialId":"4702df23-80ff-482f-b816-a9cb89172c11","mode":"qr","event":"action","timestamp":"2026-09-29T03:01:06.761Z","userActions":1,"retryCount":0}
+{"trialId":"cef7d468-ee50-4da7-bed6-bbce6bccfda8","mode":"qr","event":"start","timestamp":"2026-09-29T03:40:27.528407Z","userActions":0,"retryCount":0}
+{"trialId":"cef7d468-ee50-4da7-bed6-bbce6bccfda8","mode":"qr","event":"action","timestamp":"2026-09-29T03:40:27.529216Z","userActions":1,"retryCount":0}
+{"trialId":"cef7d468-ee50-4da7-bed6-bbce6bccfda8","mode":"qr","event":"discovery","timestamp":"2026-09-29T03:40:29.280456Z","userActions":1,"retryCount":0}
+{"trialId":"cef7d468-ee50-4da7-bed6-bbce6bccfda8","mode":"qr","event":"action","timestamp":"2026-09-29T03:40:29.282496Z","userActions":2,"retryCount":0}
+{"trialId":"cef7d468-ee50-4da7-bed6-bbce6bccfda8","mode":"qr","event":"pairingSubmitted","timestamp":"2026-09-29T03:40:29.284386Z","userActions":2,"retryCount":0}
+{"trialId":"cef7d468-ee50-4da7-bed6-bbce6bccfda8","mode":"qr","event":"authenticated","timestamp":"2026-09-29T03:40:29.309640Z","userActions":2,"retryCount":0}
+{"trialId":"cef7d468-ee50-4da7-bed6-bbce6bccfda8","mode":"qr","event":"authenticated","timestamp":"2026-09-29T03:40:29.440614Z","userActions":2,"retryCount":0}
+{"trialId":"cef7d468-ee50-4da7-bed6-bbce6bccfda8","mode":"qr","event":"snapshotLoaded","timestamp":"2026-09-29T03:40:29.443416Z","userActions":2,"retryCount":0}
+{"trialId":"cef7d468-ee50-4da7-bed6-bbce6bccfda8","mode":"qr","event":"connection_RECONNECTING","timestamp":"2026-09-29T03:40:29.445741Z","userActions":2,"retryCount":0}
+{"trialId":"cef7d468-ee50-4da7-bed6-bbce6bccfda8","mode":"qr","event":"connection_ONLINE","timestamp":"2026-09-29T03:40:29.518256Z","userActions":2,"retryCount":0}
+{"trialId":"cef7d468-ee50-4da7-bed6-bbce6bccfda8","mode":"qr","event":"websocketOnline","timestamp":"2026-09-29T03:40:29.519087Z","userActions":2,"retryCount":0}

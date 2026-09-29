@@ -4,41 +4,39 @@ STATUS: NOT_ACCEPTED
 PAIR_STATUS: SYNCHRONIZED
 CODE-SHA: 5410fa8ade8c671189cd37bff0d2c34de8b55c6f
 FACT: UTOPIA_V0_2=NOT_ACCEPTED
-FACT: PILOT_BASELINE_SOURCE_SHA=cb50fdd6ba5f23c16167672f32853485701772fb
-FACT: PILOT_BASELINE_APK_SHA256=3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db
-FACT: RADIO_FIX_SOURCE_SHA=3d7b8c9647fa13f75bc62829b5c96966dfba6dd2
-FACT: RADIO_FIX_APK_SHA256=0f2c3091661bf8818cd0995741ce6fea1f8fe00b4a0cf5867e705294dd383b77
-FACT: RADIO_FIX_TARGETED_RADIO=2_OF_2_PASS
-FACT: RADIO_FIX_CI=36514942297_PASS
-FACT: QR_CAMERA=0_OF_5_SUCCESS_1_NO_DECODE_ATTEMPT
-FACT: LATEST_SOURCE_SHA=5410fa8ade8c671189cd37bff0d2c34de8b55c6f
-FACT: LATEST_APK_SHA256=7acd40e0d1d39b412b4cbd0e916cb2b66c38a2c944f0914f598cb4a9fbf85451
-FACT: LATEST_WRONG_CODE_UI=2_OF_2_PASS
-FACT: LATEST_ANDROID_UNIT=13_PASS
-FACT: LATEST_CI=36515630417_PASS
-FACT: LATEST_BLE_PAIRING=1_OF_1_PASS
-FACT: LATEST_TELEMETRY_AND_TASK=PASS
-FACT: BUNDLE_MANIFEST=103_FILES_VALID
-FACT: DELIVERY_AUDIT=219_FILES_ZERO_KNOWN_FINDINGS
+FACT: PRODUCT_APK_SHA256=7acd40e0d1d39b412b4cbd0e916cb2b66c38a2c944f0914f598cb4a9fbf85451
+FACT: QR_RUN_SOURCE_SHA=f8285134f6ac8ef58f34c9c48bc6e21f21c1317e
+FACT: QR_DEVICE_OBSERVER_SOURCE_SHA=5855a927e42ae2945728f509a7b4ef07bcd372bf
+FACT: QR_POSITIVE=5_PASS_2_PRE_CAMERA_DRIVER_ERRORS
+FACT: QR_NEGATIVE=0_PASS_3_NO_DECODE_ATTEMPTS_1_GUARD_INVOCATION
+FACT: QR_NEGATIVE_LEGACY_DRIVER_HASH=UNKNOWN
+FACT: MANUAL_RESTORATION=PASS
+FACT: PRODUCT_CI=36515630417_PASS
+FACT: BUNDLE_MANIFEST=126_FILES_VALID
+FACT: DELIVERY_AUDIT=244_FILES_ZERO_KNOWN_FINDINGS
 FACT: RELEASE=NOT_PUBLISHED
 FACT: MERGE=NOT_DONE
 
-**NOT_ACCEPTED:** QR has zero successful camera trials out of five required; one genuine attempt ended NO_CAMERA_DECODE_OBSERVED after OS camera permission was allowed. API expiry/old-session rejection is not camera or Android negative-QR UI acceptance. [Draft PR #1](https://github.com/zhiheng-zhang-Mera/utopia/pull/1) remains unmerged; no release is claimed.
+**NOT_ACCEPTED:** positive QR camera pairing now has five successes. Physical negative-QR rejection verification and release delivery remain incomplete. The phone was positioned by the user; successful run indices are 1, 2, 5, 6 and 7. Pre-camera driver failures 3 and 4 remain visible and are not camera failures.
 
-Provenance is split deliberately. The pilot baseline has Manual/mDNS/BLE 5/5 each and the recovery/resource matrix. The radio-fix variant passed Bluetooth toggle 2/2 and CI. The latest pairing-error fix retains the error independently of discovery status: Android wrong-code UI rejection now passes 2/2 and unit tests 13/13. Latest BLE pairing passed 1/1, telemetry/task reruns passed with explicit installed APK provenance, and CI 36515630417 passed both jobs. Previous attempts where discovery overwrote the rejection text are historical failures, not these new UI passes. Historical telemetry/task observations omitted the installed APK hash; their preserved pre-APK-provenance records remain UNKNOWN and are not reassigned to any APK.
+The APK product source remains 5410fa8/7acd40…. QR runs bind repository source f828513…; Device Center observation binds collector 5855a9…. These collector revisions do not imply a new APK. Pilot-baseline cb50fdd/315262… retains Manual/mDNS/BLE 5/5 each; radio-fix 3d7b8c9/0f2c30… retains toggle 2/2. Latest-product wrong-code UI 2/2, targeted BLE pairing 1/1, exact-APK telemetry/task and CI passed. Earlier overwritten-error, no-decode, USB/onboarding and unknown-APK attempts remain historical.
 
-| Gate | Evidence and outstanding boundary |
+| Gate | Evidence and remaining boundary |
 |---|---|
-| A — V0 regression | Baseline recovery preserves history. Latest real task completed with both UIs matching artifact SHA-256 and explicit source/installed APK provenance. Historical unknown-APK records remain separate. Latest CI 36515630417 passed both jobs; radio-fix CI passed. |
-| B — Device Center | Latest exact-APK host timestamp, Web exact-sample and Android/Web rendered-value checks all passed. Historical unknown-APK records remain separate. |
-| C — QR | 0/5 successes, one actual no-decode attempt. Camera exchange and Android expired/old-QR UI paths remain unverified. |
-| D — mDNS | Pilot baseline discovery/pairing 5/5; native disappearance/reappearance 2/2. Latest wrong-code UI rejection 2/2 is separately bound. |
-| E — BLE | Pilot baseline discovery/pairing 5/5; radio-fix toggles 2/2 with disabled text, enabled/retry hint and native rediscovery. Latest targeted pairing passed 1/1. Hardware is capable; hardware-block acceptance is inapplicable. |
-| F — Manual | Pilot baseline clean manual trials 5/5. Do not claim five trials on the latest APK. |
-| G — Recovery/failures | Wi-Fi/Node/Gateway 3/3 each; nine published outage XML files audited for explicit Utopia outage state matching their records. This is sampled confirmed-outage evidence, not continuous zero staleness. API negatives 8/8; latest wrong-code UI 2/2. QR negative-UI coverage remains missing. |
-| H — Evidence | Bilingual ledgers, sanitized trials, resource data and manifest exist. The 103-file bundle manifest is valid; a 219-file audit found no known secrets, private paths or connected-device serial, and two published images were visually reviewed. This is a bounded audit, not proof of absence of every possible secret. Historical failed/unknown records remain visible. |
-| I — Release | Draft PR only. No accepted release, merge or final clean-state/asset verification. Latest CI passed; final clean-state/asset verification remains pending. |
+| A — V0 regression | Real latest-APK task completed; Android/Web task and result artifact agree. Baseline recovery preserves history. Product CI passed; final branch CI/clean-state verification follows evidence commit. |
+| B — Device Center | Latest telemetry timestamp/exact-sample/rendered-value checks passed. After successful QR, Alien was visible initially UNKNOWN · Cached, then automatically ONLINE without re-pairing. These are two sampled observations, not zero-staleness proof. |
+| C — QR | Positive camera pairing 5 successes, plus 2 retained pre-camera driver errors. Negative camera rejection remains 0 passes: expiry 1 and replaced-session 2 attempts produced no observed decode/rejection. Gate incomplete. |
+| D — mDNS | Pilot baseline discovery/pairing 5/5; native disappearance/reappearance 2/2. Latest wrong-code UI rejection 2/2 separately bound. |
+| E — BLE | Pilot baseline pairing 5/5; radio-fix toggle 2/2; latest targeted pairing 1/1. No five-trial claim for latest APK; no hardware-block exception. |
+| F — Manual | Baseline clean manual trials 5/5; latest post-QR manual restoration passed and host is usable online. |
+| G — Failures/recovery | Wi-Fi/Node/Gateway 3/3 each, nine outage XML audits pass. API negatives 8/8 are distinct from camera UI. Required expired/replaced QR camera rejection repetitions remain unverified. |
+| H — Evidence | Paired ledgers and bounded pilots exist. The refreshed manifest covers 126 files; the 244-file delivery audit reports zero known findings. Legacy negative-driver hash stays UNKNOWN; do not backfill it from newer source. |
+| I — Release | [Draft PR #1](https://github.com/zhiheng-zhang-Mera/utopia/pull/1) remains open; release NOT_PUBLISHED. Parallel main changes are preserved and unmerged, not claimed tested. A verified feature-branch release need not overwrite or merge main. |
 
-Evidence: [baseline trials](../raw/v0.2/manual-trials.json), [mDNS trials](../raw/v0.2/mdns-trials.json), [BLE trials](../raw/v0.2/ble-trials.json), [mDNS recovery](../raw/v0.2/mdns-discovery-recovery.json), [outage audit](../raw/v0.2/recovery-outage-audit.json), [latest Android units](../raw/v0.2/android-errorfix-unit-tests.json), [API negatives](../raw/v0.2/pairing-api-failures.json), [resource pilot](../raw/v0.2/stack-resource-pilot.json), [claim ledger](PAPER_EVIDENCE_V0_2.md). Latest targeted records: [wrong-code UI](../raw/v0.2/mdns-wrong-code-runs.json), [BLE pairing](../raw/v0.2/ble-radiofix-trials.json), [telemetry](../raw/v0.2/telemetry-consistency.json), [task](../raw/v0.2/task-regression.json), [product CI](../raw/v0.2/ci-errorfix-product.json), [delivery audit](../raw/v0.2/delivery-audit.json). Autonomous work is complete at this checkpoint; physical QR successes and negative-QR UI coverage, accepted release, and post-commit branch CI/clean-state verification remain outstanding.
+Negative attempts are preserved across three invocations: 03:46 UTC contains one expired and one replaced-session no-decode attempt; 03:58 failed the geometry guard before the camera and has zero rows; 03:59 contains one replaced-session no-decode attempt. The attempted expiry protocol reused one expired session for planned repeated scans; it was not two independent expired sessions. No attempt is promoted to PASS because an API test passed.
 
-Baseline authenticated-interval medians: Manual 103 ms, mDNS 24 ms, BLE 32 ms; QR null. ADB-driven overall medians: 24987 / 37301 / 30358 ms. These include driver/input waits and are not human-speed comparisons. The single 30-second stack pair measured 0.817% / 0.966% of one CPU core and 125.73 / 223.60 MB combined working set; normal includes PowerShell BLE. Noise, shared pages and instrumentation prevent a universal low-overhead claim.
+Published sources include [baseline trials](../raw/v0.2/manual-trials.json), [mDNS](../raw/v0.2/mdns-trials.json), [BLE](../raw/v0.2/ble-trials.json), [telemetry](../raw/v0.2/telemetry-consistency.json), [task](../raw/v0.2/task-regression.json), [outage audit](../raw/v0.2/recovery-outage-audit.json) and [claim ledger](PAPER_EVIDENCE_V0_2.md). Published updates: [QR trials](../raw/v0.2/qr-trials.json), [QR Device Center](../raw/v0.2/qr-device-center.json), [negative attempt index](../raw/v0.2/qr-negative-index.json), and [manual restoration](../raw/v0.2/manual-qr-restoration-trials.json). The sanitized bundle retains unsuccessful attempts and its manifest is verified.
+
+Baseline authenticated-interval medians are Manual 103 ms, mDNS 24 ms and BLE 32 ms. Overall ADB medians 24987 / 37301 / 30358 ms include driver/input waits and are not human comparisons; newer QR timings are not pooled into that baseline. The single stack resource pair is PILOT, not universal low-overhead evidence. Work remains pending physical negative-QR verification; no autonomous-completion claim is made.
+
+Restored host observation: [online host](../raw/v0.2/post-qr-restoration-host.json).

@@ -1,0 +1,53 @@
+{
+  "kind": "REAL_CAMERA_NEGATIVE_PILOT_INDEX",
+  "bundles": [
+    {
+      "runsFile": "qr-negative-2026-09-29T03-46-18.823Z-runs.json",
+      "eventsFile": "qr-negative-2026-09-29T03-46-18.823Z-events.jsonl",
+      "driverSha256": null,
+      "workingTreeDirty": null,
+      "driverHashMissingInOriginal": true,
+      "driverProvenanceNote": "Original invocation did not record its helper hash. HEAD alone cannot bind a modified driver; no current helper hash has been assigned retrospectively.",
+      "sourceDirectory": "qr-negative-2026-09-29T03-46-18.823Z",
+      "sourceRunsSha256": "621529570d36d164a41c40e937167752063302f955bd82f826d858d20b3e0f06",
+      "sourceEventsSha256": "55342c1434b6f055b9f2b35355148fb2ee9a044236a5403cca862126891034ca",
+      "codeSha": "5855a927e42ae2945728f509a7b4ef07bcd372bf",
+      "apkSha256": "7acd40e0d1d39b412b4cbd0e916cb2b66c38a2c944f0914f598cb4a9fbf85451",
+      "status": "INCOMPLETE",
+      "trialRows": 2,
+      "limitations": "Preserves original failures, stage diagnostics, sessionGroup and sharedExpiredSession. Shared-session scans are not independent expiry sessions."
+    },
+    {
+      "runsFile": "qr-negative-2026-09-29T03-58-55.426Z-runs.json",
+      "eventsFile": "qr-negative-2026-09-29T03-58-55.426Z-events.jsonl",
+      "driverSha256": null,
+      "workingTreeDirty": null,
+      "driverHashMissingInOriginal": true,
+      "driverProvenanceNote": "Original invocation did not record its helper hash. HEAD alone cannot bind a modified driver; no current helper hash has been assigned retrospectively.",
+      "sourceDirectory": "qr-negative-2026-09-29T03-58-55.426Z",
+      "sourceRunsSha256": "e1bb28807556f51aed28be891105171b75eeeeef854678b91f97023e97c6d9d6",
+      "sourceEventsSha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "codeSha": "5855a927e42ae2945728f509a7b4ef07bcd372bf",
+      "apkSha256": "7acd40e0d1d39b412b4cbd0e916cb2b66c38a2c944f0914f598cb4a9fbf85451",
+      "status": "INCOMPLETE",
+      "trialRows": 0,
+      "limitations": "Preserves original failures, stage diagnostics, sessionGroup and sharedExpiredSession. Shared-session scans are not independent expiry sessions."
+    },
+    {
+      "runsFile": "qr-negative-2026-09-29T03-59-31.144Z-runs.json",
+      "eventsFile": "qr-negative-2026-09-29T03-59-31.144Z-events.jsonl",
+      "driverSha256": null,
+      "workingTreeDirty": null,
+      "driverHashMissingInOriginal": true,
+      "driverProvenanceNote": "Original invocation did not record its helper hash. HEAD alone cannot bind a modified driver; no current helper hash has been assigned retrospectively.",
+      "sourceDirectory": "qr-negative-2026-09-29T03-59-31.144Z",
+      "sourceRunsSha256": "7c2f27a302be97f521a39698962a2fdda24ce4ae36e9bfb118d78b657779beb5",
+      "sourceEventsSha256": "c2d20952ca37b801d4e313db10e8571042ca9e49fcb9dfc13e164c8470b334bb",
+      "codeSha": "5855a927e42ae2945728f509a7b4ef07bcd372bf",
+      "apkSha256": "7acd40e0d1d39b412b4cbd0e916cb2b66c38a2c944f0914f598cb4a9fbf85451",
+      "status": "INCOMPLETE",
+      "trialRows": 1,
+      "limitations": "Preserves original failures, stage diagnostics, sessionGroup and sharedExpiredSession. Shared-session scans are not independent expiry sessions."
+    }
+  ]
+}

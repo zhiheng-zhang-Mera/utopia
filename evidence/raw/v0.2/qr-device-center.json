@@ -1,0 +1,20 @@
+{
+  "codeSha": "5855a927e42ae2945728f509a7b4ef07bcd372bf",
+  "appPresent": true,
+  "observedAt": "2026-09-29T03:47:16.1809914Z",
+  "deviceCenterVisible": true,
+  "apkSha256": "7acd40e0d1d39b412b4cbd0e916cb2b66c38a2c944f0914f598cb4a9fbf85451",
+  "afterSuccessfulQrPairing": true,
+  "scope": "Real Android Device Center after fifth successful camera pairing; no camera preview captured",
+  "alienVisible": true,
+  "onlineBadgeCount": 1,
+  "initialDeviceState": "UNKNOWN · Cached",
+  "subsequentObservation": {
+    "observedAt": "2026-09-29T03:48:28.9020711Z",
+    "onlineBadgeCount": 2,
+    "lastSeen": "2026-09-29T03:48:12.614Z",
+    "deviceState": "ONLINE",
+    "lastSnapshot": "2026-09-29T03:48:13.364Z",
+    "withoutRePairing": true
+  }
+}

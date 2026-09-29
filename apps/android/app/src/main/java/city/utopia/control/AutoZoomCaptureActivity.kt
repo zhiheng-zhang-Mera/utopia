@@ -42,10 +42,11 @@ class AutoZoomCaptureActivity : CaptureActivity() {
  }
  override fun initializeContent():DecoratedBarcodeView {
   scanner=super.initializeContent()
-  scanner.barcodeView.cameraSettings.focusMode=CameraSettings.FocusMode.CONTINUOUS
   return scanner
  }
  override fun onResume() {
+  // Intent initialization replaces CameraSettings after initializeContent().
+  scanner.barcodeView.cameraSettings.focusMode=CameraSettings.FocusMode.CONTINUOUS
   super.onResume()
   runCatching { File(filesDir,"scan-camera-events.jsonl").writeText("") }
   active=true; step=0

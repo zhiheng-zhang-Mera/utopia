@@ -14,6 +14,11 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const timestamp=()=>new Date().toISOString();
 const failure=code=>{const e=new Error(code);e.pilotCode=code;throw e;};
 const directory='.runtime/evidence/v0.2';mkdirSync(directory,{recursive:true});
+const series=process.argv.find(x=>x.startsWith('--series='))?.slice('--series='.length)||'';
+if(series&&!/^[a-z0-9-]{1,32}$/.test(series))throw Error('Invalid series name');
+const prefix=series?'qr-'+series:'qr';
+const driverSha256=createHash('sha256').update(readFileSync(new URL(import.meta.url))).digest('hex');
+const workingTreeDirty=!!execFileSync('git',['status','--porcelain'],{windowsHide:true}).toString().trim();
 const codeSha=execFileSync('git',['rev-parse','HEAD'],{windowsHide:true}).toString().trim();
 const installed=cmd('shell','pm','path','city.utopia.control').trim().replace(/^package:/,'');
 const apkSha256=cmd('shell','sha256sum',installed).trim().split(/\s/)[0];
@@ -39,11 +44,13 @@ function logEvents(){
  return [{trialId:e.trialId,mode:'qr',event:e.event,timestamp:e.timestamp,userActions:Number.isFinite(e.userActions)?e.userActions:null,retryCount:Number.isFinite(e.retryCount)?e.retryCount:null}];}catch{return [];}});
 }
 const resume=process.argv.includes('--resume');
-const rows=resume&&existsSync(directory+'/qr-runs.json')?JSON.parse(readFileSync(directory+'/qr-runs.json')):[];
-const recordedEvents=resume&&existsSync(directory+'/qr-events.jsonl')?readFileSync(directory+'/qr-events.jsonl','utf8').trim().split(/\r?\n/).filter(Boolean).map(x=>JSON.parse(x)):[];
-const save=()=>{writeFileSync(directory+'/qr-runs.json',JSON.stringify(rows,null,2));writeFileSync(directory+'/qr-events.jsonl',recordedEvents.map(e=>JSON.stringify(e)).join('\n')+(recordedEvents.length?'\n':''));};
+if(!resume&&existsSync(directory+'/'+prefix+'-runs.json'))failure('SERIES_EXISTS_USE_RESUME_OR_NEW_SERIES');
+const rows=resume&&existsSync(directory+'/'+prefix+'-runs.json')?JSON.parse(readFileSync(directory+'/'+prefix+'-runs.json')):[];
+const recordedEvents=resume&&existsSync(directory+'/'+prefix+'-events.jsonl')?readFileSync(directory+'/'+prefix+'-events.jsonl','utf8').trim().split(/\r?\n/).filter(Boolean).map(x=>JSON.parse(x)):[];
+if(rows.some(r=>r.apkSha256!==apkSha256))failure('RESUME_APK_MISMATCH_USE_NEW_SERIES');
+const save=()=>{writeFileSync(directory+'/'+prefix+'-runs.json',JSON.stringify(rows,null,2));writeFileSync(directory+'/'+prefix+'-events.jsonl',recordedEvents.map(e=>JSON.stringify(e)).join('\n')+(recordedEvents.length?'\n':''));};
 for(let run=rows.length+1;rows.filter(r=>r.success).length<count;run++){
- const row={mode:'qr',run,codeSha,apkSha256,startTimestamp:timestamp(),discoveryTimestamp:null,pairingSubmittedTimestamp:null,authenticatedTimestamp:null,snapshotLoadedTimestamp:null,websocketOnlineTimestamp:null,trialId:null,success:false,errorClass:null,driver:'ADB onboarding plus physical camera; no QR injection',cameraLaunchRequestedAt:null};
+ const row={mode:'qr',run,codeSha,driverSha256,workingTreeDirty,apkSha256,startTimestamp:timestamp(),discoveryTimestamp:null,pairingSubmittedTimestamp:null,authenticatedTimestamp:null,snapshotLoadedTimestamp:null,websocketOnlineTimestamp:null,trialId:null,success:false,errorClass:null,driver:'ADB onboarding plus physical camera; no QR injection',cameraLaunchRequestedAt:null};
  rows.push(row);save();let cameraLaunched=false;
  try{
   row.stage='STARTING';save();cmd('shell','am','force-stop','city.utopia.control');cmd('shell','am','start','-n','city.utopia.control/.MainActivity');await sleep(2500);

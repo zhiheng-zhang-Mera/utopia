@@ -1,11 +1,14 @@
 # UTOPIA · Room Pack V1
 
 **Task:** `MECH-ROOM-PACK-V1`
-**Status:** `MECH_ROOM_PACK_V1_READY_TO_ATTACH`
+**Status:** `MECH_ROOM_PACK_V1_READY_TO_ATTACH` + `ROOM_PACK_ATTACHED_TO_MAIN`
 **Allowed surface:** `apps/rooms/**`
 **Shared baseline:** `main` @ `3e0bfb09b94b2d58c36948feb5e2f4b60676e4a9`
+**Incubation policy:** [INCUBATION_POLICY.md](INCUBATION_POLICY.md)
 
 The Room Pack is Utopia's **single-host local product zone**: one Room Hub listening only on `127.0.0.1`, plus ten loosely coupled product rooms that can each be used and accepted on one machine.
+
+It is also the **incubator for every new room**: any feature whose final home is a formal city module must first become an operable, testable, single-host acceptable room here, and only then follow `District → Building → Module` into `city/`.
 
 ```text
 Utopia
@@ -172,6 +175,7 @@ combined Utopia tree
 ## Documentation
 
 - [ROOM_CATALOG.md](ROOM_CATALOG.md): each room's features, data and acceptance points
+- [INCUBATION_POLICY.md](INCUBATION_POLICY.md): the lifecycle, metadata and promotion contract
 - [ACCEPTANCE_PACK_V1.md](ACCEPTANCE_PACK_V1.md): the real Gate P1–P7 acceptance record
 - [POST_V1_BACKLOG.md](POST_V1_BACKLOG.md): second batch candidates and later enhancements
 - 中文对应目录：[../zh-CN/](../zh-CN/)

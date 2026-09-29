@@ -1,10 +1,13 @@
 # UTOPIA · Rooms (MECH ROOM PACK V1)
 
 **任务编号：** `MECH-ROOM-PACK-V1`
-**状态：** `MECH_ROOM_PACK_V1_READY_TO_ATTACH`
+**状态：** `MECH_ROOM_PACK_V1_READY_TO_ATTACH` + `ROOM_PACK_ATTACHED_TO_MAIN`
 **唯一施工面：** `apps/rooms/**`
+**孵化政策：** [docs/zh-CN/INCUBATION_POLICY.md](docs/zh-CN/INCUBATION_POLICY.md) · [docs/en/INCUBATION_POLICY.md](docs/en/INCUBATION_POLICY.md)
 
 Room Pack 是 Utopia 的**单机本地产品区**：一个只监听 `127.0.0.1` 的 Room Hub，加上 10 个互相低耦合、单机即可完整使用与验收的功能房间。
+
+它同时是**所有新功能房间的孵化场**：任何最终归属为正式城市模块的新功能，必须先在 Room Pack 形成可操作、可测试、单机可验收的临时房间，验收通过后再按 `District → Building → Module` 迁入 `city/`。晋升后的活跃孵化实现会从最终树删除，只保留 Git 历史与 `promotions/<room-id>.json` 记录。
 
 它不注册 Node / Task / Event / Capability，不使用 `/api/v0/*`、Gateway token、WebSocket 事件流，也不与 Boss / Hns / Android / Reference Node 发生任何关系。
 

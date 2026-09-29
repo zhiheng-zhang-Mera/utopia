@@ -10,8 +10,47 @@
 export const ROOM_API_BASE = '/local-rooms/v1';
 export const ROOM_ASSET_BASE = '/rooms';
 
-/** @type {Array<{id: string, number: string, label: string, zh: string, summary: string, dataFile: string|null, initialData: unknown, tags: string[]}>} */
-export const ROOMS = [
+/**
+ * Incubation lifecycle (MECH ROOM PACK §5.1).
+ *
+ * LOCAL_PRODUCT       — a finished local product room; never forced into city/
+ * INCUBATING          — a donor room being proved inside the Room Pack
+ * ACCEPTED_LOCAL      — the incubating room passed its own local acceptance
+ * PROMOTION_CANDIDATE — accepted and queued for a city promotion
+ * PROMOTED            — the live incubator implementation was removed and the
+ *                       core now lives under city/<district>/<building>/<module>
+ * REJECTED            — abandoned; kept only in Git history
+ */
+export const ROOM_LIFECYCLES = [
+  'LOCAL_PRODUCT',
+  'INCUBATING',
+  'ACCEPTED_LOCAL',
+  'PROMOTION_CANDIDATE',
+  'PROMOTED',
+  'REJECTED',
+];
+
+/** Lifecycles that no longer serve a live room surface. */
+export const RETIRED_LIFECYCLES = ['PROMOTED', 'REJECTED'];
+
+/** Default incubation metadata for a plain local product room. */
+export function lifecycleDefaults(overrides = {}) {
+  return {
+    lifecycle: 'LOCAL_PRODUCT',
+    targetCityPath: null,
+    donorRepository: null,
+    donorCommit: null,
+    donorSourcePaths: [],
+    ...overrides,
+  };
+}
+
+function withLifecycle(room) {
+  return { ...room, ...lifecycleDefaults(room) };
+}
+
+/** The ten original local product rooms. */
+const LOCAL_ROOMS = [
   {
     id: 'knowledge',
     number: '01',
@@ -114,12 +153,51 @@ export const ROOMS = [
   },
 ];
 
-/** Look up a room definition by id. */
+/**
+ * Donor incubator rooms (MECH ROOM PACK §8).
+ *
+ * A donor room starts as INCUBATING and only becomes part of the active catalog
+ * once its local product surface really exists. A room that has been promoted to
+ * city/ (or rejected) stops serving a live surface and is dropped from the
+ * active catalog, keeping only its Git history and its promotions/*.json record.
+ */
+const INCUBATOR_ROOMS = [];
+
+/** Every room the codebase knows about, active or retired. */
+export const ALL_ROOMS = [...LOCAL_ROOMS, ...INCUBATOR_ROOMS].map(withLifecycle);
+
+/** The active catalog: rooms that still serve a surface. */
+export const ROOMS = ALL_ROOMS.filter((room) => !RETIRED_LIFECYCLES.includes(room.lifecycle));
+
+/** Look up any known room definition by id. */
 export function findRoom(id) {
+  return ALL_ROOMS.find((room) => room.id === id) ?? null;
+}
+
+/** Look up an active room definition by id. */
+export function findActiveRoom(id) {
   return ROOMS.find((room) => room.id === id) ?? null;
 }
 
 /** Rooms that own a durable file. */
 export function persistentRooms() {
   return ROOMS.filter((room) => Boolean(room.dataFile));
+}
+
+/** Rooms still being incubated towards a city promotion. */
+export function incubatingRooms() {
+  return ROOMS.filter((room) => room.lifecycle !== 'LOCAL_PRODUCT');
+}
+
+/** Shape a room definition into the incubation metadata contract of §5.2. */
+export function roomIncubationMetadata(room) {
+  return {
+    id: room.id,
+    label: room.label,
+    lifecycle: room.lifecycle,
+    targetCityPath: room.targetCityPath,
+    donorRepository: room.donorRepository,
+    donorCommit: room.donorCommit,
+    donorSourcePaths: [...room.donorSourcePaths],
+  };
 }

@@ -24,7 +24,8 @@ import {
   serveStatic,
 } from '../shared/http.mjs';
 import { createRoomRegistry } from './registry.mjs';
-import { ROOMS, ROOM_API_BASE, ROOM_ASSET_BASE } from './manifest.mjs';
+import { ALL_ROOMS, ROOMS, ROOM_API_BASE, ROOM_ASSET_BASE } from './manifest.mjs';
+import { crossCheckPromotions, loadPromotionRecords } from './promotions.mjs';
 
 export const HOST = '127.0.0.1';
 export const DEFAULT_PORT = 4320;
@@ -78,8 +79,25 @@ export async function createRoomHubServer(options = {}) {
             summary: room.summary,
             persistent: Boolean(room.dataFile),
             tags: room.tags,
+            lifecycle: room.lifecycle,
+            targetCityPath: room.targetCityPath,
+            donorRepository: room.donorRepository,
+            donorCommit: room.donorCommit,
+            donorSourcePaths: room.donorSourcePaths,
           })),
           loaded: registry.map((entry) => entry.definition.id),
+        });
+        return;
+      }
+
+      if (path === `${ROOM_API_BASE}/promotions` && method === 'GET') {
+        const records = await loadPromotionRecords();
+        const problems = crossCheckPromotions(records, ALL_ROOMS, ROOMS);
+        sendJson(res, 200, {
+          total: records.length,
+          consistent: problems.length === 0,
+          problems,
+          promotions: records.map(({ file, ...record }) => ({ ...record, record: file })),
         });
         return;
       }

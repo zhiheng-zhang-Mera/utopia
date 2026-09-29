@@ -1,11 +1,14 @@
 # UTOPIA · Room Pack V1（房间包）
 
 **任务编号：** `MECH-ROOM-PACK-V1`
-**状态：** `MECH_ROOM_PACK_V1_READY_TO_ATTACH`
+**状态：** `MECH_ROOM_PACK_V1_READY_TO_ATTACH` + `ROOM_PACK_ATTACHED_TO_MAIN`
 **唯一施工面：** `apps/rooms/**`
 **共同基线：** `main` @ `3e0bfb09b94b2d58c36948feb5e2f4b60676e4a9`
+**孵化政策：** [INCUBATION_POLICY.md](INCUBATION_POLICY.md)
 
 Room Pack 是 Utopia 的**单机本地产品区**：一个只监听 `127.0.0.1` 的 Room Hub，加上 10 个互相低耦合、单机即可完整使用与验收的功能房间。
+
+它同时是**所有新功能房间的孵化场**：任何最终归属为正式城市模块的新功能，必须先在 Room Pack 形成可操作、可测试、单机可验收的临时房间，再按 `District → Building → Module` 决定是否晋升到 `city/`。
 
 ```text
 Utopia
@@ -172,6 +175,7 @@ combined Utopia tree
 ## 文档
 
 - [ROOM_CATALOG.md](ROOM_CATALOG.md)：每个房间的功能、数据与验收点
+- [INCUBATION_POLICY.md](INCUBATION_POLICY.md)：生命周期、metadata 与晋升合同
 - [ACCEPTANCE_PACK_V1.md](ACCEPTANCE_PACK_V1.md)：Gate P1–P7 真实验收记录
 - [POST_V1_BACKLOG.md](POST_V1_BACKLOG.md)：第二批房间与后续增强
 - 英文对应目录：[../en/](../en/)

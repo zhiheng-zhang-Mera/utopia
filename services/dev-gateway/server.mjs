@@ -59,7 +59,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       } else if(req.method==='POST' && path==='/api/v0/node/report'){
         const b=await body(req);const t=required('tasks',b.taskId);if(t.assignedNodeId!==b.id)fail(403,'Task belongs to another node');
         if(terminal.includes(t.state)){out=t;}else{
-          const allowed=(t.state==='ASSIGNED'&&b.state==='RUNNING')||(t.state==='RUNNING'&&['RUNNING','COMPLETED','FAILED'].includes(b.state));
+          const allowed=(t.state==='ASSIGNED'&&['RUNNING','FAILED'].includes(b.state))||(t.state==='RUNNING'&&['RUNNING','COMPLETED','FAILED'].includes(b.state));
           if(!allowed)fail(409,'Invalid task transition');
           if(!Number.isFinite(b.progress)||b.progress<t.progress||b.progress>100)fail(400,'Invalid progress');
           const patch={progress:b.progress};for(const k of ['lastCheckpoint','result','error'])if(b[k]!==undefined)patch[k]=b[k];

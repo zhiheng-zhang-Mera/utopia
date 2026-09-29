@@ -33,5 +33,8 @@ test('versioned authenticated gateway rejects unsafe commands and persists histo
     assert.equal((await (await request('tasks/'+abandoned.id)).json()).state,'FAILED');
     const next=await (await request('tasks',{type:'WAIT'})).json();
     assert.equal((await (await node('claim',{id:'node-1'})).json()).task.id,next.id);
+    const failed=await node('report',{id:'node-1',taskId:next.id,state:'FAILED',progress:100,error:'Transport failed before first RUNNING report'});
+    assert.equal(failed.status,200);
+    assert.equal((await failed.json()).state,'FAILED');
   } finally { if(app) await app.close(); await rm(dir,{recursive:true,force:true}); }
 });

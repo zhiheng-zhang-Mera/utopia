@@ -1,0 +1,579 @@
+{
+  "sourceSha": "c31035f9fd7e40a63033dcd1d63fde1629a8f31b",
+  "apkSha256": "f3b2bcc6115e7cc0cefe1b12ad6c5454e001005bc2065db3497a27a40306e043",
+  "scope": "Physical Android native controls, generated/public prompt, same input as Windows",
+  "rows": [
+    {
+      "case": "observed-offline",
+      "invocationId": "I-2bc8016e-10c0-4e04-ac02-1a89af1666a5",
+      "resultDigest": "7b967a89b104f2deb56d60d464abf9e27ed752bb07a68bc5ceeb063ca232956b",
+      "result": {
+        "artifactRetention": "Latest 8 successful sandbox packages; no installation.",
+        "contentDigest": "81e75d7407e83112ce1f997a3d86b318295a298ac41cfb5344437e22d1e1ddf2",
+        "degraded": false,
+        "fallback": {
+          "degraded": false,
+          "degraded_assets": [],
+          "disabled": [],
+          "image_generator": {
+            "attempts": 14,
+            "imageGenerator": false,
+            "retries": 1,
+            "timeoutMs": 20000
+          },
+          "warnings": []
+        },
+        "files": [
+          {
+            "bytes": 562,
+            "path": "README.md"
+          },
+          {
+            "bytes": 9621,
+            "path": "asset-plan.json"
+          },
+          {
+            "bytes": 1197,
+            "path": "assets/decorations/corners.png"
+          },
+          {
+            "bytes": 9207,
+            "path": "assets/decorations/decoration-frame.png"
+          },
+          {
+            "bytes": 684,
+            "path": "assets/decorations/decoration-hud.png"
+          },
+          {
+            "bytes": 551,
+            "path": "assets/icons/icon-set.png"
+          },
+          {
+            "bytes": 564,
+            "path": "assets/icons/set.png"
+          },
+          {
+            "bytes": 188,
+            "path": "assets/icons/tray.png"
+          },
+          {
+            "bytes": 50695,
+            "path": "assets/overlay/overlay-skin.png"
+          },
+          {
+            "bytes": 217633,
+            "path": "assets/overlay/overlay-texture.png"
+          },
+          {
+            "bytes": 17278,
+            "path": "assets/panels/panel.png"
+          },
+          {
+            "bytes": 94279,
+            "path": "assets/wallpapers/main.png"
+          },
+          {
+            "bytes": 147038,
+            "path": "assets/wallpapers/wallpaper.png"
+          },
+          {
+            "bytes": 576460,
+            "path": "components.json"
+          },
+          {
+            "bytes": 1657,
+            "path": "manifest.json"
+          },
+          {
+            "bytes": 2828,
+            "path": "overlay-plan.json"
+          },
+          {
+            "bytes": 310,
+            "path": "persona.json"
+          },
+          {
+            "bytes": 228182,
+            "path": "preview.html"
+          },
+          {
+            "bytes": 4456,
+            "path": "preview.png"
+          },
+          {
+            "bytes": 765531,
+            "path": "preview/composite-preview.html"
+          },
+          {
+            "bytes": 199781,
+            "path": "preview/hns-preview.html"
+          },
+          {
+            "bytes": 360631,
+            "path": "preview/official-overlay-preview.html"
+          },
+          {
+            "bytes": 360631,
+            "path": "preview/official-preview.html"
+          },
+          {
+            "bytes": 14519,
+            "path": "preview/official-shell-preview.html"
+          },
+          {
+            "bytes": 2444,
+            "path": "surface-plan.json"
+          },
+          {
+            "bytes": 593160,
+            "path": "tokens.json"
+          }
+        ],
+        "globalThemeApply": false,
+        "intent": {
+          "base_hint": "#101724",
+          "brightness": 0,
+          "decoration": "medium_low",
+          "density": "compact",
+          "density_scale": 0.86,
+          "design_language": "future_research_workstation",
+          "interpreted_at": "1970-01-01T00:00:00.000Z",
+          "motion": "subtle",
+          "notes": [
+            "persona disabled by the prompt"
+          ],
+          "palette": [
+            "steel_blue"
+          ],
+          "palette_label": "钢蓝",
+          "persona": {
+            "character": null,
+            "enabled": false,
+            "prominence": 0
+          },
+          "prompt": "blue research compact no persona",
+          "readability_priority": "high",
+          "style_tag": "research",
+          "version": 1
+        },
+        "intentDigest": "fe6584470a83dd8668bc13e2ad4bd8cec7da3b5dc26cfa9817d39911006e00ee",
+        "observed": true,
+        "ok": true,
+        "packageBytes": 3660087,
+        "packageDigest": "80a8df48e9bf676098e11c3b9617ac70fd2a1859670eb5ff5cf70e231e15dcc0",
+        "planDigest": "f8d70e7da81532fa9f32333a513ee469edcfac6a710e53779bb23ab14e6a8a8c",
+        "validation": {
+          "issues": [],
+          "ok": true
+        },
+        "validationDigest": "a450a675890e912a3ebddf05204ec06ace1f90dc13733b36f20533b61c52fdc4",
+        "verdict": "PASS"
+      },
+      "canonicalDigestMatchesWindows": true,
+      "nativeIdentityPreviewAndPackageDigestVisible": true,
+      "pass": true,
+      "previewSha256": "17c8a5c018c306889bb468f8ffc0e96ac1cd8fa3019f5052cc6b00e2b3a2964a"
+    },
+    {
+      "case": "unobserved-offline",
+      "invocationId": "I-c3a9c15a-1192-49c5-9722-b7d98d1da185",
+      "resultDigest": "ab6fb3d671909343e522419b764d04e9d516a677156f2e81927756e0a950b6f9",
+      "result": {
+        "artifactRetention": "Latest 8 successful sandbox packages; no installation.",
+        "contentDigest": "81e75d7407e83112ce1f997a3d86b318295a298ac41cfb5344437e22d1e1ddf2",
+        "degraded": true,
+        "fallback": {
+          "degraded": false,
+          "degraded_assets": [],
+          "disabled": [],
+          "image_generator": {
+            "attempts": 14,
+            "imageGenerator": false,
+            "retries": 1,
+            "timeoutMs": 20000
+          },
+          "warnings": []
+        },
+        "files": [
+          {
+            "bytes": 562,
+            "path": "README.md"
+          },
+          {
+            "bytes": 9649,
+            "path": "asset-plan.json"
+          },
+          {
+            "bytes": 1197,
+            "path": "assets/decorations/corners.png"
+          },
+          {
+            "bytes": 9207,
+            "path": "assets/decorations/decoration-frame.png"
+          },
+          {
+            "bytes": 684,
+            "path": "assets/decorations/decoration-hud.png"
+          },
+          {
+            "bytes": 551,
+            "path": "assets/icons/icon-set.png"
+          },
+          {
+            "bytes": 564,
+            "path": "assets/icons/set.png"
+          },
+          {
+            "bytes": 188,
+            "path": "assets/icons/tray.png"
+          },
+          {
+            "bytes": 50695,
+            "path": "assets/overlay/overlay-skin.png"
+          },
+          {
+            "bytes": 217633,
+            "path": "assets/overlay/overlay-texture.png"
+          },
+          {
+            "bytes": 17278,
+            "path": "assets/panels/panel.png"
+          },
+          {
+            "bytes": 94279,
+            "path": "assets/wallpapers/main.png"
+          },
+          {
+            "bytes": 147038,
+            "path": "assets/wallpapers/wallpaper.png"
+          },
+          {
+            "bytes": 576460,
+            "path": "components.json"
+          },
+          {
+            "bytes": 1657,
+            "path": "manifest.json"
+          },
+          {
+            "bytes": 2901,
+            "path": "overlay-plan.json"
+          },
+          {
+            "bytes": 310,
+            "path": "persona.json"
+          },
+          {
+            "bytes": 228182,
+            "path": "preview.html"
+          },
+          {
+            "bytes": 4456,
+            "path": "preview.png"
+          },
+          {
+            "bytes": 765531,
+            "path": "preview/composite-preview.html"
+          },
+          {
+            "bytes": 199781,
+            "path": "preview/hns-preview.html"
+          },
+          {
+            "bytes": 360631,
+            "path": "preview/official-overlay-preview.html"
+          },
+          {
+            "bytes": 360631,
+            "path": "preview/official-preview.html"
+          },
+          {
+            "bytes": 14519,
+            "path": "preview/official-shell-preview.html"
+          },
+          {
+            "bytes": 2527,
+            "path": "surface-plan.json"
+          },
+          {
+            "bytes": 593160,
+            "path": "tokens.json"
+          }
+        ],
+        "globalThemeApply": false,
+        "intent": {
+          "base_hint": "#101724",
+          "brightness": 0,
+          "decoration": "medium_low",
+          "density": "compact",
+          "density_scale": 0.86,
+          "design_language": "future_research_workstation",
+          "interpreted_at": "1970-01-01T00:00:00.000Z",
+          "motion": "subtle",
+          "notes": [
+            "persona disabled by the prompt"
+          ],
+          "palette": [
+            "steel_blue"
+          ],
+          "palette_label": "钢蓝",
+          "persona": {
+            "character": null,
+            "enabled": false,
+            "prominence": 0
+          },
+          "prompt": "blue research compact no persona",
+          "readability_priority": "high",
+          "style_tag": "research",
+          "version": 1
+        },
+        "intentDigest": "fe6584470a83dd8668bc13e2ad4bd8cec7da3b5dc26cfa9817d39911006e00ee",
+        "observed": false,
+        "ok": true,
+        "packageBytes": 3660271,
+        "packageDigest": "bdc2c972c9f31a867831af4441539f1961ed1646b3aabcd84283f27ac4dae654",
+        "planDigest": "4880830a05cb59d6783208c5690993ae83e1d38748fc985eb6c0e643c7f33d15",
+        "validation": {
+          "issues": [],
+          "ok": true
+        },
+        "validationDigest": "a450a675890e912a3ebddf05204ec06ace1f90dc13733b36f20533b61c52fdc4",
+        "verdict": "PASS"
+      },
+      "canonicalDigestMatchesWindows": true,
+      "nativeIdentityPreviewAndPackageDigestVisible": true,
+      "pass": true,
+      "previewSha256": "17c8a5c018c306889bb468f8ffc0e96ac1cd8fa3019f5052cc6b00e2b3a2964a"
+    },
+    {
+      "case": "unobserved-fallback",
+      "invocationId": "I-2725ff4b-859b-4fa7-aea9-8c50fd721b91",
+      "resultDigest": "c8c24ba89299b772cc9f78612de5e958eed4e750d4cf93be3345a95dd6cd443e",
+      "result": {
+        "artifactRetention": "Latest 8 successful sandbox packages; no installation.",
+        "contentDigest": "81e75d7407e83112ce1f997a3d86b318295a298ac41cfb5344437e22d1e1ddf2",
+        "degraded": true,
+        "fallback": {
+          "degraded": true,
+          "degraded_assets": [
+            {
+              "kind": "wallpaper",
+              "provenance": "procedural-fallback",
+              "surface": "owned_surface"
+            },
+            {
+              "kind": "panel_texture",
+              "provenance": "procedural-fallback",
+              "surface": "owned_surface"
+            },
+            {
+              "kind": "icon_set",
+              "provenance": "procedural-fallback",
+              "surface": "owned_surface"
+            },
+            {
+              "kind": "frame_decoration",
+              "provenance": "procedural-fallback",
+              "surface": "external_shell"
+            },
+            {
+              "kind": "overlay_skin",
+              "provenance": "procedural-fallback",
+              "surface": "owned_overlay"
+            },
+            {
+              "kind": "overlay_texture",
+              "provenance": "procedural-fallback",
+              "surface": "owned_overlay"
+            },
+            {
+              "kind": "hud_decoration",
+              "provenance": "procedural-fallback",
+              "surface": "owned_overlay"
+            }
+          ],
+          "disabled": [],
+          "image_generator": {
+            "attempts": 28,
+            "imageGenerator": true,
+            "retries": 1,
+            "timeoutMs": 20000
+          },
+          "warnings": [
+            "wallpaper: model attempt 1 failed (Injected image failure for local acceptance)",
+            "wallpaper: model attempt 2 failed (Injected image failure for local acceptance)",
+            "wallpaper: generated by the procedural fallback after the image generator did not deliver",
+            "panel_texture: model attempt 1 failed (Injected image failure for local acceptance)",
+            "panel_texture: model attempt 2 failed (Injected image failure for local acceptance)",
+            "panel_texture: generated by the procedural fallback after the image generator did not deliver",
+            "icon_set: model attempt 1 failed (Injected image failure for local acceptance)",
+            "icon_set: model attempt 2 failed (Injected image failure for local acceptance)",
+            "icon_set: generated by the procedural fallback after the image generator did not deliver",
+            "frame_decoration: model attempt 1 failed (Injected image failure for local acceptance)",
+            "frame_decoration: model attempt 2 failed (Injected image failure for local acceptance)",
+            "frame_decoration: generated by the procedural fallback after the image generator did not deliver",
+            "overlay_skin: model attempt 1 failed (Injected image failure for local acceptance)",
+            "overlay_skin: model attempt 2 failed (Injected image failure for local acceptance)",
+            "overlay_skin: generated by the procedural fallback after the image generator did not deliver",
+            "overlay_texture: model attempt 1 failed (Injected image failure for local acceptance)",
+            "overlay_texture: model attempt 2 failed (Injected image failure for local acceptance)",
+            "overlay_texture: generated by the procedural fallback after the image generator did not deliver",
+            "hud_decoration: model attempt 1 failed (Injected image failure for local acceptance)",
+            "hud_decoration: model attempt 2 failed (Injected image failure for local acceptance)",
+            "hud_decoration: generated by the procedural fallback after the image generator did not deliver"
+          ]
+        },
+        "files": [
+          {
+            "bytes": 562,
+            "path": "README.md"
+          },
+          {
+            "bytes": 9642,
+            "path": "asset-plan.json"
+          },
+          {
+            "bytes": 1197,
+            "path": "assets/decorations/corners.png"
+          },
+          {
+            "bytes": 9207,
+            "path": "assets/decorations/decoration-frame.png"
+          },
+          {
+            "bytes": 684,
+            "path": "assets/decorations/decoration-hud.png"
+          },
+          {
+            "bytes": 551,
+            "path": "assets/icons/icon-set.png"
+          },
+          {
+            "bytes": 564,
+            "path": "assets/icons/set.png"
+          },
+          {
+            "bytes": 188,
+            "path": "assets/icons/tray.png"
+          },
+          {
+            "bytes": 50695,
+            "path": "assets/overlay/overlay-skin.png"
+          },
+          {
+            "bytes": 217633,
+            "path": "assets/overlay/overlay-texture.png"
+          },
+          {
+            "bytes": 17278,
+            "path": "assets/panels/panel.png"
+          },
+          {
+            "bytes": 94279,
+            "path": "assets/wallpapers/main.png"
+          },
+          {
+            "bytes": 147038,
+            "path": "assets/wallpapers/wallpaper.png"
+          },
+          {
+            "bytes": 576460,
+            "path": "components.json"
+          },
+          {
+            "bytes": 1657,
+            "path": "manifest.json"
+          },
+          {
+            "bytes": 2901,
+            "path": "overlay-plan.json"
+          },
+          {
+            "bytes": 310,
+            "path": "persona.json"
+          },
+          {
+            "bytes": 228182,
+            "path": "preview.html"
+          },
+          {
+            "bytes": 4456,
+            "path": "preview.png"
+          },
+          {
+            "bytes": 765531,
+            "path": "preview/composite-preview.html"
+          },
+          {
+            "bytes": 199781,
+            "path": "preview/hns-preview.html"
+          },
+          {
+            "bytes": 360631,
+            "path": "preview/official-overlay-preview.html"
+          },
+          {
+            "bytes": 360631,
+            "path": "preview/official-preview.html"
+          },
+          {
+            "bytes": 14519,
+            "path": "preview/official-shell-preview.html"
+          },
+          {
+            "bytes": 2527,
+            "path": "surface-plan.json"
+          },
+          {
+            "bytes": 593160,
+            "path": "tokens.json"
+          }
+        ],
+        "globalThemeApply": false,
+        "intent": {
+          "base_hint": "#101724",
+          "brightness": 0,
+          "decoration": "medium_low",
+          "density": "compact",
+          "density_scale": 0.86,
+          "design_language": "future_research_workstation",
+          "interpreted_at": "1970-01-01T00:00:00.000Z",
+          "motion": "subtle",
+          "notes": [
+            "persona disabled by the prompt"
+          ],
+          "palette": [
+            "steel_blue"
+          ],
+          "palette_label": "钢蓝",
+          "persona": {
+            "character": null,
+            "enabled": false,
+            "prominence": 0
+          },
+          "prompt": "blue research compact no persona",
+          "readability_priority": "high",
+          "style_tag": "research",
+          "version": 1
+        },
+        "intentDigest": "fe6584470a83dd8668bc13e2ad4bd8cec7da3b5dc26cfa9817d39911006e00ee",
+        "observed": false,
+        "ok": true,
+        "packageBytes": 3660264,
+        "packageDigest": "ca02ec7753a63d1f85cf14049525f40b6a6b07619db7de2c463d7355041da923",
+        "planDigest": "4880830a05cb59d6783208c5690993ae83e1d38748fc985eb6c0e643c7f33d15",
+        "validation": {
+          "issues": [],
+          "ok": true
+        },
+        "validationDigest": "a450a675890e912a3ebddf05204ec06ace1f90dc13733b36f20533b61c52fdc4",
+        "verdict": "PASS"
+      },
+      "canonicalDigestMatchesWindows": true,
+      "nativeIdentityPreviewAndPackageDigestVisible": true,
+      "pass": true,
+      "previewSha256": "17c8a5c018c306889bb468f8ffc0e96ac1cd8fa3019f5052cc6b00e2b3a2964a"
+    }
+  ],
+  "status": "PASS"
+}

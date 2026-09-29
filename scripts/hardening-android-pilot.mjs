@@ -3,9 +3,9 @@ import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {tree,cmd,tap,top,scroll,chooseFile,pause} from './android-ui-driver.mjs';
-const output='.runtime/evidence/v0.3-hardening/android/'+Date.now();mkdirSync(output,{recursive:true});
+const output=(process.env.UTOPIA_ANDROID_EVIDENCE_DIR??'.runtime/evidence/v0.3-hardening/android')+'/'+Date.now();mkdirSync(output,{recursive:true});
 const config=JSON.parse(readFileSync('.runtime/local-config.json')),{url}=JSON.parse(readFileSync('.runtime/processes.json'));
-const windows=JSON.parse(readFileSync('.runtime/evidence/v0.3-hardening/windows/runs.json'));
+const windows=JSON.parse(readFileSync((process.env.UTOPIA_WINDOWS_EVIDENCE_DIR??'.runtime/evidence/v0.3-hardening/windows')+'/runs.json'));
 const call=async path=>{const response=await fetch(url+'/api/v0/'+path,{headers:{Authorization:'Bearer '+config.token,'X-City-Api-Version':'0','X-City-Schema-Version':'0'}});assert.ok(response.ok);return response.json();};
 const installed=cmd('shell','pm','path','city.utopia.control').trim().replace(/^package:/,'');
 const apkSha256=cmd('shell','sha256sum',installed).trim().split(/\s/)[0];
@@ -26,6 +26,7 @@ async function invoke(name,extra){
  report.rows.push({case:name,invocationId:row.invocationId,resultDigest:row.resultDigest,status:row.status,canonicalDigestMatchesWindows:true,androidIdentityAndContentVisible:true,pass:true});save();return row;
 }
 try{
+ cmd('shell','am','start','-W','-n','city.utopia.control/.MainActivity');
  await tap('Services');await top();selected=['Document Intake','Knowledge Query','Skill Inspect','Evidence Review','Theme Lab'].find(name=>false);const nodes=await tree();selected=['Document Intake','Knowledge Query','Skill Inspect','Evidence Review','Theme Lab'].find(name=>nodes.some(n=>n.text===name));assert.ok(selected);
  await select('Document Intake');await chooseFile('sample.txt');await invoke('sample.txt','Sections:');await tap('Query this document');selected='Knowledge Query';await invoke('document-to-knowledge','Utopia');
  await select('Skill Inspect');await invoke('skill-ref:owner/repo@main','Show result details');

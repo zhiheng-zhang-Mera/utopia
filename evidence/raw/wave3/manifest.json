@@ -1,13 +1,37 @@
 {
-  "scope": "Wave3 staged evidence: hardening, activation and D9 local Room accepted; City promotion and Alien build pending",
+  "scope": "Wave3: historical hardening/activation/Room evidence plus City promotion and Alien implementation pilots; final integration bound by annotated tag",
   "files": [
     {
       "file": "activation-review.json",
       "sha256": "7ab818e1aa9d8e91ef16513b8bacff15e77668358514ef892a97744436fdd54a"
     },
     {
+      "file": "android-build-attempt-1.json",
+      "sha256": "9afa62400f9fa7d9df8e815da7aed852c6dc9d60ffc222891fe121731992efe0"
+    },
+    {
+      "file": "android-observed-offline.png",
+      "sha256": "569e05213a411ebbf1616a106daf9c794170979e6f2a727a210a998e4affd66a"
+    },
+    {
+      "file": "android-regression-attempt-1.json",
+      "sha256": "7bd849cabbd2bd70fb683f8352fa677afc244d6887d5fb0d62061de90fe98dbe"
+    },
+    {
+      "file": "android-regression-attempt-2.json",
+      "sha256": "9c500a480c2c025b1d61de9e694e74d058e0b1e879819bb317dcb15317612d34"
+    },
+    {
+      "file": "android-unobserved-fallback.png",
+      "sha256": "e4f95940787861037d1840b62e4a4a569bfd8620d6ff5b45a140e61671efb36f"
+    },
+    {
       "file": "hardening-freeze.json",
       "sha256": "2474b6962a835154b80ed15383c126d4305ada8b4e9063889f44ea92c95a1515"
+    },
+    {
+      "file": "regression-summary.json",
+      "sha256": "75df1d70a2140c0b045831c0527fa525260337c2f58ce444fb7cd7f05dfb690f"
     },
     {
       "file": "room-observed-offline.png",
@@ -20,6 +44,26 @@
     {
       "file": "room-unobserved-fallback.png",
       "sha256": "bb41a33928c6767ccb647e170a2fd11fdc9a3341bc946c824b4a5e21379b172b"
+    },
+    {
+      "file": "runtime-restart-refusals.json",
+      "sha256": "7770190c7ce0a43e26d79c153961a28a3e5ead7fb1dcf42cca88804d329a4cc0"
+    },
+    {
+      "file": "windows-build-runs.json",
+      "sha256": "5d2463545fd7c92f699391b5b8f35574a60e64a0a382e16e9705f4bb024b6149"
+    },
+    {
+      "file": "windows-observed-offline.png",
+      "sha256": "a33ad64680a78762d8052a1bbab482935360e43aff5cfd14e534dc176a5562c1"
+    },
+    {
+      "file": "windows-regression-runs.json",
+      "sha256": "c4d619fc88a2647328a7f71f72ab48714aa5bc592d7c581f068ff057dfe9dbb3"
+    },
+    {
+      "file": "windows-unobserved-fallback.png",
+      "sha256": "0cbd1b9033565b79da765d13420aa251a3b76f463e091e555656a39573d9c45c"
     }
   ]
 }

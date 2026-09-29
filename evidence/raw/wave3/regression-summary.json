@@ -1,0 +1,22 @@
+{
+  "sourceSha": "c31035f9fd7e40a63033dcd1d63fde1629a8f31b",
+  "implementationCi": {
+    "run": 36556676840,
+    "status": "SUCCESS"
+  },
+  "tests": {
+    "root": 56,
+    "room": 67,
+    "city": 129,
+    "android": 21
+  },
+  "apkSha256": "f3b2bcc6115e7cc0cefe1b12ad6c5454e001005bc2065db3497a27a40306e043",
+  "promotionRecords": 10,
+  "windowsExistingCases": 26,
+  "androidExistingChecks": 7,
+  "windowsBuildCases": 3,
+  "androidBuildCases": 3,
+  "canonicalDigestMatches": 3,
+  "globalThemeApply": false,
+  "scope": "Single Windows host and physical Android 12; generated/public input; no real image provider; desktop observation is a fixture."
+}

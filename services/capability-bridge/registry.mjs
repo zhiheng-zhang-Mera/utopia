@@ -7,7 +7,7 @@ export const ADAPTERS=[
  {id:'planning.knowledge.query',name:'Knowledge Query',moduleRefs:[ref('09-planning-knowledge','01-knowledge-service','knowledge-core')],operations:['query','fromDocument'],inputKind:'knowledge'},
  {id:'engineering.skill.inspect',name:'Skill Inspect',moduleRefs:[ref('02-engineering','02-worker-gateway','skill-intake')],operations:['inspect','validate','catalog','archive'],inputKind:'skill'},
  {id:'research.evidence.review',name:'Evidence Review',moduleRefs:[ref('06-research','01-research-institute','evidence-engine')],operations:['review','tamper'],inputKind:'evidence'},
- {id:'presentation.theme.lab',name:'Theme Lab',moduleRefs:[ref('11-entertainment','01-entertainment-centre','theme-engine')],operations:['generate'],inputKind:'theme'},
+ {id:'presentation.theme.lab',name:'Theme Lab',moduleRefs:[ref('11-entertainment','01-entertainment-centre','theme-engine')],operations:['generate','build'],inputKind:'theme'},
 ];
 export function registry(manifest=JSON.parse(readFileSync(new URL('city/CITY_IMPLEMENTATION_MANIFEST.json',root))),adapters=ADAPTERS){
  const modules=manifest.districts.flatMap(d=>d.buildings.flatMap(b=>b.modules.map(m=>({...m,ref:ref(d.id,b.id,m.id)}))));

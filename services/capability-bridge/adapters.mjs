@@ -3,16 +3,35 @@ import {documentSectionsToKnowledgeEntries} from '../../contracts/city-roads/doc
 const base=new URL('../../city/',import.meta.url);
 const moduleAt=path=>import(new URL(path,base));
 
-export async function invokeAdapter(id,operation,input){
+export async function invokeAdapter(id,operation,input,context={}){
  objectInput(input);
  switch(id){
   case 'planning.document.intake':return document(input);
   case 'planning.knowledge.query':return knowledge(input,operation);
   case 'engineering.skill.inspect':return skill(input,operation);
   case 'research.evidence.review':return evidence(input,operation);
-  case 'presentation.theme.lab':if(operation!=='generate')refuse('OPERATION_BLOCKED');return theme(input);
+  case 'presentation.theme.lab':if(operation==='build')return themeBuild(input,context);if(operation!=='generate')refuse('OPERATION_BLOCKED');return theme(input);
   default:refuse('CAPABILITY_NOT_FOUND');
  }
+}
+
+async function themeBuild(input,{themeSandbox}={}){
+ if(['outDir','sandboxRoot','artifactRoot','draft','image_generator'].some(key=>key in input))refuse('OUTPUT_PATH_FORBIDDEN');
+ if(typeof input.prompt!=='string'||input.prompt.length>2000)refuse('INVALID_THEME_PROMPT');
+ if(input.targetSurface&&input.targetSurface!=='owned_surface')refuse(input.targetSurface==='protected_external_surface'?'PROTECTED_SURFACE':'INVALID_SURFACE');
+ if(!['none','desktop'].includes(input.observationPreset??'none'))refuse('INVALID_OBSERVATION');
+ if('injectFailure' in input&&typeof input.injectFailure!=='boolean')refuse('INVALID_INPUT');
+ if(!themeSandbox)refuse('BUILD_STORAGE_UNAVAILABLE');
+ const prefix='11-entertainment/01-entertainment-centre/theme-engine/';
+ const designer=await moduleAt(prefix+'design/designer.mjs'),builder=await moduleAt(prefix+'build/builder.mjs');
+ const preset={viewport:{width:1280,height:800},safe_region:{x:0,y:0,width:1280,height:800},critical_regions:[{x:0,y:0,width:800,height:700}]};
+ let draft;try{draft=designer.prepareDraft({prompt:input.prompt,observation:'observation' in input?input.observation:input.observationPreset==='desktop'?preset:null});}catch(error){refuse(/OBSERVATION|SAFE_REGION/.test(error.message)?'INVALID_OBSERVATION':'INVALID_THEME_INPUT');}
+ if(input.injectFailure)draft.image_generator=async()=>{throw Error('Injected image failure for local acceptance');};
+ const {join}=await import('node:path');
+ const result=await builder.buildThemePackage({draft,sandboxRoot:themeSandbox,outDir:join(themeSandbox,'package')});
+ if(!result.ok)refuse(/^[A-Z_]+$/.test(result.reason)?result.reason:'THEME_BUILD_REFUSED');
+ const {previewDataUri,...summary}=builder.summarizeBuild(result,draft);
+ return{...summary,previewPngBase64:previewDataUri.split(',')[1],artifactRetention:'Latest 8 successful sandbox packages; no installation.'};
 }
 async function document(input){
  const bytes=fileBytes(input),fileName=String(input.fileName??'document.txt').replace(/^.*[\\/]/,'').slice(0,200);

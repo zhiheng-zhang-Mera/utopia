@@ -69,6 +69,7 @@ function round(value) {
 
 /** The four surfaces this design actually writes, with their write verdict. */
 function planSurfaces({ intent = {}, observation = null } = {}) {
+  validateObservation(observation)
   const personaEnabled = intent.persona?.enabled === true
   const overlayWanted = intent.overlay_options?.overlay !== false
   const shellWanted = intent.overlay_options?.shell !== false
@@ -137,6 +138,7 @@ function planSurfaces({ intent = {}, observation = null } = {}) {
 
 /** Character placement, derived from the real viewport and safe region. */
 function planCharacterPlacement({ framing, intent, observation, kind = null }) {
+  validateObservation(observation)
   const viewport = observation?.viewport || observation?.window || FALLBACK_VIEWPORT
   const fraction = FRAMING_FRACTION[framing] || FRAMING_FRACTION.half_body
   const safe = observation?.safe_region || { x: 0, y: 0, width: viewport.width, height: viewport.height }
@@ -172,11 +174,18 @@ function planCharacterPlacement({ framing, intent, observation, kind = null }) {
 }
 
 /** Subtract each critical rectangle, then use the largest remaining rectangle. */
+function validateObservation(observation) {
+  if(observation==null)return
+  const viewport=observation.viewport||observation.window
+  if(typeof observation!=='object'||Array.isArray(observation)||!viewport||![viewport.width,viewport.height].every(Number.isFinite)||viewport.width<16||viewport.height<16||viewport.width>8192||viewport.height>8192)throw new Error('INVALID_OBSERVATION')
+  availableRegion(viewport,observation.safe_region||{x:0,y:0,width:viewport.width,height:viewport.height},observation.critical_regions||[])
+}
 function availableRegion(viewport,safe,critical) {
   const width=Number(viewport.width),height=Number(viewport.height);
   if(!Number.isFinite(width)||!Number.isFinite(height)||width<16||height<16||width>8192||height>8192)throw new Error('INVALID_OBSERVATION');
   const rect=r=>{if(!r||![r.x,r.y,r.width,r.height].every(Number.isFinite)||r.width<0||r.height<0)throw new Error('INVALID_OBSERVATION');const x=Math.max(0,r.x),y=Math.max(0,r.y);return{x,y,width:Math.max(0,Math.min(width,r.x+r.width)-x),height:Math.max(0,Math.min(height,r.y+r.height)-y)};};
-  let regions=[rect(safe)];
+  let regions=[rect(safe)].filter(r=>r.width>=16&&r.height>=16);
+  if(!regions.length)throw new Error('INVALID_OBSERVATION: no usable safe region');
   if(!Array.isArray(critical)||critical.length>100)throw new Error('INVALID_OBSERVATION');
   for(const raw of critical){const block=rect(raw),next=[];for(const r of regions){
     const x=Math.max(r.x,block.x),y=Math.max(r.y,block.y),right=Math.min(r.x+r.width,block.x+block.width),bottom=Math.min(r.y+r.height,block.y+block.height);

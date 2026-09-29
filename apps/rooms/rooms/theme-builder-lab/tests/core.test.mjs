@@ -81,3 +81,24 @@ test('builder refuses escape, existing output, protected writes, excess overlay 
  const invalid=structuredClone(draft);invalid.tokens['color.label.primary']='#000000';
  const result=await buildThemePackage({draft:invalid,outDir:path.join(root,'invalid'),sandboxRoot:root});assert.equal(result.ok,false);assert.equal(fs.existsSync(path.join(root,'invalid')),false);assert.deepEqual(fs.readdirSync(root),['existing']);
 });
+
+test('disabled planned assets leave no resurrected token or dangling persona reference',async t=>{
+ const root=sandbox(t),draft=prepareDraft({prompt:'blue anime assistant'});
+ draft.asset_plan.asset_plan.find(a=>a.kind==='persona_avatar').max_edge=1;
+ draft.asset_plan.asset_plan.find(a=>a.kind==='wallpaper').width=1;
+ draft.tokens['asset.wallpaper']='data:image/png;base64,'+pixel().toString('base64');
+ const result=await buildThemePackage({draft,sandboxRoot:root,outDir:path.join(root,'disabled')});
+ assert.equal(result.ok,true,JSON.stringify(result.issues));
+ assert.ok(result.degradation.disabled.some(a=>a.kind==='persona_avatar'));
+ assert.ok(result.degradation.disabled.some(a=>a.kind==='wallpaper'));
+ assert.equal(result.tokens['asset.wallpaper'],'none');assert.equal(result.persona.avatar,null);
+});
+test('empty or malformed observations cannot claim an observed plan',()=>{
+ for(const observation of [{},{viewport:{}},{viewport:{width:-1,height:500}},{viewport:{width:500,height:500},critical_regions:'invalid'},{viewport:{width:800,height:600},safe_region:{x:9000,y:0,width:100,height:100},critical_regions:[]}])assert.throws(()=>prepareDraft({prompt:'blue assistant',observation}),/OBSERVATION/);
+});
+test('rejection after final image sizing still retries then tries procedural fallback',async()=>{
+ let models=0,fallbacks=0;
+ const generator=createAssetGenerator({imageGenerator:async()=>{models++;return pixel();},retries:1,fallbackRenderer:options=>{fallbacks++;return render(options);}});
+ const result=await generator.generate({entry:{...entry,width:512,height:256,max_edge:16}});
+ assert.equal(models,2);assert.equal(fallbacks,1);assert.equal(result.disabled,true);
+});

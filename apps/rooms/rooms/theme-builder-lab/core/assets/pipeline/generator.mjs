@@ -225,8 +225,8 @@ function createAssetGenerator({ imageGenerator = null, retries = 1, timeoutMs = 
         }
         try {
           const candidate=png.decodePng(inspected.buffer)
-          const measured=conform({canvas:candidate,spec,base,kind}).canvas
-          const check=validator.validate({kind,buffer:png.canvasToPng(measured),spec:{...spec,width:measured.width,height:measured.height},catalog:base})
+          const measured=processor.toPng(conform({canvas:candidate,spec,base,kind}).canvas,{maxEdge:plan.max_edge||0})
+          const check=validator.validate({kind,buffer:measured.buffer,spec:{...spec,width:measured.width,height:measured.height},catalog:base})
           if(!check.ok){warnings.push(`${kind}: model pixels rejected (${check.reason})`);record({kind,surface:targetSurface,outcome:'model_pixels_rejected',attempt});continue}
           canvas = candidate
           source = 'image-model'

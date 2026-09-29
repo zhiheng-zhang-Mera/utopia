@@ -620,10 +620,21 @@ async function compilePackage(options) {
   // declares those on-disk paths.
   const tokens = {}
   const assetFiles = []
+  const disabledTokens=new Set(generated.disabled.map(record=>PLAN_TOKEN_MAP[record.kind]).filter(Boolean))
+  const disabledPaths=new Set(generated.disabled.flatMap(record=>[record.path,ASSET_LAYOUT[TOKEN_ASSET_MAP[PLAN_TOKEN_MAP[record.kind]]]]).filter(Boolean))
+  function scrubDisabled(value){
+    if(typeof value==='string')return disabledPaths.has(value)?'none':value
+    if(Array.isArray(value))return value.map(scrubDisabled)
+    if(!value||typeof value!=='object')return value
+    const next=Object.fromEntries(Object.entries(value).map(([key,item])=>[key,scrubDisabled(item)]))
+    if(disabledPaths.has(value.asset)){if('enabled' in next)next.enabled=false;if('opacity' in next)next.opacity=0}
+    return next
+  }
   for (const tokenName of contract.TOKEN_NAMES) {
     const definition = contract.TOKENS[tokenName]
     const provided = draft.tokens[tokenName]
     if (definition.kind === contract.PROPERTY_KIND.ASSET) {
+      if(disabledTokens.has(tokenName)){tokens[tokenName]='none';continue}
       // A plan-produced asset wins over the legacy bundle for the same token.
       const planned = generated.byToken[tokenName]
       if (planned) {
@@ -662,7 +673,7 @@ async function compilePackage(options) {
   const components = {
     theme_api_version: contract.THEME_API_VERSION,
     generated_by: compiledBy,
-    slots: resolveSlotAssetReferences(draft.components.slots || {}, tokens),
+    slots: scrubDisabled(resolveSlotAssetReferences(draft.components.slots || {}, tokens)),
     animation: { type: animation.type, intensity: animation.intensity }
   }
 
@@ -675,8 +686,8 @@ async function compilePackage(options) {
     occludes: persona.occludes || [],
     overlay_main: false,
     sounds: persona.sounds || [],
-    avatar: persona.enabled ? ASSET_LAYOUT.personaAvatar : null,
-    banner: persona.enabled ? ASSET_LAYOUT.personaBanner : null,
+    avatar: persona.enabled && bundle[ASSET_LAYOUT.personaAvatar] ? ASSET_LAYOUT.personaAvatar : null,
+    banner: persona.enabled && bundle[ASSET_LAYOUT.personaBanner] ? ASSET_LAYOUT.personaBanner : null,
     notes: persona.notes || null
   }
 
@@ -750,7 +761,7 @@ async function compilePackage(options) {
   const overlayPlanDocument = {
     version: 1,
     generated_at: '1970-01-01T00:00:00.000Z',
-    ...(draft.overlay_plan || {}),
+    ...scrubDisabled(draft.overlay_plan || {}),
     // The enforced strengths, from the compiled tokens, are what the renderer
     // will actually use; the plan's own numbers are kept for comparison.
     compiled: {

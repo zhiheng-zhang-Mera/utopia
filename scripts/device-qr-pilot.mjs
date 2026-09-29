@@ -9,7 +9,7 @@ import {createHash} from 'node:crypto';
 const count=Number(process.argv[2]||5);
 if(!Number.isSafeInteger(count)||count<1||count>5)throw Error('Use a trial count from 1 to 5');
 const adb=process.env.ADB||'adb';
-const cmd=(...args)=>execFileSync(adb,args,{timeout:10000,maxBuffer:8*1024*1024,windowsHide:true}).toString();
+const cmd=(...args)=>execFileSync(adb,args,{timeout:30000,maxBuffer:8*1024*1024,windowsHide:true}).toString();
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const timestamp=()=>new Date().toISOString();
 const failure=code=>{const e=new Error(code);e.pilotCode=code;throw e;};
@@ -19,13 +19,13 @@ const installed=cmd('shell','pm','path','city.utopia.control').trim().replace(/^
 const apkSha256=cmd('shell','sha256sum',installed).trim().split(/\s/)[0];
 const localHash=createHash('sha256').update(readFileSync('apps/android/app/build/outputs/apk/debug/app-debug.apk')).digest('hex');
 if(apkSha256!==localHash)failure('INSTALLED_APK_MISMATCH');
-function preCameraNodes(){
- cmd('shell','uiautomator','dump','/sdcard/utopia-qr-onboarding.xml');
+async function preCameraNodes(){
+ for(let attempt=0;attempt<3;attempt++){try{cmd('shell','uiautomator','dump','/sdcard/utopia-qr-onboarding.xml');break;}catch(e){if(attempt===2)throw e;await sleep(1000);}}
  const xml=cmd('shell','cat','/sdcard/utopia-qr-onboarding.xml');
  return [...xml.matchAll(/<node\s+([^>]+)>/g)].map(m=>Object.fromEntries([...m[1].matchAll(/([\w-]+)="([^"]*)"/g)].map(a=>[a[1],a[2]])));
 }
 function tapNode(node){if(!node?.bounds)failure('ONBOARDING_TARGET_MISSING');const b=node.bounds.match(/\d+/g).map(Number);if(b[2]<=b[0]||b[3]<=b[1])failure('ONBOARDING_TARGET_ZERO_BOUNDS');cmd('shell','input','tap',String((b[0]+b[2])>>1),String((b[1]+b[3])>>1));}
-async function waitNode(text){const start=Date.now();while(Date.now()-start<20000){const node=preCameraNodes().find(n=>n.text===text);if(node)return node;await sleep(600);}failure('ONBOARDING_NOT_READY');}
+async function waitNode(text){const start=Date.now();while(Date.now()-start<30000){const node=(await preCameraNodes()).find(n=>n.text===text);if(node)return node;await sleep(600);}failure('ONBOARDING_NOT_READY_'+text.replaceAll(' ','_'));}
 function activeSessionId(){try{return JSON.parse(readFileSync('.runtime/active-pairing.json')).pairingSessionId||null;}catch{return null;}}
 async function refreshVisibleQr(){
  if(!existsSync('.runtime/active-pairing.json'))failure('VISIBLE_PAIRING_DISPLAY_NOT_READY');
@@ -38,17 +38,20 @@ function logEvents(){
  return output.split(/\r?\n/).flatMap(line=>{try{const e=JSON.parse(line);if(e.mode!=='qr'||!allowedEvents.has(e.event)||typeof e.trialId!=='string'||!Number.isFinite(Date.parse(e.timestamp)))return [];
  return [{trialId:e.trialId,mode:'qr',event:e.event,timestamp:e.timestamp,userActions:Number.isFinite(e.userActions)?e.userActions:null,retryCount:Number.isFinite(e.retryCount)?e.retryCount:null}];}catch{return [];}});
 }
-const rows=[],recordedEvents=[];
+const resume=process.argv.includes('--resume');
+const rows=resume&&existsSync(directory+'/qr-runs.json')?JSON.parse(readFileSync(directory+'/qr-runs.json')):[];
+const recordedEvents=resume&&existsSync(directory+'/qr-events.jsonl')?readFileSync(directory+'/qr-events.jsonl','utf8').trim().split(/\r?\n/).filter(Boolean).map(x=>JSON.parse(x)):[];
 const save=()=>{writeFileSync(directory+'/qr-runs.json',JSON.stringify(rows,null,2));writeFileSync(directory+'/qr-events.jsonl',recordedEvents.map(e=>JSON.stringify(e)).join('\n')+(recordedEvents.length?'\n':''));};
-for(let run=1;run<=count;run++){
+for(let run=rows.length+1;rows.filter(r=>r.success).length<count;run++){
  const row={mode:'qr',run,codeSha,apkSha256,startTimestamp:timestamp(),discoveryTimestamp:null,pairingSubmittedTimestamp:null,authenticatedTimestamp:null,snapshotLoadedTimestamp:null,websocketOnlineTimestamp:null,trialId:null,success:false,errorClass:null,driver:'ADB onboarding plus physical camera; no QR injection',cameraLaunchRequestedAt:null};
  rows.push(row);save();let cameraLaunched=false;
  try{
-  cmd('shell','am','force-stop','city.utopia.control');cmd('shell','am','start','-n','city.utopia.control/.MainActivity');
+  row.stage='STARTING';save();cmd('shell','am','force-stop','city.utopia.control');cmd('shell','am','start','-n','city.utopia.control/.MainActivity');await sleep(2500);
+  row.stage='OPEN_SETTINGS';save();
   await waitNode('Settings');cmd('shell','input','tap','970','2195');await sleep(500);
-  tapNode(await waitNode('Clear pairing / Find your City'));await waitNode('Scan QR');
+  row.stage='CLEAR_PAIRING';save();tapNode(await waitNode('Clear pairing / Find your City'));await waitNode('Scan QR');
   await refreshVisibleQr();const previousIds=new Set(logEvents().map(e=>e.trialId));
-  const scan=await waitNode('Scan QR');row.cameraLaunchRequestedAt=timestamp();tapNode(scan);cameraLaunched=true;
+  const scan=await waitNode('Scan QR');row.cameraLaunchRequestedAt=timestamp();tapNode(scan);cameraLaunched=true;row.stage='CAMERA_LAUNCHED';save();
   // From here until app exit, only app-private allowlisted telemetry is read.
   const started=Date.now();let trialEvents=[];
   while(Date.now()-started<45000){
@@ -61,7 +64,7 @@ for(let run=1;run<=count;run++){
   }
   recordedEvents.push(...trialEvents);
   if(!row.success&&!row.errorClass)row.errorClass=row.discoveryTimestamp?'QR_CONTROL_CONVERGENCE_TIMEOUT':'NO_CAMERA_DECODE_OBSERVED';
- }catch(e){row.errorClass=e.pilotCode||'DRIVER_OR_PLATFORM_ERROR';}
+ }catch(e){row.errorClass=e.pilotCode||'DRIVER_OR_PLATFORM_ERROR';row.driverErrorCode=e.code||null;row.driverExitStatus=e.status??null;row.driverSignal=e.signal||null;}
  finally{
   if(cameraLaunched&&!row.success){try{cmd('shell','input','keyevent','4');cmd('shell','am','force-stop','city.utopia.control');}catch{row.cameraExitConfirmed=false;}}
   row.endTimestamp=timestamp();save();

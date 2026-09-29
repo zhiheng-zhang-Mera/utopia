@@ -17,11 +17,19 @@ NOT THE FUTURE CITY CORE OWNERSHIP MODEL.
 | [主机运行手册](docs/zh-CN/RUNBOOK_ALIEN_WINDOWS.md) | [Host runbook](docs/en/RUNBOOK_ALIEN_WINDOWS.md) |
 | [Android 实机](docs/zh-CN/RUNBOOK_ANDROID_REAL_DEVICE.md) | [Android physical device](docs/en/RUNBOOK_ANDROID_REAL_DEVICE.md) |
 | [V0.2 设备中心与配对指南](docs/zh-CN/V0_2_OPERATOR_GUIDE.md) | [V0.2 device center and pairing guide](docs/en/V0_2_OPERATOR_GUIDE.md) |
-| [V0.2 验收状态与缺口](evidence/zh-CN/ACCEPTANCE_V0_2.md) | [V0.2 acceptance status and gaps](evidence/en/ACCEPTANCE_V0_2.md) |
+| [万能个人终端快速路线](docs/zh-CN/UNIVERSAL_PERSONAL_TERMINAL_FAST_PATH.md) | [Universal personal terminal fast path](docs/en/UNIVERSAL_PERSONAL_TERMINAL_FAST_PATH.md) |
+| [V0.3 Bridge 验收](evidence/zh-CN/BRIDGE_ACCEPTANCE_V0_3.md) | [V0.3 Bridge acceptance](evidence/en/BRIDGE_ACCEPTANCE_V0_3.md) |
+| [V0.3 Hardening 验收](evidence/zh-CN/V0_3_HARDENING_ACCEPTANCE.md) | [V0.3 hardening acceptance](evidence/en/V0_3_HARDENING_ACCEPTANCE.md) |
+| [V0.2 最终验收](evidence/zh-CN/ACCEPTANCE_V0_2_FINAL.md) | [V0.2 final acceptance](evidence/en/ACCEPTANCE_V0_2_FINAL.md) |
 
-V0.2 当前为 `NOT_ACCEPTED` 候选版本；真实摄像头扫码验收尚未完成。各批实机记录分别绑定其代码与 APK 哈希。
+当前产品事实 / Current product truth:
 
-V0.2 is a `NOT_ACCEPTED` candidate; real-camera QR acceptance is incomplete. Each device trial series retains its own code and APK hashes.
+- **V0.2 = ACCEPTED**（一台 Windows 主机 + 一台 Android 实机的有界工程验收）。
+- **Capability Bridge V0.3 = ACCEPTED**：Web/Android 通过同一 City authority 使用五个真实服务。
+- **V0.3 Hardening = PASS**：有界调用历史、qualified identity、lifecycle-aware availability 与 typed errors 已验收。
+- **Room Pack V1 = READY_TO_ATTACH / ATTACHED_TO_MAIN**：十个本地个人工具已通过独立验收，但尚未并入主导航。
+
+The next product goal is **not another module wave**. It is the [Universal Personal Terminal fast path](docs/en/UNIVERSAL_PERSONAL_TERMINAL_FAST_PATH.md): unify Tasks, Services and Rooms behind one user-facing action experience, then connect existing Boss/Hns runtimes instead of migrating every domain first.
 
 ## 本地运行 / Run locally
 

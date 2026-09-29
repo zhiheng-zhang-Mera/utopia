@@ -215,15 +215,21 @@ test('hub exposes lifecycle metadata and the promotion record set', async (t) =>
 
   const promotions = await hub.api('GET', '/local-rooms/v1/promotions');
   assert.equal(promotions.status, 200);
-  assert.equal(promotions.payload.total, 1, 'the D1 promotion is recorded');
+  assert.ok(promotions.payload.total >= 1, 'promotions are recorded');
   assert.equal(promotions.payload.consistent, true, JSON.stringify(promotions.payload.problems));
-  const [record] = promotions.payload.promotions;
-  assert.equal(record.roomId, 'skill-intake-lab');
-  assert.equal(record.status, 'PROMOTED');
-  assert.equal(record.targetCityPath, 'city/02-engineering/02-worker-gateway/skill-intake');
-  assert.equal(record.donor.commit, DONOR_COMMIT);
-  assert.match(record.acceptedRoomCommit, /^[0-9a-f]{40}$/);
-  assert.match(record.promotedAtCommit, /^[0-9a-f]{40}$/);
+  for (const record of promotions.payload.promotions) {
+    assert.equal(record.status, 'PROMOTED', `${record.roomId} is recorded as promoted`);
+    assert.ok(record.targetCityPath.startsWith('city/'), `${record.roomId} resolves to a real city path`);
+    assert.match(record.acceptedRoomCommit, /^[0-9a-f]{40}$/, `${record.roomId} accepted commit`);
+    assert.match(record.promotedAtCommit, /^[0-9a-f]{40}$/, `${record.roomId} promotion commit`);
+    assert.match(record.donor.commit, /^[0-9a-f]{40}$/, `${record.roomId} donor commit`);
+    const known = ALL_ROOMS.find((room) => room.id === record.roomId);
+    assert.ok(known, `${record.roomId} is still known to the manifest`);
+    assert.equal(known.targetCityPath, record.targetCityPath, `${record.roomId} record matches the manifest`);
+  }
+  const d1 = promotions.payload.promotions.find((record) => record.roomId === 'skill-intake-lab');
+  assert.ok(d1, 'the D1 promotion is recorded');
+  assert.equal(d1.donor.commit, DONOR_COMMIT);
 
   const health = await hub.api('GET', '/health');
   assert.equal(health.payload.rooms.length, catalog.payload.rooms.length, 'health and the catalog agree on the room set');

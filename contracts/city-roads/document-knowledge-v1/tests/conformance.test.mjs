@@ -2,6 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {documentSectionsToKnowledgeEntries,validateDocumentSections,validateTemporaryKnowledgeEntries} from '../index.mjs';
 
+test('Road rejects missing array elements instead of producing null serialized entries',()=>{
+ for(const sparse of [new Array(1),new Array(200)]){
+  assert.equal(validateDocumentSections(sparse).ok,false);
+  assert.equal(validateTemporaryKnowledgeEntries(sparse).ok,false);
+  assert.throws(()=>documentSectionsToKnowledgeEntries(sparse),{code:'INVALID_DOCUMENT_SECTIONS'});
+ }
+});
+
 test('Road preserves section order, deterministic IDs and explicit temporary unverified ownership',()=>{
  const sections=Object.freeze([Object.freeze({kind:'HEADING',heading:'Public note',text:'Utopia',start:0,end:6}),Object.freeze({kind:'PARAGRAPH',text:'Second',start:7,end:13})]);
  const expected=[{id:'document-0',title:'Public note',content:'Utopia',domain:'document',shelf:'temporary',tags:['document'],trust:'UNVERIFIED',updatedAt:'1970-01-01T00:00:00.000Z'},{id:'document-1',title:'Section 2',content:'Second',domain:'document',shelf:'temporary',tags:['document'],trust:'UNVERIFIED',updatedAt:'1970-01-01T00:00:00.000Z'}];

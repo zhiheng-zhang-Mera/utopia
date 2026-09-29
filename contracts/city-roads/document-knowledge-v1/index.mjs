@@ -9,7 +9,7 @@ export class RoadContractError extends Error {
 export function validateDocumentSections(sections){
  const errors=[];
  if(!Array.isArray(sections)||sections.length>MAX_DOCUMENT_SECTIONS)return{ok:false,errors:['Expected at most 200 document sections']};
- sections.forEach((s,i)=>{
+ Array.from(sections).forEach((s,i)=>{
   if(!object(s)){errors.push(`sections[${i}] must be an object`);return;}
   if(typeof s.kind!=='string'||!s.kind.trim())errors.push(`sections[${i}].kind must be nonempty text`);
   if(typeof s.text!=='string')errors.push(`sections[${i}].text must be text`);
@@ -21,7 +21,7 @@ export function validateDocumentSections(sections){
 export function validateTemporaryKnowledgeEntries(entries){
  const errors=[];
  if(!Array.isArray(entries)||entries.length>MAX_DOCUMENT_SECTIONS)return{ok:false,errors:['Expected at most 200 temporary entries']};
- entries.forEach((e,i)=>{
+ Array.from(entries).forEach((e,i)=>{
   if(!object(e)||e.id!==`document-${i}`||typeof e.title!=='string'||typeof e.content!=='string'||e.domain!=='document'||e.shelf!=='temporary'||e.trust!=='UNVERIFIED'||e.updatedAt!==epoch||!Array.isArray(e.tags)||e.tags.length!==1||e.tags[0]!=='document')errors.push(`entries[${i}] violates the temporary document contract`);
  });
  return{ok:errors.length===0,errors};

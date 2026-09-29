@@ -180,7 +180,7 @@ test('the module is self-contained: built-ins only, no donor checkout dependency
   const { readFile } = await import('node:fs/promises');
   const { join } = await import('node:path');
   const moduleDir = join(import.meta.dirname, '..');
-  for (const file of ['color/color.mjs', 'raster/png.mjs']) {
+  for (const file of ['color/color.mjs', 'raster/png.mjs', 'contract/contract.mjs', 'contract/surface.mjs', 'validation/validator.mjs', 'assets/procedural/factory.mjs']) {
     const source = await readFile(join(moduleDir, file), 'utf8');
     const code = source
       .replace(/\/\*[\s\S]*?\*\//g, '')
@@ -203,10 +203,17 @@ test('provenance stays honest: DONOR.json pins the donor and records the adaptat
   assert.equal(donor.repository, 'zhiheng-zhang-Mera/DS-Hns');
   assert.equal(donor.commit, 'eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b');
   assert.equal(donor.cityPath, 'city/11-entertainment/01-entertainment-centre/theme-engine');
-  assert.equal(donor.room, 'theme-engine-lab');
+  // one module, two incubation rooms: the wave 1 colour and raster core (D2) and the
+  // wave 2 contract, surface, validator and procedural asset core (D6)
+  assert.deepEqual(donor.incubationRooms, ['theme-engine-lab', 'theme-package-lab']);
+  assert.deepEqual(donor.waves.map((entry) => [entry.wave, entry.room]), [['D2', 'theme-engine-lab'], ['D6', 'theme-package-lab']]);
   assert.deepEqual(donor.sourcePaths, [
     'app/extensions/mega/theme/color.js',
     'app/extensions/mega/theme/png.js',
+    'app/extensions/mega/theme/contract.js',
+    'app/extensions/mega/theme/surface.js',
+    'app/extensions/mega/theme/validator.js',
+    'app/extensions/mega/theme/asset-factory.js',
   ]);
   assert.ok(donor.adaptation.length >= 3);
   assert.ok(donor.knownDifferences.length >= 1);

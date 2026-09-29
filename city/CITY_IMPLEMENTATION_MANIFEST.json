@@ -116,11 +116,16 @@
                 "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
                 "sourcePaths": [
                   "app/extensions/mega/theme/color.js",
-                  "app/extensions/mega/theme/png.js"
+                  "app/extensions/mega/theme/png.js",
+                  "app/extensions/mega/theme/contract.js",
+                  "app/extensions/mega/theme/surface.js",
+                  "app/extensions/mega/theme/validator.js",
+                  "app/extensions/mega/theme/asset-factory.js"
                 ]
               },
               "incubationRooms": [
-                "theme-engine-lab"
+                "theme-engine-lab",
+                "theme-package-lab"
               ]
             }
           ]

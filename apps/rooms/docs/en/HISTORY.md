@@ -6,6 +6,54 @@ stays in Git history.
 
 ---
 
+## D3 · knowledge-core-lab → city/09-planning-knowledge/01-knowledge-service/knowledge-core
+
+| Item | Value |
+| --- | --- |
+| Donor repository | `zhiheng-zhang-Mera/Codex-Boss` |
+| Donor SHA | `8df428eaa437a409368401e95194e40266b83080` |
+| Donor source files | `src/shared/knowledge.ts` |
+| Deliberately not copied | `electron/knowledge/knowledge-store.ts` (depends on the Boss commander durable-json layer) |
+| Incubator room | `apps/rooms/rooms/knowledge-core-lab/` (removed from the live tree) |
+| Accepted incubator commit | `01f932bd2aad2403bec61961410ca19ca0cf28ad` |
+| Promotion record | `../promotions/knowledge-core-lab.json` (holds the full promotion commit) |
+| Final city path | `city/09-planning-knowledge/01-knowledge-service/knowledge-core` |
+| Lifecycle | `PROMOTED` (during wave 1) |
+
+### City module layout
+
+```text
+knowledge-core/
+├── index.mjs              public surface
+├── contracts/             value shapes, required/optional fields, query fields
+├── retrieval/knowledge-core.mjs   matching, budgeted retrieval, goal rerank, planRetrieval
+├── taxonomy/              taxonomy derivation and the deterministic domain router
+├── trust/                 trust order and trust floor
+├── conflict/              supersession / conflict metadata
+├── tests/                 city module focused suite (including parity)
+└── DONOR.json             provenance and adaptation record
+```
+
+### Adaptation
+
+- TypeScript → ESM JavaScript with the algorithms unchanged (trust ordering, all-tag matching, validity windows, character budget, tokeniser weights);
+- `conflictReport()` and `planRetrieval()` were added;
+- `entryMatches()` accepts an explicit `now` for deterministic tests;
+- `knowledge-store.ts` was not copied at all, so the module has no storage, no durable-json dependency and no Boss runtime requirement;
+- the module is split into contracts / retrieval / taxonomy / trust / conflict facades over one core implementation, so no algorithm is duplicated.
+
+### Known differences
+
+- No persistence: the module is pure and the incubator room kept catalogs in the page only;
+- no embeddings, no vector store, no LLM summarisation;
+- domain routing and reranking use only the deterministic tokeniser (the donor has no embeddings either).
+
+### Parity tests
+
+Coverage: trust ordering with unknown trust = 0, domain/shelf/all-tag filtering, the trust floor, expired and not-yet-valid exclusion, budget truncation and larger-budget behaviour, trust ordering with a recency tie-break, taxonomy derivation, the deterministic domain router (domain match then up to three shared tags; no match routes nowhere), relevance weights (title 3x / tags 2x / domain 2x / content 1x) and rerank order, supersession/conflict metadata including dangling pointers.
+
+---
+
 ## D2 · theme-engine-lab → city/11-entertainment/01-entertainment-centre/theme-engine
 
 | Item | Value |

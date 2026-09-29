@@ -4,6 +4,54 @@
 
 ---
 
+## D3 · knowledge-core-lab → city/09-planning-knowledge/01-knowledge-service/knowledge-core
+
+| 项 | 值 |
+| --- | --- |
+| Donor 仓库 | `zhiheng-zhang-Mera/Codex-Boss` |
+| Donor SHA | `8df428eaa437a409368401e95194e40266b83080` |
+| Donor 源文件 | `src/shared/knowledge.ts` |
+| 明确不复制 | `electron/knowledge/knowledge-store.ts`（依赖 Boss commander durable-json） |
+| 孵化房间 | `apps/rooms/rooms/knowledge-core-lab/`（已从活跃树移除） |
+| 孵化验收 commit | `01f932bd2aad2403bec61961410ca19ca0cf28ad` |
+| 晋升记录 | `../promotions/knowledge-core-lab.json`（含晋升 commit 完整 SHA） |
+| 最终城市路径 | `city/09-planning-knowledge/01-knowledge-service/knowledge-core` |
+| Lifecycle | `PROMOTED`（Wave 1 期间） |
+
+### 城市模块结构
+
+```text
+knowledge-core/
+├── index.mjs              公共出口
+├── contracts/             值形态、必填/可选字段、查询字段
+├── retrieval/knowledge-core.mjs   匹配、预算检索、goal rerank、planRetrieval
+├── taxonomy/              分类派生与确定性 domain 路由
+├── trust/                 信任序与信任下限
+├── conflict/              supersedes / conflict 元数据
+├── tests/                 城市模块 focused 测试（含 parity）
+└── DONOR.json             来源与适配记录
+```
+
+### 适配说明
+
+- TypeScript → ESM JavaScript，算法不变（信任排序、全标签匹配、有效期窗口、字符预算、分词权重）；
+- 新增 `conflictReport()` 与 `planRetrieval()`；
+- `entryMatches()` 支持显式 `now`，便于确定性测试；
+- 完全不复制 `knowledge-store.ts`，因此模块无存储、无 durable-json 依赖、不需要 Boss runtime；
+- 拆成 contracts / retrieval / taxonomy / trust / conflict 五个 facade，共用同一份 core 实现，避免重复算法。
+
+### 已知差异
+
+- 无持久化：模块是纯函数，孵化房间只在页面内保存目录；
+- 无 embedding、无向量库、无 LLM 摘要；
+- domain route / rerank 仅使用确定性分词（donor 同样没有 embedding）。
+
+### Parity 测试
+
+覆盖：信任序与未知信任计 0、domain/shelf/全标签过滤、trustAtLeast、过期与未生效排除、字符预算截断与更大预算行为、信任序 + 最近更新破平、分类派生、确定性 domain 路由（域名匹配 + 最多 3 个共享标签，不匹配则不猜）、相关度权重（title 3x / tags 2x / domain 2x / content 1x）与 rerank 顺序、supersedes/conflict 元数据（含悬空指针）。
+
+---
+
 ## D2 · theme-engine-lab → city/11-entertainment/01-entertainment-centre/theme-engine
 
 | 项 | 值 |

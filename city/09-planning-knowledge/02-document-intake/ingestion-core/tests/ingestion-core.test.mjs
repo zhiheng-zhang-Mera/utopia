@@ -80,28 +80,31 @@ test('markdown and plain text split into offset-preserving sections', () => {
   assert.throws(() => parseTextSections('x'.repeat(50), { limits: { maxBytes: 10 } }), TextParseError);
 });
 
-test('JSON, JSON Lines and structured sections match the donor', () => {
-  const json = parseStructuredText('{"a":1,"b":["x","y"]}', 'data.json');
+test('JSON, JSON Lines and structured sections match the donor', async () => {
+  const json = await parseStructuredText('{"a":1,"b":["x","y"]}', 'data.json');
   assert.equal(json.format, 'json');
   assert.deepEqual(json.value, { a: 1, b: ['x', 'y'] });
 
-  const jsonl = parseStructuredText('{"a":1}\n{"a":2}', 'data.jsonl');
+  const jsonl = await parseStructuredText('{"a":1}\n{"a":2}', 'data.jsonl');
   assert.equal(jsonl.format, 'jsonl');
   assert.equal(jsonl.value.length, 2);
   assert.match(jsonl.warnings.join(' '), /2 JSON Lines records/);
 
-  assert.throws(() => parseStructuredText('   ', 'x.json'), TextParseError);
-  assert.throws(() => parseStructuredText('# heading only', 'notes.md'), TextParseError);
+  await assert.rejects(() => parseStructuredText('   ', 'x.json'), TextParseError);
+  await assert.rejects(() => parseStructuredText('a: [1, 2\nb: 3', 'notes.md'), TextParseError);
 
-  const yamlAttempt = (() => {
-    try {
-      return { ok: true, value: parseStructuredText('a: 1\nb: 2\n', 'config.yml') };
-    } catch (error) {
-      return { ok: false, message: error.message };
-    }
-  })();
-  assert.equal(yamlAttempt.ok, false, 'YAML is deferred, not guessed');
-  assert.match(yamlAttempt.message, /D4b/);
+  // D7a: the YAML branch is complete, and a .yml document is parsed as YAML first
+  const yaml = await parseStructuredText('a: 1\nb: 2\n', 'config.yml');
+  assert.equal(yaml.format, 'yaml');
+  assert.deepEqual(yaml.value, { a: 1, b: 2 });
+  assert.deepEqual(yaml.warnings, []);
+
+  // a comment-only document is valid YAML that parses to null, and a non-YAML
+  // extension that falls back says so
+  const comment = await parseStructuredText('# heading only', 'notes.md');
+  assert.equal(comment.format, 'yaml');
+  assert.equal(comment.value, null);
+  assert.match(comment.warnings.join(' '), /parsed as YAML/);
 
   const sections = sectionsFromStructured(json.value);
   assert.equal(sections[0].kind, 'HEADING');
@@ -159,7 +162,7 @@ test('XML helpers decode entities and extract text runs exactly once', () => {
   assert.throws(() => parseXmlText('not markup'), TextParseError);
 });
 
-test('format detection names the parser and marks deferred formats honestly', () => {
+test('format detection names the parser, including the completed YAML branch', () => {
   assert.equal(detectFormat('notes.md').format, 'markdown');
   assert.equal(detectFormat('notes.txt').format, 'text');
   assert.equal(detectFormat('data.json').format, 'json');
@@ -169,12 +172,13 @@ test('format detection names the parser and marks deferred formats honestly', ()
   assert.equal(detectFormat('markup.xml').format, 'xml');
   const yaml = detectFormat('config.yml');
   assert.equal(yaml.format, 'yaml');
-  assert.match(yaml.deferred, /D4b/);
+  assert.equal(yaml.kind, 'structured');
+  assert.equal(yaml.deferred, undefined, 'YAML is no longer deferred');
   assert.equal(detectFormat('archive.zip').format, 'unknown');
   assert.equal(DEFAULT_TEXT_LIMITS.maxSections, 4000);
 });
 
-test('the module is dependency-free: no YAML parser, no donor checkout', async () => {
+test('the module carries no parser of its own: the YAML package stays behind the seam', async () => {
   const { readFile, readdir } = await import('node:fs/promises');
   const { join } = await import('node:path');
   const moduleDir = join(import.meta.dirname, '..');
@@ -191,32 +195,40 @@ test('the module is dependency-free: no YAML parser, no donor checkout', async (
   }
 
   const files = await walk(moduleDir);
-  assert.ok(files.length >= 1);
+  assert.ok(files.length >= 2, 'the core and its parser seam');
   for (const file of files) {
+    const name = file.split(/[\\/]/).pop();
     const code = (await readFile(file, 'utf8'))
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .split('\n')
       .map((line) => line.replace(/\/\/.*$/, ''))
       .join('\n');
     for (const forbidden of ["from 'yaml'", 'from "yaml"', "require('yaml')", "from 'electron", 'from "electron']) {
-      assert.ok(!code.includes(forbidden), `${file} must stay dependency-free (${forbidden})`);
+      assert.ok(!code.includes(forbidden), `${name} must not import a parser directly (${forbidden})`);
     }
     for (const specifier of [...code.matchAll(/from\s+'([^']+)'/g)].map((match) => match[1])) {
-      assert.ok(specifier.startsWith('node:') || specifier.startsWith('.'), `${file} imports ${specifier}`);
+      assert.ok(specifier.startsWith('node:') || specifier.startsWith('.'), `${name} imports ${specifier}`);
+    }
+    // the one module allowed to load the package is the seam; the core may only
+    // re-export the seam's own constants
+    if (name !== 'yaml-parser.mjs') {
+      assert.ok(!code.includes('import(YAML_PACKAGE)'), `${name} must go through the seam, not around it`);
+      assert.ok(!/const YAML_PACKAGE\s*=/.test(code), `${name} must not declare the package name`);
     }
   }
 });
 
-test('provenance stays honest: DONOR.json pins the donor and records the deferral', async () => {
+test('provenance stays honest: DONOR.json records both waves of this module', async () => {
   const { readFile } = await import('node:fs/promises');
   const { join } = await import('node:path');
   const donor = JSON.parse(await readFile(join(import.meta.dirname, '..', 'DONOR.json'), 'utf8'));
   assert.equal(donor.repository, 'zhiheng-zhang-Mera/Codex-Boss');
   assert.equal(donor.commit, '8df428eaa437a409368401e95194e40266b83080');
   assert.equal(donor.cityPath, 'city/09-planning-knowledge/02-document-intake/ingestion-core');
-  assert.equal(donor.room, 'document-intake-lab');
+  assert.deepEqual(donor.incubationRooms, ['document-intake-lab', 'yaml-intake-lab']);
+  assert.deepEqual(donor.waves.map((entry) => [entry.wave, entry.room]), [['D4', 'document-intake-lab'], ['D7a', 'yaml-intake-lab']]);
   assert.deepEqual(donor.sourcePaths, ['electron/ingestion/xml-text.ts', 'electron/ingestion/text-parsers.ts']);
-  assert.match(donor.deferred.join(' '), /yaml/i);
+  assert.ok(donor.waves[1].sourcePaths.includes('electron/ingestion/text-parsers.ts'), 'the D7a wave names the YAML branch source');
   assert.ok(donor.adaptation.length >= 3);
   assert.ok(donor.parity.vectors.length >= 8);
 });

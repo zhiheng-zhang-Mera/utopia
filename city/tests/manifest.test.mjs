@@ -70,6 +70,11 @@ test('the real manifest describes exactly the wave 1 districts and modules', asy
   assert.equal(skillIntake.lifecycle, 'PROMOTED');
   assert.deepEqual(skillIntake.incubationRooms, ['skill-intake-lab', 'skill-discovery-lab']);
 
+  // the document intake building was strengthened the same way: D4 then D7a
+  const ingestionCore = modules.find((entry) => entry.module.id === 'ingestion-core').module;
+  assert.equal(ingestionCore.lifecycle, 'PROMOTED');
+  assert.deepEqual(ingestionCore.incubationRooms, ['document-intake-lab', 'yaml-intake-lab']);
+
   const active = modules.filter(({ module }) => IMPLEMENTED_LIFECYCLES.includes(module.lifecycle));
   assert.ok(active.length <= modules.length);
 });

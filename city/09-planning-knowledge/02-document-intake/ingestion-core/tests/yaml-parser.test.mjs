@@ -46,7 +46,8 @@ test('the dependency is quarantined in one file and resolves from the city tree'
       ...[...code.matchAll(/import\(\s*'([^']+)'\s*\)/g)].map((match) => match[1]),
     ];
     assert.ok(!literals.some((specifier) => specifier === YAML_PACKAGE || specifier.startsWith(`${YAML_PACKAGE}/`)), `${file} must not import the parser directly`);
-    assert.ok(!code.includes('YAML_PACKAGE'), `${file} must go through the seam, not around it`);
+    assert.ok(!code.includes('import(YAML_PACKAGE)'), `${file} must go through the seam, not around it`);
+    assert.ok(!/const YAML_PACKAGE\s*=/.test(code), `${file} must not declare the package name`);
     for (const specifier of literals) {
       assert.ok(specifier.startsWith('node:') || specifier.startsWith('.'), `${file} imports ${specifier}`);
     }

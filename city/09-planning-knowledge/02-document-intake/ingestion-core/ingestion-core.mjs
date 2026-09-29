@@ -2,7 +2,8 @@
  * UTOPIA · City · Ingestion Core — encoding, section splitting and helpers.
  *
  * PROMOTED from the Room Pack incubator `apps/rooms/rooms/document-intake-lab/`
- * (promotion record: apps/rooms/promotions/document-intake-lab.json).
+ * (promotion record: apps/rooms/promotions/document-intake-lab.json), and
+ * strengthened by `apps/rooms/rooms/yaml-intake-lab/` in wave 2 (D7a).
  *
  * Donor: zhiheng-zhang-Mera/Codex-Boss @ 8df428eaa437a409368401e95194e40266b83080
  *        electron/ingestion/text-parsers.ts, electron/ingestion/xml-text.ts
@@ -10,13 +11,16 @@
  * D4a scope: encoding detection, TXT/Markdown section splitting, JSON/JSON Lines,
  * CSV/TSV and the XML text helpers, with the donor's input guards.
  *
- * Deliberately NOT ported: the donor's YAML branch, because `text-parsers.ts`
- * imports the external `yaml` package. D4b (YAML) only lands once that dependency
- * can be isolated inside this building, so this module stays dependency-free and a
- * YAML payload is refused explicitly rather than mis-parsed.
+ * D7a scope: the donor's YAML branch, completed. The external `yaml` package is
+ * isolated behind `./yaml-parser.mjs` inside this building, so this module still
+ * contains no parser of its own and never imports the package directly.
  *
  * Port differences: TypeScript -> ESM JavaScript. Every algorithm is unchanged.
  */
+
+import { tryParseYaml } from './yaml-parser.mjs';
+
+export { MAX_ALIAS_COUNT, MAX_YAML_BYTES, YAML_PACKAGE, YamlParserError } from './yaml-parser.mjs';
 
 /** Section kinds the parser produces. */
 export const SECTION_KINDS = ['TITLE', 'HEADING', 'PARAGRAPH', 'BULLET', 'NUMBERED', 'TABLE', 'KEYVALUE', 'CODE'];
@@ -290,39 +294,146 @@ function renderScalar(value) {
   return JSON.stringify(value);
 }
 
+/** Structured formats this core can report. */
+export const STRUCTURED_FORMATS = ['json', 'jsonl', 'yaml'];
+
+/** Extensions that must be parsed as YAML regardless of their content. */
+export const YAML_EXTENSIONS = ['.yaml', '.yml'];
+
+export function prefersYaml(fileName = '') {
+  const name = String(fileName || '');
+  const extension = name.includes('.') ? name.slice(name.lastIndexOf('.')).toLowerCase() : '';
+  return YAML_EXTENSIONS.includes(extension);
+}
+
 /**
- * Parse JSON first, then JSON Lines. YAML is intentionally absent in D4a; a
- * payload that is neither JSON nor JSON Lines is refused with both reasons.
+ * Parse JSON, then JSON Lines, then YAML - the donor's order, completed by D7a.
+ *
+ * A `.yaml`/`.yml` document is parsed as YAML first and only. Every other extension
+ * tries JSON, then JSON Lines, and only then YAML, and the fallback is reported
+ * (`JSON parsing failed (...); parsed as YAML`) rather than silent.
+ *
+ * @returns {Promise<{value: unknown, format: 'json'|'jsonl'|'yaml', warnings: string[]}>}
+ * @throws {TextParseError} CORRUPT_INPUT
  */
-export function parseStructuredText(text, fileName = '') {
+export async function parseStructuredText(text, fileName = '') {
   const warnings = [];
-  const trimmed = String(text).trim();
+  const trimmed = String(text ?? '').trim();
   if (!trimmed) throw new TextParseError('CORRUPT_INPUT', 'Structured document is empty');
-  try {
-    return { value: JSON.parse(trimmed), format: 'json', warnings };
-  } catch (error) {
-    const lines = trimmed.split(/\r?\n/).filter((line) => line.trim());
-    if (lines.length > 1 && lines.every((line) => line.trim().startsWith('{') && line.trim().endsWith('}'))) {
-      const rows = [];
-      for (const line of lines) {
-        try {
-          rows.push(JSON.parse(line));
-        } catch {
-          rows.length = 0;
-          break;
-        }
-      }
-      if (rows.length) {
-        warnings.push(`parsed ${rows.length} JSON Lines records`);
-        return { value: rows, format: 'jsonl', warnings };
+
+  const refuse = (message, detail) => {
+    const failure = new TextParseError('CORRUPT_INPUT', message);
+    failure.detail = detail ?? null;
+    return failure;
+  };
+
+  const tryJson = () => {
+    try {
+      return { ok: true, value: JSON.parse(trimmed) };
+    } catch (error) {
+      return { ok: false, error: String(error?.message || error) };
+    }
+  };
+
+  if (prefersYaml(fileName)) {
+    const parsed = await tryParseYaml(trimmed, { fileName });
+    if (!parsed.ok) throw refuse(`Not valid YAML: ${parsed.detail?.reason ?? parsed.reason}`, parsed.detail ?? null);
+    if (Array.isArray(parsed.warnings)) warnings.push(...parsed.warnings);
+    return { value: parsed.value, format: 'yaml', warnings };
+  }
+
+  const json = tryJson();
+  if (json.ok) return { value: json.value, format: 'json', warnings };
+
+  const lines = trimmed.split(/\r?\n/).filter((line) => line.trim());
+  if (lines.length > 1 && lines.every((line) => line.trim().startsWith('{') && line.trim().endsWith('}'))) {
+    const rows = [];
+    for (const line of lines) {
+      try {
+        rows.push(JSON.parse(line));
+      } catch {
+        rows.length = 0;
+        break;
       }
     }
-    const extension = fileName.includes('.') ? fileName.slice(fileName.lastIndexOf('.')).toLowerCase() : '';
-    const hint = extension === '.yaml' || extension === '.yml'
-      ? ' (YAML intake is deferred to D4b because the donor YAML branch needs an external parser)'
-      : '';
-    throw new TextParseError('CORRUPT_INPUT', `Not valid JSON or JSON Lines: ${error.message}${hint}`);
+    if (rows.length) {
+      warnings.push(`parsed ${rows.length} JSON Lines records`);
+      return { value: rows, format: 'jsonl', warnings };
+    }
   }
+
+  const parsed = await tryParseYaml(trimmed, { fileName });
+  if (!parsed.ok) {
+    throw refuse(`Not valid JSON or YAML: ${json.error} | ${parsed.detail?.reason ?? parsed.reason}`, parsed.detail ?? null);
+  }
+  warnings.push(`JSON parsing failed (${json.error}); parsed as YAML`);
+  if (Array.isArray(parsed.warnings)) warnings.push(...parsed.warnings);
+  return { value: parsed.value, format: 'yaml', warnings };
+}
+
+/**
+ * The whole structured intake in one call: parse, then split into deterministic
+ * sections. Every outcome is returned, so a caller never has to catch a thrown error
+ * to show a product answer and never has to guess which parser ran.
+ */
+export async function ingestStructured(text, fileName = '', { limits = {} } = {}) {
+  const effective = { ...DEFAULT_TEXT_LIMITS, ...limits };
+  const declared = detectFormat(fileName);
+  try {
+    const parsed = await parseStructuredText(text, fileName);
+    const sections = sectionsFromStructured(parsed.value, effective);
+    return {
+      ok: true,
+      fileName: String(fileName || ''),
+      declared,
+      format: parsed.format,
+      value: parsed.value,
+      warnings: parsed.warnings,
+      sections,
+      rendered: renderStructured(parsed.value),
+      stats: {
+        bytes: Buffer.byteLength(String(text ?? ''), 'utf8'),
+        sections: sections.length,
+        keys: parsed.value !== null && typeof parsed.value === 'object' && !Array.isArray(parsed.value) ? Object.keys(parsed.value).length : 0,
+        arrays: countArrays(parsed.value),
+        maxDepth: depthOf(parsed.value),
+      },
+    };
+  } catch (error) {
+    if (error instanceof TextParseError) {
+      return {
+        ok: false,
+        fileName: String(fileName || ''),
+        declared,
+        code: error.code,
+        reason: error.message,
+        detail: error.detail ?? null,
+        warnings: [],
+      };
+    }
+    return {
+      ok: false,
+      fileName: String(fileName || ''),
+      declared,
+      code: 'INTERNAL_ERROR',
+      reason: String(error?.message || error),
+      detail: null,
+      warnings: [],
+    };
+  }
+}
+
+function countArrays(value, depth = 0) {
+  if (depth > 12 || value === null || typeof value !== 'object') return 0;
+  if (Array.isArray(value)) return 1 + value.reduce((total, item) => total + countArrays(item, depth + 1), 0);
+  return Object.values(value).reduce((total, item) => total + countArrays(item, depth + 1), 0);
+}
+
+function depthOf(value, depth = 0) {
+  if (depth > 12 || value === null || typeof value !== 'object') return depth;
+  const children = Array.isArray(value) ? value : Object.values(value);
+  if (!children.length) return depth;
+  return Math.max(...children.map((child) => depthOf(child, depth + 1)));
 }
 
 /** Flatten a parsed structure into headed sections (one per top-level key). */
@@ -515,9 +626,7 @@ export function detectFormat(fileName = '') {
   if (extension === '.csv') return { format: 'csv', kind: 'table' };
   if (extension === '.tsv') return { format: 'tsv', kind: 'table' };
   if (extension === '.xml' || extension === '.rels' || extension === '.svg') return { format: 'xml', kind: 'markup' };
-  if (extension === '.yaml' || extension === '.yml') {
-    return { format: 'yaml', kind: 'structured', deferred: 'D4b: YAML intake needs the external parser isolated inside this building' };
-  }
+  if (extension === '.yaml' || extension === '.yml') return { format: 'yaml', kind: 'structured' };
   return { format: 'unknown', kind: 'unknown' };
 }
 

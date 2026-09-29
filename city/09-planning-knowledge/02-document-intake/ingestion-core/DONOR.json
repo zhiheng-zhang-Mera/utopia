@@ -3,7 +3,27 @@
   "cityPath": "city/09-planning-knowledge/02-document-intake/ingestion-core",
   "district": "09-planning-knowledge",
   "building": "02-document-intake",
-  "room": "document-intake-lab",
+  "incubationRooms": [
+    "document-intake-lab",
+    "yaml-intake-lab"
+  ],
+  "waves": [
+    {
+      "wave": "D4",
+      "room": "document-intake-lab",
+      "sourcePaths": [
+        "electron/ingestion/xml-text.ts",
+        "electron/ingestion/text-parsers.ts"
+      ]
+    },
+    {
+      "wave": "D7a",
+      "room": "yaml-intake-lab",
+      "sourcePaths": [
+        "electron/ingestion/text-parsers.ts"
+      ]
+    }
+  ],
   "repository": "zhiheng-zhang-Mera/Codex-Boss",
   "commit": "8df428eaa437a409368401e95194e40266b83080",
   "sourcePaths": [
@@ -12,23 +32,23 @@
   ],
   "portedFiles": {
     "electron/ingestion/text-parsers.ts": "ingestion-core.mjs",
-    "electron/ingestion/xml-text.ts": "ingestion-core.mjs"
+    "electron/ingestion/xml-text.ts": "ingestion-core.mjs",
+    "electron/ingestion/text-parsers.ts#yaml": "yaml-parser.mjs (the quarantined parser seam)"
   },
   "adaptation": [
     "TypeScript -> ESM JavaScript with the algorithms unchanged (encoding detection, offset-preserving section splitting, structured flattening, RFC4180-ish CSV, XML text runs).",
     "The donor's GBK fallback becomes an explicit warning when the runtime's TextDecoder cannot provide GBK, so a lossy decode is never silent.",
-    "The donor's YAML branch is not carried: text-parsers.ts imports the external `yaml` package, and D4b only lands once that dependency can be isolated inside this building.",
-    "detectFormat() names the parser per extension and marks yaml/yml as explicitly deferred rather than falling through to a guess.",
-    "The parser guards (maxSections, maxBytes, maxContentLength, maxCsvRows) are kept exactly as the donor defaulted them and are overridable per request."
-  ],
-  "deferred": [
-    "D4b: YAML/yml intake (needs the external parser isolated inside this building).",
-    "DOCX/XLSX/PDF readers: they belong to the same building but are separate wave-2 work; the donor's docx-reader.ts, xlsx-reader.ts and pdf-reader.ts are untouched."
+    "D7a completes the donor's YAML branch: a .yaml/.yml document is parsed as YAML first and only, any other extension tries JSON, then JSON Lines, then YAML, and the fallback is reported (`JSON parsing failed (...); parsed as YAML`) instead of being silent.",
+    "The external `yaml` package is isolated inside this building: `yaml-parser.mjs` is the only module that names it, it imports it lazily, and it enforces the donor's own ceilings (maxAliasCount 100, plus a 4 MiB document bound). `YAML_INVALID` (the document is bad) and `YAML_PARSER_UNAVAILABLE` (the installation is incomplete) are different answers.",
+    "detectFormat() names the parser per extension; yaml/yml is a real format now, not a deferred one.",
+    "The parser guards (maxSections, maxBytes, maxContentLength, maxCsvRows) are kept exactly as the donor defaulted them and are overridable per request.",
+    "`parseStructuredText` is asynchronous because the YAML branch lazily loads its parser; `ingestStructured()` returns parse outcome, sections, rendering and stats as one reportable object."
   ],
   "knownDifferences": [
     "No persistence and no knowledge write: the module is pure and the incubator kept documents in the page only.",
     "No OCR, no PDF text extraction, no spreadsheet workbook model.",
-    "Sections are emitted with offsets into the decoded text; the donor's downstream identity/hashing/redaction pipeline is not part of this module."
+    "Sections are emitted with offsets into the decoded text; the donor's downstream identity/hashing/redaction pipeline is not part of this module.",
+    "A multi-document YAML stream is refused with the parser's own reason rather than being silently truncated to its first document."
   ],
   "parity": {
     "vectorSource": "Codex-Boss electron/ingestion/text-parsers.ts and xml-text.ts @ 8df428eaa437a409368401e95194e40266b83080",
@@ -36,14 +56,19 @@
       "UTF-8 BOM, UTF-16LE BOM, UTF-16BE BOM and strict-UTF-8 validation with a warned lossy fallback",
       "markdown section splitting: ATX and setext headings, bullets, numbered items, fenced code blocks, key/value lines",
       "plain-text Chinese numbered headings (一、二、) becoming HEADING sections",
-      "JSON parse, JSON Lines detection, empty/corrupt input refusal and the YAML deferral message",
+      "JSON parse, JSON Lines detection, empty/corrupt input refusal",
       "structured flattening to headed sections and the deterministic YAML-ish rendering",
       "RFC4180-ish CSV: quoted fields, escaped quotes, embedded newlines, CRLF, row cap and unterminated-quote warning",
       "delimiter detection by extension and by sampling",
       "table section grouping by the first column label and the maxColumns cap",
       "XML entity decoding (named, decimal, hex, invalid left alone, decoded exactly once)",
       "XML text-run extraction and block matching",
-      "parser guards: maxBytes and maxContentLength produce TOO_LARGE"
+      "parser guards: maxBytes and maxContentLength produce TOO_LARGE",
+      "YAML: nested maps and sequences, scalars, dates, anchors and unicode",
+      "YAML extension rule: .yaml/.yml is YAML first and only, never a JSON attempt",
+      "YAML fallback: a non-YAML extension reports `JSON parsing failed (...); parsed as YAML`",
+      "YAML fail-closed: malformed input, an empty document and a multi-document stream are all refused with the parser's reason, line and column",
+      "YAML alias ceiling: a document past maxAliasCount is refused rather than resolved"
     ]
   }
 }

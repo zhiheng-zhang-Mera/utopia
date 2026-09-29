@@ -1,0 +1,125 @@
+{
+  "module": "provider-adapter",
+  "cityPath": "city/02-engineering/02-worker-gateway/provider-adapter",
+  "district": "02-engineering",
+  "building": "02-worker-gateway",
+  "incubationRooms": [
+    "mb-003-provider-adapter-lab"
+  ],
+  "mission": {
+    "missionId": "MB-003",
+    "book": "Digital-City/mission-book/MB-003-worker-gateway.md",
+    "role": "MIGRATION",
+    "cluster": "provider/runtime detect, version, capabilities and readiness; create/attach/start, bounded work submit, status/progress, cancel/interrupt, result/evidence; unsupported-capability refusal"
+  },
+  "repository": "zhiheng-zhang-Mera/Codex-Boss",
+  "commit": "8df428eaa437a409368401e95194e40266b83080",
+  "sourcePaths": [
+    "electron/runtimes/runtime.ts",
+    "electron/runtimes/unsupported-runtime.ts",
+    "electron/runtimes/web/provider-runtime-adapter.ts",
+    "src/shared/provider-state.ts"
+  ],
+  "referenceTypes": [
+    "src/shared/contracts.ts",
+    "src/shared/compatibility.ts"
+  ],
+  "portedFiles": {
+    "electron/runtimes/runtime.ts": [
+      "contracts.mjs",
+      "runtime.mjs"
+    ],
+    "electron/runtimes/unsupported-runtime.ts": "runtime.mjs",
+    "electron/runtimes/web/provider-runtime-adapter.ts": "runtime.mjs",
+    "src/shared/provider-state.ts": [
+      "provider-state.mjs",
+      "contracts.mjs"
+    ]
+  },
+  "adaptation": [
+    "TypeScript interfaces became plain ESM value shapes in contracts.mjs: RUNTIME_KINDS, RUNTIME_AVAILABILITY, RUNTIME_CAPABILITIES (the role vocabulary), RUNTIME_RESULT_STATUSES and RUNTIME_FAILURE_CODES are frozen closed vocabularies, and runtimeRequest / runtimeCapabilities / runtimeHealth / runtimeFailure / runtimeMetrics / providerUsage / runtimeResult / providerStateRecord are the factories that build and validate them. Nothing in this module is a class or a runtime: a caller supplies hooks and time.",
+    "Time is a parameter, never ambient. The donor's UnsupportedRuntime.healthCheck called new Date().toISOString() directly; unsupportedRuntime now takes an injected now() and reports its result as checkedAt. The donor's stateForRecovery and pausedForProvider defaulted now to Date.now(); here now is a required millisecond argument. No file in this module calls Date.now, Math.random or process.env, and a test asserts that by reading the sources.",
+    "Every factory copies its input and never repairs it. The donor spread the caller's Partial<RuntimeCapabilities> over its defaults, so an explicit getter or an explicit `roles: undefined` could still clobber a default; runtimeCapabilities treats an explicitly undefined field as 'not provided' and refuses any other malformed value (unknown role, duplicate role, non-boolean flag) with a TypeError. The provider adapter validates the health report and the result its hooks return, so a hook cannot hand a caller a shape the contract would have refused.",
+    "isRuntimeAvailable refuses a value outside the ten-value vocabulary (TypeError) instead of answering false. The donor's switch had no default and its union type made the case impossible in TypeScript; in plain JavaScript an unrecognised string is a typo, and answering 'unavailable' for it would hide the bug rather than surface it. All ten donor values, UNKNOWN included, keep their exact donor handling.",
+    "The donor's UnsupportedRuntime and ProviderRuntimeAdapter were classes constructed positionally. Here they are factories taking one options object (unsupportedRuntime({ id, kind, roles, now }) and providerRuntimeAdapter({ id, hooks, capabilities })) returning a plain adapter object. The observable contract - id, kind, capabilities, healthCheck(), execute(request, signal), cancel(jobId) - is unchanged.",
+    "The donor's exact strings are preserved byte for byte, including the version reference: 'Runtime is configured but not implemented in v0.5', 'Runtime is not implemented', 'Web runtime id must start with web:', the three provider-state labels ('等待中', '等待服务商恢复', '等待服务商人工处理') and the three default reasons ('等待服务商恢复', '等待服务商人工处理', '运行中'). 'v0.5' is the donor's own wording and is kept rather than modernised, because rewriting it would break parity for no behavioural gain.",
+    "The donor identity defaulted roles to [] on the refusal adapter and to all seven roles on the web adapter, and forced supportsCancellation/supportsStreaming to false in both. That exact merge lives once, in runtimeCapabilities, and both adapters delegate to it; the donor duplicated it inline in each class.",
+    "AUTO_ACTIONS and PAUSED_ACTIONS are exported as frozen arrays rather than module-private Sets, because a caller that has to explain why a task is waiting needs to name the actions. Membership is still tested through internal Sets, so an action in neither set falls through to ACTIVE exactly as the donor's did.",
+    "providerStateLabel refuses an unknown state with a TypeError. The donor indexed a literal table and returned undefined; a label is rendered, so undefined is a blank status rather than a state. This is the only place a donor fall-through was replaced by a refusal, and it is recorded under knownDifferences.",
+    "pausedForProvider requires a non-empty reason. The donor accepted '' because it wrote reason through unchanged, but the function's only argument is the human-readable explanation, and an empty one produces an unexplainable record in a field the module elsewhere refuses to leave blank."
+  ],
+  "knownDifferences": [
+    "No compatibility declaration. The donor's ProviderRuntimeAdapter carried a compatibility window literal ({ id: 'web', kind: 'web-session', windows: { adapter_api: { min: '1', max: '1' } } }) typed by src/shared/compatibility.ts, and the RuntimeAdapter contract had an optional compatibility field. The compatibility contract was not among the four donor source files and is not ported, so the field is neither invented nor declared - a test asserts the adapter has no compatibility key. src/shared/contracts.ts is likewise listed only as a reference type: the donor's RawArtifact type is used solely as the type of RuntimeResult.artifact, and here that field is carried through as the caller's own opaque record.",
+    "No runtime registry, no scheduler, no provider automation, no network, no persistence and no process spawning. The donor registered adapters, resolved a provider for a role and drove jobs through a supervisor; none of that is in these four files.",
+    "No real web session. ProviderRuntimeAdapter is a wrapper over injected hooks; this module never opens a page, attaches to a browser or speaks to a provider. The tests use in-memory hooks.",
+    "RuntimeAdapter.compatibility, RuntimeHealth polling cadence, retry scheduling and budget accounting are deferred: provider-resilience (the sibling module for electron/commander/circuit-breaker.ts and src/shared/provider-outcome.ts) owns failure and interruption semantics, and this module deliberately does not duplicate them.",
+    "execute's signal parameter is passed through to the hook and otherwise uninterpreted: no AbortController is created, observed or cancelled here, and nothing listens for abort. The donor did the same - it forwarded the signal and left cancellation to the hook.",
+    "providerStateLabel('UNKNOWN' or a lowercase state) throws rather than returning undefined, and pausedForProvider('') throws rather than recording an empty reason. Both are listed here because they are observable differences from the donor for input the donor silently accepted.",
+    "No metrics are synthesised, no token count is estimated and no retry timestamp is invented. RuntimeMetrics and ProviderUsage are copied field by field, and an absent usage field stays absent - the donor's own rule that the platform's ceil(characters / 4) figures must never be promoted into provider-reported usage."
+  ],
+  "parity": {
+    "vectorSource": "Codex-Boss electron/runtimes/runtime.ts, electron/runtimes/unsupported-runtime.ts, electron/runtimes/web/provider-runtime-adapter.ts and src/shared/provider-state.ts @ 8df428eaa437a409368401e95194e40266b83080",
+    "vectors": [
+      "availability vocabulary: the ten donor values in the donor order, and isRuntimeAvailable true for exactly one of them (AVAILABLE) and false for the other nine, UNKNOWN explicitly included",
+      "availability outside the ten-value vocabulary is refused with a TypeError instead of being answered false",
+      "runtime kind vocabulary: web, codex, api, local",
+      "role vocabulary: the seven donor roles planning, research, review, synthesis, coding, validation, critique",
+      "result statuses: SUCCESS, RETRYABLE_FAILURE, PERMANENT_FAILURE, CANCELLED, and the failure-code union of the ten availability values plus TIMEOUT and UNKNOWN",
+      "unsupportedRuntime identity: the donor id, the donor kind, and the default capability triple { roles: [], supportsCancellation: false, supportsStreaming: false }",
+      "unsupportedRuntime.healthCheck: availability UNSUPPORTED, message 'Runtime is configured but not implemented in v0.5', checkedAt from the injected now()",
+      "unsupportedRuntime.execute: status PERMANENT_FAILURE, failure code UNSUPPORTED, message 'Runtime is not implemented', retryable false, and no artifact/content key on the result",
+      "the refusal adapter declares no cancel method, exactly as the donor class did",
+      "the web: prefix rule: an id without it is refused with the exact donor message 'Web runtime id must start with web:' (codex:primary, 'web', 'Web:one', '', 'api:web:one'), and 'web:alpha' is accepted with kind 'web'",
+      "capability merge with no override: all seven roles in the donor order with supportsCancellation false and supportsStreaming false",
+      "capability merge with a partial override: the supplied fields win and the untouched defaults survive ({ roles: ['planning','review'], supportsCancellation: true } keeps supportsStreaming false)",
+      "an explicit empty role list stays empty, and a malformed declaration (unknown role, duplicate role, non-boolean flag) is refused rather than repaired",
+      "the caller's capabilities object is neither mutated nor retained, and the default roles are a fresh copy rather than the frozen vocabulary",
+      "healthCheck and execute delegate to the injected hooks, execute receives the validated request and the caller's AbortSignal, and a hook that answers a malformed health report or result is refused at the adapter boundary",
+      "cancel delegates to the hook with the job id and, when no hook is supplied, resolves (await gives undefined) instead of throwing",
+      "a missing healthCheck or execute hook is constructible and rejects when called, matching the donor's construction-time leniency",
+      "runtimeRequest: the five required donor fields (jobId, taskId, role, prompt) plus sessionId/replaySafe/timeoutMs/context, each optional field absent from the built shape when the caller did not supply it, and the shape is a copy",
+      "runtimeFailure: code, message, retryable, with retryAt present only when it was defined and finite",
+      "runtimeResult: the four statuses, artifact/content/failure/metrics/usage optional and absent when not supplied, nested failure/metrics/usage validated",
+      "provider usage: a field the provider did not report is absent, never zero, and usage: {} stays {}",
+      "AUTO_ACTIONS: WAIT, RETRY, RECONSTRUCT and DEFER each give state WAITING_PROVIDER with autoResume true",
+      "PAUSED_ACTIONS: HUMAN_REQUIRED and VERIFY_SIDE_EFFECT each give state PAUSED_PROVIDER with autoResume false",
+      "an action in neither set (NONE, RUN, CONTINUE, 'wait', '', 'UNLISTED_ACTION') falls through to ACTIVE with autoResume true",
+      "a falsy reason falls back to the state default ('等待服务商恢复', '等待服务商人工处理', '运行中') and a real reason is kept verbatim",
+      "retryAt is present only when defined: absent for undefined, present (including 0) otherwise, in the auto, paused and active branches alike",
+      "updatedAt is new Date(injected now).toISOString(), matching the donor's format, and a different injected timestamp produces a different value",
+      "pausedForProvider: state PAUSED_PROVIDER, the reason used as given, autoResume false and no retryAt key at all",
+      "providerStateLabel: ACTIVE '等待中', WAITING_PROVIDER '等待服务商恢复', PAUSED_PROVIDER '等待服务商人工处理'",
+      "providerStateRecord copies its input, keeps retryAt conditional, and refuses an unknown state, an empty reason, a non-boolean autoResume, an empty updatedAt or a non-numeric retryAt"
+    ]
+  },
+  "classification": {
+    "PARITY": [
+      "the ten-value availability vocabulary and the isRuntimeAvailable rule (AVAILABLE only)",
+      "the unsupported-capability refusal: UNSUPPORTED health, the donor message, PERMANENT_FAILURE / UNSUPPORTED / retryable false",
+      "the web: id prefix rule and its exact error message",
+      "the all-seven-role capability default with the caller's partial override, cancellation and streaming off by default",
+      "hook delegation for healthCheck, execute and cancel, including cancel resolving with no hook",
+      "the runtime kind, role, result-status and failure-code vocabularies",
+      "AUTO_ACTIONS, PAUSED_ACTIONS, the ACTIVE fall-through, the default reason strings and the autoResume values",
+      "the conditional retryAt field and the updatedAt ISO format",
+      "the three provider-state labels"
+    ],
+    "PORT_ADAPTATION": [
+      "TypeScript interfaces replaced by plain value shapes with copy-on-construct factories and validators",
+      "time injected as a parameter (now() on healthCheck, a required now argument on provider-state) instead of Date.now() or new Date()",
+      "factories that refuse malformed input instead of repairing it, and that validate hook results at the adapter boundary",
+      "classes replaced by options-object factories returning plain adapters",
+      "unknown values refused where the donor's type system or table lookup silently accepted them (availability outside the ten, unknown provider state, empty pausedForProvider reason)"
+    ],
+    "UTOPIA_EXTENSION": [],
+    "DEFERRED": [
+      "the compatibility declaration of src/shared/compatibility.ts (adapter_api window, kind 'web-session')",
+      "the runtime registry, adapter resolution and supervisor that consumed these contracts",
+      "real web-session automation, provider HTTP calls and page attachment",
+      "AbortSignal observation and interruption semantics",
+      "retry scheduling, circuit breaking and provider outcome classification (provider-resilience)",
+      "budget accounting and Gate 8 cost comparison",
+      "persistence of usage and metrics on the ledger"
+    ]
+  }
+}

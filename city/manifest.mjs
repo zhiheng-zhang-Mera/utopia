@@ -87,6 +87,9 @@ export function validateManifest(raw, source = 'manifest') {
         if (!CITY_LIFECYCLES.includes(module.lifecycle)) {
           throw new ManifestError(`${source}: module ${module.id} lifecycle ${module.lifecycle} is not a city lifecycle`);
         }
+        if (module.capabilityProvider !== undefined && typeof module.capabilityProvider !== 'boolean') {
+          throw new ManifestError(`${source}: module ${module.id} capabilityProvider must be a boolean`);
+        }
         const expected = `city/${district.id}/${building.id}/${module.id}`;
         if (module.path !== expected) {
           throw new ManifestError(`${source}: module ${module.id} path must be ${expected}`);

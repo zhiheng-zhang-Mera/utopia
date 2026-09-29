@@ -6,6 +6,7 @@ import {join} from 'node:path';
 import {createGateway} from '../services/dev-gateway/server.mjs';
 import {Store} from '../services/dev-gateway/store.mjs';
 import {createBridge} from '../services/capability-bridge/bridge.mjs';
+import {createCircuitBreaker} from '../city/02-engineering/02-worker-gateway/provider-resilience/index.mjs';
 
 test('dependency failure degrades the same descriptor used to gate invocations',async()=>{
  const dir=await mkdtemp(join(tmpdir(),'utopia-degrade-')),store=new Store(dir);let calls=0;
@@ -37,4 +38,40 @@ test('capabilities use control auth, canonical results, typed refusal and durabl
   assert.equal(history.filter(i=>i.invocationId===a.invocationId).length,1);
   assert.equal(history.find(i=>i.invocationId==='I-interrupted').status,'INTERRUPTED');
  }finally{await g.close();await rm(dir,{recursive:true,force:true});}
+});
+
+/**
+ * City Core consumption (MB-003).
+ *
+ * The bridge no longer keeps an ad-hoc Set of degraded capabilities: the decision is made
+ * by the migrated `city/02-engineering/02-worker-gateway/provider-resilience` breaker, with
+ * Utopia's own policy supplied as data (a failure threshold of one, and only the two
+ * provider-technical error codes count). This test proves the consumption is real by
+ * showing the bridge refuses exactly what the Core refuses, and that a capability-wide
+ * timeout — a failure, but not a provider-health signal — must not degrade anything.
+ */
+test('the per-capability degradation latch is owned by the migrated provider-resilience breaker',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'utopia-resilience-')),store=new Store(dir);
+ let code='EXECUTION_TIMEOUT';
+ const bridge=createBridge(store,()=>{},{execute:async()=>({errorCode:code})});
+ const stateOf=id=>bridge.registry().find(c=>c.capabilityId===id).bridgeState;
+ const request={operationId:'inspect',input:{ref:'owner/repo'}};
+ try{
+  await bridge.invoke('engineering.skill.inspect',request);
+  assert.equal(stateOf('engineering.skill.inspect'),'AVAILABLE','a timeout is not a provider-health signal');
+
+  code='ENGINE_UNAVAILABLE';
+  await bridge.invoke('engineering.skill.inspect',request);
+  assert.equal(stateOf('engineering.skill.inspect'),'DEGRADED');
+
+  // the Core, given the same policy and the same failure, reaches the same verdict
+  const core=createCircuitBreaker({options:{failureThreshold:1,cooldownMs:604800000,now:Date.now}});
+  assert.equal(core.state('engineering.skill.inspect'),'CLOSED','a capability that never failed is in service');
+  core.observeFailure('engineering.skill.inspect');
+  assert.notEqual(core.state('engineering.skill.inspect'),'CLOSED','the Core keeps a failed provider out of service');
+
+  // the latch holds for the life of the process, so further work is refused
+  await assert.rejects(bridge.invoke('engineering.skill.inspect',request),{code:'BRIDGE_PENDING'});
+  for(const other of ['planning.knowledge.query','research.evidence.review'])assert.equal(stateOf(other),'AVAILABLE',`${other} is unaffected`);
+ }finally{bridge.close();store.close();await rm(dir,{recursive:true,force:true});}
 });

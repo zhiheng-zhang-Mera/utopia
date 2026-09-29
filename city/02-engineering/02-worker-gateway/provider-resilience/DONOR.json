@@ -1,0 +1,135 @@
+{
+  "module": "provider-resilience",
+  "cityPath": "city/02-engineering/02-worker-gateway/provider-resilience",
+  "district": "02-engineering",
+  "building": "02-worker-gateway",
+  "incubationRooms": [
+    "mb-003-provider-resilience-lab"
+  ],
+  "mission": {
+    "missionId": "MB-003",
+    "book": "Digital-City/mission-book/MB-003-worker-gateway.md",
+    "role": "MIGRATION",
+    "cluster": "provider failure and interruption semantics, circuit-breaker health isolation, and provider outcome codes"
+  },
+  "waves": [
+    {
+      "wave": "MB-003",
+      "room": "mb-003-provider-resilience-lab",
+      "sourcePaths": [
+        "electron/commander/circuit-breaker.ts",
+        "src/shared/provider-outcome.ts"
+      ]
+    }
+  ],
+  "repository": "zhiheng-zhang-Mera/Codex-Boss",
+  "commit": "8df428eaa437a409368401e95194e40266b83080",
+  "sourcePaths": [
+    "electron/commander/circuit-breaker.ts",
+    "src/shared/provider-outcome.ts"
+  ],
+  "referenceTypes": [
+    "electron/commander/interruption.ts",
+    "electron/commander/durable-json.ts",
+    "electron/runtimes/runtime.ts"
+  ],
+  "portedFiles": {
+    "electron/commander/circuit-breaker.ts": [
+      "circuit-breaker.mjs",
+      "contracts.mjs"
+    ],
+    "src/shared/provider-outcome.ts": "provider-outcome.mjs"
+  },
+  "adaptation": [
+    "PERSISTENCE IS DEFERRED. The donor's `CircuitBreaker` class reads and writes `<userData>/.boss/circuit-breaker.json` through `readJson` / `writeJson` from `./durable-json`. None of that is carried over: this module contains no fs import, no path and no file. A caller supplies a serializable snapshot as `config.state` and reads one back from `snapshot()`; `loadCircuitSnapshot()` performs exactly the donor constructor's validation (schemaVersion 1, `records` an array, each record CLOSED/OPEN with a non-negative integer streak) and fails closed instead of repairing, and `snapshot()` produces exactly the donor's `{schemaVersion: 1, records[]}` payload plus the in-memory HALF_OPEN probe counters the donor never persisted.",
+    "INJECTED CLOCK. The donor's `now` option defaults to `Date.now`. Here the clock is a required injected parameter: `Date.now` is never called and the module contains no default clock. `createCircuitBreaker` without `options.now` builds, but any call that has to derive a state throws CircuitOptionError instead of reading a hidden global; every test injects a clock.",
+    "The donor class was split into a pure value machine plus a thin factory. Every value-level call (`state`, `isOpen`, `admit`, `observeSuccess`, `observeFailure`, `cancelProbe`, `reset`, `list`) takes an explicit `{core, now, cooldownMs, failureThreshold}` (or `{core}` for the ones that do not need the clock) and RETURNS the next core state instead of mutating a captured Map, so a snapshot and a clock reading replay deterministically and a caller can branch a what-if. `createCircuitBreaker` offers the donor's own method shape (`observeFailure(runtimeId)` returns CLOSED or OPEN, `admit(runtimeId)` returns a boolean) over that same machine for dispatch use.",
+    "`PROVIDER_TECHNICAL_KINDS` was a module-private `ReadonlySet` in the donor. It is exported as frozen data plus a lookup Set (`PROVIDER_TECHNICAL_KINDS`, `PROVIDER_TECHNICAL_KIND_SET`) so a caller can inspect the technical set, and `NON_TECHNICAL_INTERRUPTION_KINDS` names the complement. `providerTechnicalInterruption(kind)` keeps the donor's exact behaviour: true for the six technical kinds and false for everything else, including an unknown or non-string kind.",
+    "The donor's `InterruptionKind` and its 14-kind `interruptions` tuple live in `electron/commander/interruption.ts`, which is reference-only here. The vocabulary is carried as data (`INTERRUPTION_KINDS`) so non-technical kinds can be named and asserted; the donor's `classifyInterruption` and `recoveryFor` ladders are not ported (DEFERRED below).",
+    "TypeScript -> plain ESM JavaScript. Interfaces became JSDoc typedefs plus copy-on-construct factories in `contracts.mjs` (`storedRecord`, `storedProbe`, `breakerSnapshot`, `breakerEntry`, `circuitBreakerOptions`): each validates, copies and freezes, and none coerces or repairs an invalid value into a valid one. `@type RuntimeId` became a validated non-empty string (`requireRuntimeId`), so a non-string key can never become a runtime record.",
+    "`src/shared/provider-outcome.ts` is self-contained — no `import`, no `require`, no dynamic `import()` and no runtime coupling — so it was ported whole: `isNonSemanticRuntimeCode`, `deriveSemanticEvaluation`, `detectGoalDrift`, `createEvaluationRevision`, `SEMANTIC_OUTCOMES`, `OUTCOME_AXES`, `OUTCOME_EVALUATOR_VERSION` and every shape. Its module-private `NON_SEMANTIC_RUNTIME_CODES` is exported as data, and its classification order (runtime-layer fault, then deterministic format/verification, then refusal/restriction, then drift, then coverage) is preserved line for line.",
+    "`OUTCOME_AXES`, `SEMANTIC_OUTCOMES` and the other tables are deep-frozen rather than left as mutable exported literals; the donor's numbers are untouched."
+  ],
+  "knownDifferences": [
+    "No file, no path and no durable JSON: persistence is the caller's. The donor's `new CircuitBreaker(file, options)` path argument does not exist here; passing one to `createCircuitBreaker` throws instead of being silently ignored.",
+    "No default clock. The donor's `options.now ?? Date.now` becomes an injected `now()`; without one, deriving a state throws CircuitOptionError rather than reading the host clock.",
+    "The HALF_OPEN probe counter travels in the snapshot as `probes: [{runtimeId, probes}]`. The donor kept it in memory only, so an OPEN record restored from the donor's own file was always restored with no consumed probe.",
+    "A restored record whose `openedAt` would be present-but-undefined is normalised to an absent `openedAt` by `storedRecord`. The derived state is identical (both fail the `openedAt !== undefined` guard); only the in-memory property list differs.",
+    "`options.failureThreshold` / `options.cooldownMs` keep the donor's exact clamping (`1..20`, `1..604800000`) and its throw on a non-integer. `null` and `undefined` still take the donor default, because the donor's `??` operator treats them the same; that is not treated as an invalid option.",
+    "`updatedAt` is still produced with `new Date(now).toISOString()`, so a non-finite clock reading throws a RangeError, exactly as the donor does. The clock value itself is never read from the host.",
+    "An outcome evaluation is still derived from caller-supplied signals; nothing here calls a provider, inspects a response, or reads an episode store, and `createEvaluationRevision` builds the revision record without writing it anywhere.",
+    "Runtime ids are validated as non-empty strings at every entry point. The donor trusts the `RuntimeId` union at compile time."
+  ],
+  "parity": {
+    "vectorSource": "Codex-Boss electron/commander/circuit-breaker.ts, src/shared/provider-outcome.ts and tests/unit/engine-phase-1.test.ts @ 8df428eaa437a409368401e95194e40266b83080",
+    "vectors": [
+      "defaults: failureThreshold 3, cooldownMs 60000",
+      "failureThreshold clamps to 1 and 20 at the edges, clamps 0 and 21 inward, and throws on 1.5 / NaN / Infinity / '3' / {}",
+      "cooldownMs clamps to 1 and 604800000 at the edges, clamps 0 and 604800001 inward, and throws on 0.5 / NaN / Infinity / '60000' / []",
+      "an absent record reports CLOSED and is never listed",
+      "consecutive failures below the threshold stay CLOSED and report the growing streak; the threshold failure reports OPEN",
+      "isOpen is true for OPEN, false for CLOSED and for HALF_OPEN",
+      "a stored OPEN is reported HALF_OPEN exactly when now - openedAt >= cooldownMs, and stays OPEN one millisecond earlier",
+      "a failure while OPEN inside the cooldown stays OPEN, keeps openedAt and keeps the streak",
+      "HALF_OPEN admits exactly one probe per runtime; a second dispatch is refused while the probe is consumed",
+      "a failed probe (failure while OPEN after the cooldown) reopens with openedAt = now and consecutiveFailures = failureThreshold",
+      "observeSuccess reports CLOSED, clears the streak, removes openedAt and frees the probe counter",
+      "cancelProbe frees a consumed probe and changes no record; cancelling an unknown runtime changes nothing",
+      "reset removes the record and the probe, so the runtime is CLOSED with no history",
+      "list reports each recorded runtime in insertion order with its CURRENT (derived) state and streak",
+      "a snapshot round-trips: records, the probe counter and the effective options all restore",
+      "a snapshot with a wrong schemaVersion, a non-array records, a HALF_OPEN stored state, a fractional or negative streak, a duplicate runtime, a non-finite openedAt or a zero probe is refused rather than repaired",
+      "providerTechnicalInterruption is true for NETWORK_FAILURE, PROVIDER_5XX, TOOL_TIMEOUT, BROWSER_CRASH, PROCESS_CRASH, RESOURCE_EXHAUSTED and false for RATE_LIMIT, QUOTA_EXHAUSTED, CREDIT_EXHAUSTED, SESSION_EXPIRED, AUTH_EXPIRED, DEPENDENCY_FAILURE, HUMAN_APPROVAL_REQUIRED, UNKNOWN_INTERRUPTION, the runtime-code spellings AUTH_REQUIRED / BUDGET_EXHAUSTED, a padded or empty string and a non-string",
+      "the six-kind set and the non-technical complement partition the donor's 14-kind vocabulary exactly once",
+      "all 11 semantic outcomes carry the five axes within 0..1, FULL_COMPLETION.completion = 1, HARD_REFUSAL.restrictionImpact = 1, PARTIAL_REFUSAL.restrictionImpact > SOFT_RESTRICTION.restrictionImpact, HEAVY_SANITIZATION.sanitizationImpact > its restrictionImpact, and UNCLASSIFIED is neutral",
+      "A02-A08: SUCCESS + coverage 1 is FULL_COMPLETION; SUCCESS + refusal is HARD_REFUSAL and is NOT runtime-attributable; partial completion and partial refusal stay distinguishable; TIMEOUT / AUTH_REQUIRED / PAGE_CHANGED are UNCLASSIFIED with zero restriction penalty, zero confidence and penalizesSemanticProfile false; goal drift is recorded",
+      "format and verification failures outrank provider behaviour signals and carry zero restriction impact",
+      "a successful call with no content is UNCLASSIFIED rather than a fabricated completion",
+      "a SUCCESS carrying a listed runtime code is still classified as not model behaviour",
+      "goal drift reports scope-change markers (including the Chinese markers) with the pattern source, reports an unaddressed deliverable only when none of its first three 4+ character tokens appear, and ignores deliverables made only of short tokens",
+      "createEvaluationRevision appends the original evaluator version and outcome without overwriting the original evaluation"
+    ]
+  },
+  "classification": {
+    "PARITY": [
+      "the six provider-technical interruption kinds, and the exclusion of user/auth/quota/session/dependency/unknown kinds",
+      "CLOSED / OPEN / HALF_OPEN derivation from the stored record and the cooldown",
+      "threshold trip, streak reset, single-probe HALF_OPEN admission, failed-probe reopen, cancelProbe and reset semantics",
+      "option defaults and the 1..20 / 1..604800000 clamping with a throw on a non-integer",
+      "the donor's snapshot validation (schemaVersion 1, records array, CLOSED/OPEN, non-negative integer streak) as fail-closed",
+      "the whole semantic-outcome vocabulary, axis table, classification order and drift rules, and the A02-A08 cases from tests/unit/engine-phase-1.test.ts"
+    ],
+    "PORT_ADAPTATION": [
+      "TypeScript -> plain ESM JavaScript with the same file-level split (contracts / breaker / outcomes)",
+      "persistence deferred behind caller-owned snapshots; no fs, no path, no durable-json",
+      "injected clock instead of Date.now; injected state instead of a mutable class instance",
+      "pure value-level reducer shape plus a thin factory mirroring the donor's methods",
+      "PROVIDER_TECHNICAL_KINDS and NON_SEMANTIC_RUNTIME_CODES exported as data",
+      "copy-on-construct factories and runtime-id validation at the boundaries"
+    ],
+    "UTOPIA_EXTENSION": [
+      "breakerSnapshot / storedRecord / storedProbe / breakerEntry validation factories",
+      "INTERRUPTION_KINDS and NON_TECHNICAL_INTERRUPTION_KINDS as inspectable data",
+      "the HALF_OPEN probe counter included in the snapshot",
+      "axeValues / semanticEvaluation shape validation for a recorded evaluation"
+    ],
+    "DEFERRED": [
+      "durable persistence: readJson / writeJson usage and the <userData>/.boss/circuit-breaker.json file",
+      "the donor's interruption classifier (classifyInterruption) and its recovery ladder (recoveryFor)",
+      "the ExecutionSupervisor wiring: admit/isOpen gates, role filtering, reroute decisions and the observeSuccess/observeFailure/cancelProbe call sites",
+      "the ExecutionSupervisor / main-commander / main.ts instantiation and any RuntimeRegistry or RuntimeStatusView exposure of breaker state",
+      "the OutcomeEvaluator service and the adaptive flags that gate semantic evaluation",
+      "episode storage, semantic-profile aggregation and the consumers that exclude runtime-attributable evaluations"
+    ],
+    "boundary": {
+      "selfContained": "src/shared/provider-outcome.ts",
+      "reason": "The donor file declares no import, no require and no dynamic import, and reaches for nothing but ECMAScript intrinsics and its own module constants. It was therefore ported whole, including createEvaluationRevision. Only the donor's OutcomeEvaluator service (electron/learning/outcome-evaluator.ts), which wraps these functions behind adaptive flags, is out of scope.",
+      "dragIn": [
+        "electron/commander/durable-json.ts -> persistence, deliberately not ported; snapshots take its place",
+        "electron/commander/interruption.ts -> vocabulary only; the classifier and recovery ladder stay donor-side",
+        "electron/runtimes/runtime.ts -> RuntimeId replaced by a validated string",
+        "electron/commander/execution-supervisor.ts -> the only donor caller of the breaker; its dispatch gate is not ported"
+      ]
+    }
+  }
+}

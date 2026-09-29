@@ -146,3 +146,47 @@ Git history + bilingual docs   kept for traceability
 ```
 
 **Room and City must never drift apart as two live implementations.**
+
+---
+
+## 7. MB-003 Worker Gateway migration
+
+`Digital-City/mission-book` is a second, Owner-defined control plane. It lands code
+directly under `city/` on a `mission/<MISSION_ID>-<slug>` branch, and a **different** host
+verifies it against the donor before the branch may reach `main`. That is a second
+incubation identity beside the Room Pack, and the two must never be blurred: no Room ever
+ran for these modules, so recording them as Room Pack promotions would be false provenance.
+
+A mission-derived incubator id has the form `mb-<MISSION_ID>-<module>-lab` and must be
+accompanied by a `mission` block on the module. `city/tests/manifest.test.mjs` refuses a
+module that claims one without the other, and refuses a manifest entry that disagrees with
+the module's own `DONOR.json`.
+
+MB-003 (donors `Codex-Boss @ 8df428e` and `DS-Hns @ eeb57ca`) added three modules to the
+existing `02-worker-gateway` building:
+
+| Module | Donor source | What it provides |
+| --- | --- | --- |
+| `worker-task-contract` | DS-Hns `app/extensions/mega/scheduler/lifecycle.js` | canonical task-lifecycle vocabulary, persisted-status compatibility, terminal-event identity and idempotency, notification-safe summaries |
+| `provider-adapter` | Codex-Boss `electron/runtimes/{runtime,unsupported-runtime,web/provider-runtime-adapter}.ts`, `src/shared/provider-state.ts` | the provider/runtime adapter contract, readiness, unsupported-capability refusal, provider lifecycle state |
+| `provider-resilience` | Codex-Boss `electron/commander/circuit-breaker.ts`, `src/shared/provider-outcome.ts` | provider failure/interruption semantics, circuit-breaker health isolation, provider outcome codes |
+
+### `capabilityProvider`
+
+These three modules are adapter infrastructure. They really exist in the city, but they
+expose no user-facing capability, so they declare `"capabilityProvider": false` and the
+capability registry skips them. Without that flag the Web and Android capability lists
+would advertise them as "unavailable" capabilities awaiting a bridge — an assertion about
+a product surface that does not exist.
+
+### The freeze, and mission-book consumption
+
+§5 freezes the product surfaces so a city module cannot quietly rewrite the protocol
+Android and Web depend on. A mission-book migration has a different and later requirement:
+MB-003 must be consumed by an existing task/control flow. The two are reconciled only as
+follows: consumption may reach `services/**` when the mission-book requires it, and it must
+be an equivalence-preserving rewiring — the City Control Protocol, Gateway API v0 shapes,
+runtime node task state names, event names, payload shapes and the Android contract stay
+unchanged. `services/capability-bridge/bridge.mjs` therefore decides per-capability
+degradation through the migrated `provider-resilience` breaker, with Utopia's policy (one
+failure threshold, two provider-technical error codes) supplied as data.

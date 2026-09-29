@@ -4,11 +4,25 @@ import {registry} from './registry.mjs';
 import {createInvocationStore} from './invocation-store.mjs';
 import {createThemeArtifacts} from './theme-artifacts.mjs';
 import {canonical,digest,objectInput,refuse} from '../../contracts/capability-bridge-v1/protocol.mjs';
+// City Core (MB-003). The per-capability degradation latch is owned by the migrated
+// provider-resilience breaker instead of an ad-hoc Set. Utopia's policy travels as data:
+// failureThreshold 1 opens the breaker on the first provider-technical failure, and the
+// cooldown is the donor's maximum, so nothing closes it again inside a gateway process
+// lifetime — which is exactly the permanent latch this replaced.
+import {createCircuitBreaker} from '../../city/02-engineering/02-worker-gateway/provider-resilience/index.mjs';
+const PROVIDER_TECHNICAL_ERROR_CODES=['ENGINE_UNAVAILABLE','ADAPTER_UNAVAILABLE'];
+const CIRCUIT_COOLDOWN_MS=604800000;
 
 export function createBridge(store,emit,{execute,artifactRoot}={}){
  const history=createInvocationStore(store);
- const workers=new Set(),degraded=new Set();let closed=false;
- const descriptors=()=>registry().map(c=>degraded.has(c.capabilityId)?{...c,bridgeState:'DEGRADED'}:c);
+ const workers=new Set();let closed=false;
+ // The Core breaker owns the degradation decision. Nothing ever observes a success for a
+ // degraded capability, because a degraded capability is refused before dispatch, so the
+ // breaker stays open for the lifetime of the process — the same permanent latch the
+ // ad-hoc Set provided, now decided by the migrated state machine.
+ const circuit=createCircuitBreaker({options:{failureThreshold:1,cooldownMs:CIRCUIT_COOLDOWN_MS,now:Date.now}});
+ const degraded=capabilityId=>circuit.state(capabilityId)!=='CLOSED';
+ const descriptors=()=>registry().map(c=>degraded(c.capabilityId)?{...c,bridgeState:'DEGRADED'}:c);
  const save=row=>history.save(row);
  for(const row of store.list('invocations'))if(row.status==='RUNNING'){
   save({...row,status:'INTERRUPTED',finishedAt:new Date().toISOString(),errorCode:'GATEWAY_RESTARTED'});
@@ -38,7 +52,7 @@ export function createBridge(store,emit,{execute,artifactRoot}={}){
   if(outcome.result&&Buffer.byteLength(JSON.stringify(outcome.result))>3*1024*1024){outcome.errorCode='RESULT_TOO_LARGE';delete outcome.result;}
   if(themeSandbox)try{artifacts.finish(invocationId,!outcome.errorCode);}catch{outcome={errorCode:'BUILD_STORAGE_UNAVAILABLE'};}
   row={...row,finishedAt:new Date().toISOString(),status:outcome.errorCode?'FAILED':'COMPLETED',errorCode:outcome.errorCode??null,result:outcome.errorCode?null:canonical(outcome.result),resultDigest:outcome.errorCode?null:digest(outcome.result)};
-  if(['ENGINE_UNAVAILABLE','ADAPTER_UNAVAILABLE'].includes(row.errorCode))degraded.add(capabilityId);
+  if(PROVIDER_TECHNICAL_ERROR_CODES.includes(row.errorCode))circuit.observeFailure(capabilityId);
   save(row);emit(outcome.errorCode?'CAPABILITY_FAILED':'CAPABILITY_COMPLETED',null,{invocationId,capabilityId,status:row.status,resultDigest:row.resultDigest,errorCode:row.errorCode});return history.get(invocationId);
  },close(){closed=true;for(const w of workers)w.terminate();}};
 }

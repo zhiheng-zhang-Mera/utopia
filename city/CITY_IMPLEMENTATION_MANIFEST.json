@@ -40,6 +40,76 @@
                 "skill-intake-lab",
                 "skill-discovery-lab"
               ]
+            },
+            {
+              "id": "worker-task-contract",
+              "zh": "工单契约",
+              "en": "Worker Task Contract",
+              "path": "city/02-engineering/02-worker-gateway/worker-task-contract",
+              "lifecycle": "PROMOTED",
+              "capabilityProvider": false,
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/DS-Hns",
+                "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+                "sourcePaths": [
+                  "app/extensions/mega/scheduler/lifecycle.js"
+                ]
+              },
+              "incubationRooms": [
+                "mb-003-worker-task-contract-lab"
+              ],
+              "mission": {
+                "missionId": "MB-003",
+                "cluster": "Hns worker/task contract: canonical task lifecycle vocabulary, persisted-status compatibility, terminal-event identity and idempotency, and notification-safe summaries"
+              }
+            },
+            {
+              "id": "provider-adapter",
+              "zh": "服务商适配层",
+              "en": "Provider Adapter",
+              "path": "city/02-engineering/02-worker-gateway/provider-adapter",
+              "lifecycle": "PROMOTED",
+              "capabilityProvider": false,
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/Codex-Boss",
+                "commit": "8df428eaa437a409368401e95194e40266b83080",
+                "sourcePaths": [
+                  "electron/runtimes/runtime.ts",
+                  "electron/runtimes/unsupported-runtime.ts",
+                  "electron/runtimes/web/provider-runtime-adapter.ts",
+                  "src/shared/provider-state.ts"
+                ]
+              },
+              "incubationRooms": [
+                "mb-003-provider-adapter-lab"
+              ],
+              "mission": {
+                "missionId": "MB-003",
+                "cluster": "provider/runtime detect, version, capabilities and readiness; create/attach/start, bounded work submit, status/progress, cancel/interrupt, result/evidence; unsupported-capability refusal"
+              }
+            },
+            {
+              "id": "provider-resilience",
+              "zh": "服务商韧性",
+              "en": "Provider Resilience",
+              "path": "city/02-engineering/02-worker-gateway/provider-resilience",
+              "lifecycle": "PROMOTED",
+              "capabilityProvider": false,
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/Codex-Boss",
+                "commit": "8df428eaa437a409368401e95194e40266b83080",
+                "sourcePaths": [
+                  "electron/commander/circuit-breaker.ts",
+                  "src/shared/provider-outcome.ts"
+                ]
+              },
+              "incubationRooms": [
+                "mb-003-provider-resilience-lab"
+              ],
+              "mission": {
+                "missionId": "MB-003",
+                "cluster": "provider failure and interruption semantics, circuit-breaker health isolation, and provider outcome codes"
+              }
             }
           ]
         }

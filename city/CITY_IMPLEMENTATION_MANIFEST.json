@@ -25,11 +25,14 @@
                 "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
                 "sourcePaths": [
                   "app/extensions/mega/skills/skill-format.js",
-                  "app/extensions/mega/skills/tar.js"
+                  "app/extensions/mega/skills/tar.js",
+                  "app/extensions/mega/skills/skill-source.js",
+                  "app/extensions/mega/skills/skill-catalog.js"
                 ]
               },
               "incubationRooms": [
-                "skill-intake-lab"
+                "skill-intake-lab",
+                "skill-discovery-lab"
               ]
             }
           ]

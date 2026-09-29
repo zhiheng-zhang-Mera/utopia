@@ -19,10 +19,47 @@ promotedAtCommit   = 第一个正式 city module 已落位的 commit（可达、
 | `theme-engine-lab` (D2) | `9819ed7a4a212b8c8480d91c3812ce7f7a760ab9` | `a18b1e80b7405137ac3c56ef1bc1805677b6a93f` | `city/11-entertainment/01-entertainment-centre/theme-engine` |
 | `knowledge-core-lab` (D3) | `01f932bd2aad2403bec61961410ca19ca0cf28ad` | `b82fcfd0f153a63b8424051affd86bf7df0a41d0` | `city/09-planning-knowledge/01-knowledge-service/knowledge-core` |
 | `document-intake-lab` (D4) | `165e2664ad4e2d777889d8dec47893144e8c81dd` | `e3d6bbd9dd9196ce0991e095fb91993df3ec3dd1` | `city/09-planning-knowledge/02-document-intake/ingestion-core` |
+| `skill-discovery-lab` (D5) | `b4dff81503128ae0d2ad163732171eb6dd887f4b` | `48494263d75532eaaba3490bc6c4223d5ff44ead` | `city/02-engineering/02-worker-gateway/skill-intake` |
 
 > **D1 说明：** 最初写入 `city/02-engineering/02-worker-gateway/skill-intake` 的那次提交在 Wave 1 期间的一次历史整理中被改写，已不可达；本记录因此指向当前历史中**第一个包含该 module 且可达**的提交 `1402872`。Wave 1 曾预填的旧值（形如 `6b29e84…`）是提交 amend 之前的 SHA，已作废。
 >
 > **禁止预猜当前 commit 自己的 SHA**：记录只能在目标提交已经存在之后回填，并由 `scripts/verify-promotion-history.mjs` 用本地 Git 历史核验。
+
+---
+
+## D5 · skill-discovery-lab → city/02-engineering/02-worker-gateway/skill-intake
+
+| 项 | 值 |
+| --- | --- |
+| Donor 仓库 | `zhiheng-zhang-Mera/DS-Hns` |
+| Donor SHA | `eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b` |
+| Donor 源文件 | `app/extensions/mega/skills/skill-source.js`、`app/extensions/mega/skills/skill-catalog.js` |
+| 孵化房间 | `apps/rooms/rooms/skill-discovery-lab/`（已从活跃树移除） |
+| 孵化验收 commit | `b4dff81503128ae0d2ad163732171eb6dd887f4b` |
+| 晋升 commit | `48494263d75532eaaba3490bc6c4223d5ff44ead` |
+| 最终城市路径 | `city/02-engineering/02-worker-gateway/skill-intake` |
+| Lifecycle | `PROMOTED`（Wave 2 期间） |
+| 共用 module | 是：D1 已把 format 与 archive 内核晋升到同一 module，因此它现在记录 `incubationRooms: ["skill-intake-lab", "skill-discovery-lab"]` |
+
+### 适配说明
+
+- CommonJS → ESM，算法不变：引用解析器、候选顺序、archive URL 规划与分层扫描器行为与 donor 一致；
+- 文件系统访问改为可注入的 read adapter（`isDirectory` / `isFile` / `list`），同一套扫描既能跑真实磁盘，也能在测试里跑内存树；
+- SKILL.md 解析器使用本 module 自己的 `format.mjs`，不再存在第二份拷贝；
+- GitHub 解析结果只是计划：`resolutionPlan()` 以数据形式返回 archive URL 形式、ref 拆分与 subpath，本 module 完全没有 fetch / request / 下载入口；
+- catalog 的实时 GitHub 搜索通过可注入的 `fetchJson` 实现；未配置时回答 `unavailable`，策展与内置条目照常返回；
+- `describeRef()` 从孵化房间的接线层移入 `source.mjs`，因为它只描述一个已解析的引用。
+
+### 已知差异
+
+- 不安装：本 module 只做校验、检查与发现，从不把技能写入磁盘；
+- 不下载：`resolutionPlan()` 描述调用方**可以**发起的尝试，真正发起不在本 module 范围内；
+- 不携带 donor 的 `skill-service.js`，因此这里没有安装、更新或删除技能的能力；
+- `readEntries` 仍按 donor 行为把不安全路径从条目列表中过滤掉，而不是作为 refused 条目上报。
+
+### 平价测试
+
+覆盖：全部引用形式（owner/repo、`@ref`、subpath、`/tree/`、`/blob/`、raw 与普通 URL）、向上穿越拒绝与 subpath 规范化、最长 ref 优先的候选顺序、archive URL 顺序与去重、repository/tree/raw 三种解析计划、分层扫描顺序（subpath、自身 bundle、`skills/` 集合、同级 bundle、最后才是平铺文件）、脚手架目录永不作为技能提供、扫描器同时跑内存树与 fixtures、解析器拒绝无法解析的平铺文件、catalog 排序（命中 name 高于命中 summary；tags 为 AND 过滤），以及实时搜索失败或未配置时离线答案永不消失。
 
 ---
 

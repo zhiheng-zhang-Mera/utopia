@@ -201,7 +201,7 @@ test('the module is self-contained: built-ins only, no donor checkout dependency
   const { readFile } = await import('node:fs/promises');
   const { join } = await import('node:path');
   const moduleDir = join(import.meta.dirname, '..');
-  for (const file of ['format.mjs', 'archive.mjs']) {
+  for (const file of ['format.mjs', 'archive.mjs', 'source.mjs', 'catalog.mjs']) {
     const source = await readFile(join(moduleDir, file), 'utf8');
     const code = source
       .replace(/\/\*[\s\S]*?\*\//g, '')
@@ -224,11 +224,25 @@ test('provenance stays honest: DONOR.json pins the donor and records the adaptat
   assert.equal(donor.repository, 'zhiheng-zhang-Mera/DS-Hns');
   assert.equal(donor.commit, 'eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b');
   assert.equal(donor.cityPath, 'city/02-engineering/02-worker-gateway/skill-intake');
-  assert.equal(donor.room, 'skill-intake-lab');
-  assert.deepEqual(donor.sourcePaths, [
+  // one module, two incubation rooms: the wave 1 format and archive core (D1) and
+  // the wave 2 source and catalog core (D5)
+  assert.deepEqual(donor.incubationRooms, ['skill-intake-lab', 'skill-discovery-lab']);
+  assert.deepEqual(donor.waves.map((entry) => [entry.wave, entry.room]), [['D1', 'skill-intake-lab'], ['D5', 'skill-discovery-lab']]);
+  assert.deepEqual(donor.waves[0].sourcePaths, [
     'app/extensions/mega/skills/skill-format.js',
     'app/extensions/mega/skills/tar.js',
   ]);
+  assert.deepEqual(donor.waves[1].sourcePaths, [
+    'app/extensions/mega/skills/skill-source.js',
+    'app/extensions/mega/skills/skill-catalog.js',
+  ]);
+  assert.deepEqual(donor.sourcePaths, [
+    'app/extensions/mega/skills/skill-format.js',
+    'app/extensions/mega/skills/tar.js',
+    'app/extensions/mega/skills/skill-source.js',
+    'app/extensions/mega/skills/skill-catalog.js',
+  ]);
+  assert.deepEqual(Object.values(donor.portedFiles).sort(), ['archive.mjs', 'catalog.mjs', 'format.mjs', 'source.mjs']);
   assert.ok(donor.adaptation.length >= 3);
   assert.ok(donor.knownDifferences.length >= 1);
   assert.ok(donor.parity.vectors.length >= 8);

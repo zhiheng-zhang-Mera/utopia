@@ -64,10 +64,11 @@ test('the real manifest describes exactly the wave 1 districts and modules', asy
   const claimed = modules.flatMap((entry) => entry.incubationRooms);
   assert.equal(new Set(claimed).size, claimed.length, 'no incubation room is claimed twice');
 
-  // D1 is PROMOTED, not ACTIVE, until a real city runtime consumer exists
+  // D1 is PROMOTED, not ACTIVE, until a real city runtime consumer exists, and the
+  // same module was later strengthened by the D5 source and catalog core
   const skillIntake = modules.find((entry) => entry.module.id === 'skill-intake').module;
   assert.equal(skillIntake.lifecycle, 'PROMOTED');
-  assert.deepEqual(skillIntake.incubationRooms, ['skill-intake-lab']);
+  assert.deepEqual(skillIntake.incubationRooms, ['skill-intake-lab', 'skill-discovery-lab']);
 
   const active = modules.filter(({ module }) => IMPLEMENTED_LIFECYCLES.includes(module.lifecycle));
   assert.ok(active.length <= modules.length);

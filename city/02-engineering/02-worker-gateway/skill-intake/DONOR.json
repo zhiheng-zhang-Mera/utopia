@@ -3,31 +3,61 @@
   "cityPath": "city/02-engineering/02-worker-gateway/skill-intake",
   "district": "02-engineering",
   "building": "02-worker-gateway",
-  "room": "skill-intake-lab",
+  "incubationRooms": [
+    "skill-intake-lab",
+    "skill-discovery-lab"
+  ],
+  "waves": [
+    {
+      "wave": "D1",
+      "room": "skill-intake-lab",
+      "sourcePaths": [
+        "app/extensions/mega/skills/skill-format.js",
+        "app/extensions/mega/skills/tar.js"
+      ]
+    },
+    {
+      "wave": "D5",
+      "room": "skill-discovery-lab",
+      "sourcePaths": [
+        "app/extensions/mega/skills/skill-source.js",
+        "app/extensions/mega/skills/skill-catalog.js"
+      ]
+    }
+  ],
   "repository": "zhiheng-zhang-Mera/DS-Hns",
   "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
   "sourcePaths": [
     "app/extensions/mega/skills/skill-format.js",
-    "app/extensions/mega/skills/tar.js"
+    "app/extensions/mega/skills/tar.js",
+    "app/extensions/mega/skills/skill-source.js",
+    "app/extensions/mega/skills/skill-catalog.js"
   ],
   "portedFiles": {
     "app/extensions/mega/skills/skill-format.js": "format.mjs",
-    "app/extensions/mega/skills/tar.js": "archive.mjs"
+    "app/extensions/mega/skills/tar.js": "archive.mjs",
+    "app/extensions/mega/skills/skill-source.js": "source.mjs",
+    "app/extensions/mega/skills/skill-catalog.js": "catalog.mjs"
   },
   "adaptation": [
     "CommonJS modules converted to ESM with named exports.",
-    "Filesystem helpers dropped from the format core: readSkillFile, scanSkillRoot and resolveInstalled are gone, so the port has no disk access and no dependency on the HNS installation directory.",
+    "Filesystem helpers dropped from the format core: readSkillFile, scanSkillRoot and resolveInstalled are gone, so the port has no dependency on the HNS installation directory.",
     "extractTar was not carried over: this module inspects archives in memory and never writes files, which removes the extraction path entirely.",
     "readSkillFile's size guard was folded into parseSkillText so a pasted document is bounded by the same MAX_SKILL_BYTES rule.",
-    "Archive inspection reports accepted/refused entries instead of returning a written-files list."
+    "Archive inspection reports accepted/refused entries instead of returning a written-files list.",
+    "The source scanner reads through an injectable adapter (isDirectory / isFile / list) instead of node:fs directly, so the same tiered scan runs over the real disk and over an in-memory tree in tests.",
+    "GitHub resolution stays a plan: archive URL forms, ref splits and subpaths are produced as data, and the module has no fetch, request or download entry point.",
+    "The catalog's live GitHub code search takes an injectable fetchJson; without one it answers 'unavailable' and the curated and bundled entries stand.",
+    "describeRef was moved out of the incubator room wiring into source.mjs, because it only describes a parsed reference."
   ],
   "knownDifferences": [
-    "No skill installation: wave 1 only validates and inspects.",
+    "No skill installation: this module validates, inspects and discovers; it never writes a skill to disk.",
     "readEntries filters unsafe paths out of the entry list (donor behaviour) instead of surfacing them as refused entries.",
-    "No GitHub download or source resolution: skill-source.js and skill-service.js are out of scope for wave 1."
+    "No GitHub download happens here: resolutionPlan returns the attempts a caller could make, and the module never performs one.",
+    "The donor's skill-service.js is out of scope: nothing here installs, updates or removes a skill."
   ],
   "parity": {
-    "vectorSource": "DS-Hns tests/unit/skills-service.test.js @ eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+    "vectorSource": "DS-Hns tests/unit/skills-service.test.js and tests/unit/skills-discovery.test.js @ eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
     "vectors": [
       "skill name grammar (valid and invalid sets)",
       "frontmatter subset: whenToUse, metadata, invocation booleans (all accepted spellings)",
@@ -36,7 +66,15 @@
       "tar listing of regular files and directories with stripComponents",
       "path traversal and absolute path refusal",
       "symlink / hardlink / device refusal",
-      "byte cap and entry cap"
+      "byte cap and entry cap",
+      "GitHub reference forms: owner/repo, @ref, subpath, /tree/, /blob/, raw and plain URLs",
+      "reference traversal refusal and normalisation",
+      "archive URL order and de-duplication",
+      "resolution plan ordering for repository, tree and raw references",
+      "tiered scanner order: subpath, own bundle, skills/ collection, sibling bundles, flat files",
+      "scaffolding directories are never offered as skills",
+      "catalog ranking: a name hit outranks a summary hit, tags filter with AND",
+      "a failed or unconfigured live search never removes the offline answer"
     ]
   }
 }

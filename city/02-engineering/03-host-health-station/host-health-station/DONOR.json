@@ -1,0 +1,219 @@
+{
+  "module": "host-health-station",
+  "mission": "MB-005",
+  "cityPath": "city/02-engineering/03-host-health-station/host-health-station",
+  "district": "02-engineering",
+  "building": "03-host-health-station",
+  "incubationRooms": [
+    "host-health-lab"
+  ],
+  "cityOwner": "MB-005 mission owner (CITY_IMPLEMENTATION_MANIFEST.json census update pending)",
+  "mode": "MIGRATION_ONLY",
+  "donors": [
+    {
+      "repository": "zhiheng-zhang-Mera/dsh-health-scheduler",
+      "commit": "985e2b7389330db4b32ea2946e3657746c64b47b",
+      "baselineCheckout": ".runtime/evidence/mission-book/MB-005/donor-health",
+      "packageName": "dsh-health-scheduler",
+      "packageVersion": "0.1.0",
+      "runtimeDependencies": [],
+      "sourcePaths": [
+        "src/index.ts",
+        "src/types/metrics.ts",
+        "src/types/provider.ts",
+        "src/types/window.ts",
+        "src/types/decision.ts",
+        "src/types/config.ts",
+        "src/types/index.ts",
+        "src/core/bands.ts",
+        "src/core/normalize.ts",
+        "src/core/rolling.ts",
+        "src/core/trend.ts",
+        "src/core/pressure.ts",
+        "src/core/policy.ts",
+        "src/core/maintenance.ts",
+        "src/core/safe-point.ts",
+        "src/core/config.ts",
+        "src/core/presets.ts",
+        "src/core/scheduler.ts",
+        "src/audit/decision-log.ts",
+        "src/adapters/types.ts",
+        "src/providers/registry.ts",
+        "src/providers/sources.ts",
+        "src/providers/environment.ts",
+        "src/providers/hardware.ts",
+        "src/providers/memory.ts",
+        "src/providers/runtime.ts",
+        "src/providers/stats-driven.ts",
+        "src/providers/process-tree.ts"
+      ],
+      "notPorted": [
+        "src/dsh/plugin.ts (Cordis binding; its non-binding logic is ported, see portedFiles)",
+        "src/dsh/context.ts (Cordis binding)",
+        "src/dsh/report.ts (pure presentation; ported, see portedFiles)",
+        "src/index.ts (plugin entry point: apply/name/inject/applyHealthScheduler)",
+        "package.json, package-lock.json, tsconfig.json, cordis.patch.yml, plugin/manifest.json, plugin/manifest.schema.json",
+        "presets/schema.json (JSON Schema for the Cordis settings row)",
+        "presets/README.md, scripts/generate-presets.mjs, scripts/verify-artifacts.mjs",
+        "lib/** (the compiled output of the above; used only as the differential oracle)"
+      ]
+    }
+  ],
+  "portedFiles": {
+    "src/types/metrics.ts": "types.mjs",
+    "src/types/decision.ts": "types.mjs",
+    "src/types/config.ts": "types.mjs",
+    "src/types/provider.ts": "types.mjs (types only: no runtime code in the donor file)",
+    "src/types/window.ts": "types.mjs (types only: no runtime code in the donor file)",
+    "src/types/index.ts": "types.mjs (the barrel collapses into one flat module)",
+    "src/core/bands.ts": "bands.mjs",
+    "src/core/normalize.ts": "normalize.mjs",
+    "src/core/rolling.ts": "rolling.mjs",
+    "src/core/trend.ts": "trend.mjs",
+    "src/core/pressure.ts": "pressure.mjs",
+    "src/core/policy.ts": "policy.mjs",
+    "src/core/maintenance.ts": "maintenance.mjs",
+    "src/core/safe-point.ts": "safe-point.mjs",
+    "src/core/config.ts": "config.mjs",
+    "src/core/presets.ts": "presets.mjs (+ donor presets/conservative.json, presets/balanced.json, presets/aggressive.json as PRESET_DOCUMENTS)",
+    "src/core/scheduler.ts": "scheduler.mjs",
+    "src/audit/decision-log.ts": "audit.mjs",
+    "src/adapters/types.ts": "adapters.mjs",
+    "src/providers/registry.ts": "providers.mjs",
+    "src/providers/sources.ts": "providers.mjs",
+    "src/providers/environment.ts": "providers.mjs",
+    "src/providers/hardware.ts": "providers.mjs",
+    "src/providers/memory.ts": "providers.mjs",
+    "src/providers/runtime.ts": "providers.mjs",
+    "src/providers/stats-driven.ts": "providers.mjs",
+    "src/providers/process-tree.ts": "providers.mjs",
+    "src/dsh/report.ts": "report.mjs (metricsSnapshot, renderHealthReport, renderMetricRow)",
+    "src/dsh/plugin.ts": "report.mjs (renderPressureSection, renderMaintenanceSection, renderProviderSection), settings.mjs (SETTINGS_NAMESPACE, configSchema, the settings-watch update path), wiring.mjs (registerBuiltInProviders)",
+    "src/index.ts": "index.mjs (the library surface only; apply/name/inject are dropped)"
+  },
+  "adaptation": [
+    "TypeScript -> plain ESM JavaScript. The port is a transcription of the donor's own compiled output (lib/**, the executable golden oracle) cross-checked against src/**, with the type surface expressed as JSDoc @param/@returns and `readonly`/`as const` expressed as Object.freeze where the donor froze at runtime.",
+    "Import graph flattened: the donor's `types/{metrics,provider,window,decision,config,index}.ts` collapse into one `types.mjs`; the eight `providers/*.ts` collapse into one `providers.mjs`. Three donor-private module constants named `PROVIDES` became HARDWARE_PROVIDES / MEMORY_PROVIDES / RUNTIME_PROVIDES because they now share one scope; nothing else was renamed.",
+    "Four donor module-private functions were promoted to exports so the module is testable through one entry point and the donor's own test vectors remain expressible: `bandKeyOf`, `rampEndpoints`, `clamp`, `byScoreDescending` (bands), `parseSampleTime` (normalize), `startOfLocalDay` (maintenance), `cooldownKindOf` / `cooldownMsOf` / `initialActionAttempts` (policy), `ProcessTreeReader`, `parseTasklistMemoryLine`, `parsePsMemoryLine`, `mergeHardwareMetrics`, `formatBytes`/`formatDelta`/`formatSlopePerHour` (already public), `renderMetricRow` and the three report sections. No behaviour was added.",
+    "The donor's `src/dsh/report.ts` presentation module is carried over as report.mjs. It is pure functions over a snapshot and had no Cordis dependency: `metricsSnapshot`, `renderHealthReport`, `renderMetricRow`. The three section renderers from `src/dsh/plugin.ts` (`renderPressureSection`, `renderMaintenanceSection`, `renderProviderSection`) are pure too and moved here with it.",
+    "The donor's settings *registration* is Cordis binding and is dropped; the logic behind it is kept as settings.mjs. `SETTINGS_NAMESPACE` and the declarative `configSchema()` are carried over as data, and the watch-callback behaviour becomes the pure `applySettingsUpdate(scheduler, next)`: re-resolve the whole document with the authoritative validator, then `scheduler.reconfigure(resolved)`; on failure change nothing and return the ConfigError. That is the donor's rule that a value the UI accepts but the engine cannot act on is rejected loudly instead of silently applied.",
+    "The donor's provider graph projection is kept as wiring.mjs (`buildBuiltInProviders` / `registerBuiltInProviders`), ported verbatim from `registerBuiltInProviders` in `src/dsh/plugin.ts`. It never read `ctx`, so only its signature changed: it now takes the environment and returns the providers as well as registering them. Both donor quirks are preserved: the memory provider is fed the *hardware* helper command, and the ProcessTreeReader is built only when extraPids is non-empty.",
+    "`src/dsh/context.ts` is dropped entirely. It existed only to structurally type the Cordis context the plugin read (`ctx.tools`, `ctx.settings`, `ctx.logger`, `ctx.effect`, `ctx.healthScheduler`). Nothing in the ported engine referenced it.",
+    "The donor's `presets/*.json` are embedded verbatim as `PRESET_DOCUMENTS` so an operator can diff the numbers without reading the scaling code. They are asserted equal to the presets the code builds.",
+    "`src/index.ts` exports `apply`, `name`, `inject` and `applyHealthScheduler`. All four are Cordis binding and are dropped. `createScheduler` is kept: it is pure construction. Every other member of the donor's `lib/index.js` export list is republished from index.mjs, so the dropped four are the only omissions.",
+    "The donor's `lib/` build output is not shipped and there is no build step. The module is plain `.mjs`, discovered and run by `node city/test-all.mjs`.",
+    "House style: 2-space indentation (the donor's compiled 4-space output was re-indented), `Object.freeze` on exported constant tables, `node:`-prefixed built-in imports only, and a UTOPIA header on every file that keeps the donor's own explanatory prose."
+  ],
+  "knownDifferences": [
+    "No plugin entry point. There is no `apply`, no `name`, no `inject`, no tool registration, no settings namespace registration and no host effect registration. A City consumer imports the engine directly.",
+    "No npm packaging and no build step: no package.json, no tsconfig.json, no cordis.patch.yml, no plugin/manifest.json, no lib/ output, and no npm dependency of any kind. The only imports are `node:` built-ins.",
+    "Two donor bugs are reproduced deliberately rather than fixed, because every observable output must match the oracle (see `donorBugsFound`).",
+    "`bandKeyOf` for a `lower-is-worse` metric tests `value <= best` before `value <= worst`, and since `best > worst` the second test is unreachable: `:warn` is never returned for `ram_available_bytes` or `recovery_rate`. Reproduced.",
+    "The `normalizeSample` hard-bound snapping path was never asserted by the donor's own suite (acceptance gap 2). The port pins it: a value within the relative `1e-9` tolerance of the bound snaps, a value beyond it is rejected, and a value strictly inside the bound is left alone.",
+    "`resolveConfig` error messages were never asserted by the donor's own suite (acceptance gap 3). The port pins the exact message fragments for a bad band, a bad hysteresis pair, a non-ascending window list, an all-zero weight table, a malformed wall-clock string and a non-canonical metric name.",
+    "The donor's model-facing tool descriptions, the harness tool contract (`output.render`, `timeoutMs`) and `ToolDefinitionLike` are dropped. Only the strings those tools returned are kept.",
+    "The restart request's `source` field is still the literal string `'dsh-health-scheduler'`. It is a value the donor emits into the request record, the differential harness compares request objects field by field, and changing it would break parity for a cosmetic reason. It therefore names a package that no longer exists as a package. A mission that wants a Utopia-neutral requester id should change it on both sides of a future comparison, not only here.",
+    "Deferred, and not claimed: nothing. Every source path in `donors[].sourcePaths` was ported. The donor's own `src/dsh/**` binding is out of scope by mission instruction."
+  ],
+  "donorBugsFound": [
+    {
+      "where": "src/core/bands.ts, `bandKeyOf` (ported to bands.mjs)",
+      "what": "For a `lower-is-worse` metric the first test is `value <= best` and the second is `value <= worst`. Because `rampEndpoints` returns `best > worst` for that polarity, the second test can never be reached, so a lower-is-worse metric can never be timed in its `:warn` band. Measured against the compiled oracle: `bandKeyOf('ram_available_bytes', 1 GiB, {warn: 4 GiB, critical: 512 MiB})` returns `'ram_available_bytes:critical'`, and `bandKeyOf('recovery_rate', 0.5, {warn: 0.8, critical: 0.3})` returns `'recovery_rate:critical'`.",
+      "impact": "The sustain gate for `ram_available_bytes` and `recovery_rate` accumulates from the warn endpoint rather than the critical endpoint, so a lower-is-worse metric that crosses from warn into critical has already satisfied its sustain gate. For every `higher-is-worse` metric the branch is correct and unaffected.",
+      "action": "Reproduced exactly, not fixed: the mission is MIGRATION_ONLY and the differential harness compares band keys on both sides. Pinned by a test that says so. A fix would need a mission decision because it changes when a gate opens."
+    }
+  ],
+  "parity": {
+    "vectorSource": "The donor's compiled build `donor-health/lib/index.js` @ 985e2b7389330db4b32ea2946e3657746c64b47b (plus `lib/core/bands.js`, whose helper `bandKeyOf` the donor's own index does not re-export), driven side by side with the port by tests/differential.test.mjs.",
+    "vectors": [
+      "the resolved configuration document, byte-for-byte, for every scenario (bands, sustain, weights, thresholds, cooldowns, anti-flap, maintenance, sampling, providerOptions)",
+      "the pressure score for every tick of every scenario",
+      "the pressure level implied by that score",
+      "coverage and the effective weight of every one of the six dimensions",
+      "every dimension's score, level and summary line",
+      "every evaluated metric's value, score, level, rule text, sustainedMs and trendApplied",
+      "every metric's band, band key, raw score and gated score recomputed from each side's own primitives",
+      "the driver list, including code, dimension, contribution and detail",
+      "the uptime ramp at 8 h, 24 h, 100 h, 200 h, 336 h and 400 h",
+      "the maintenance picture: phase, windowOpen, nextTargetAt, windowClosesInMs, deferredMs, deferExhausted, urgentOverride and summary, at ten local wall-clock instants plus a wrapping window across three local days",
+      "the folded safe-point answer for a confirming, a refusing and a silent source",
+      "the machine state and the action in force at every tick",
+      "the complete decision-record stream: id, timestamp, action, state, pressure, coverage, reasons and outcome",
+      "every adapter call: restart requests with their full request objects (mode, requestCode, priority, checkpointRequired, acknowledgeSystemReboot) and every worker-control call",
+      "the refusal reason strings, including maintenance_window_closed, maintenance_before_target_time, maintenance_app_restart_disabled, safe_point_unsafe, safe_point_unknown, restart_capability_unavailable, urgent_override_active and escalation_overrides_safe_point",
+      "the provider status rows, the daily summaries and the warnings list",
+      "the band helpers over a swept input range: levelOf 0..100, scoreMetric and bandKeyOf from -10 to 110, rampEndpoints for both polarities, scoreWithSustain at 0 / 1 / sustainMs / sustainMs+1",
+      "the donor's own 124 non-plugin tests (maintenance, normalization, policy, rolling, scenarios, scheduler) run unmodified against the port"
+    ],
+    "differentialResult": {
+      "scenariosCompared": 110,
+      "scenariosAgreed": 110,
+      "scenariosDisagreed": 0,
+      "ticksCompared": 916,
+      "perMetricEntriesCompared": 3433,
+      "decisionsCompared": 89,
+      "restartRequestsCompared": 8,
+      "denialDecisionsCompared": 41,
+      "actionCensus": "PAUSE_NEW_WORK=67 REQUEST_APP_RESTART=1 REQUEST_SYSTEM_REBOOT=7 THROTTLE=14"
+    },
+    "donorSuiteResult": {
+      "files": 6,
+      "tests": 124,
+      "suites": 22,
+      "pass": 124,
+      "fail": 0,
+      "method": "the donor's own tests/*.test.js (minus the plugin-binding suite) were copied to a scratch tree with their `../lib/<group>/<file>.js` specifiers rewritten to the port's .mjs files, then run with `node --test`. plugin.test.js is excluded because it tests the dropped Cordis surface."
+    }
+  },
+  "classification": {
+    "PARITY": [
+      "The whole pressure model: the six dimensions, their nominal weights, the coverage renormalisation over known dimensions, and the 50/50 weighted-mean/worst-member blend",
+      "The per-metric band ramp (linear, rounded, clamped, polarity-owned) and the sustain gate",
+      "The uptime ramp over 8h..336h as the `time` dimension",
+      "The normalisation rules: canonical vocabulary, hard bounds with the relative 1e-9 tolerance, the ratio 1.0..1.5 clamp, and omission as the only encoding of unknown",
+      "The rolling store: raw retention floor, aggregates, band timing, percentiles, daily summaries",
+      "The trend analyser: sample/span/R² gates, aggregate-bucket fallback, polarity-aware worsening, projections",
+      "The policy engine: the five-rung ladder, hysteresis, debounce, dwell, the three cooldowns, min-repeat pacing, the restart gate, the state machine",
+      "Maintenance window arithmetic (local calendar, wrapping windows, all six phases) and worst-first safe-point folding",
+      "The provider registry with exponential backoff and per-provider isolation",
+      "The append-only bounded JSONL decision log with rotation and torn-tail tolerance",
+      "The two unavailable adapters and `outcomeForAction`",
+      "The provider layer's telemetry contracts: the stats-file reader, the command-probe grammar, the hardware/memory/runtime/stats-backed providers and the process-tree reader",
+      "The text and JSON report renderers"
+    ],
+    "PORT_ADAPTATION": [
+      "TypeScript to JSDoc-annotated ESM JavaScript; no type surface is emitted at runtime",
+      "The donor's compiled output was the transcription source, so the algorithms, constants, orderings, tolerances and strings are the donor's own bytes",
+      "Module graph flattened (one types.mjs, one providers.mjs); three private `PROVIDES` constants renamed to avoid a shared-scope collision",
+      "Private helpers promoted to exports so one entry point can express the donor's own vectors",
+      "`src/dsh/report.ts` and the presentation half of `src/dsh/plugin.ts` kept as report.mjs; the settings-watch logic kept as settings.mjs; the provider wiring kept as wiring.mjs",
+      "The provider graph builder now takes an environment argument and returns the providers as well as registering them",
+      "2-space indentation, UTOPIA file headers, Object.freeze on exported constant tables, `node:`-prefixed built-ins"
+    ],
+    "UTOPIA_EXTENSION": [
+      "None in behaviour. The only additions are the four module files that exist to hold logic the donor had buried inside its Cordis plugin body (report.mjs, settings.mjs, wiring.mjs, adapters.mjs) and the exports needed to reach private helpers from a flat module.",
+      "`PRESET_DOCUMENTS` exposes the donor's shipped presets/*.json as data; it is derived from files the donor already published and is asserted equal to the built presets."
+    ],
+    "DEFERRED": [
+      "Nothing from the donor's sourcePaths was deferred. The donor's Cordis binding (`src/dsh/plugin.ts`, `src/dsh/context.ts`, `src/index.ts`) is out of scope by mission instruction, and its non-binding logic was migrated rather than deferred.",
+      "The donor's npm/Cordis packaging (package.json, tsconfig.json, cordis.patch.yml, plugin/manifest.json, presets/schema.json, scripts/**) is dropped by mission instruction, not deferred.",
+      "The donor's Long-Run test tier (6 h / 12 h / 24 h soak), which the donor's own acceptance document lists as not implemented, is not implemented here either."
+    ]
+  },
+  "verification": {
+    "commands": [
+      "node --test city/02-engineering/03-host-health-station/host-health-station/tests/*.test.mjs",
+      "node city/test-all.mjs",
+      "node --test tests/*.test.js  (inside .runtime/evidence/mission-book/MB-005/donor-health, the frozen donor baseline)"
+    ],
+    "results": {
+      "moduleTests": "83 tests, 83 pass, 0 fail (82 in host-health-station.test.mjs, 1 in differential.test.mjs)",
+      "citySuiteBefore": "129 tests, 129 pass, 0 fail (the tree without this module)",
+      "citySuiteAfter": "212 tests, 212 pass, 0 fail (this module contributes 83)",
+      "donorBaseline": "155 tests, 27 suites, 155 pass, 0 fail, confirming the frozen oracle is the compiled artifact this port was taken from",
+      "donorSuiteAgainstPort": "124 tests, 22 suites, 124 pass, 0 fail",
+      "manifestCensus": "Declared by the mission owner during this session: CITY_IMPLEMENTATION_MANIFEST.json now carries district 02-engineering / building 03-host-health-station / module host-health-station, lifecycle PROMOTED, incubationRooms [host-health-lab], path city/02-engineering/03-host-health-station/host-health-station, and the donor repository/commit recorded here. city/tests/manifest.test.mjs was extended with the same path. Note for the record: contrary to the mission brief, the census tests did not actually fail while the module was undeclared, because city/manifest.mjs `checkManifestAgainstTree` validates only the modules the manifest declares and never flags an undeclared module directory. The manifest entry was therefore a completeness fix rather than a red-to-green fix."
+    },
+    "determinism": "Every test injects its clock and scripts its providers. The differential matrix is generated by a fixed-seed mulberry32. No test reads node:os, and the module builds no real environment on its own: `defaultEnvironment` appears exactly once in the module, at its own definition, and reads the process lazily through a getter."
+  }
+}

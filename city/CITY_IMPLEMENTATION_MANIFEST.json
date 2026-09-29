@@ -42,6 +42,43 @@
               ]
             }
           ]
+        },
+        {
+          "id": "03-host-health-station",
+          "zh": "主机保健站",
+          "en": "Host Health Station",
+          "modules": [
+            {
+              "id": "host-health-station",
+              "zh": "运行健康调度服务",
+              "en": "Runtime Health Scheduling",
+              "path": "city/02-engineering/03-host-health-station/host-health-station",
+              "lifecycle": "PROMOTED",
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/dsh-health-scheduler",
+                "commit": "985e2b7389330db4b32ea2946e3657746c64b47b",
+                "sourcePaths": [
+                  "src/core/bands.ts",
+                  "src/core/pressure.ts",
+                  "src/core/rolling.ts",
+                  "src/core/trend.ts",
+                  "src/core/normalize.ts",
+                  "src/core/policy.ts",
+                  "src/core/maintenance.ts",
+                  "src/core/safe-point.ts",
+                  "src/core/config.ts",
+                  "src/core/presets.ts",
+                  "src/core/scheduler.ts",
+                  "src/providers/registry.ts",
+                  "src/audit/decision-log.ts",
+                  "src/types/metrics.ts"
+                ]
+              },
+              "incubationRooms": [
+                "host-health-lab"
+              ]
+            }
+          ]
         }
       ]
     },

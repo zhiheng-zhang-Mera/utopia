@@ -10,10 +10,22 @@ import { Pairing } from './pairing.mjs';
 import { validateTelemetry } from '../../contracts/pairing-v1/descriptor.mjs';
 import { startDiscovery } from './discovery.mjs';
 import { envelope, terminal, validateCommand } from '../../contracts/city-control-v0/protocol.mjs';
+// City Core (MB-001 cluster C). The "can this node accept this work?" decision is
+// owned by the migrated fleet-routing module instead of being re-derived inline
+// here. Utopia's own policy travels as data (REQUIRED_TASK_CAPABILITIES and
+// claimNodeFor below), so this is an equivalence-preserving rewiring, not a new rule.
+import { acceptsWork } from '../../city/00-foundation/01-city-core/fleet-routing/index.mjs';
 
 const now=()=>new Date().toISOString();
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
 const equals=(a,b)=>Buffer.byteLength(a)===Buffer.byteLength(b)&&timingSafeEqual(Buffer.from(a),Buffer.from(b));
+// Utopia's placement policy, unchanged: a node must be online and expose both of these.
+// Exported so the consumption test asserts against the gateway's real policy instead of
+// restating it (a restated copy could be wrong in the same way the policy is wrong).
+export const REQUIRED_TASK_CAPABILITIES=['task.execute.safe','filesystem.temp'];
+// The Core's node shape, filled from the gateway's own liveness truth. A node that is
+// not online is OFFLINE, and the Core refuses an OFFLINE node whatever it lists.
+const claimNodeFor=n=>({nodeId:n.id,state:n.online?'READY':'OFFLINE',capabilities:n.capabilities,lastHeartbeatAt:Date.parse(n.lastHeartbeatAt)||0,seq:0});
 export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',token,nodeToken,heartbeatTimeout=8000,pairingClock=Date.now,pairingTtlMs=300000,discoveryEnabled=false}) {
   if(!token||!nodeToken||token===nodeToken) throw new Error('Separate control and node tokens are required');
   if(host==='0.0.0.0'||host==='::') throw new Error('Configure an explicit loopback or LAN interface');
@@ -72,7 +84,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         const b=await body(req);const n=required('nodes',b.id);const metrics=telemetry(b);if(!n.online)emit('NODE_ONLINE',null,{nodeId:n.id});out=store.put('nodes',{...n,...metrics,online:true,lastHeartbeatAt:now()});
       } else if(req.method==='POST' && path==='/api/v0/node/claim'){
         const b=await body(req);const n=required('nodes',b.id);
-        const ready=n.online&&n.capabilities.includes('task.execute.safe')&&n.capabilities.includes('filesystem.temp');
+        const ready=acceptsWork(claimNodeFor(n),{requiredCapabilities:REQUIRED_TASK_CAPABILITIES});
         const busy=store.list('tasks').some(t=>t.assignedNodeId===n.id&&!terminal.includes(t.state));
         const t=ready&&!busy?store.list('tasks').find(t=>t.state==='QUEUED'):null;
         out={task:t?change(t,'ASSIGNED',{assignedNodeId:n.id}):null};

@@ -1,0 +1,79 @@
+{
+  "module": "task-lifecycle",
+  "cityPath": "city/00-foundation/01-city-core/task-lifecycle",
+  "district": "00-foundation",
+  "building": "01-city-core",
+  "incubationRooms": [
+    "mb-001-task-lifecycle-lab"
+  ],
+  "mission": {
+    "missionId": "MB-001",
+    "book": "Digital-City/mission-book/MB-001-core-os.md",
+    "role": "MIGRATION",
+    "cluster": "B — global task identity / lifecycle / durable state"
+  },
+  "repository": "zhiheng-zhang-Mera/Codex-Boss",
+  "commit": "8df428eaa437a409368401e95194e40266b83080",
+  "sourcePaths": [
+    "src/shared/candidate-gate.ts"
+  ],
+  "portedFiles": {
+    "src/shared/candidate-gate.ts": [
+      "contracts.mjs",
+      "task-lifecycle.mjs"
+    ]
+  },
+  "adaptation": [
+    "TypeScript -> ESM JavaScript. §35 of the donor's candidate gate (TASK_LIFECYCLE, TASK_TRANSITIONS, the forward/backward event tables, advanceLifecycle, CandidateRecord/CandidateRecordFor and candidateIdFor) is carried over with identical rules.",
+    "Only §35 is ported here. §36 of the same donor file (the seven-plus-four Guardian checklist) is a gate rather than a lifecycle and lives in the sibling `audit-ledger` module. The split is by mission cluster, not by donor file, and both halves cite the same donor.",
+    "The donor's `contentHashOf` (src/shared/workbook.ts) is inlined as a private helper instead of importing workbook.ts: it is exactly `sha256hex(utf8(text))`, and pulling in workbook.ts would drag a 25 KB workbook module into a lifecycle primitive.",
+    "`CandidateRecord.guardian` is carried as an opaque value here. The donor types it as `GuardianVerdict`; that shape is owned by `audit-ledger`, so this module does not re-declare it and does not validate it.",
+    "The donor's `new Date(0).toISOString()` default for `created_at` is kept deliberately: a record built without an injected clock stays deterministic instead of silently reading the wall clock.",
+    "Structural validation (`TaskLifecycleError`) and copy-on-construct for the record's lists were added so a malformed step or a caller-mutated array cannot silently corrupt a record. No transition rule was added, removed or relaxed."
+  ],
+  "knownDifferences": [
+    "No task runtime, no store, no event bus and no persistence: the module is pure and the durable record is the caller's to store.",
+    "The donor's broader task vocabulary (TaskStatus queued/running/waiting/paused/cancelled/completed/failed, BossTask, task-presentation's UserTaskState projection) is NOT migrated here. It is entangled with the Boss provider/council runtime and is explicitly out of this module's boundary.",
+    "No secret scanning, no requirement graph, no review pipeline: §36's external observations are supplied by the caller to `audit-ledger`.",
+    "Nothing in this module reads a clock, a filesystem or an environment variable."
+  ],
+  "parity": {
+    "vectorSource": "Codex-Boss src/shared/candidate-gate.ts @ 8df428eaa437a409368401e95194e40266b83080",
+    "vectors": [
+      "TASK_LIFECYCLE is exactly RUNNING, IMPLEMENTED, VERIFYING, REVIEWING, CANDIDATE, ACCEPTED in that order",
+      "every state's edge set is exactly its forward target plus its one-step repair target, so no jump is expressible",
+      "ACCEPTED is terminal: no event leaves it and its allowed set is empty",
+      "a refused event returns accepted=false with the state unchanged, the allowed set and a reason naming the full lifecycle",
+      "REPAIR moves exactly one state back and is labelled as a repair",
+      "RUNNING has no repair target",
+      "the forward move lands on the next DECLARED state, not on an event-named target",
+      "CANDIDATE sets awaiting_release_permission=true; only ACCEPTED clears it",
+      "candidateIdFor sorts the requirements, joins with NUL and truncates SHA-256 to 16 hex characters (pinned vector cand-6f6181a33382dced)",
+      "a record built without a clock is byte-identical across calls and uses the Unix epoch",
+      "unknown states and unknown events are refused rather than guessed"
+    ]
+  },
+  "classification": {
+    "PARITY": [
+      "the §35 lifecycle order and edge tables",
+      "advanceLifecycle's forward and one-step repair results and reason strings",
+      "ACCEPTED terminality",
+      "candidateRecordFor's awaiting_release_permission rule and epoch default",
+      "candidateIdFor's canonical sorted-NUL-SHA256 form"
+    ],
+    "PORT_ADAPTATION": [
+      "contentHashOf inlined instead of importing workbook.ts",
+      "guardian carried as an opaque value owned by the audit-ledger module",
+      "structural validation and copy-on-construct added around the ported rules"
+    ],
+    "UTOPIA_EXTENSION": [
+      "TERMINAL_LIFECYCLE_STATES, isLifecycleState and isLifecycleEvent are convenience queries derived from the donor's own tables; they add no transition and no rule."
+    ],
+    "DEFERRED": [
+      "§36 Guardian checklist (landed in the sibling audit-ledger module)",
+      "the donor's TaskStatus/BossTask runtime vocabulary",
+      "task presentation projection (UserTaskState)",
+      "any task store, scheduler or provider runtime"
+    ]
+  }
+}

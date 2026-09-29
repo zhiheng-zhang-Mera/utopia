@@ -27,7 +27,7 @@ test('theme generation returns a reproducible PNG and validation',async()=>{
  assert.equal(digest(a),digest(b));assert.equal(Buffer.from(a.previewPngBase64,'base64').subarray(1,4).toString(),'PNG');assert.equal(a.globalApply,false);
 });
 test('future promoted module stays pending and all five existing adapters still execute',async()=>{
- const manifest=JSON.parse(readFileSync('city/CITY_IMPLEMENTATION_MANIFEST.json'));manifest.districts[0].buildings[0].modules.push({id:'future',en:'Future',lifecycle:'PROMOTED'});const catalog=registry(manifest);
+ const manifest=JSON.parse(readFileSync('city/CITY_IMPLEMENTATION_MANIFEST.json'));manifest.districts.find(d=>d.id==='02-engineering').buildings[0].modules.push({id:'future',en:'Future',lifecycle:'PROMOTED'});const catalog=registry(manifest);
  assert.equal(catalog.find(x=>x.moduleRefs?.[0]?.moduleId==='future').bridgeState,'BRIDGE_PENDING');assert.equal(catalog.length,6);assert.equal(catalog.filter(c=>c.bridgeState==='AVAILABLE').length,5);
  const inputs={document:{fileName:'sample.txt',base64:Buffer.from('Utopia').toString('base64')},knowledge:{entries:[],query:'Utopia'},skill:{ref:'owner/repo'},evidence:{sample:true},theme:{seed:'future-module-check'}};for(const descriptor of catalog.filter(c=>c.bridgeState==='AVAILABLE'))assert.ok(await invokeAdapter(descriptor.capabilityId,descriptor.operations[0].operationId,inputs[descriptor.inputKind]));
 });

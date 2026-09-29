@@ -1,0 +1,134 @@
+{
+  "module": "fleet-routing",
+  "cityPath": "city/00-foundation/01-city-core/fleet-routing",
+  "district": "00-foundation",
+  "building": "01-city-core",
+  "incubationRooms": [
+    "mb-001-fleet-routing-lab"
+  ],
+  "mission": {
+    "missionId": "MB-001",
+    "book": "Digital-City/mission-book/MB-001-core-os.md",
+    "role": "MIGRATION",
+    "cluster": "C — cross-domain orchestration/routing and city-scope runtime coordination"
+  },
+  "waves": [
+    {
+      "wave": "D1",
+      "room": "mb-001-fleet-routing-lab",
+      "sourcePaths": [
+        "src/shared/fleet.ts",
+        "src/shared/capability-router.ts",
+        "src/shared/node-capabilities.ts",
+        "src/shared/adaptive-routing.ts"
+      ]
+    }
+  ],
+  "repository": "zhiheng-zhang-Mera/Codex-Boss",
+  "commit": "8df428eaa437a409368401e95194e40266b83080",
+  "sourcePaths": [
+    "src/shared/fleet.ts",
+    "src/shared/capability-router.ts",
+    "src/shared/node-capabilities.ts",
+    "src/shared/adaptive-routing.ts"
+  ],
+  "portedFiles": {
+    "src/shared/fleet.ts": "fleet.mjs",
+    "src/shared/capability-router.ts": "capability-routing.mjs",
+    "src/shared/node-capabilities.ts": "capability-routing.mjs",
+    "src/shared/adaptive-routing.ts": "adaptive-routing.mjs"
+  },
+  "adaptation": [
+    "TypeScript -> plain ESM JavaScript (Node 24, no build step, no TypeScript, no new dependencies). The donor's interfaces become the documented value shapes in `contracts.mjs`; its exported functions keep their names and their exact rules.",
+    "The donor exports TWO different functions named `nodeStateFor`: `src/shared/fleet.ts#nodeStateFor(now, node)` derives a heartbeat-age `FleetNodeState`, and `src/shared/node-capabilities.ts#nodeStateFor(data, verdicts)` derives a `ProbeNodeState` from self-inspection verdicts. They are exported here under distinct names and are never merged: `fleetNodeStateFor` (`fleet.mjs`) and `probeNodeStateFor` (`capability-routing.mjs`). Both remain directly tested, so the disambiguation cannot silently change either rule.",
+    "The donor's `capability-router.ts` and `node-capabilities.ts` declare two different state vocabularies (`ModuleState` and `NodeState`) whose shared members disagree ('UNKNOWN' only in the first, 'UNINITIALIZED'/'CHECKING'/'RECOVERING' only as literals in both). Both vocabularies are kept as the donor declares them, as `MODULE_STATES` and `PROBE_NODE_STATES`.",
+    "All non-determinism is lifted to the caller: `now` is a parameter of `fleetNodeStateFor`, `sampledAt` is a caller-supplied string on a probe record, ids are caller-supplied strings, and checkpoints are opaque caller data. No `Date.now()`, `Math.random()`, `process.env`, ambient I/O or provider call exists in the module.",
+    "Optional donor fields are written as `nodeId: undefined` when a dropout clears the placement, exactly as the donor writes them, so an unplaced assignment serializes without the key.",
+    "`contracts.mjs` carries small factories/validators in the spirit of `evidence-engine/contracts.mjs` (`fleetNode`, `fleetTask`, `fleetAssignment`, `nodeProbeData`, `capabilityVerdict`, `routerCandidate`, `routedResult`, `adaptiveCandidateScore`, `adaptiveRoutingDecision`, `adaptiveRerankResult`, `utilityInputs`). They validate and normalize caller input; they never add a routing rule the donor did not have.",
+    "`acceptsWork`, which the donor keeps module-private, is exported so the capability gate can be exercised directly. Its body is unchanged."
+  ],
+  "knownDifferences": [
+    "No fleet runtime: no node agent, no heartbeat sender/receiver, no connection registry and no worker process. A node record is caller-supplied observed data.",
+    "No persistence: no assignment store, no checkpoint store, no database or file. Assignments and their histories are plain values in, plain values out.",
+    "No scheduling loop, queue drain, retry timer or backoff: `routeTask` places one task once, and `handleNodeDropout` resolves one dropout once. Nothing is re-routed automatically.",
+    "No provider-brand or provider-automation logic of any kind: the scorer learns a conditional completion probability and never names a provider as good or bad, and `node-capabilities.ts`'s provider observations are reduced to the caller-supplied `webLoggedInProviders` list.",
+    "No adaptive learning, profile store, behaviour epoch, candidate pin/exclude or budget layer: the donor's `AdaptiveReranker` seam, `AdaptiveRerankRequest` (pins, excludes, capability tokens, fingerprint, model snapshot key) and the decision-explanation producer are out of scope. Only the scoring contracts and `expectedUtility` are carried over.",
+    "No node state machine beyond what self-inspection and heartbeat age derive: the module never transitions a node, it only derives a state for a given record.",
+    "No root trust, no cost accounting and no telemetry."
+  ],
+  "parity": {
+    "vectorSource": "Codex-Boss src/shared/fleet.ts, src/shared/capability-router.ts, src/shared/node-capabilities.ts and src/shared/adaptive-routing.ts @ 8df428eaa437a409368401e95194e40266b83080",
+    "vectors": [
+      "heartbeat windows: interval 5000 ms, DEGRADED_AFTER_MS 10000, OFFLINE_AFTER_MS 30000",
+      "heartbeat age boundaries: age 9999 READY, age 10000 DEGRADED, age 10001 DEGRADED, age 29999 DEGRADED, age 30000 OFFLINE, age 30001 OFFLINE, a future heartbeat READY",
+      "work is refused by FAILED, DISABLED and OFFLINE nodes and accepted by READY and DEGRADED nodes",
+      "a node missing any required capability refuses the task, even when its state is READY",
+      "first-fit routing walks nodes in join order: a greedy READY node without the capability is skipped for the next eligible node, and reordering the array changes the placement",
+      "no eligible node yields QUEUED with attempts 0, history ['queued: no eligible node'] and note 'no eligible node', with no nodeId",
+      "a placed task yields ASSIGNED with the candidate nodeId, attempts 0 and history ['assigned:<nodeId>']",
+      "dropout returns assignments owned by another node as the same object (identity), and COMPLETED work on the lost node as the same object",
+      "dropout CHECKPOINTED -> QUEUED, nodeId cleared, attempts + 1, history 'checkpointed:<nodeId> transferred', checkpoint preserved",
+      "dropout replay-safe (replaySafe omitted or true) -> QUEUED, nodeId cleared, attempts + 1, history 'reassign-after-dropout:<nodeId>'",
+      "dropout non-replay-safe -> FAILED, nodeId cleared, attempts unchanged, history 'failed:<nodeId> dropped without checkpoint'",
+      "FAILED / DISABLED / RECOVERING candidates are excluded with reason 'state <STATE> cannot accept work'",
+      "a candidate missing capabilities is excluded with reason 'missing capability: <a,b>' in requirement order",
+      "an unobserved state is UNKNOWN; UNKNOWN is not blocked and not degraded",
+      "DEGRADED candidates are admitted and listed in `degraded`",
+      "`blocked` contains only the state-based exclusions, never a missing-capability exclusion",
+      "candidate order is preserved in `selected`; empty requirements still exclude by state",
+      "self-inspection reports compute, memory, runtime, gpu, web-ai, browser, native-tools and network in the donor's push order",
+      "compute is READY only with >= 1 core and total memory > 0, else FAILED with detail 'no compute/memory observed'",
+      "memory is READY when freeMb is observed, DEGRADED when only totalMb is observed, FAILED when no memory is observed",
+      "an unobserved logged-in web-AI provider is DEGRADED ('no logged-in web AI observed'), never READY",
+      "an absent GPU and an absent browser are UNKNOWN and do NOT block the node or appear in the degraded reason",
+      "native-tools and network are DEGRADED when not observed; network is READY when proxied or directly reachable",
+      "compute FAILED -> node FAILED with the compute detail; else any DEGRADED capability -> node DEGRADED with reason 'degraded: <ids>' in verdict order; else READY with reason 'node self-inspection complete'",
+      "the two donor `nodeStateFor` functions stay distinct: probeNodeStateFor answers self-inspection, fleetNodeStateFor answers heartbeat age, and a verdict set without compute throws instead of inventing a state",
+      "clamp01 clamps outside 0..1 and maps NaN / +-Infinity to 0",
+      "NEUTRAL_PRIOR is completion .5, quality .5, goalFidelity .5, restrictionImpact .15, runtimeReliability .8",
+      "UTILITY_WEIGHTS are pipelineBlockingRisk .5, latencyCost .2, resourceCost .1, latencyScaleMs 10000",
+      "ADAPTIVE_POLICY_VERSION is 'adaptive-policy-1.0.0'",
+      "expectedUtility neutral prior with no latency/resource cost is -0.025",
+      "the donor's default reliability 0.8 charges blocking risk 0.2 * 0.5, so the neutral prior scores -0.125",
+      "latency cost applies only when latencyMs is defined: 1000 ms -> -0.045, 5000 ms -> -0.125, 10000 ms and above saturate at -0.225, negative and NaN latency charge nothing",
+      "resource cost applies only when resourceCost is defined: 0.5 -> -0.075, 1 and above saturate at -0.125, negative and NaN charge nothing",
+      "the two optional terms stack: 5000 ms and resourceCost 0.5 score -0.175",
+      "every out-of-range input is clamped before use: all-favourable saturates at 1, completion/quality/goalFidelity below 0 with a fully unreliable runtime scores -0.5, restrictionImpact 50 clamps to -1, a NaN completion scores 0 rather than a perfect score",
+      "the result is rounded with Number(x.toFixed(4)): 1/3 cubed scores 0.037 and no score carries more than four decimals"
+    ]
+  },
+  "classification": {
+    "PARITY": [
+      "heartbeat age derivation with the closed DEGRADED/OFFLINE boundaries",
+      "deterministic first-fit routing in join order with the state and capability gate",
+      "the three dropout outcomes, including identity preservation for unrelated and COMPLETED work",
+      "capability-aware eligibility with DEGRADED admitted and tracked",
+      "module state exclusions and missing-capability exclusions with their exact reasons",
+      "`blocked` derived from the state-reason prefix only",
+      "node self-inspection verdict derivation, including web-ai DEGRADED when unobserved",
+      "self-inspection node state derivation (compute FAILED, else DEGRADED, else READY)",
+      "expectedUtility formula, clamps, optional terms and Number(toFixed(4)) rounding",
+      "NEUTRAL_PRIOR, UTILITY_WEIGHTS and ADAPTIVE_POLICY_VERSION constants"
+    ],
+    "PORT_ADAPTATION": [
+      "TypeScript interfaces -> plain value shapes plus factories/validators in contracts.mjs",
+      "the two donor `nodeStateFor` functions exported as `fleetNodeStateFor` and `probeNodeStateFor` instead of being merged or shadowed",
+      "the donor's two state vocabularies kept apart as MODULE_STATES and PROBE_NODE_STATES",
+      "caller-supplied clock, ids and sample timestamps instead of ambient time",
+      "`acceptsWork` exported instead of module-private, with its body unchanged",
+      "a cleared placement written as `nodeId: undefined`, matching the donor's serialized shape"
+    ],
+    "UTOPIA_EXTENSION": [
+      "`inspectNode(data)` runs `capabilityVerdicts` and `probeNodeStateFor` once and returns both, so a caller cannot pair verdicts with a state derived from different verdicts. It adds no rule: it composes two donor functions unchanged."
+    ],
+    "DEFERRED": [
+      "any provider or fleet runtime (node agent, heartbeat transport, connection registry)",
+      "persistence of assignments, checkpoints or node records",
+      "the scheduling loop, queue drain, retry/backoff timers and automatic re-routing",
+      "provider-brand logic and provider automation",
+      "the adaptive reranker seam, the learned profile store and the behaviour-epoch/model-snapshot keys",
+      "pin/exclude, capability-token and budget layers of the donor's rerank request",
+      "node state machine transitions, cost accounting, telemetry and root trust"
+    ]
+  }
+}

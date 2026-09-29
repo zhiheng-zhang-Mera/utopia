@@ -10,7 +10,6 @@ import { RoomStore } from '../shared/atomic-store.mjs';
 import { ROOMS } from './manifest.mjs';
 
 const FACTORIES = {
-  'theme-builder-lab': {load:()=>import('../rooms/theme-builder-lab/room.server.mjs'),name:'createThemeBuilderRoom'},
   knowledge: { load: () => import('../rooms/knowledge/room.server.mjs'), name: 'createKnowledgeRoom' },
   bookmarks: { load: () => import('../rooms/bookmarks/room.server.mjs'), name: 'createBookmarkRoom' },
   checklist: { load: () => import('../rooms/checklist/room.server.mjs'), name: 'createChecklistRoom' },
@@ -46,7 +45,7 @@ export async function createRoomRegistry(options = {}) {
         })
       : null;
     if (store) await store.ensureLoaded();
-    registry.push({ definition, store, room: create({ store, runtimeDir:options.runtimeDir }) });
+    registry.push({ definition, store, room: create({ store }) });
   }
   return registry;
 }

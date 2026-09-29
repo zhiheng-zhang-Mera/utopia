@@ -3,7 +3,6 @@ node_modules/
 .scratch/
 .gradle/
 **/build/
-!apps/rooms/rooms/theme-builder-lab/core/build/
 !city/11-entertainment/01-entertainment-centre/theme-engine/build/
 local.properties
 .idea/

@@ -1,6 +1,6 @@
 # D9 Theme Builder 闭包审计
 
-状态：DONOR_COPIED／闭包已核验；**尚未孵化、验收或晋升**。
+历史审计状态：DONOR_COPIED／闭包已核验。后续 Room 验收和 City 晋升见 [Theme Builder D9](THEME_BUILDER_D9.md)；以下观察描述适配前的固定 donor。
 
 来源：`zhiheng-zhang-Mera/DS-Hns`，固定 `eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b`。已通过 GitHub 核验提交并只读下载精确内容；未更改本地 donor 仓库，也未启动 donor runtime。原始字节保存在被忽略的 runtime 目录。
 
@@ -38,4 +38,4 @@
 
 闭包检查后，已用固定源码计算四组 prompt／design／plan oracle 与三组程序化像素向量。这只是审计准备，**不是迁移 parity 证据**。尚无 Room 产品、包验收、实机消费或 D9 晋升结论。GLOBAL_THEME_APPLY=NO。
 
-main 新合入的快速路径文档另行提出推迟 D9；其与本次 Wave3 工作书的优先级正在澄清。本审计不决定或实现任一新产品路径。
+main 新合入的快速路径文档另行提出推迟 D9。续执行遵循本对话已授权的工作书，在独立功能分支推进，并保留快速路径文档。本审计不构成改变排期的指令。

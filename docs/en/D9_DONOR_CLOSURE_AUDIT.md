@@ -1,6 +1,6 @@
 # D9 Theme Builder closure audit
 
-Status: DONOR_COPIED / closure verified; **not incubated, accepted or promoted**.
+Historical audit status: DONOR_COPIED / closure verified. Later Room acceptance and City promotion are recorded in [Theme Builder D9](THEME_BUILDER_D9.md); observations below describe the pinned donor before adaptation.
 
 Source: `zhiheng-zhang-Mera/DS-Hns` at `eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b`. The commit was verified through GitHub and the exact contents downloaded read-only. Local donor repositories were not changed. Original bytes remain in ignored runtime storage; no donor runtime was launched.
 
@@ -38,4 +38,4 @@ The seven files require only each other, Node fs/path, and the already promoted 
 
 Four prompt/design/plan oracle vectors and three procedural pixel vectors were computed from the pinned source after closure inspection. These are audit preparation, **not port parity evidence**. No Room product, package acceptance, physical consumer or D9 promotion result is claimed. GLOBAL_THEME_APPLY=NO.
 
-The merged fast-path scheduling document separately defers D9. Its priority versus the attached Wave3 workbook is being clarified; this audit does not choose or implement either new product path.
+The merged fast-path scheduling document separately defers D9. The continued standing workbook authorization was followed on an isolated feature branch; the fast-path document was preserved. This audit is not an instruction to change scheduling.

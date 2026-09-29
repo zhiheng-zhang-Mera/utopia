@@ -4,7 +4,7 @@ PAIR_STATUS: SYNCHRONIZED
 STATUS: WAVE3=IN_PROGRESS
 FACT: ROAD=document-knowledge-v1
 FACT: ACTIVE_COUNT=5
-FACT: D9=NOT_YET_PROMOTED
+FACT: D9=CITY_PROMOTED
 FACT: THEME_OWNERSHIP=REVIEW_PENDING
 FACT: GLOBAL_THEME_APPLY=NO
 FACT: MECH_FUTURE_MIGRATION_BLOCKED_BY_ALIEN=NO
@@ -13,6 +13,6 @@ Document Intake Building → Knowledge Service Building now has a versioned pure
 
 Five existing modules become ACTIVE after independent review: ingestion-core, document-readers, knowledge-core, skill-intake and evidence-engine. No District, Building or Module is created by activation.
 
-Theme Engine remains PROMOTED. D9 is planned to strengthen that module through a third Room, theme-builder-lab, after donor closure audit, Room parity/product acceptance and explicit promotion. This delta does not claim those steps are already complete. Global theme application and runtime ownership remain deferred.
+Theme Engine remains PROMOTED. D9 strengthened it through the third Room, theme-builder-lab: accepted Room `3ff7d805f0432d39499bee10741f54d3ec98f3de`, City promotion `74c277cbc2a44fc045b8c81e8e401df3729fbf28`. The active incubator is retired and the promotion record preserves both commits. Alien build consumption remains pending. Global theme application and runtime ownership remain deferred.
 
 This is a Utopia-side delta. It does not edit the separate Digital-City repository or gate Mech/runtime work on map synchronization.

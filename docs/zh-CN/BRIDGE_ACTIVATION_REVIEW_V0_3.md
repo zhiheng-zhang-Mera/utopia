@@ -17,3 +17,12 @@ FACT: MECH_FUTURE_MIGRATION_BLOCKED_BY_ALIEN=NO
 | theme-engine | Services 生成、预览和校验 | 所有权待审查；无全局应用或 D6b 构建器 |
 
 产品消费证据与 City 生命周期分别记录。本审查不修改 manifest 或重写 promotion 历史。后续已晋升模块可以保持 BRIDGE_PENDING，不阻塞这些消费者。运行状态 AVAILABLE/DEGRADED 不等于生命周期晋升。
+
+| Module | RUNTIME_CONSUMER | WINDOWS_PRODUCT | ANDROID_PRODUCT | BRIDGE_STATE | ACTIVE_CANDIDATE |
+| --- | --- | --- | --- | --- | --- |
+| ingestion-core | YES | PASS | PASS | AVAILABLE | YES — separate lifecycle decision required |
+| document-readers | YES | PASS | PASS | AVAILABLE | YES — separate lifecycle decision required |
+| knowledge-core | YES | PASS | PASS | AVAILABLE | YES — separate lifecycle decision required |
+| skill-intake | YES | PASS | PASS | AVAILABLE | YES — separate lifecycle decision required |
+| evidence-engine | YES | PASS | PASS | AVAILABLE | YES — separate lifecycle decision required |
+| theme-engine | YES | PASS | PASS | AVAILABLE | NO — REVIEW_PENDING |

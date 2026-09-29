@@ -17,3 +17,12 @@ FACT: MECH_FUTURE_MIGRATION_BLOCKED_BY_ALIEN=NO
 | theme-engine | Services generate, preview and validate | Ownership remains for review; no global application or D6b builder |
 
 Product consumption is evidenced separately from City lifecycle. This review does not edit the manifest or rewrite promotion history. Future promoted modules can remain BRIDGE_PENDING without disabling these consumers. Runtime state AVAILABLE/DEGRADED is not a lifecycle promotion.
+
+| Module | RUNTIME_CONSUMER | WINDOWS_PRODUCT | ANDROID_PRODUCT | BRIDGE_STATE | ACTIVE_CANDIDATE |
+| --- | --- | --- | --- | --- | --- |
+| ingestion-core | YES | PASS | PASS | AVAILABLE | YES — separate lifecycle decision required |
+| document-readers | YES | PASS | PASS | AVAILABLE | YES — separate lifecycle decision required |
+| knowledge-core | YES | PASS | PASS | AVAILABLE | YES — separate lifecycle decision required |
+| skill-intake | YES | PASS | PASS | AVAILABLE | YES — separate lifecycle decision required |
+| evidence-engine | YES | PASS | PASS | AVAILABLE | YES — separate lifecycle decision required |
+| theme-engine | YES | PASS | PASS | AVAILABLE | NO — REVIEW_PENDING |

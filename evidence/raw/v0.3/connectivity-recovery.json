@@ -1,0 +1,33 @@
+{
+  "codeSha": "ecd4c8626e3aa2d20f056746931c09f43e7aad27",
+  "startedAt": "2026-09-29T07:41:19.383Z",
+  "checks": [
+    {
+      "name": "android-wifi-offline-disabled",
+      "pass": true
+    },
+    {
+      "name": "windows-authority-remains-online",
+      "pass": true
+    },
+    {
+      "name": "android-wifi-reconnected",
+      "pass": true
+    },
+    {
+      "name": "wifi-no-duplicate-invocations",
+      "pass": true
+    },
+    {
+      "name": "gateway-city-and-results-preserved",
+      "pass": true,
+      "retainedCount": 74
+    },
+    {
+      "name": "android-gateway-reconnected",
+      "pass": true
+    }
+  ],
+  "status": "PASS",
+  "finishedAt": "2026-09-29T07:42:00.830Z"
+}

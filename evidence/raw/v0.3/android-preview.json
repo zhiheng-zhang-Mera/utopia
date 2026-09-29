@@ -1,0 +1,32 @@
+{
+  "startedAt": "2026-09-29T07:32:37.538Z",
+  "checks": [
+    {
+      "name": "artifact-hashes-displayed",
+      "invocationId": "I-16035a92-2ff1-4329-a49a-5d39dd2f3efc",
+      "initiator": "Windows",
+      "pass": false
+    },
+    {
+      "name": "theme-preview-and-validation-displayed",
+      "invocationId": "I-2bd06dc3-5397-40e3-abec-1b5e67f2da62",
+      "initiator": "Windows",
+      "pass": true
+    },
+    {
+      "name": "artifact-hashes-displayed",
+      "invocationId": "I-16035a92-2ff1-4329-a49a-5d39dd2f3efc",
+      "initiator": "Windows",
+      "pass": false
+    },
+    {
+      "name": "artifact-hashes-displayed",
+      "invocationId": "I-16035a92-2ff1-4329-a49a-5d39dd2f3efc",
+      "initiator": "Windows",
+      "pass": true,
+      "verificationKind": "UI reinspection after handling Android single-quoted XML attributes"
+    }
+  ],
+  "status": "PASS",
+  "finishedAt": "2026-09-29T07:39:22.914Z"
+}

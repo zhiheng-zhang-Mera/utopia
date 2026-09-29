@@ -1,0 +1,40 @@
+{
+  "phase": "documents",
+  "codeSha": "8429d21c08badab3f0025ad6cfeecb620b8d83dc",
+  "apkSha256": "5cf75592f74f62da7745dff18caf68a5fd2064b2aeeaef2e98447c60146144a3",
+  "startedAt": "2026-09-29T06:50:27.161Z",
+  "rows": [
+    {
+      "case": "sample.txt",
+      "invocationId": "I-b274ba6a-13ac-415d-bab8-88f4427ed120",
+      "capabilityId": "planning.document.intake",
+      "operationId": "read",
+      "status": "COMPLETED",
+      "expected": "COMPLETED",
+      "resultDigest": "dd29c16db2d94f7a51a5af9829feded49ff042ba6ef4318016980f4364053aeb",
+      "errorCode": null,
+      "androidIdVisible": true,
+      "androidDigestVisible": true,
+      "androidStatusVisible": true,
+      "webSameInvocationVisible": true,
+      "canonicalDigestMatchesWindows": true,
+      "inputSha256": "05322160b15fb5180522ef616267e9690e901036ebd4a75ca5a424d9c2468a9d",
+      "integrityRoot": null,
+      "pass": true,
+      "runId": "I-b274ba6a-13ac-415d-bab8-88f4427ed120",
+      "codeSha": "8429d21c08badab3f0025ad6cfeecb620b8d83dc",
+      "apkSha256": "5cf75592f74f62da7745dff18caf68a5fd2064b2aeeaef2e98447c60146144a3",
+      "client": "Android physical device",
+      "inputClass": null,
+      "inputBytes": null,
+      "startedAt": "2026-09-29T06:51:28.967Z",
+      "finishedAt": "2026-09-29T06:51:29.018Z",
+      "latencyMs": 51,
+      "finalWindowsInvocationId": "I-4348d774-6078-4bc5-a48e-37c2c5cfb575",
+      "finalWindowsCanonicalDigestMatch": true,
+      "metricsSource": "persisted Gateway invocation; latency is server execution, not UI end-to-end"
+    }
+  ],
+  "status": "FAIL",
+  "failure": "FILE_NOT_VISIBLE:sample.json"
+}

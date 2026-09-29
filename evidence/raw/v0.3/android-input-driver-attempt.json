@@ -1,0 +1,40 @@
+{
+  "phase": "skills",
+  "codeSha": "419545ff74a29a901d02bee5c51a9479b3ed45c4",
+  "apkSha256": "5cf75592f74f62da7745dff18caf68a5fd2064b2aeeaef2e98447c60146144a3",
+  "startedAt": "2026-09-29T07:06:47.640Z",
+  "rows": [
+    {
+      "case": "skill-ref:owner/repo",
+      "invocationId": "I-b3a4e209-143e-41d4-a906-9db927376910",
+      "capabilityId": "engineering.skill.inspect",
+      "operationId": "inspect",
+      "status": "COMPLETED",
+      "expected": "COMPLETED",
+      "resultDigest": "ef96220c63ade79cde529815ccec66f10094fea1f9c7d9daec83dce72bd504bf",
+      "errorCode": null,
+      "androidIdVisible": true,
+      "androidDigestVisible": true,
+      "androidStatusVisible": true,
+      "webSameInvocationVisible": true,
+      "canonicalDigestMatchesWindows": false,
+      "inputSha256": null,
+      "integrityRoot": null,
+      "pass": false,
+      "runId": "I-b3a4e209-143e-41d4-a906-9db927376910",
+      "codeSha": "419545ff74a29a901d02bee5c51a9479b3ed45c4",
+      "apkSha256": "5cf75592f74f62da7745dff18caf68a5fd2064b2aeeaef2e98447c60146144a3",
+      "client": "Android physical device",
+      "inputClass": "skill",
+      "inputBytes": 187,
+      "startedAt": "2026-09-29T07:07:56.132Z",
+      "finishedAt": "2026-09-29T07:07:56.173Z",
+      "latencyMs": 41,
+      "finalWindowsInvocationId": "I-c565a33c-aaf4-4f1e-9ef2-5bd5b29d6ead",
+      "finalWindowsCanonicalDigestMatch": false,
+      "metricsSource": "persisted Gateway invocation; latency is server execution, not UI end-to-end"
+    }
+  ],
+  "status": "FAIL",
+  "failure": "ANDROID_CASE_FAILED:skill-ref:owner/repo"
+}

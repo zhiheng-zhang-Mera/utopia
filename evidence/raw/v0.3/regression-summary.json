@@ -1,0 +1,61 @@
+{
+  "hosted": {
+    "codeSha": "05307163ab8a43425f58b7d686d221d0db408742",
+    "runId": 36538170564,
+    "url": "https://github.com/zhiheng-zhang-Mera/utopia/actions/runs/36538170564",
+    "conclusion": "success",
+    "jobs": [
+      {
+        "name": "android",
+        "conclusion": "success"
+      },
+      {
+        "name": "gateway-web",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "localChecks": [
+    {
+      "suite": "root",
+      "tests": 36,
+      "status": "PASS",
+      "logSha256": "54312b40c5dd695d45276a5981f02530dcdda3537e73c1f2394d784340209508"
+    },
+    {
+      "suite": "rooms",
+      "tests": 67,
+      "status": "PASS",
+      "logSha256": "b3fdef4f0496a3c24e561053de114575a22f2eab0d1dcc1e8b39a9d4977b78a5"
+    },
+    {
+      "suite": "city",
+      "tests": 114,
+      "status": "PASS",
+      "logSha256": "1547fb0ab5dd86a852cd2d01c199fad066bc109ce6ee08df383c6281fe2bd736"
+    }
+  ],
+  "controlledGates": [
+    {
+      "name": "future PROMOTED module without adapter preserves all five adapter invocations",
+      "test": "tests/capability-adapters.test.mjs",
+      "status": "PASS"
+    },
+    {
+      "name": "late Web completion preserves pending descriptor gate",
+      "test": "tests/web-services.test.mjs",
+      "status": "PASS"
+    },
+    {
+      "name": "Gateway restart marks seeded RUNNING as INTERRUPTED",
+      "test": "tests/capability-bridge.test.mjs",
+      "status": "PASS"
+    }
+  ],
+  "promotionRecordsVerified": 9,
+  "androidUnitTests": 17,
+  "limitations": [
+    "Controlled regression gates are separate from physical UI and recovery pilots.",
+    "Local root log is from the final product changes; unchanged owning modules were checked before later QA-only commits. Hosted CI checks the complete stated SHA."
+  ]
+}

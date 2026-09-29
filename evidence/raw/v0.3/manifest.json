@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-29T07:46:13.500Z",
+  "files": [
+    {
+      "file": "android-document-errors.json",
+      "sha256": "31581dd911d55a16735697cbf716d848bda9f90c22ef8e1e65667d8050ef6a09"
+    },
+    {
+      "file": "android-documents.json",
+      "sha256": "95e8ae44e56f87e170cb762b34b5c221ea9055c9eac294b4417d7555722d66ed"
+    },
+    {
+      "file": "android-evidence-details.png",
+      "sha256": "dfe0588c255f2177e8b73e070eac399fed27d80ae57a0f1d47df5a03fb1e3817"
+    },
+    {
+      "file": "android-evidence-theme.json",
+      "sha256": "df9191ef57a980b8a08313e61e2f3b828c27933bd096eb659d79fb9af77cef8c"
+    },
+    {
+      "file": "android-evidence.png",
+      "sha256": "3412c1c7509d27f26c2f19b2c33826417fb42ffe784cc05f875b0ace76bfba0a"
+    },
+    {
+      "file": "android-input-driver-attempt.json",
+      "sha256": "31fc3510dcdf30388bb4feff45bf451dd4de6fa110816457db685f782b1e30c4"
+    },
+    {
+      "file": "android-knowledge-temporary.json",
+      "sha256": "adc7752e2dd550c8bf8b26d501d39633061a9ecabeb9f3a38d7b20b4228e9b56"
+    },
+    {
+      "file": "android-knowledge-viewport-attempt.json",
+      "sha256": "1ceb3dd0322465f6ec9d0397fc04fdf27857f67cc284d39669c4c47b75486268"
+    },
+    {
+      "file": "android-knowledge.json",
+      "sha256": "334249ae1cd63b4b1b93b1b5a321611752c9b9cdcffea4e7cc2339b55e17e37d"
+    },
+    {
+      "file": "android-line-end-attempt.json",
+      "sha256": "f7162f7ca664924cfb32c14e5fdd4061d3ee84c3599ad60349d2317a22aabc92"
+    },
+    {
+      "file": "android-picker-provider-attempt.json",
+      "sha256": "3ef5e2836b4ddc71e35f9c774807e30d393f2871d5cc2ff60f1e92d910904cab"
+    },
+    {
+      "file": "android-preview.json",
+      "sha256": "225fb2a0bd8ab8cfb2b9b8137a26fbc3a4b98033eec21aa3f3836930ee78301d"
+    },
+    {
+      "file": "android-skills.json",
+      "sha256": "66cc5bc6f0b6aff7c99dd5af7cae09d851ade12c493613105d1b01c9fa5e9e51"
+    },
+    {
+      "file": "android-theme.png",
+      "sha256": "f694411d7e24c31d2bde6a21742898162aec509c43404475822a7b9991dbc155"
+    },
+    {
+      "file": "connectivity-driver-timeout.json",
+      "sha256": "71a0dd7f0230279cd7c82855a3edc92de1623e7741ad2290435f57730ae1eda4"
+    },
+    {
+      "file": "connectivity-recovery.json",
+      "sha256": "f318299c8b585cf09559aab2f5278398567f7aadabe0924ad364c55fe5cc9b95"
+    },
+    {
+      "file": "delivery-audit.json",
+      "sha256": "3062fb2ff3edb8e0b5bcb6b5f55dc3049f134078c7de5523e8a2b38fd45bec05"
+    },
+    {
+      "file": "fixture-sample.docx",
+      "sha256": "75ed23d5cf55d4669d02f764276a11bb2d1c635737d13922093414b5473f06b6"
+    },
+    {
+      "file": "fixture-sample.json",
+      "sha256": "03badf77561e09f8360d17bdefdafd4fba9d6668fbf9f593424f2e9e1f177f0b"
+    },
+    {
+      "file": "fixture-sample.pdf",
+      "sha256": "5f0dc937f824808b6d6f92e8ff978661d3baed305e4a725000cb158a6b0b3a05"
+    },
+    {
+      "file": "fixture-sample.txt",
+      "sha256": "05322160b15fb5180522ef616267e9690e901036ebd4a75ca5a424d9c2468a9d"
+    },
+    {
+      "file": "fixture-sample.xlsx",
+      "sha256": "7dbd62c09c90f36733599a4dc2cfed22c90612cb49a0c3be8e51a8ea680b0012"
+    },
+    {
+      "file": "fixture-sample.yaml",
+      "sha256": "b62f2980b35cccda26135c5da9f797a6a558f58aeb5f7b249f1f0cb3eac7ef91"
+    },
+    {
+      "file": "interruption-recovery.json",
+      "sha256": "1f9e7deb9caa50bcd8badfdc754f15612c8c0769379e0767afd4fde5e5cc791c"
+    },
+    {
+      "file": "promotion-history.txt",
+      "sha256": "082ee66a7b1b71c94cccfde1a9838ad7842da4133ce7bcdf83b27db54c3d479f"
+    },
+    {
+      "file": "regression-summary.json",
+      "sha256": "3cdeeef9e6a006bc7826de6cd0d3d5c17377f2a5bfa27b980c6347a311904ce8"
+    },
+    {
+      "file": "skill-live-acceptance.json",
+      "sha256": "e97014107810bf662803ca2d7b06d46536e814453f9dd5c1af927d733e2597bf"
+    },
+    {
+      "file": "windows-archive-refusal-before-fix.json",
+      "sha256": "2acbf79c8d420c2188e421d83006a051b470a782814c6e58f69a46a32e5104c8"
+    },
+    {
+      "file": "windows-evidence.png",
+      "sha256": "c889c0f825d4c05e5893ad4684c7a1549320e1e2b8706591d54944c6185cb805"
+    },
+    {
+      "file": "windows-runs.json",
+      "sha256": "09bb4b247094d8fb111d5072b94cea2cd3d2aee0455a31ab977c04db5faf9dec"
+    },
+    {
+      "file": "windows-theme.png",
+      "sha256": "e6dfa2d13995d286cd2b277e0fc7479eeb8913890d5ffda1dcb034853efc02dc"
+    }
+  ],
+  "limitations": [
+    "Generated public fixtures only. No tokens, device identifiers or original private inputs are included.",
+    "Earlier failed attempts are retained; a passing retry does not erase them.",
+    "Missing historical metrics remain null. Server latency excludes client and operator time."
+  ]
+}

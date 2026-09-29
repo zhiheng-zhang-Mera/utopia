@@ -15,6 +15,9 @@ jobs:
         with:
           version: '11.19.0'
       - run: pnpm install --frozen-lockfile
+      # the city tree owns its own third-party parsers (yaml, fflate, mammoth,
+      # pdfjs-dist): a separate install, deliberately not a pnpm workspace
+      - run: pnpm --dir city install --frozen-lockfile
       - run: pnpm test
       - run: node scripts/verify-promotion-history.mjs
       - run: node --test apps/rooms/tests/*.test.mjs

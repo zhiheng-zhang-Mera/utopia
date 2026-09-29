@@ -1,0 +1,16 @@
+{
+  "name": "utopia-city",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Utopia City implementation modules. This package exists so the city tree can own third-party parsers without touching the root app dependencies and without creating a pnpm workspace.",
+  "engines": {
+    "node": ">=24"
+  },
+  "dependencies": {
+    "fflate": "0.8.3",
+    "mammoth": "1.12.2",
+    "pdfjs-dist": "6.3.289",
+    "yaml": "2.9.0"
+  }
+}

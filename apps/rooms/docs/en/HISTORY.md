@@ -27,6 +27,7 @@ ancestor of `promotedAtCommit`. Verifier: `node scripts/verify-promotion-history
 | `theme-package-lab` (D6) | `95d958ddacc6071fc6c2b0ee4c2be8b132c9dd4d` | `5d1abecdc38ace5f5cf02aafbf097026d3427eec` | `city/11-entertainment/01-entertainment-centre/theme-engine` |
 | `yaml-intake-lab` (D7a) | `b6d7733c927288c8c1246d097d509cc9caeb5fa4` | `e068d58ee890f17e1b87efb9f5d5af461d2a784b` | `city/09-planning-knowledge/02-document-intake/ingestion-core` |
 | `document-readers-lab` (D7b) | `e9a4c2370544028749c5cd0c2d492389ee53d7b5` | `6a95bf4502f1e07a8036e319146e608f2a8db943` | `city/09-planning-knowledge/02-document-intake/document-readers` |
+| `evidence-engine-lab` (D8) | `ec4202f774a996a1c1a7f867fac9f529abd43b00` | `e1dcfd73e9b35b44ad15112c2fc66aad41b1e099` | `city/06-research/01-research-institute/evidence-engine` |
 
 > **D1 note:** the commit that first wrote
 > `city/02-engineering/02-worker-gateway/skill-intake` was rewritten during a
@@ -38,6 +39,65 @@ ancestor of `promotedAtCommit`. Verifier: `node scripts/verify-promotion-history
 > **Never pre-guess a commit's own SHA.** A record is only filled in after the
 > target commit exists, and it is checked against local Git history by
 > `scripts/verify-promotion-history.mjs`.
+
+---
+
+## D8 · evidence-engine-lab → city/06-research/01-research-institute/evidence-engine
+
+| Item | Value |
+| --- | --- |
+| Donor repository | `zhiheng-zhang-Mera/Codex-Boss` |
+| Donor SHA | `8df428eaa437a409368401e95194e40266b83080` |
+| Donor source file | `electron/evidence-engine.ts` (reference types only: `src/shared/contracts.ts`, `src/shared/provider-contracts.ts`) |
+| Incubator room | `apps/rooms/rooms/evidence-engine-lab/` (removed from the live tree) |
+| Accepted incubator commit | `ec4202f774a996a1c1a7f867fac9f529abd43b00` |
+| Promotion commit | `e1dcfd73e9b35b44ad15112c2fc66aad41b1e099` |
+| Final city path | `city/06-research/01-research-institute/evidence-engine` |
+| Lifecycle | `PROMOTED` (during wave 2) |
+| New district | yes: `06-research` is the city's first Research ownership, opened by this promotion |
+
+### Adaptation
+
+- the donor's runtime types (`BossTask`, `ClaimRecord`, `CouncilSession`,
+  `DisputeRecord`, `EvidenceBundle`, `RawArtifact`) are replaced by plain shapes in
+  `contracts.mjs` (EvidenceTask, EvidenceArtifact, EvidenceClaim, EvidenceDispute,
+  EvidenceBundle), so a decision needs no task runtime, no provider automation, no
+  council process and no root trust;
+- every non-deterministic input is injectable (`idFactory`, `now`, `hash`), so the
+  same artifacts always produce the same manifest, the same integrityRoot and the same
+  bundle;
+- a resolved dispute no longer marks a claim DISPUTED. The donor had no resolution
+  concept at all, and carrying a flag that changed nothing would be worse than either;
+  an unresolved dispute still marks the claim and still blocks a PASS;
+- a `reasons` list and `describeBundle()` make the decision explainable without
+  re-deriving it from the claims;
+- `buildRehydrationPrompts()` keeps the donor's prompt shape. It builds text and
+  contacts nobody.
+
+### Known differences
+
+- no task runtime, provider automation, council runtime, research conductor or root
+  trust, as the workbook requires;
+- no persistence and no network: the module is pure, and the incubator surface kept
+  its sample in the page;
+- no claim verification against the outside world: `REFERENCED_NOT_VERIFIED` means the
+  declared evidence labels resolve, not that the claim is true.
+
+### Parity tests
+
+Coverage: artifact SHA-256 over UTF-8 content; a stored hash that no longer matches
+raising `ARTIFACT_HASH_MISMATCH` instead of re-hashing; the sorted manifest with
+provider, kind, hash, bytes and capture time; the integrityRoot as the SHA-256 of the
+sorted `id:hash` lines and its order-independence; artifacts of another task being
+excluded; the structured `{"claims"` block being read and a missing/unparsable block
+yielding no claims; `Proposal A/B/C` label mapping in artifact-id order; the four claim
+statuses with DISPUTED beating a resolved reference and a missing label being
+INSUFFICIENT; an unstructured synthesis becoming one INSUFFICIENT claim; unsynthesised
+proposals/responses becoming UNVERIFIED claims that are never treated as evidence; the
+PASS rule (no missing provider, no unresolved dispute, no blocking claim) and the fact
+that task completion is never evidence; rehydration quoting only the unresolved claims;
+determinism with injected ids and clock; and the module carrying no Boss runtime
+dependency.
 
 ---
 

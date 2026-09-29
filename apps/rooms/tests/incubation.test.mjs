@@ -169,6 +169,15 @@ test('a promoted room leaves the active catalog but stays known to Git history',
   ]);
   assert.ok(!ROOMS.some((room) => room.id === d7b.id), 'it serves no live surface either');
   assert.ok(!incubatingRooms().some((room) => room.id === d7b.id), 'a promoted room is never still being proved');
+
+  // D8 is the only wave-2 room with a city target in a district of its own
+  const d8 = ALL_ROOMS.find((room) => room.id === 'evidence-engine-lab');
+  assert.ok(d8, 'the D8 room is known to the pack');
+  assert.equal(d8.lifecycle, 'PROMOTED');
+  assert.equal(d8.targetCityPath, 'city/06-research/01-research-institute/evidence-engine');
+  assert.deepEqual(d8.donorSourcePaths, ['electron/evidence-engine.ts']);
+  assert.ok(!ROOMS.some((room) => room.id === d8.id), 'it serves no live surface either');
+  assert.ok(!incubatingRooms().some((room) => room.id === d8.id), 'a promoted room is never still being proved');
 });
 
 test('promotion records are validated and rejected when malformed', async (t) => {
@@ -309,6 +318,12 @@ test('hub exposes lifecycle metadata and the promotion record set', async (t) =>
   assert.equal(d7b.donor.commit, '8df428eaa437a409368401e95194e40266b83080');
   assert.equal(d7b.targetCityPath, 'city/09-planning-knowledge/02-document-intake/document-readers');
   assert.notEqual(d7b.acceptedRoomCommit, d7b.promotedAtCommit, 'the accepted room commit is not the promotion commit');
+
+  const d8 = promotions.payload.promotions.find((record) => record.roomId === 'evidence-engine-lab');
+  assert.ok(d8, 'the D8 promotion is recorded');
+  assert.equal(d8.donor.commit, '8df428eaa437a409368401e95194e40266b83080');
+  assert.equal(d8.targetCityPath, 'city/06-research/01-research-institute/evidence-engine');
+  assert.notEqual(d8.acceptedRoomCommit, d8.promotedAtCommit, 'the accepted room commit is not the promotion commit');
 
   const health = await hub.api('GET', '/health');
   assert.equal(health.payload.rooms.length, catalog.payload.rooms.length, 'health and the catalog agree on the room set');

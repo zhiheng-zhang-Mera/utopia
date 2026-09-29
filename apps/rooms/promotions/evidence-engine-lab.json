@@ -1,0 +1,14 @@
+{
+    "roomId":  "evidence-engine-lab",
+    "acceptedRoomCommit":  "ec4202f774a996a1c1a7f867fac9f529abd43b00",
+    "promotedAtCommit":  "e1dcfd73e9b35b44ad15112c2fc66aad41b1e099",
+    "targetCityPath":  "city/06-research/01-research-institute/evidence-engine",
+    "donor":  {
+                  "repository":  "zhiheng-zhang-Mera/Codex-Boss",
+                  "commit":  "8df428eaa437a409368401e95194e40266b83080",
+                  "sourcePaths":  [
+                                      "electron/evidence-engine.ts"
+                                  ]
+              },
+    "status":  "PROMOTED"
+}

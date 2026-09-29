@@ -23,10 +23,45 @@ promotedAtCommit   = 第一个正式 city module 已落位的 commit（可达、
 | `theme-package-lab` (D6) | `95d958ddacc6071fc6c2b0ee4c2be8b132c9dd4d` | `5d1abecdc38ace5f5cf02aafbf097026d3427eec` | `city/11-entertainment/01-entertainment-centre/theme-engine` |
 | `yaml-intake-lab` (D7a) | `b6d7733c927288c8c1246d097d509cc9caeb5fa4` | `e068d58ee890f17e1b87efb9f5d5af461d2a784b` | `city/09-planning-knowledge/02-document-intake/ingestion-core` |
 | `document-readers-lab` (D7b) | `e9a4c2370544028749c5cd0c2d492389ee53d7b5` | `6a95bf4502f1e07a8036e319146e608f2a8db943` | `city/09-planning-knowledge/02-document-intake/document-readers` |
+| `evidence-engine-lab` (D8) | `ec4202f774a996a1c1a7f867fac9f529abd43b00` | `e1dcfd73e9b35b44ad15112c2fc66aad41b1e099` | `city/06-research/01-research-institute/evidence-engine` |
 
 > **D1 说明：** 最初写入 `city/02-engineering/02-worker-gateway/skill-intake` 的那次提交在 Wave 1 期间的一次历史整理中被改写，已不可达；本记录因此指向当前历史中**第一个包含该 module 且可达**的提交 `1402872`。Wave 1 曾预填的旧值（形如 `6b29e84…`）是提交 amend 之前的 SHA，已作废。
 >
 > **禁止预猜当前 commit 自己的 SHA**：记录只能在目标提交已经存在之后回填，并由 `scripts/verify-promotion-history.mjs` 用本地 Git 历史核验。
+
+---
+
+## D8 · evidence-engine-lab → city/06-research/01-research-institute/evidence-engine
+
+| 项 | 值 |
+| --- | --- |
+| Donor 仓库 | `zhiheng-zhang-Mera/Codex-Boss` |
+| Donor SHA | `8df428eaa437a409368401e95194e40266b83080` |
+| Donor 源文件 | `electron/evidence-engine.ts`（参考类型：`src/shared/contracts.ts`、`src/shared/provider-contracts.ts`，仅作参考） |
+| 孵化房间 | `apps/rooms/rooms/evidence-engine-lab/`（已从活跃树移除） |
+| 孵化验收 commit | `ec4202f774a996a1c1a7f867fac9f529abd43b00` |
+| 晋升 commit | `e1dcfd73e9b35b44ad15112c2fc66aad41b1e099` |
+| 最终城市路径 | `city/06-research/01-research-institute/evidence-engine` |
+| Lifecycle | `PROMOTED`（Wave 2 期间） |
+| 新 district | 是：`06-research` 是本项目第一个研究产权，由本次晋升开启 |
+
+### 适配说明
+
+- donor 的运行时类型（`BossTask`、`ClaimRecord`、`CouncilSession`、`DisputeRecord`、`EvidenceBundle`、`RawArtifact`）被 `contracts.mjs` 中的普通值形状（EvidenceTask、EvidenceArtifact、EvidenceClaim、EvidenceDispute、EvidenceBundle）取代，因此得出判定不需要 task 运行时、provider 自动化、council 流程或 root trust；
+- 所有非确定性输入都可注入（`idFactory`、`now`、`hash`），因此同一批 artifact 永远产出同一份 manifest、同一个 integrityRoot 与同一份 bundle；
+- 已解决的争议不再把 claim 标为 DISPUTED：donor 根本没有"解决"概念，保留一个不产生任何效果的标志比两者都糟；未解决的争议仍然标记并仍然阻断 PASS；
+- 新增 `reasons` 列表与 `describeBundle()`，让判定无需重新推导即可解释；
+- `buildRehydrationPrompts()` 保留 donor 的 prompt 形状：它只生成文本，不联系任何人。
+
+### 已知差异
+
+- 不带 task 运行时、provider 自动化、council 运行时、research conductor 或 root trust（工作书要求）；
+- 不持久化、不联网：本 module 是纯函数，孵化产品面只在页面内保存样本；
+- 不对外部世界校验 claim：`REFERENCED_NOT_VERIFIED` 只表示声明的证据标签能解析，并不表示该 claim 为真。
+
+### 平价测试
+
+覆盖：对 UTF-8 内容计算 artifact SHA-256；capture 时的哈希不再匹配时抛 `ARTIFACT_HASH_MISMATCH` 而不是重新哈希；按 artifact id 排序的 manifest（含 provider、kind、hash、bytes、capture 时间）；integrityRoot 为排序后 `id:hash` 行的 SHA-256 且与输入顺序无关；其他 task 的 artifact 被排除；读取 `{"claims"` 结构化块，缺失或无法解析时不产生 claims；`Proposal A/B/C` 标签按 artifact id 顺序映射；四种 claim 状态中 DISPUTED 优先于已解析引用、缺标签即 INSUFFICIENT；无结构化块的 synthesis 成为一条 INSUFFICIENT claim；没有 synthesis 时 proposal/response 成为 UNVERIFIED claim 且绝不当作证据；PASS 规则（无缺失 provider、无未解决争议、无阻断性 claim）以及"任务完成不等于证据"；rehydration 只引用未解决的 claim；注入 id 与时钟后的确定性；以及本 module 不携带任何 Boss 运行时依赖。
 
 ---
 

@@ -1,0 +1,4 @@
+# Real Knowledge Room data lives here and is never committed.
+# Only this .gitignore and .gitkeep are tracked.
+*.json
+!/.gitkeep

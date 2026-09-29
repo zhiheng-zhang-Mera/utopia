@@ -1,0 +1,14 @@
+{
+  "name": "@utopia/knowledge-room",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "UTOPIA Knowledge Room — a single-host, local-only knowledge product slice (MECH-K0).",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test tests/*.test.mjs"
+  }
+}

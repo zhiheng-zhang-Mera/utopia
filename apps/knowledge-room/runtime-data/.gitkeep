@@ -1,0 +1,3 @@
+# Real Knowledge Room data (knowledge-v0.json) is written next to this file.
+# Per MECH-K0 §5 it is not committed; only this placeholder and a nested
+# .gitignore are tracked so the directory always exists after a clone.

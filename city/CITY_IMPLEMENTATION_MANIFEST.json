@@ -71,6 +71,128 @@
               "incubationRooms": [
                 "evidence-engine-lab"
               ]
+            },
+            {
+              "id": "research-protocol",
+              "zh": "研究协议",
+              "en": "Research Protocol",
+              "path": "city/06-research/01-research-institute/research-protocol",
+              "lifecycle": "PROMOTED",
+              "capabilityProvider": false,
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/Codex-Boss",
+                "commit": "8df428eaa437a409368401e95194e40266b83080",
+                "sourcePaths": [
+                  "src/shared/research-ir.ts",
+                  "src/shared/research-protocol.ts",
+                  "src/shared/research-contract.ts",
+                  "src/shared/research-roles.ts",
+                  "src/shared/research-command.ts"
+                ]
+              },
+              "incubationRooms": [
+                "mb-007-research-protocol-lab"
+              ],
+              "mission": {
+                "missionId": "MB-007",
+                "cluster": "ResearchIR and protocol freeze, the research contract, and the research role/command vocabulary"
+              }
+            },
+            {
+              "id": "research-provenance",
+              "zh": "文献溯源",
+              "en": "Research Provenance",
+              "path": "city/06-research/01-research-institute/research-provenance",
+              "lifecycle": "PROMOTED",
+              "capabilityProvider": false,
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/Codex-Boss",
+                "commit": "8df428eaa437a409368401e95194e40266b83080",
+                "sourcePaths": [
+                  "src/shared/research-citation.ts",
+                  "src/shared/research-bibliography.ts",
+                  "src/shared/research-input.ts"
+                ]
+              },
+              "incubationRooms": [
+                "mb-007-research-provenance-lab"
+              ],
+              "mission": {
+                "missionId": "MB-007",
+                "cluster": "literature and source provenance, and claim/citation verification"
+              }
+            },
+            {
+              "id": "research-statistics",
+              "zh": "研究统计",
+              "en": "Research Statistics",
+              "path": "city/06-research/01-research-institute/research-statistics",
+              "lifecycle": "PROMOTED",
+              "capabilityProvider": false,
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/Codex-Boss",
+                "commit": "8df428eaa437a409368401e95194e40266b83080",
+                "sourcePaths": [
+                  "src/shared/research-statistics.ts",
+                  "src/shared/research-battery.ts"
+                ]
+              },
+              "incubationRooms": [
+                "mb-007-research-statistics-lab"
+              ],
+              "mission": {
+                "missionId": "MB-007",
+                "cluster": "deterministic research statistics and the research experiment battery"
+              }
+            },
+            {
+              "id": "research-manuscript",
+              "zh": "论文装配",
+              "en": "Research Manuscript",
+              "path": "city/06-research/01-research-institute/research-manuscript",
+              "lifecycle": "PROMOTED",
+              "capabilityProvider": false,
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/Codex-Boss",
+                "commit": "8df428eaa437a409368401e95194e40266b83080",
+                "sourcePaths": [
+                  "src/shared/research-figures.ts",
+                  "src/shared/research-manuscript.ts"
+                ]
+              },
+              "incubationRooms": [
+                "mb-007-research-manuscript-lab"
+              ],
+              "mission": {
+                "missionId": "MB-007",
+                "cluster": "figures and tables, and manuscript assembly"
+              }
+            },
+            {
+              "id": "research-review",
+              "zh": "研究评审",
+              "en": "Research Review",
+              "path": "city/06-research/01-research-institute/research-review",
+              "lifecycle": "PROMOTED",
+              "capabilityProvider": false,
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/Codex-Boss",
+                "commit": "8df428eaa437a409368401e95194e40266b83080",
+                "sourcePaths": [
+                  "src/shared/research-review.ts",
+                  "src/shared/research-adjudicate.ts",
+                  "src/shared/research-levela.ts",
+                  "src/shared/research-levelb.ts",
+                  "src/shared/research-capability-registry.ts"
+                ]
+              },
+              "incubationRooms": [
+                "mb-007-research-review-lab"
+              ],
+              "mission": {
+                "missionId": "MB-007",
+                "cluster": "research review and adjudication, the A/B research levels, and the research capability registry"
+              }
             }
           ]
         }

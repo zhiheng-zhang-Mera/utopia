@@ -10,7 +10,11 @@ export const ADAPTERS=[
  {id:'presentation.theme.lab',name:'Theme Lab',moduleRefs:[ref('11-entertainment','01-entertainment-centre','theme-engine')],operations:['generate','build'],inputKind:'theme'},
 ];
 export function registry(manifest=JSON.parse(readFileSync(new URL('city/CITY_IMPLEMENTATION_MANIFEST.json',root))),adapters=ADAPTERS){
- const modules=manifest.districts.flatMap(d=>d.buildings.flatMap(b=>b.modules.map(m=>({...m,ref:ref(d.id,b.id,m.id)}))));
+ // A module may opt out of the capability surface with `"capabilityProvider": false`. The
+ // Worker Gateway's adapter infrastructure (MB-003) really exists in the city but exposes
+ // no user-facing capability, and enumerating it here would advertise it to Web and Android
+ // as an "unavailable" capability awaiting a bridge.
+ const modules=manifest.districts.flatMap(d=>d.buildings.flatMap(b=>b.modules.filter(m=>m.capabilityProvider!==false).map(m=>({...m,ref:ref(d.id,b.id,m.id)}))));
  const index=new Map();
  for(const m of modules){const key=moduleKey(m.ref);if(index.has(key))throw Error('Duplicate qualified module identity');index.set(key,m);}
  const covered=new Set(adapters.flatMap(a=>a.moduleRefs.map(moduleKey)));

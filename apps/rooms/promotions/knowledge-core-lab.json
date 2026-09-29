@@ -1,0 +1,14 @@
+{
+  "roomId": "knowledge-core-lab",
+  "acceptedRoomCommit": "01f932bd2aad2403bec61961410ca19ca0cf28ad",
+  "promotedAtCommit": "184673ea871b1601339d58f5fda9fbe417aa9440",
+  "targetCityPath": "city/09-planning-knowledge/01-knowledge-service/knowledge-core",
+  "donor": {
+    "repository": "zhiheng-zhang-Mera/Codex-Boss",
+    "commit": "8df428eaa437a409368401e95194e40266b83080",
+    "sourcePaths": [
+      "src/shared/knowledge.ts"
+    ]
+  },
+  "status": "PROMOTED"
+}

@@ -10,7 +10,10 @@ test('Web control creates a real task and shows durable result',async()=>{
  try{
  app=await createGateway({host:'127.0.0.1',port:0,dir,token:'web-test',nodeToken:'node-test'});
  agent=await startAgent({url:app.url,token:'node-test',workspace:resolve(dir,'work'),stepDelay:100,interval:100});
- browser=await chromium.launch({channel:'msedge',headless:true});const page=await browser.newPage();await page.goto(app.url);
+ browser=await chromium.launch({channel:'msedge',headless:true});
+ // Pin the browser locale so the first-run UI locale is English on any host
+ // (the Web Control Surface now ships en and zh-CN language packs).
+ const context=await browser.newContext({locale:'en-US'});const page=await context.newPage();await page.goto(app.url);
  await page.getByLabel('Pairing token').fill('web-test');await page.getByRole('button',{name:'Connect',exact:true}).click();
  await page.getByText('ONLINE',{exact:true}).first().waitFor();await page.getByRole('button',{name:'Run Test Task',exact:true}).click();
  await page.getByText('COMPLETED',{exact:true}).first().waitFor();

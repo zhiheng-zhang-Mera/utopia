@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "name": "Utopia City Implementation",
+  "description": "Actual implementation layer of the Utopia Digital City. The Digital-City repository stays the map/planning reference; this tree owns the running modules. Only districts that really exist are listed.",
+  "lifecycles": ["PLANNED", "INCUBATING", "PROMOTED", "ACTIVE", "DEPRECATED"],
+  "districts": [
+    {
+      "id": "02-engineering",
+      "zh": "工务区",
+      "en": "Engineering Works District",
+      "buildings": [
+        {
+          "id": "02-worker-gateway",
+          "zh": "施工队接入站",
+          "en": "Worker Gateway",
+          "modules": [
+            {
+              "id": "skill-intake",
+              "zh": "技能接入",
+              "en": "Skill Intake",
+              "path": "city/02-engineering/02-worker-gateway/skill-intake",
+              "lifecycle": "ACTIVE",
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/DS-Hns",
+                "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+                "sourcePaths": [
+                  "app/extensions/mega/skills/skill-format.js",
+                  "app/extensions/mega/skills/tar.js"
+                ]
+              },
+              "roomId": "skill-intake-lab"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "09-planning-knowledge",
+      "zh": "规划知识区",
+      "en": "Planning & Knowledge District",
+      "buildings": [
+        {
+          "id": "01-knowledge-service",
+          "zh": "知识服务所",
+          "en": "Knowledge Service",
+          "modules": [
+            {
+              "id": "knowledge-core",
+              "zh": "知识内核",
+              "en": "Knowledge Core",
+              "path": "city/09-planning-knowledge/01-knowledge-service/knowledge-core",
+              "lifecycle": "PROMOTED",
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/Codex-Boss",
+                "commit": "8df428eaa437a409368401e95194e40266b83080",
+                "sourcePaths": [
+                  "src/shared/knowledge.ts"
+                ]
+              },
+              "roomId": "knowledge-core-lab"
+            }
+          ]
+        },
+        {
+          "id": "02-document-intake",
+          "zh": "文档接入站",
+          "en": "Document Intake",
+          "modules": [
+            {
+              "id": "ingestion-core",
+              "zh": "摄入内核",
+              "en": "Ingestion Core",
+              "path": "city/09-planning-knowledge/02-document-intake/ingestion-core",
+              "lifecycle": "PROMOTED",
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/Codex-Boss",
+                "commit": "8df428eaa437a409368401e95194e40266b83080",
+                "sourcePaths": [
+                  "electron/ingestion/xml-text.ts",
+                  "electron/ingestion/text-parsers.ts"
+                ]
+              },
+              "roomId": "document-intake-lab"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "11-entertainment",
+      "zh": "娱乐区",
+      "en": "Entertainment District",
+      "buildings": [
+        {
+          "id": "01-entertainment-centre",
+          "zh": "娱乐中心",
+          "en": "Entertainment Centre",
+          "modules": [
+            {
+              "id": "theme-engine",
+              "zh": "主题引擎",
+              "en": "Theme Engine",
+              "path": "city/11-entertainment/01-entertainment-centre/theme-engine",
+              "lifecycle": "PROMOTED",
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/DS-Hns",
+                "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+                "sourcePaths": [
+                  "app/extensions/mega/theme/color.js",
+                  "app/extensions/mega/theme/png.js"
+                ]
+              },
+              "roomId": "theme-engine-lab"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

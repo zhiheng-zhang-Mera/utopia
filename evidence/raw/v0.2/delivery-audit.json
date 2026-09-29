@@ -1,6 +1,6 @@
 {
-  "checkedAt": "2026-09-29T04:07:58.321Z",
-  "checkedFiles": 244,
+  "checkedAt": "2026-09-29T04:50:31.084Z",
+  "checkedFiles": 273,
   "knownPrivateValueKinds": [
     "local credentials",
     "connected device identifier"

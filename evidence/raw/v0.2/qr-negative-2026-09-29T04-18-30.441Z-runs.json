@@ -1,0 +1,35 @@
+{
+  "codeSha": "e1884e30d8667ee0f7eb0aada9d38e171cba9d8d",
+  "driverSha256": "8b9c4ec2bc162770884457941df4b619fca15d1d82d8d451b6ac714400440d87",
+  "workingTreeDirty": false,
+  "apkSha256": "e72d249efa92bf4da666f2f4066605a624086edf680105c9a0d6df357519e4e7",
+  "startedAt": "2026-09-29T04:18:30.533Z",
+  "driver": "ADB onboarding plus physical camera; no QR or descriptor injection",
+  "scope": "Expired QR: two physical scans share one genuinely expired five-minute session. Replaced QR: two independent original sessions, each replaced before scanning.",
+  "fakeClock": false,
+  "shortenedTtl": false,
+  "runs": [],
+  "displayGeometry": {
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "qrBox": {
+      "x": 317,
+      "y": 464,
+      "width": 240,
+      "height": 360
+    },
+    "source": "Measured real authenticated Web pairing QR before test-session creation",
+    "windowPosition": "Browser default; physical alignment still requires confirmation"
+  },
+  "status": "INCOMPLETE",
+  "operatorObservation": {
+    "observedAt": "2026-09-29T04:21:46.3285721Z",
+    "reason": "Collector interrupted before camera trials to correct overwritten focus configuration; no negative acceptance claim",
+    "stage": "PRE_CAMERA_EXPIRY_WAIT"
+  },
+  "driverHashMissingInOriginal": false,
+  "sourceDirectory": "qr-negative-2026-09-29T04-18-30.441Z",
+  "sourceRunsSha256": "f321080a362d1f60b3e3d76f6a9971f96e718a922142a2b0cafcd353c48aebc8"
+}

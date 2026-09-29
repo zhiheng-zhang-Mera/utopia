@@ -59,7 +59,7 @@ for(let run=rows.length+1;rows.filter(r=>r.success).length<count;run++){
   await waitNode('Settings');cmd('shell','input','tap','970','2195');await sleep(500);
   row.stage='CLEAR_PAIRING';save();tapNode(await waitNode('Clear pairing / Find your City'));await waitNode('Scan QR');
   await refreshVisibleQr();const previousIds=new Set(logEvents().map(e=>e.trialId));
-  const scan=await waitNode('Scan QR');row.cameraLaunchRequestedAt=timestamp();tapNode(scan);cameraLaunched=true;row.stage='CAMERA_LAUNCHED';save();
+  const scan=await waitNode('Scan QR');row.cameraLaunchRequestedAt=timestamp();cameraLaunched=true;tapNode(scan);row.stage='CAMERA_LAUNCHED';save();
   // From here until app exit, only app-private allowlisted telemetry is read.
   const started=Date.now();let trialEvents=[];
   while(Date.now()-started<45000){
@@ -80,3 +80,5 @@ for(let run=rows.length+1;rows.filter(r=>r.success).length<count;run++){
  console.log('qr',run,row.success?'PASS':row.errorClass);
  if(!row.success)break;
 }
+
+if(rows.filter(r=>r.success).length<count)process.exitCode=1;

@@ -1,9 +1,17 @@
 {
-  "generatedAt": "2026-09-29T04:08:09.740Z",
+  "generatedAt": "2026-09-29T04:50:43.969Z",
   "files": [
     {
+      "file": "android-autozoom-initial-unit-tests.json",
+      "sha256": "c61cc2ed16d87d89e5a85f1a6ff2aac83033de4ee7b78ae60840fab85d67f227"
+    },
+    {
+      "file": "android-autozoom-unit-tests.json",
+      "sha256": "dd1ebcc45fc5d20822b224c4753edb7af458c7f8fbe401d1ffdb10684f4859eb"
+    },
+    {
       "file": "android-devices.png",
-      "sha256": "b72619960249de29e398a190e291e3f0bac4ab1b7cb15d5e890d042db6666dba"
+      "sha256": "f3cef35326ae3c18daf8903456991c0fa8d4b0719ead5a61609aba8f0a5cc499"
     },
     {
       "file": "android-errorfix-unit-tests.json",
@@ -15,7 +23,7 @@
     },
     {
       "file": "android-telemetry.xml",
-      "sha256": "aa21d8216a17dd411c387cfe9122c1070fc08c511bc9134d20134e9ae0c3173c"
+      "sha256": "ce9c7d34a83bd71c57379b8eeecad50c84ed6355873d1e591d34242715897670"
     },
     {
       "file": "android-unit-tests.json",
@@ -98,6 +106,10 @@
       "sha256": "0125d85cd187e2a0b6a605fb9048e3f45b8454920c4ebf1b9331c1669e8b544a"
     },
     {
+      "file": "ci-autozoom-product.json",
+      "sha256": "32212a19de9513971f24bdd783b155111184fe4e791c6ec83cb76b014378653b"
+    },
+    {
       "file": "ci-errorfix-product.json",
       "sha256": "65570858fefd469673990b87dc10e1e5798246b3a71d16d2b25ee9573aa1b724"
     },
@@ -111,7 +123,7 @@
     },
     {
       "file": "delivery-audit.json",
-      "sha256": "c9500d6f70b0f9aa5d99040c2c6476f7159c897be20830962a2a708ac28a0276"
+      "sha256": "211ae02d90d38d74f68e4b103a061c49bf9727d4757801eaf09c52230033dbd1"
     },
     {
       "file": "discovery-recovery.json",
@@ -151,7 +163,7 @@
     },
     {
       "file": "historical-attempts.json",
-      "sha256": "c464df5dbcf6646daa4c1358acbcd10c0e190a6920397f625dd9c21677de3966"
+      "sha256": "312f4c3f3b846adfbe4e41273a4df3d86260f2ebeb3c7dbd2e146bfa71a3b24a"
     },
     {
       "file": "historical-discovery-recovery-driver-attempt.json",
@@ -188,6 +200,14 @@
     {
       "file": "historical-pre-apk-provenance-telemetry-consistency.json",
       "sha256": "bd3f41f0f432d5cf925a3c97ab84404e24cc87a17044fbc03f479551d77eb66f"
+    },
+    {
+      "file": "historical-pre-autozoom-task-regression.json",
+      "sha256": "042289ae755ac56d68be807757cb8453177ba4b85b44f320ace6b4e1bc8dd90b"
+    },
+    {
+      "file": "historical-pre-autozoom-telemetry-consistency.json",
+      "sha256": "191cab5fe9376943cd24a16ba0096d4bfa16941eedd88afbad9f8ae6ce7e053e"
     },
     {
       "file": "historical-pre-fix-mdns-runs.json",
@@ -236,6 +256,22 @@
     {
       "file": "manual-5-events.jsonl",
       "sha256": "513c6a4aab4558169bcc8a174138dba7a2a410f225e42f5498198af671ba614f"
+    },
+    {
+      "file": "manual-autozoom-restoration-1-events.jsonl",
+      "sha256": "1a8c40e49f1d12e77641d4404840fb025193abacc01d0699938515ccfaa73fe4"
+    },
+    {
+      "file": "manual-autozoom-restoration-events.jsonl",
+      "sha256": "1a8c40e49f1d12e77641d4404840fb025193abacc01d0699938515ccfaa73fe4"
+    },
+    {
+      "file": "manual-autozoom-restoration-runs.json",
+      "sha256": "931b127b6d84adf6510c21179cc641722f36c7b21eca32a192bfa01f08da9514"
+    },
+    {
+      "file": "manual-autozoom-restoration-trials.json",
+      "sha256": "efa614ad39aed661961eaaf2afd05379408ce1cac43adb66d84268a3640f709e"
     },
     {
       "file": "manual-events.jsonl",
@@ -410,6 +446,42 @@
       "sha256": "99ab554557d7061aee160970ffc56501ac5d69c3c75b04af1e6b5812238c56f0"
     },
     {
+      "file": "qr-autozoom-1-events.jsonl",
+      "sha256": "a197a899bb1b5fc416afc6caeac33aa33e9a8135b0c6ed4b62055e34cab1b15b"
+    },
+    {
+      "file": "qr-autozoom-2-events.jsonl",
+      "sha256": "64fd90d02b39612ffbaeef8eda6e32d0498e57fc75d90ff13be2b3650f079f66"
+    },
+    {
+      "file": "qr-autozoom-3-events.jsonl",
+      "sha256": "6719e8890ca5da88d6fec37e70d574fa01a00d1ab525da109d81c70f35496d39"
+    },
+    {
+      "file": "qr-autozoom-4-events.jsonl",
+      "sha256": "a3ba7d9ecb7e091952f73e4d5f43635c94fc6e192f11b2b8eabcb73f84643e70"
+    },
+    {
+      "file": "qr-autozoom-5-events.jsonl",
+      "sha256": "1806b1689e35fbc66a83c89861b3014dce463d8b05e0a8f870998386812c68b4"
+    },
+    {
+      "file": "qr-autozoom-6-events.jsonl",
+      "sha256": "5881393d4af539fa879835d79890e7e524db141d9a5dc35c492f5f548a59f3db"
+    },
+    {
+      "file": "qr-autozoom-events.jsonl",
+      "sha256": "d2bdd65274c2dfcae3ce4e1a5379d5ce0474cc1967b1cf1b9c63ed995da74b8f"
+    },
+    {
+      "file": "qr-autozoom-runs.json",
+      "sha256": "a483cf5a91e05ff2228a37aa42fba85adc99a6ca7f5a5e0e02f104e4291ed351"
+    },
+    {
+      "file": "qr-autozoom-trials.json",
+      "sha256": "fead70f233aa3832a6c39f59f71d4994544b5a785aef3a9ff3018bf8da1959eb"
+    },
+    {
       "file": "qr-device-center.json",
       "sha256": "5bb30f4d00cb164c214d4136603265764dc9632034d13094a21b9c1022fb7de5"
     },
@@ -442,8 +514,32 @@
       "sha256": "70467892c768b8cc4f48ecc78d7dca0cbc277981bdc2acb3b7b49df635755871"
     },
     {
+      "file": "qr-negative-2026-09-29T04-18-30.441Z-events.jsonl",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "file": "qr-negative-2026-09-29T04-18-30.441Z-runs.json",
+      "sha256": "ed4aae4e5abc52d53edb0c12a8fc303917035754d6602c04bd6f64ce48ceeb77"
+    },
+    {
+      "file": "qr-negative-2026-09-29T04-22-16.133Z-events.jsonl",
+      "sha256": "188629c4cf3f60d72cef797a1c57edaa56bb92dfce6801db72f6f4e349348878"
+    },
+    {
+      "file": "qr-negative-2026-09-29T04-22-16.133Z-runs.json",
+      "sha256": "d76d9b92600de876c79ed920a8ea61c9907108b0b170db54de64f88543db6fa8"
+    },
+    {
+      "file": "qr-negative-2026-09-29T04-39-14.835Z-events.jsonl",
+      "sha256": "7e1278b7970cb8f6e77518e579b97a94011a4f56bdc08d49073caf01848f840a"
+    },
+    {
+      "file": "qr-negative-2026-09-29T04-39-14.835Z-runs.json",
+      "sha256": "79e8d7327e89a54ce0ad119526dda551ad5bf8233437a33819a7fe21896a7cc0"
+    },
+    {
       "file": "qr-negative-index.json",
-      "sha256": "b1d046f5687692040977323b55e0a29f38538195ebd06e438626a7af526fe57e"
+      "sha256": "f3e925d13449640b7e5cb266dc1bec0005a08eaf17daf9184a6c2bccf38a2bfb"
     },
     {
       "file": "qr-runs.json",
@@ -467,15 +563,15 @@
     },
     {
       "file": "task-regression.json",
-      "sha256": "4911f5508fdb14bc86dccabb5b56ed5e8a4d865d9670e7cada609e2e2e2b8656"
+      "sha256": "5fd30a094f3adec789979a8338def5e27be89bea92e4dccef4470d3a1b5eef5e"
     },
     {
       "file": "telemetry-consistency.json",
-      "sha256": "252c368659cbd70897ee8f0bced4479b3f955b2257fd85dba3cf20bd87a71596"
+      "sha256": "4e7b23ba11df35b12751b064045980271db3539024e3b6377d48e17cdc2a9a27"
     },
     {
       "file": "web-devices.png",
-      "sha256": "c9579ba72c7c04daa56ca158fdc46722b1202cfc57ea4d06b7b9c770b2de5b04"
+      "sha256": "036ead92542aa9902ab3e6533841c3351aae57e6793ef13a878eeec10324efaf"
     },
     {
       "file": "wifi-1-connection-events.jsonl",

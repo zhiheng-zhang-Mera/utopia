@@ -48,6 +48,51 @@
       "status": "INCOMPLETE",
       "trialRows": 1,
       "limitations": "Preserves original failures, stage diagnostics, sessionGroup and sharedExpiredSession. Shared-session scans are not independent expiry sessions."
+    },
+    {
+      "runsFile": "qr-negative-2026-09-29T04-18-30.441Z-runs.json",
+      "eventsFile": "qr-negative-2026-09-29T04-18-30.441Z-events.jsonl",
+      "driverSha256": "8b9c4ec2bc162770884457941df4b619fca15d1d82d8d451b6ac714400440d87",
+      "workingTreeDirty": false,
+      "driverHashMissingInOriginal": false,
+      "sourceDirectory": "qr-negative-2026-09-29T04-18-30.441Z",
+      "sourceRunsSha256": "f321080a362d1f60b3e3d76f6a9971f96e718a922142a2b0cafcd353c48aebc8",
+      "sourceEventsSha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "codeSha": "e1884e30d8667ee0f7eb0aada9d38e171cba9d8d",
+      "apkSha256": "e72d249efa92bf4da666f2f4066605a624086edf680105c9a0d6df357519e4e7",
+      "status": "INCOMPLETE",
+      "trialRows": 0,
+      "limitations": "Preserves original failures, stage diagnostics, sessionGroup and sharedExpiredSession. Shared-session scans are not independent expiry sessions."
+    },
+    {
+      "runsFile": "qr-negative-2026-09-29T04-22-16.133Z-runs.json",
+      "eventsFile": "qr-negative-2026-09-29T04-22-16.133Z-events.jsonl",
+      "driverSha256": "8b9c4ec2bc162770884457941df4b619fca15d1d82d8d451b6ac714400440d87",
+      "workingTreeDirty": false,
+      "driverHashMissingInOriginal": false,
+      "sourceDirectory": "qr-negative-2026-09-29T04-22-16.133Z",
+      "sourceRunsSha256": "fd2f47af06933a347641e66280a5ffcb327ede61f5505304a1ae3412b19fdd3f",
+      "sourceEventsSha256": "188629c4cf3f60d72cef797a1c57edaa56bb92dfce6801db72f6f4e349348878",
+      "codeSha": "2607912f85c22f6075367dc0eff1c45a58d75419",
+      "apkSha256": "ec30b0829a242aac05e604d3ade1aa5e91da2bbe45d22d4d9b5bcef222a5c9a7",
+      "status": "INCOMPLETE",
+      "trialRows": 2,
+      "limitations": "Preserves original failures, stage diagnostics, sessionGroup and sharedExpiredSession. Shared-session scans are not independent expiry sessions."
+    },
+    {
+      "runsFile": "qr-negative-2026-09-29T04-39-14.835Z-runs.json",
+      "eventsFile": "qr-negative-2026-09-29T04-39-14.835Z-events.jsonl",
+      "driverSha256": "67932552c9c040f501a3569fe960af1fb99f9c822eafbbe98128d9832ab0ee84",
+      "workingTreeDirty": false,
+      "driverHashMissingInOriginal": false,
+      "sourceDirectory": "qr-negative-2026-09-29T04-39-14.835Z",
+      "sourceRunsSha256": "5ce8af335b524213b369d17677a4b71acaf7c0d07920c6e21a732d564c871487",
+      "sourceEventsSha256": "7e1278b7970cb8f6e77518e579b97a94011a4f56bdc08d49073caf01848f840a",
+      "codeSha": "ee3f3134efeabc3ff58d3c4fcbac6b57a5adec5c",
+      "apkSha256": "ec30b0829a242aac05e604d3ade1aa5e91da2bbe45d22d4d9b5bcef222a5c9a7",
+      "status": "PASS",
+      "trialRows": 4,
+      "limitations": "Preserves original failures, stage diagnostics, sessionGroup and sharedExpiredSession. Shared-session scans are not independent expiry sessions."
     }
   ]
 }

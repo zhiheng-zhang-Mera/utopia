@@ -1,0 +1,9 @@
+{"trialId":"c1c336e8-aec9-49f1-b1ff-f21400352576","mode":"manual","event":"start","timestamp":"2026-09-29T04:48:23.865848Z","userActions":0,"retryCount":0}
+{"trialId":"c1c336e8-aec9-49f1-b1ff-f21400352576","mode":"manual","event":"action","timestamp":"2026-09-29T04:49:27.507444Z","userActions":1,"retryCount":0}
+{"trialId":"c1c336e8-aec9-49f1-b1ff-f21400352576","mode":"manual","event":"discovery","timestamp":"2026-09-29T04:49:27.508285Z","userActions":1,"retryCount":0}
+{"trialId":"c1c336e8-aec9-49f1-b1ff-f21400352576","mode":"manual","event":"pairingSubmitted","timestamp":"2026-09-29T04:49:27.508738Z","userActions":1,"retryCount":0}
+{"trialId":"c1c336e8-aec9-49f1-b1ff-f21400352576","mode":"manual","event":"connection_RECONNECTING","timestamp":"2026-09-29T04:49:27.567716Z","userActions":1,"retryCount":0}
+{"trialId":"c1c336e8-aec9-49f1-b1ff-f21400352576","mode":"manual","event":"authenticated","timestamp":"2026-09-29T04:49:27.601303Z","userActions":1,"retryCount":0}
+{"trialId":"c1c336e8-aec9-49f1-b1ff-f21400352576","mode":"manual","event":"snapshotLoaded","timestamp":"2026-09-29T04:49:27.604396Z","userActions":1,"retryCount":0}
+{"trialId":"c1c336e8-aec9-49f1-b1ff-f21400352576","mode":"manual","event":"connection_ONLINE","timestamp":"2026-09-29T04:49:27.707934Z","userActions":1,"retryCount":0}
+{"trialId":"c1c336e8-aec9-49f1-b1ff-f21400352576","mode":"manual","event":"websocketOnline","timestamp":"2026-09-29T04:49:27.708848Z","userActions":1,"retryCount":0}

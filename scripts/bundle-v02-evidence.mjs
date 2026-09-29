@@ -8,7 +8,7 @@ function save(name,value){const body=typeof value==='string'?value:JSON.stringif
 const sha256=body=>createHash('sha256').update(body).digest('hex');
 const readEvents=file=>existsSync(file)?readFileSync(file,'utf8').trim().split(/\r?\n/).filter(Boolean).map(x=>JSON.parse(x)):[];
 // Keep original candidate and targeted radio-fix trials separate, with their own exact provenance.
-for(const name of readdirSync(privateDir).filter(n=>/^(?:(?:manual|mdns|ble|qr)(?:-radiofix(?:-[a-zA-Z0-9_-]+)?)?|mdns-wrong-code|manual-qr-restoration|qr-autozoom|manual-autozoom-restoration)-runs\.json$/.test(n))){
+for(const name of readdirSync(privateDir).filter(n=>/^(?:(?:manual|mdns|ble|qr)(?:-radiofix(?:-[a-zA-Z0-9_-]+)?)?|mdns-wrong-code|manual-qr-restoration|qr-autozoom(?:-restoration)?|manual-autozoom-restoration)-runs\.json$/.test(n))){
  const prefix=name.slice(0,-'-runs.json'.length),mode=prefix.split('-')[0],file=privateDir+'/'+name;
  const runs=JSON.parse(readFileSync(file)),events=readEvents(privateDir+'/'+prefix+'-events.jsonl'),publishedEvents=[];
  save(name,runs);
@@ -52,7 +52,7 @@ const discoverySources=[{kind:'mdns',name:'discovery-recovery-mdns-and-ble-attem
 for(const {kind,name} of discoverySources){const file=privateDir+'/'+name;if(!existsSync(file))continue;const raw=readFileSync(file),source=JSON.parse(raw),destination=kind+'-discovery-recovery.json';save(destination,{...source,sourceFile:name,sourceSha256:sha256(raw),selection:'Only '+kind+' rows from this source; source SHA and installed APK hash retained unchanged.',runs:source.runs.filter(row=>row.kind===kind)});discoveryFiles.push(destination);}
 // Replace the formerly ambiguous combined output with an index; each mechanism retains its own source/APK.
 if(discoveryFiles.length)save('discovery-recovery.json',{kind:'DISCOVERY_EVIDENCE_INDEX',files:discoveryFiles,limitations:['Mechanisms may have different source commits and installed APK hashes. Read each file; do not treat earlier rows as current-APK passes.']});
-for(const name of ['telemetry-consistency.json','task-regression.json','qr-device-center.json','post-qr-restoration-host.json']){const file=privateDir+'/'+name;if(existsSync(file))save(name,JSON.parse(readFileSync(file)));}
+for(const name of ['telemetry-consistency.json','task-regression.json','qr-device-center.json','post-qr-restoration-host.json','post-autozoom-restoration-host.json','android-autozoom-unit-tests.json','android-autozoom-initial-unit-tests.json','ci-autozoom-product.json']){const file=privateDir+'/'+name;if(existsSync(file))save(name,JSON.parse(readFileSync(file)));}
 if(existsSync(privateDir+'/telemetry-consistency.json')){
  const t=JSON.parse(readFileSync(privateDir+'/telemetry-consistency.json')),host=t.samples.find(s=>s.host?.observedAt===t.androidObservedAt)?.host;
  const gb=n=>(n/1024**3).toFixed(1)+' GB';

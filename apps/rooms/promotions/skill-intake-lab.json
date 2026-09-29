@@ -1,15 +1,15 @@
 {
-  "roomId": "skill-intake-lab",
-  "acceptedRoomCommit": "1ba5b4809f05a155ed76fecdbb9479f900686fa1",
-  "promotedAtCommit": "6b29e84430ba888b6bc1d5bcde344e16f23b64c2",
-  "targetCityPath": "city/02-engineering/02-worker-gateway/skill-intake",
-  "donor": {
-    "repository": "zhiheng-zhang-Mera/DS-Hns",
-    "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
-    "sourcePaths": [
-      "app/extensions/mega/skills/skill-format.js",
-      "app/extensions/mega/skills/tar.js"
-    ]
-  },
-  "status": "PROMOTED"
+    "roomId":  "skill-intake-lab",
+    "acceptedRoomCommit":  "1ba5b4809f05a155ed76fecdbb9479f900686fa1",
+    "promotedAtCommit":  "140287250ef1440441df4eaf0dfefc14528eeee4",
+    "targetCityPath":  "city/02-engineering/02-worker-gateway/skill-intake",
+    "donor":  {
+                  "repository":  "zhiheng-zhang-Mera/DS-Hns",
+                  "commit":  "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+                  "sourcePaths":  [
+                                      "app/extensions/mega/skills/skill-format.js",
+                                      "app/extensions/mega/skills/tar.js"
+                                  ]
+              },
+    "status":  "PROMOTED"
 }

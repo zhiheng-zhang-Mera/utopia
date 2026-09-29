@@ -85,13 +85,25 @@ ACTIVE       正式在役
 DEPRECATED   保留但不再发展
 ```
 
-清单校验（`city/manifest.mjs`）会强制：
+清单校验（`city/manifest.mjs`）会强制（schema v2）：
 
+- `schemaVersion` 必须为 `2`；
 - `district.id` 形如 `02-engineering`，`module.path` 必须等于 `city/<district>/<building>/<module>`；
 - 每个 module 的 `lifecycle` 必须是上述之一；
-- 已实现（`PROMOTED` / `ACTIVE` / `DEPRECATED`）的模块必须声明它来自哪个孵化房间 `roomId`；
+- 已实现（`PROMOTED` / `ACTIVE` / `DEPRECATED`）的模块必须声明 `incubationRooms`，且至少一个、非空、去重；
+- **同一个孵化房间不得被两个 module claim**；
 - 已实现的模块目录必须真实存在；`PLANNED` / `INCUBATING` 的模块目录必须**尚不存在**；
 - `donor` 若存在，必须带 `repository` 与合法的 git SHA。
+
+### 为什么是列表而不是单值
+
+Wave 2 起，同一个 city module 可以被**多次孵化**逐步增强，例如：
+
+```json
+"incubationRooms": ["skill-intake-lab", "skill-discovery-lab"]
+```
+
+每个孵化房间仍然保留自己独立的 `apps/rooms/promotions/<room>.json` 记录，Wave 1 的记录不会被覆盖。`roomId` 单值字段已废弃（校验器仍能读取旧值以兼容，但新写入必须用列表）。
 
 这些规则由 `city/tests/manifest.test.mjs` 实际执行。
 

@@ -2,6 +2,28 @@
 
 本文件记录每个 donor 房间从孵化到迁入 `city/` 的完整过程。机器可读记录在 `../promotions/<room-id>.json`，完整代码留档在 Git 历史中。
 
+**两条 SHAs 的定义固定如下，不得相互混淆：**
+
+```text
+acceptedRoomCommit = 孵化房间最后一个已验收 commit
+promotedAtCommit   = 第一个正式 city module 已落位的 commit（可达、可在 <sha>:<path> 上检出）
+```
+
+两者都必须真实存在于 Git 历史中，并满足 `acceptedRoomCommit` 是 `promotedAtCommit` 的祖先。校验脚本：`node scripts/verify-promotion-history.mjs`。
+
+## 总览
+
+| Room | acceptedRoomCommit | promotedAtCommit | 目标城市路径 |
+| --- | --- | --- | --- |
+| `skill-intake-lab` (D1) | `1ba5b4809f05a155ed76fecdbb9479f900686fa1` | `140287250ef1440441df4eaf0dfefc14528eeee4` | `city/02-engineering/02-worker-gateway/skill-intake` |
+| `theme-engine-lab` (D2) | `9819ed7a4a212b8c8480d91c3812ce7f7a760ab9` | `a18b1e80b7405137ac3c56ef1bc1805677b6a93f` | `city/11-entertainment/01-entertainment-centre/theme-engine` |
+| `knowledge-core-lab` (D3) | `01f932bd2aad2403bec61961410ca19ca0cf28ad` | `b82fcfd0f153a63b8424051affd86bf7df0a41d0` | `city/09-planning-knowledge/01-knowledge-service/knowledge-core` |
+| `document-intake-lab` (D4) | `165e2664ad4e2d777889d8dec47893144e8c81dd` | `e3d6bbd9dd9196ce0991e095fb91993df3ec3dd1` | `city/09-planning-knowledge/02-document-intake/ingestion-core` |
+
+> **D1 说明：** 最初写入 `city/02-engineering/02-worker-gateway/skill-intake` 的那次提交在 Wave 1 期间的一次历史整理中被改写，已不可达；本记录因此指向当前历史中**第一个包含该 module 且可达**的提交 `1402872`。Wave 1 曾预填的旧值（形如 `6b29e84…`）是提交 amend 之前的 SHA，已作废。
+>
+> **禁止预猜当前 commit 自己的 SHA**：记录只能在目标提交已经存在之后回填，并由 `scripts/verify-promotion-history.mjs` 用本地 Git 历史核验。
+
 ---
 
 ## D4 · document-intake-lab → city/09-planning-knowledge/02-document-intake/ingestion-core
@@ -13,11 +35,11 @@
 | Donor 源文件 | `electron/ingestion/xml-text.ts`、`electron/ingestion/text-parsers.ts` |
 | 孵化房间 | `apps/rooms/rooms/document-intake-lab/`（已从活跃树移除） |
 | 孵化验收 commit | `165e2664ad4e2d777889d8dec47893144e8c81dd` |
-| 晋升记录 | `../promotions/document-intake-lab.json`（含晋升 commit 完整 SHA） |
+| 晋升 commit | `e3d6bbd9dd9196ce0991e095fb91993df3ec3dd1` |
 | 最终城市路径 | `city/09-planning-knowledge/02-document-intake/ingestion-core` |
 | Lifecycle | `PROMOTED`（Wave 1 期间） |
 | D4a 范围 | UTF-8/UTF-16 解码、TXT/Markdown、JSON/JSON Lines、CSV/TSV、XML 文本、分节与输入上限 |
-| D4b 延后 | YAML/yml：donor 的 YAML 分支依赖外部 `yaml` 包，必须先把该依赖隔离在本 Building 内 |
+| D4b 延后 | YAML/yml：donor 的 YAML 分支依赖外部 `yaml` 包，必须先把该依赖隔离在本 Building 内（Wave 2 D7a 处理） |
 
 ### 适配说明
 
@@ -49,9 +71,9 @@
 | 明确不复制 | `electron/knowledge/knowledge-store.ts`（依赖 Boss commander durable-json） |
 | 孵化房间 | `apps/rooms/rooms/knowledge-core-lab/`（已从活跃树移除） |
 | 孵化验收 commit | `01f932bd2aad2403bec61961410ca19ca0cf28ad` |
-| 晋升记录 | `../promotions/knowledge-core-lab.json`（含晋升 commit 完整 SHA） |
+| 晋升 commit | `b82fcfd0f153a63b8424051affd86bf7df0a41d0` |
 | 最终城市路径 | `city/09-planning-knowledge/01-knowledge-service/knowledge-core` |
-| Lifecycle | `PROMOTED`（Wave 1 期间） |
+| Lifecycle | `PROMOTED` |
 
 ### 城市模块结构
 
@@ -96,10 +118,9 @@ knowledge-core/
 | Donor 源文件 | `app/extensions/mega/theme/color.js`、`app/extensions/mega/theme/png.js` |
 | 孵化房间 | `apps/rooms/rooms/theme-engine-lab/`（已从活跃树移除） |
 | 孵化验收 commit | `9819ed7a4a212b8c8480d91c3812ce7f7a760ab9` |
-| 晋升 commit | `d71b9946f249ed49eae6185791cdd9be4fd76e07` |
+| 晋升 commit | `a18b1e80b7405137ac3c56ef1bc1805677b6a93f` |
 | 最终城市路径 | `city/11-entertainment/01-entertainment-centre/theme-engine` |
 | Lifecycle | `PROMOTED`（Wave 1 期间） |
-| 晋升记录 | `../promotions/theme-engine-lab.json` |
 
 ### 移植范围
 
@@ -114,26 +135,17 @@ knowledge-core/
 - 新增 `readability()` 与 WCAG 阈值常量，把对比度判定收在一处；
 - 新增 `ramp()`：确定性明度阶梯从房间处理器搬进城市内核；
 - 新增 `buildSwatch()`：在 donor 的 canvas 辅助之上提供确定性调色板出图；
-- 只复制 `color.js` 与 `png.js`：donor theme 目录里的 contract / builder / asset-factory / designer / orchestrator 属于后续 wave。
+- 只复制 `color.js` 与 `png.js`：donor theme 目录里的 contract / builder / asset-factory / designer / orchestrator 属于 Wave 2（D6）。
 
 ### 已知差异
 
-- 没有 theme contract、validator、builder、asset factory、preview（Wave 2）；
+- 没有 theme contract、validator、builder、asset factory、preview（Wave 2 D6 处理）；
 - 不作用于 Alien Web UI，只产出颜色与图像；
 - 不包含 theme registry / lifecycle / recovery 等编排层。
 
 ### Parity 测试
 
 覆盖：hex / rgb() / rgba() / 百分比语法与拒绝分支、通道 clamp、hex 往返、alpha 合成、HSL 往返、WCAG 对比度（21:1 极值）与 readability 等级、shade / mix / distance / isLight / bestOn、PNG 编码→独立解码往返（RGB 与 RGBA）、PNG 头读取与非 PNG 拒绝、swatch 确定性、列布局与 alpha 保留。
-
-### 晋升后处理
-
-```text
-apps/rooms/rooms/theme-engine-lab/     已删除（保留 Git 历史）
-apps/rooms/tests/theme-engine.test.mjs 已删除（parity 测试随内核进入城市模块）
-apps/rooms/promotions/theme-engine-lab.json  保留
-city/.../theme-engine/tests/           城市模块自带 focused 测试
-```
 
 ---
 
@@ -146,10 +158,9 @@ city/.../theme-engine/tests/           城市模块自带 focused 测试
 | Donor 源文件 | `app/extensions/mega/skills/skill-format.js`、`app/extensions/mega/skills/tar.js` |
 | 孵化房间 | `apps/rooms/rooms/skill-intake-lab/`（已从活跃树移除） |
 | 孵化验收 commit | `1ba5b4809f05a155ed76fecdbb9479f900686fa1` |
-| 晋升 commit | `6b29e84430ba888b6bc1d5bcde344e16f23b64c2` |
+| 晋升 commit | `140287250ef1440441df4eaf0dfefc14528eeee4` |
 | 最终城市路径 | `city/02-engineering/02-worker-gateway/skill-intake` |
-| Lifecycle | `ACTIVE` |
-| 晋升记录 | `../promotions/skill-intake-lab.json` |
+| Lifecycle | Wave 1 曾为 `ACTIVE`；Wave 1 closeout（R3）改为 `PROMOTED`，直到出现真实的 City runtime consumer |
 
 ### 移植范围
 
@@ -170,7 +181,7 @@ city/.../theme-engine/tests/           城市模块自带 focused 测试
 
 - 本轮不安装 skill，只做校验与检查；
 - `readEntries` 会直接把不安全路径过滤掉（donor 行为），不会作为 refused 条目上报；
-- 不包含 GitHub 下载与来源解析（`skill-source.js`、`skill-service.js` 属于后续 wave）。
+- 不包含 GitHub 下载与来源解析（Wave 2 D5 处理）。
 
 ### Parity 测试
 

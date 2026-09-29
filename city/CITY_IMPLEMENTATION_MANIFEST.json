@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "name": "Utopia City Implementation",
-  "description": "Actual implementation layer of the Utopia Digital City. The Digital-City repository stays the map/planning reference; this tree owns the running modules. Only districts that really exist are listed.",
+  "description": "Actual implementation layer of the Utopia Digital City. The Digital-City repository stays the map/planning reference; this tree owns the running modules. Only districts that really exist are listed. A module may be strengthened by several incubation rooms over time, so it records incubationRooms[] rather than a single roomId.",
   "lifecycles": ["PLANNED", "INCUBATING", "PROMOTED", "ACTIVE", "DEPRECATED"],
   "districts": [
     {
@@ -19,7 +19,7 @@
               "zh": "技能接入",
               "en": "Skill Intake",
               "path": "city/02-engineering/02-worker-gateway/skill-intake",
-              "lifecycle": "ACTIVE",
+              "lifecycle": "PROMOTED",
               "donor": {
                 "repository": "zhiheng-zhang-Mera/DS-Hns",
                 "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
@@ -28,7 +28,9 @@
                   "app/extensions/mega/skills/tar.js"
                 ]
               },
-              "roomId": "skill-intake-lab"
+              "incubationRooms": [
+                "skill-intake-lab"
+              ]
             }
           ]
         }
@@ -57,7 +59,9 @@
                   "src/shared/knowledge.ts"
                 ]
               },
-              "roomId": "knowledge-core-lab"
+              "incubationRooms": [
+                "knowledge-core-lab"
+              ]
             }
           ]
         },
@@ -80,7 +84,9 @@
                   "electron/ingestion/text-parsers.ts"
                 ]
               },
-              "roomId": "document-intake-lab"
+              "incubationRooms": [
+                "document-intake-lab"
+              ]
             }
           ]
         }
@@ -110,7 +116,9 @@
                   "app/extensions/mega/theme/png.js"
                 ]
               },
-              "roomId": "theme-engine-lab"
+              "incubationRooms": [
+                "theme-engine-lab"
+              ]
             }
           ]
         }

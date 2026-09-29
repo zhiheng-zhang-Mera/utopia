@@ -116,14 +116,27 @@ test('module directories and lifecycles must not contradict each other', async (
   t.after(() => rm(root, { recursive: true, force: true }));
   const manifest = await loadManifest();
 
+  // work from a synthetic all-PLANNED manifest so the check is about the rule,
+  // not about which modules this repository has already promoted
+  const planned = JSON.parse(JSON.stringify(manifest));
+  for (const district of planned.districts) {
+    for (const building of district.buildings) {
+      for (const module of building.modules) {
+        module.lifecycle = 'PLANNED';
+        module.donor = null;
+      }
+    }
+  }
+  assert.deepEqual(await checkManifestAgainstTree(planned, root), [], 'an empty tree matches an all-PLANNED manifest');
+
   // a PLANNED module with an existing directory is a contradiction
   await mkdir(join(root, '09-planning-knowledge/01-knowledge-service/knowledge-core'), { recursive: true });
-  const problems = await checkManifestAgainstTree(manifest, root);
+  const problems = await checkManifestAgainstTree(planned, root);
   assert.equal(problems.length, 1, JSON.stringify(problems));
   assert.match(problems[0], /knowledge-core: .*exists but lifecycle is only PLANNED/);
 
-  // declaring that module implemented resolves it, and the real tree now matches
-  const promoted = JSON.parse(JSON.stringify(manifest));
+  // declaring that module implemented resolves it
+  const promoted = JSON.parse(JSON.stringify(planned));
   promoted.districts[1].buildings[0].modules[0].lifecycle = 'PROMOTED';
   assert.deepEqual(await checkManifestAgainstTree(promoted, root), [], 'the promoted module now matches the tree');
 

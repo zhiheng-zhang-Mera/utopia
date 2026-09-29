@@ -1,0 +1,53 @@
+{
+  "checkedAt": "2026-09-29T09:21:28.242Z",
+  "implementationSha": "8c1106e3b6685a123dd5e75ef98ee52e8c9bba43",
+  "packagingSha": "8c1106e3b6685a123dd5e75ef98ee52e8c9bba43",
+  "suites": {
+    "root": {
+      "tests": 46,
+      "failures": 0,
+      "logSha256": "1b8ce39658550301211fab2c596fbd1b69067846cba3494112eae8f916382d1d"
+    },
+    "rooms": {
+      "tests": 67,
+      "failures": 0,
+      "logSha256": "101566b9c0e35d0ec973f8f2428e60e345ce483ba36379c5199f1437c3fbacd3"
+    },
+    "city": {
+      "tests": 114,
+      "failures": 0,
+      "logSha256": "51b63eabb39c30db6590f6b05279953c31f9d39ea0c0aea26a2c31290e5d4e23"
+    },
+    "android": {
+      "tests": 21,
+      "failures": 0,
+      "assembleDebug": "PASS",
+      "apkSha256": "521610d1f44add13a2cdbd1832b38ccc4e692d122d0d4197d2e9c8a602f52c0f",
+      "logSha256": "2d322d645d4f48f2cd670c87f8b10ab530a10180d5abcb5c7637d9310778c2f0"
+    }
+  },
+  "promotionRecordsVerified": 9,
+  "windowsCases": 26,
+  "physicalAndroidCases": 7,
+  "canonicalMatches": 5,
+  "privateBackupPublished": false,
+  "drivers": {
+    "hardening-runtime-pilot": "7238272ecf28d5dca1432f93fc95583cf25d62904d06f02f9d392a1f8ab66f92",
+    "capability-windows-pilot": "c6ba698e9cd452ae833c53e24b12e64e7c2382976afbdcfd4c752717f32e9c23",
+    "hardening-android-pilot": "5a0263e6a0a6862c462a46aefa01ea0ab6e08d0e34bcf81a471752214f42f084"
+  },
+  "claims": [
+    {
+      "id": "C-HARDEN-01",
+      "level": "PILOT"
+    },
+    {
+      "id": "C-HARDEN-02",
+      "level": "PILOT"
+    },
+    {
+      "id": "C-HARDEN-03",
+      "level": "PILOT"
+    }
+  ]
+}

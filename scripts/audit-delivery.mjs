@@ -13,7 +13,7 @@ for(const file of files){
  if(secrets.some(v=>content.includes(Buffer.from(v))))findings.push({file,kind:'PRIVATE_VALUE'});
  if(/\.(?:mjs|js|json|jsonl|xml|md|txt|ps1|kt|kts|yml|yaml)$/.test(file)&&/[A-Z]:[\\/](?:Users|CodexTemp|AndroidStudio|A-Utopia)[\\/]/i.test(content.toString()))findings.push({file,kind:'PRIVATE_ABSOLUTE_PATH'});
 }
-const manifestChecks=['v0.2','v0.3'].filter(v=>existsSync('evidence/raw/'+v+'/manifest.json')).map(version=>({version,valid:JSON.parse(readFileSync('evidence/raw/'+version+'/manifest.json')).files.every(row=>createHash('sha256').update(readFileSync('evidence/raw/'+version+'/'+row.file)).digest('hex')===row.sha256)}));
+const manifestChecks=['v0.2','v0.3','v0.3-hardening','wave3'].filter(v=>existsSync('evidence/raw/'+v+'/manifest.json')).map(version=>({version,valid:JSON.parse(readFileSync('evidence/raw/'+version+'/manifest.json')).files.every(row=>createHash('sha256').update(readFileSync('evidence/raw/'+version+'/'+row.file)).digest('hex')===row.sha256)}));
 const manifestValid=manifestChecks.every(row=>row.valid);
 const result={checkedAt:new Date().toISOString(),checkedFiles:files.length,knownPrivateValueKinds:process.env.ADB?['local credentials','connected device identifier']:['local credentials'],findings,manifestValid,manifestChecks,limitations:['Exact known-value and selected private-path checks; not a general secret detector.','Images require separate visual review. Active pairing material must never be captured.']};
 writeFileSync('.runtime/delivery-audit.json',JSON.stringify(result,null,2));

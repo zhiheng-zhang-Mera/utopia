@@ -1,0 +1,37 @@
+{
+  "scope": "Generated/public hardening evidence; independent from historical v0.3 evidence",
+  "files": [
+    {
+      "file": "android-attempt-1.json",
+      "sha256": "52661c61b63b91e8ba05d9fcb4457f3a8c8fba8e58943f6b460f83e0a2b890b2"
+    },
+    {
+      "file": "android-evidence-review.png",
+      "sha256": "6d76a1eeb5c1917a18871385b39c4f079fef59d55231474b8f4fb73313ec541e"
+    },
+    {
+      "file": "android-theme-generate.png",
+      "sha256": "4d0cc3b941c221618ed94e89ed9278102eefca7933ce91055644b95fcb9d37f2"
+    },
+    {
+      "file": "regression-summary.json",
+      "sha256": "bcc9e2a2802e6c400ec51e125ed2854ce6deb3e39642c4100cb7efb4db09d322"
+    },
+    {
+      "file": "runtime-migration.json",
+      "sha256": "490f19ac12139411d81035695c2860f6e645f8d2acb48a08c95c90dfa92b17e6"
+    },
+    {
+      "file": "windows-evidence.png",
+      "sha256": "868f7adabb92c4a4aecb0a01d282171e75ebd2f0dd890437052f31818f8e1df0"
+    },
+    {
+      "file": "windows-runs.json",
+      "sha256": "19f6c7f669f0fe7687c85662d06a19e24c409951994499bfecfb256cba68eeeb"
+    },
+    {
+      "file": "windows-theme.png",
+      "sha256": "ea9744781e95d5fd2b9396c868c2a9bcda4386550e7be471bdb3afcf454f956b"
+    }
+  ]
+}

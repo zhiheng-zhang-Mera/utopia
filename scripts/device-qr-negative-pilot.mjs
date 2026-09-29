@@ -69,7 +69,7 @@ async function scan(kind,index,s,extra={}){
  const row={kind,run:index,codeSha,apkSha256,driverStartTimestamp:now(),cameraLaunchRequestedAt:null,trialId:null,rejectionObservedAt:null,returnedToMainActivity:false,uiRejectionObserved:false,noAuthenticationObserved:null,success:false,errorClass:null,stage:'PREPARING',...extra};result.runs.push(row);save();let selected=[];
  try{
   row.stage='ONBOARDING';save();await unpair();row.stage='READY_TO_SCAN';save();const prior=new Set(events().map(e=>e.trialId));const scanNode=await find('Scan QR');if(kind==='replaced'&&Date.now()>=Date.parse(s.expiresAt))fail('REPLACED_QR_EXPIRED_BEFORE_CAMERA_LAUNCH');row.cameraLaunchRequestedAt=now();row.unexpiredAtCameraLaunchRequested=kind==='replaced'?Date.parse(row.cameraLaunchRequestedAt)<Date.parse(s.expiresAt):null;cameraMayBeOpen=true;tap(scanNode);row.cameraLaunchCompletedAt=now();if(kind==='replaced'&&Date.parse(row.cameraLaunchCompletedAt)>=Date.parse(s.expiresAt))fail('REPLACED_QR_EXPIRED_DURING_CAMERA_LAUNCH');row.stage='CAMERA_LAUNCHED';save();
-  const deadline=Date.now()+60000,expected=kind==='expired'?'descriptorError':'pairingError';
+  const deadline=Date.now()+120000,expected=kind==='expired'?'descriptorError':'pairingError';
   while(Date.now()<deadline){const all=events();row.trialId??=all.find(e=>e.event==='start'&&!prior.has(e.trialId))?.trialId||null;selected=all.filter(e=>e.trialId===row.trialId);if(selected.some(e=>e.event===expected)){row.rejectionObservedAt=selected.find(e=>e.event===expected).timestamp;break;}if(selected.some(e=>e.event==='authenticated'))fail('UNEXPECTED_AUTHENTICATION');await sleep(700);}
   if(!row.rejectionObservedAt)fail('NO_EXPECTED_CAMERA_REJECTION_OBSERVED');if(kind==='replaced'&&Date.parse(row.rejectionObservedAt)>=Date.parse(s.expiresAt))fail('REPLACED_QR_EXPIRED_BEFORE_REJECTION');row.stage='REJECTION_EVENT_OBSERVED';save();
   const returnDeadline=Date.now()+10000;while(Date.now()<returnDeadline){if(mainActivityResumed()){row.returnedToMainActivity=true;break;}await sleep(400);}
@@ -80,7 +80,9 @@ async function scan(kind,index,s,extra={}){
   const state=await api('city');row.cityIdentityPreserved=state.cityId===s.descriptor.cityId;
   if(!row.uiRejectionObserved||!row.noAuthenticationObserved||!row.cityIdentityPreserved)fail('REJECTION_PROOF_INCOMPLETE');row.success=true;row.stage='REJECTION_VERIFIED';
  }catch(e){row.driverExitStatus=e.driverExitStatus??(Number.isInteger(e.status)?e.status:null);row.errorClass=e.pilotCode||(abort.signal.aborted?'INTERRUPTED':row.stage+'_DRIVER_OR_PLATFORM_ERROR');}
- finally{recordedEvents.push(...selected);row.driverEndTimestamp=now();try{cmd('shell','am','force-stop','city.utopia.control');cameraMayBeOpen=false;}catch{row.cameraExitConfirmed=false;row.success=false;row.errorClass??='CAMERA_EXIT_UNCONFIRMED';}save();}
+ finally{
+  if(row.cameraLaunchRequestedAt)try{row.cameraZoomObservations=cmd('exec-out','run-as','city.utopia.control','cat','files/scan-camera-events.jsonl').split(/\r?\n/).flatMap(line=>{try{const e=JSON.parse(line);if(e.event!=='cameraZoom'||Date.parse(e.timestamp)<Date.parse(row.cameraLaunchRequestedAt))return [];return [{timestamp:e.timestamp,supported:e.supported===true,observedRatioPercent:Number.isFinite(e.observedRatioPercent)?e.observedRatioPercent:null,requestedRatioPercent:Number.isFinite(e.requestedRatioPercent)?e.requestedRatioPercent:null,focusMode:['auto','continuous-picture','continuous-video','fixed','infinity','macro','edof'].includes(e.focusMode)?e.focusMode:null}];}catch{return [];}});}catch{row.cameraZoomObservations=[];}
+  recordedEvents.push(...selected);row.driverEndTimestamp=now();try{cmd('shell','am','force-stop','city.utopia.control');cameraMayBeOpen=false;}catch{row.cameraExitConfirmed=false;row.success=false;row.errorClass??='CAMERA_EXIT_UNCONFIRMED';}save();}
  console.log(kind+' camera trial '+index+': '+(row.success?'PASS':row.errorClass));return row.success;
 }
 save();

@@ -1,0 +1,279 @@
+{
+  "schemaVersion": 1,
+  "episodeId": "MB-009:e1f0526f2c07fb41",
+  "missionId": "MB-009",
+  "status": "VERIFIED",
+  "participants": {
+    "migrationHost": "Mech",
+    "verificationHost": "Alien"
+  },
+  "sourceRefs": [
+    "zhiheng-zhang-Mera/utopia@277f576e9eb35670d77edd0aa98c192d56a7a961",
+    "zhiheng-zhang-Mera/utopia@d338152b0c7ef2ef7e94d78901454ea91f200156",
+    "zhiheng-zhang-Mera/utopia@881f0bcbef203448058a87137ce80cf7bad49a5f"
+  ],
+  "target": {
+    "branchFinalSha": "881f0bcbef203448058a87137ce80cf7bad49a5f",
+    "targetRefs": [
+      "utopia@mission/MB-009-theme-relocation"
+    ]
+  },
+  "inboxDigestSha256": "c0b09aafac551ce8f82c22913fc2845d2d76087ea672c92b5e9a4eecba9af2e3",
+  "timeline": [
+    {
+      "eventId": "MB-009:b2b00609593d1bf8",
+      "role": "MIGRATION",
+      "hostId": "Mech",
+      "eventType": "CI_RESULT",
+      "outcome": "PASS",
+      "timestamp": "2026-09-29T15:20:00Z",
+      "summary": "CI_RESULT: PASS - utopia run 36580730966 (V0.2 checks) on head 277f576e9eb35670d77edd0aa98c192d56a7a961: gateway-web success, android success. The first push (run 36580351793) failed because the promotion-history verifier correctly refused the relocated theme engine: its targetCityPath no longer existed at HEAD. Rather than weaken that check, records may now carry relocatedTo plus relocatedByMission, the verifier requires the current location at HEAD while still requiring targetCityPath at promotedAtCommit, and it refuses a relocatedTo with no recorded authority. Local gates on the final revision: city 129/129, root 58/58, rooms 67/67, docs synchronized, promotion history 10 records verified, D9 donor oracle PASS.",
+      "evidence": [
+        "https://github.com/zhiheng-zhang-Mera/utopia/actions/runs/36580730966"
+      ]
+    },
+    {
+      "eventId": "MB-009:3625b0f983d214f1",
+      "role": "MIGRATION",
+      "hostId": "Mech",
+      "eventType": "MIGRATION_COMPLETE",
+      "outcome": "PASS",
+      "timestamp": "2026-09-29T15:21:00Z",
+      "summary": "MIGRATION_COMPLETE: MB-009 migration stage finished by host Mech. The already-PROMOTED theme engine moved from city/11-entertainment/01-entertainment-centre/theme-engine to city/00-foundation/05-control-centre/theme-engine on branch mission/MB-009-theme-relocation, 19 files moved with git mv so Git records renames and the code is byte-identical. CI run 36580730966 fully green (gateway-web + android) on head 277f576e. Evidence: city 129/129, root 58/58, rooms 67/67, docs synchronized, promotion history 10 records verified, D9 donor oracle PASS (7 new + 6 reused files pinned by git blob hash, 4 intent + 3 pixel vectors), and real consumption through the running gateway - presentation.theme.lab resolves AVAILABLE at the new path, generate returns a PNG, build returns a stable validated package, and globalThemeApply is still false. NOT merged to main: Verification must be claimed by a different host.",
+      "evidence": [
+        "https://github.com/zhiheng-zhang-Mera/Digital-City/blob/main/mission-book/reports/MB-009/MIGRATION_REPORT.md"
+      ]
+    },
+    {
+      "eventId": "MB-009:7edd319695d3414a",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "MISSION_CLAIMED",
+      "outcome": "INFO",
+      "timestamp": "2026-09-29T16:03:25.840Z",
+      "summary": "MB-009 verification claimed by host Alien. City claim commit 4ac89ca4b22cdbb03e5eb275464f6d1137e4c0ce (pushed to Digital-City main, fast-forward, no write conflict). Migration host is Mech, so rule 5 is satisfied by a different host. Reviewed branch is mission/MB-009-theme-relocation at d338152b0c7ef2ef7e94d78901454ea91f200156, merge-base with main c7ef3cd1c6be0155332d03afc3607dfdbf49c205. Every enabled Mission now has migration_complete true, so selection fell to the migrated-but-unverified set by SEQUENCE ascending: MB-003 is BLOCKED_OWNER_DECISION, MB-006/007/008 are closed to Alien by rule 5 and rule 13, and MB-004/005 were completed by this host. MB-009 is the last mission open to Alien.",
+      "evidence": [
+        "D:/Digital-City/mission-book/MB-009-theme-relocation.md"
+      ]
+    },
+    {
+      "eventId": "MB-009:e20dd084977405e0",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "ATTEMPT_STARTED",
+      "outcome": "INFO",
+      "timestamp": "2026-09-29T16:03:28.230Z",
+      "summary": "Independent review started under rule 9: donor, target code, diff, tests and running state only. The Migration Report will not be opened until the review findings are written down and recorded.",
+      "evidence": [
+        "D:/Digital-City/mission-book/MB-009-theme-relocation.md"
+      ]
+    },
+    {
+      "eventId": "MB-009:a65fe0425e803373",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "VERIFIER_FINDING",
+      "outcome": "INFO",
+      "timestamp": "2026-09-29T16:12:31.726Z",
+      "summary": "Independent review findings F1-F3 for MB-009, written before the Migration Report was opened. F1: 16 of the 19 files in the relocated module are BYTE-IDENTICAL to their origin/main blobs, so the move is pure. F2: the three that differ are reference-only - DONOR.json gains relocatedFrom/relocatedAtMission/relocationNote and updates cityPath/district/building, and two tests update a hard-coded cityPath assertion and a header comment; no behaviour changed. F3: the migration also edited the provenance verifier itself, scripts/verify-promotion-history.mjs. That is the sensitive part, but it is guarded rather than relaxed: the historical targetCityPath check against promotedAtCommit is unchanged, the HEAD check follows relocatedTo, and a relocation without relocatedByMission, or outside city/, or naming a path that does not exist, is rejected.",
+      "evidence": [
+        "D:/A-Utopia/.runtime/evidence/mission-book/MB-009/run-001/relocation-guard-probe.json"
+      ]
+    },
+    {
+      "eventId": "MB-009:8e28df19a7edd109",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "VERIFIER_FINDING",
+      "outcome": "INFO",
+      "timestamp": "2026-09-29T16:12:34.076Z",
+      "summary": "Independent review findings F4-F6. F4: the relocation guards added to the verifier had NO test coverage anywhere in the repo, so I proved them by execution rather than by reading: driving the real verifier against a mutated record made each branch fire with its named message, including the key one - removing the relocation record entirely makes the historical path be required at HEAD again, so the mechanism cannot be used to lose track of a module. The record was restored byte-exactly (git hash-object equals the HEAD blob). F5: all three theme promotion records carry relocatedTo, relocatedByMission and a note, with targetCityPath deliberately still historical. F6: the hub's normalizePromotionRecord projects a fixed field set and DROPS relocatedTo and relocatedByMission, so the in-process view the Rooms hub uses does not carry the current location even though the verifier does.",
+      "evidence": [
+        "D:/A-Utopia/.runtime/evidence/mission-book/MB-009/run-001/relocation-guard-probe.json"
+      ]
+    },
+    {
+      "eventId": "MB-009:bc04e6fa6faaafd2",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "RUNTIME_PASS",
+      "outcome": "PASS",
+      "timestamp": "2026-09-29T16:12:43.561Z",
+      "summary": "Relocation equivalence proven by running both trees, not by reading. A pre-relocation worktree at origin/main cfe34df and the branch were each driven through the same theme generate call. The two results are byte-identical: digest 1afe4c5538d86677c44ce0d4814e2dafe177aaa452ca12a2bfd2d10de24c3947 in BOTH trees, the same eleven result keys, globalApply false and validation ok true. So the physical move changed no behaviour and no output.",
+      "evidence": [
+        "D:/A-Utopia/.runtime/evidence/mission-book/MB-009/run-001/theme-generate-probe.json"
+      ]
+    },
+    {
+      "eventId": "MB-009:148f7a4acf3342a2",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "RUNTIME_PASS",
+      "outcome": "PASS",
+      "timestamp": "2026-09-29T16:12:45.931Z",
+      "summary": "The existing Web and Android Theme Generate path works live after the relocation, through the real product surface rather than a unit test. A committed pilot (scripts/mb009-theme-relocation-pilot.mjs) restarts the shared gateway so it reloads the relocated registry, then drives exactly what apps/web/services.js and the Android ServicesPanel call: the capability list shows presentation.theme.lab AVAILABLE with moduleRefs 00-foundation/05-control-centre/theme-engine, a POST invoke of operation generate returns 200 with an invocation id, and the durable record reaches COMPLETED with resultDigest 50bf52fd54172d55f3a0b86fde9556657c3f9d4d26b36a197906a309f03ea6f0, validation ok true and globalApply FALSE, so no global apply was introduced to manufacture availability.",
+      "evidence": [
+        "D:/A-Utopia/.runtime/evidence/mission-book/MB-009/run-001/theme-generate-probe.json"
+      ]
+    },
+    {
+      "eventId": "MB-009:c856444a481632ce",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "REPAIR_APPLIED",
+      "outcome": "REPAIRED",
+      "timestamp": "2026-09-29T16:12:48.303Z",
+      "summary": "Repair R1, same branch, no boundary expansion: the relocation guards the migration added to scripts/verify-promotion-history.mjs were untested, so a committed regression test now pins the contract in the data - every promotion record carrying relocatedTo must also name relocatedByMission, point under city/, keep its historical targetCityPath, and have the relocated module actually present while the historical path is genuinely gone. It also asserts the three theme records are the ones carrying it, so the mechanism cannot silently become dead code. apps/rooms/tests goes from 67 to 69 tests.",
+      "evidence": [
+        "D:/A-Utopia/apps/rooms/tests/promotion-relocation.test.mjs"
+      ]
+    },
+    {
+      "eventId": "MB-009:4b572ace9daa44c0",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "VERIFIER_FINDING",
+      "outcome": "INFO",
+      "timestamp": "2026-09-29T16:13:14.512Z",
+      "summary": "Reconciliation with the Migration Report, read only after the findings above were recorded, per rule 9. AGREEMENTS, and they are strong. The reports section 3.1 byte-for-byte claim is confirmed: 16 of 19 files are identical to their origin/main blobs. Its section 2.2 provenance decision matches my own reading of the verifier diff, and its negative-test claim reproduces exactly - I drove the real verifier and got the same two named failures, plus a third case it implies (a relocatedTo naming a path that does not exist) and the key one (removing the relocation record makes the historical path required at HEAD again). Its section 6.1 gate numbers reproduce: city 129/129, pnpm 58/58, promotion history 10 records, docs SYNCHRONIZED. Its section 6.3 D9 oracle reproduces exactly: closure PASS, 7 new files, 6 reused, 4 intent vectors, 3 pixel vectors. Its section 6.4 honest failure record matches the wiring I reviewed.",
+      "evidence": [
+        "D:/Digital-City/mission-book/reports/MB-009/MIGRATION_REPORT.md"
+      ]
+    },
+    {
+      "eventId": "MB-009:d906cfd2567a5f46",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "VERIFIER_FINDING",
+      "outcome": "INFO",
+      "timestamp": "2026-09-29T16:13:16.873Z",
+      "summary": "Reconciliation differences for MB-009. D1: the report says only self-referential path strings changed inside the moved files, but DONOR.json also GAINS three new fields - relocatedFrom, relocatedAtMission and relocationNote. The substance of the claim holds because no behaviour changed; the wording understates it. D2: rooms was 67/67 when the report was written and is 69/69 after my R1 test, so that gate number is now stale rather than wrong. D3: the report leaves apps/rooms/hub/manifest.mjs unchanged by design and explains why, which is consistent with my finding that the hubs normalizePromotionRecord drops relocatedTo and relocatedByMission - so the hub view carries only where promotions landed. I record that as consistent with the stated design rather than as a defect, with the consequence noted for consumers. D4: the report does not mention that the relocation guards it added had no test coverage; R1 addresses that.",
+      "evidence": [
+        "D:/Digital-City/mission-book/reports/MB-009/MIGRATION_REPORT.md"
+      ]
+    },
+    {
+      "eventId": "MB-009:9dae5bf8dc659b3c",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "CI_RESULT",
+      "outcome": "PASS",
+      "timestamp": "2026-09-29T16:17:21.070Z",
+      "summary": "Required CI green on the verification branch HEAD. Run 36596238433 (V0.2 checks) on 881f0bcbef203448058a87137ce80cf7bad49a5f: gateway-web success and android success. Local matrix on the same SHA after R1: pnpm test 58/58, rooms 69/69, city 129/129, promotion history 10 records, bilingual docs SYNCHRONIZED, D9 donor oracle closure PASS. A second run on the post-closeout HEAD is still required by rule 16 before merge.",
+      "evidence": [
+        "https://github.com/zhiheng-zhang-Mera/utopia/actions/runs/36596238433"
+      ]
+    },
+    {
+      "eventId": "MB-009:07752c5ec58c2eed",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "VERIFICATION_COMPLETE",
+      "outcome": "PASS",
+      "timestamp": "2026-09-29T16:17:23.434Z",
+      "summary": "MB-009 verification complete. The gate is met on all three counts. Equivalence: the moved code is byte-identical (16 of 19 blobs match origin/main exactly, the other three are reference-only), the same theme generate call yields the SAME digest 1afe4c55 in a pre-relocation worktree and on the branch, and the D9 donor oracle still passes against its pinned fixture. The existing Web and Android Theme Generate path works live at the new module reference, reaching COMPLETED with a result digest and globalApply FALSE, so no global apply was introduced. Provenance did not break: all three theme promotion records keep their historical targetCityPath and carry relocatedTo plus relocatedByMission, and the verifier's new relocation branch is proven to fire on every bad case rather than assumed. Repairs stayed on this branch: one committed regression test, one committed pilot, no production file changed by the verifier.",
+      "evidence": [
+        "D:/A-Utopia/.runtime/evidence/mission-book/MB-009/run-001/theme-generate-probe.json"
+      ]
+    }
+  ],
+  "failures": [],
+  "rejectedApproaches": [],
+  "repairs": [
+    {
+      "eventId": "MB-009:c856444a481632ce",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "REPAIR_APPLIED",
+      "outcome": "REPAIRED",
+      "timestamp": "2026-09-29T16:12:48.303Z",
+      "summary": "Repair R1, same branch, no boundary expansion: the relocation guards the migration added to scripts/verify-promotion-history.mjs were untested, so a committed regression test now pins the contract in the data - every promotion record carrying relocatedTo must also name relocatedByMission, point under city/, keep its historical targetCityPath, and have the relocated module actually present while the historical path is genuinely gone. It also asserts the three theme records are the ones carrying it, so the mechanism cannot silently become dead code. apps/rooms/tests goes from 67 to 69 tests.",
+      "evidence": [
+        "D:/A-Utopia/apps/rooms/tests/promotion-relocation.test.mjs"
+      ]
+    }
+  ],
+  "verifierFindings": [
+    {
+      "eventId": "MB-009:a65fe0425e803373",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "VERIFIER_FINDING",
+      "outcome": "INFO",
+      "timestamp": "2026-09-29T16:12:31.726Z",
+      "summary": "Independent review findings F1-F3 for MB-009, written before the Migration Report was opened. F1: 16 of the 19 files in the relocated module are BYTE-IDENTICAL to their origin/main blobs, so the move is pure. F2: the three that differ are reference-only - DONOR.json gains relocatedFrom/relocatedAtMission/relocationNote and updates cityPath/district/building, and two tests update a hard-coded cityPath assertion and a header comment; no behaviour changed. F3: the migration also edited the provenance verifier itself, scripts/verify-promotion-history.mjs. That is the sensitive part, but it is guarded rather than relaxed: the historical targetCityPath check against promotedAtCommit is unchanged, the HEAD check follows relocatedTo, and a relocation without relocatedByMission, or outside city/, or naming a path that does not exist, is rejected.",
+      "evidence": [
+        "D:/A-Utopia/.runtime/evidence/mission-book/MB-009/run-001/relocation-guard-probe.json"
+      ]
+    },
+    {
+      "eventId": "MB-009:8e28df19a7edd109",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "VERIFIER_FINDING",
+      "outcome": "INFO",
+      "timestamp": "2026-09-29T16:12:34.076Z",
+      "summary": "Independent review findings F4-F6. F4: the relocation guards added to the verifier had NO test coverage anywhere in the repo, so I proved them by execution rather than by reading: driving the real verifier against a mutated record made each branch fire with its named message, including the key one - removing the relocation record entirely makes the historical path be required at HEAD again, so the mechanism cannot be used to lose track of a module. The record was restored byte-exactly (git hash-object equals the HEAD blob). F5: all three theme promotion records carry relocatedTo, relocatedByMission and a note, with targetCityPath deliberately still historical. F6: the hub's normalizePromotionRecord projects a fixed field set and DROPS relocatedTo and relocatedByMission, so the in-process view the Rooms hub uses does not carry the current location even though the verifier does.",
+      "evidence": [
+        "D:/A-Utopia/.runtime/evidence/mission-book/MB-009/run-001/relocation-guard-probe.json"
+      ]
+    },
+    {
+      "eventId": "MB-009:4b572ace9daa44c0",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "VERIFIER_FINDING",
+      "outcome": "INFO",
+      "timestamp": "2026-09-29T16:13:14.512Z",
+      "summary": "Reconciliation with the Migration Report, read only after the findings above were recorded, per rule 9. AGREEMENTS, and they are strong. The reports section 3.1 byte-for-byte claim is confirmed: 16 of 19 files are identical to their origin/main blobs. Its section 2.2 provenance decision matches my own reading of the verifier diff, and its negative-test claim reproduces exactly - I drove the real verifier and got the same two named failures, plus a third case it implies (a relocatedTo naming a path that does not exist) and the key one (removing the relocation record makes the historical path required at HEAD again). Its section 6.1 gate numbers reproduce: city 129/129, pnpm 58/58, promotion history 10 records, docs SYNCHRONIZED. Its section 6.3 D9 oracle reproduces exactly: closure PASS, 7 new files, 6 reused, 4 intent vectors, 3 pixel vectors. Its section 6.4 honest failure record matches the wiring I reviewed.",
+      "evidence": [
+        "D:/Digital-City/mission-book/reports/MB-009/MIGRATION_REPORT.md"
+      ]
+    },
+    {
+      "eventId": "MB-009:d906cfd2567a5f46",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "VERIFIER_FINDING",
+      "outcome": "INFO",
+      "timestamp": "2026-09-29T16:13:16.873Z",
+      "summary": "Reconciliation differences for MB-009. D1: the report says only self-referential path strings changed inside the moved files, but DONOR.json also GAINS three new fields - relocatedFrom, relocatedAtMission and relocationNote. The substance of the claim holds because no behaviour changed; the wording understates it. D2: rooms was 67/67 when the report was written and is 69/69 after my R1 test, so that gate number is now stale rather than wrong. D3: the report leaves apps/rooms/hub/manifest.mjs unchanged by design and explains why, which is consistent with my finding that the hubs normalizePromotionRecord drops relocatedTo and relocatedByMission - so the hub view carries only where promotions landed. I record that as consistent with the stated design rather than as a defect, with the consequence noted for consumers. D4: the report does not mention that the relocation guards it added had no test coverage; R1 addresses that.",
+      "evidence": [
+        "D:/Digital-City/mission-book/reports/MB-009/MIGRATION_REPORT.md"
+      ]
+    }
+  ],
+  "acceptedApproach": {
+    "summary": "MB-009 verification complete. The gate is met on all three counts. Equivalence: the moved code is byte-identical (16 of 19 blobs match origin/main exactly, the other three are reference-only), the same theme generate call yields the SAME digest 1afe4c55 in a pre-relocation worktree and on the branch, and the D9 donor oracle still passes against its pinned fixture. The existing Web and Android Theme Generate path works live at the new module reference, reaching COMPLETED with a result digest and globalApply FALSE, so no global apply was introduced. Provenance did not break: all three theme promotion records keep their historical targetCityPath and carry relocatedTo plus relocatedByMission, and the verifier's new relocation branch is proven to fire on every bad case rather than assumed. Repairs stayed on this branch: one committed regression test, one committed pilot, no production file changed by the verifier.",
+    "eventId": "MB-009:07752c5ec58c2eed"
+  },
+  "metrics": {
+    "eventCount": 13,
+    "attempts": 1,
+    "testPasses": 0,
+    "testFailures": 0,
+    "runtimePasses": 2,
+    "runtimeFailures": 0,
+    "repairs": 1,
+    "verifierFindings": 4,
+    "ownerInterventions": 0
+  },
+  "evidence": [
+    "https://github.com/zhiheng-zhang-Mera/utopia/actions/runs/36580730966",
+    "https://github.com/zhiheng-zhang-Mera/Digital-City/blob/main/mission-book/reports/MB-009/MIGRATION_REPORT.md",
+    "D:/Digital-City/mission-book/MB-009-theme-relocation.md",
+    "D:/A-Utopia/.runtime/evidence/mission-book/MB-009/run-001/relocation-guard-probe.json",
+    "D:/A-Utopia/.runtime/evidence/mission-book/MB-009/run-001/theme-generate-probe.json",
+    "D:/A-Utopia/apps/rooms/tests/promotion-relocation.test.mjs",
+    "D:/Digital-City/mission-book/reports/MB-009/MIGRATION_REPORT.md",
+    "https://github.com/zhiheng-zhang-Mera/utopia/actions/runs/36596238433"
+  ],
+  "ci": {
+    "run": "36596238433",
+    "outcome": "PASS"
+  },
+  "learning": {
+    "eligible": true,
+    "authority": "EXPERIENCE_ONLY"
+  }
+}

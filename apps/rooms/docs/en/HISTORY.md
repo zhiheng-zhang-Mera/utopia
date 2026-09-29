@@ -23,6 +23,7 @@ ancestor of `promotedAtCommit`. Verifier: `node scripts/verify-promotion-history
 | `theme-engine-lab` (D2) | `9819ed7a4a212b8c8480d91c3812ce7f7a760ab9` | `a18b1e80b7405137ac3c56ef1bc1805677b6a93f` | `city/11-entertainment/01-entertainment-centre/theme-engine` |
 | `knowledge-core-lab` (D3) | `01f932bd2aad2403bec61961410ca19ca0cf28ad` | `b82fcfd0f153a63b8424051affd86bf7df0a41d0` | `city/09-planning-knowledge/01-knowledge-service/knowledge-core` |
 | `document-intake-lab` (D4) | `165e2664ad4e2d777889d8dec47893144e8c81dd` | `e3d6bbd9dd9196ce0991e095fb91993df3ec3dd1` | `city/09-planning-knowledge/02-document-intake/ingestion-core` |
+| `skill-discovery-lab` (D5) | `b4dff81503128ae0d2ad163732171eb6dd887f4b` | `48494263d75532eaaba3490bc6c4223d5ff44ead` | `city/02-engineering/02-worker-gateway/skill-intake` |
 
 > **D1 note:** the commit that first wrote
 > `city/02-engineering/02-worker-gateway/skill-intake` was rewritten during a
@@ -34,6 +35,60 @@ ancestor of `promotedAtCommit`. Verifier: `node scripts/verify-promotion-history
 > **Never pre-guess a commit's own SHA.** A record is only filled in after the
 > target commit exists, and it is checked against local Git history by
 > `scripts/verify-promotion-history.mjs`.
+
+---
+
+## D5 · skill-discovery-lab → city/02-engineering/02-worker-gateway/skill-intake
+
+| Item | Value |
+| --- | --- |
+| Donor repository | `zhiheng-zhang-Mera/DS-Hns` |
+| Donor SHA | `eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b` |
+| Donor source files | `app/extensions/mega/skills/skill-source.js`, `app/extensions/mega/skills/skill-catalog.js` |
+| Incubator room | `apps/rooms/rooms/skill-discovery-lab/` (removed from the live tree) |
+| Accepted incubator commit | `b4dff81503128ae0d2ad163732171eb6dd887f4b` |
+| Promotion commit | `48494263d75532eaaba3490bc6c4223d5ff44ead` |
+| Final city path | `city/02-engineering/02-worker-gateway/skill-intake` |
+| Lifecycle | `PROMOTED` (during wave 2) |
+| Shared module | yes: D1 already promoted the format and archive core into the same module, so it now records `incubationRooms: ["skill-intake-lab", "skill-discovery-lab"]` |
+
+### Adaptation
+
+- CommonJS → ESM with the algorithms unchanged: the reference parser, the candidate
+  ordering, the archive URL planner and the tiered scanner behave as the donor does;
+- filesystem access goes through an injectable read adapter (`isDirectory` / `isFile` /
+  `list`), so the same scan runs over the real disk and over an in-memory tree in tests;
+- the SKILL.md parser is this module's own `format.mjs`, never a second copy;
+- GitHub resolution stays a plan: `resolutionPlan()` returns the archive URL forms,
+  ref splits and subpaths as data, and the module has no fetch, request or download
+  entry point at all;
+- the catalog's live GitHub code search takes an injectable `fetchJson`; with none
+  configured it answers `unavailable` and the curated and bundled entries stand;
+- `describeRef()` moved out of the incubator's room wiring into `source.mjs`, because
+  it only describes a parsed reference.
+
+### Known differences
+
+- No install: the module validates, inspects and discovers, and never writes a skill
+  to disk;
+- no download: `resolutionPlan()` describes attempts a caller could make; performing
+  one is out of scope for this module;
+- the donor's `skill-service.js` is not carried, so nothing here installs, updates or
+  removes a skill;
+- `readEntries` still filters unsafe archive paths out of the entry list (donor
+  behaviour) instead of surfacing them as refused entries.
+
+### Parity tests
+
+Coverage: every reference form (owner/repo, `@ref`, subpath, `/tree/`, `/blob/`, raw
+and plain URLs), traversal refusal and subpath normalisation, the longest-ref-first
+candidate order, archive URL order and de-duplication, the resolution plan for
+repository/tree/raw references, the tiered scanner order (subpath, own bundle,
+`skills/` collection, sibling bundles, then flat files), scaffolding never being
+offered, the scanner over an in-memory tree as well as the fixtures, the parser
+refusing an unparseable flat file, catalog ranking (a name hit outranks a summary
+hit; tags filter with AND), and a failed or unconfigured live search never removing
+the offline answer.
 
 ---
 

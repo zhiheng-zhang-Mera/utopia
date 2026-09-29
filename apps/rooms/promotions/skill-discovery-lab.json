@@ -1,0 +1,15 @@
+{
+    "roomId":  "skill-discovery-lab",
+    "acceptedRoomCommit":  "b4dff81503128ae0d2ad163732171eb6dd887f4b",
+    "promotedAtCommit":  "48494263d75532eaaba3490bc6c4223d5ff44ead",
+    "targetCityPath":  "city/02-engineering/02-worker-gateway/skill-intake",
+    "donor":  {
+                  "repository":  "zhiheng-zhang-Mera/DS-Hns",
+                  "commit":  "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+                  "sourcePaths":  [
+                                      "app/extensions/mega/skills/skill-source.js",
+                                      "app/extensions/mega/skills/skill-catalog.js"
+                                  ]
+              },
+    "status":  "PROMOTED"
+}

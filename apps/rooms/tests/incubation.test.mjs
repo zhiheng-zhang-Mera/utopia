@@ -113,6 +113,19 @@ test('a promoted room leaves the active catalog but stays known to Git history',
   assert.ok(!ROOMS.some((room) => room.id === promoted.id), 'it serves no live surface');
   assert.equal(promoted.targetCityPath, 'city/02-engineering/02-worker-gateway/skill-intake', 'its city target is recorded');
   assert.ok(ALL_ROOMS.length > ROOMS.length, 'the pack knows more rooms than it serves');
+
+  // D5 was promoted into the same city module D1 already owns: two incubator rooms,
+  // one module, and the retired rooms are both out of the active catalog
+  const d5 = ALL_ROOMS.find((room) => room.id === 'skill-discovery-lab');
+  assert.ok(d5, 'the D5 room is still known to the pack');
+  assert.equal(d5.lifecycle, 'PROMOTED');
+  assert.equal(d5.targetCityPath, promoted.targetCityPath, 'D5 targets the module D1 owns');
+  assert.deepEqual(d5.donorSourcePaths, [
+    'app/extensions/mega/skills/skill-source.js',
+    'app/extensions/mega/skills/skill-catalog.js',
+  ]);
+  assert.ok(!ROOMS.some((room) => room.id === d5.id), 'it serves no live surface either');
+  assert.equal(incubatingRooms().length, 0, 'no room is still being proved');
 });
 
 test('promotion records are validated and rejected when malformed', async (t) => {
@@ -230,6 +243,11 @@ test('hub exposes lifecycle metadata and the promotion record set', async (t) =>
   const d1 = promotions.payload.promotions.find((record) => record.roomId === 'skill-intake-lab');
   assert.ok(d1, 'the D1 promotion is recorded');
   assert.equal(d1.donor.commit, DONOR_COMMIT);
+  const d5 = promotions.payload.promotions.find((record) => record.roomId === 'skill-discovery-lab');
+  assert.ok(d5, 'the D5 promotion is recorded');
+  assert.equal(d5.donor.commit, DONOR_COMMIT);
+  assert.equal(d5.targetCityPath, d1.targetCityPath, 'two rooms may strengthen the same city module');
+  assert.notEqual(d5.acceptedRoomCommit, d1.acceptedRoomCommit, 'each room has its own accepted commit');
 
   const health = await hub.api('GET', '/health');
   assert.equal(health.payload.rooms.length, catalog.payload.rooms.length, 'health and the catalog agree on the room set');

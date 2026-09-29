@@ -1,0 +1,69 @@
+{
+  "startedAt": "2026-09-29T10:39:26.131Z",
+  "codeSha": "c31035f9fd7e40a63033dcd1d63fde1629a8f31b",
+  "apkSha256": "f3b2bcc6115e7cc0cefe1b12ad6c5454e001005bc2065db3497a27a40306e043",
+  "rows": [
+    {
+      "case": "sample.txt",
+      "invocationId": "I-5328d366-32ca-4683-a0f9-57a88ff610a3",
+      "resultDigest": "dd29c16db2d94f7a51a5af9829feded49ff042ba6ef4318016980f4364053aeb",
+      "status": "COMPLETED",
+      "canonicalDigestMatchesWindows": true,
+      "androidIdentityAndContentVisible": true,
+      "pass": true
+    },
+    {
+      "case": "document-to-knowledge",
+      "invocationId": "I-e7a757ad-73bc-41ff-bc28-ca1dc59d4c0c",
+      "resultDigest": "fba9151088900d7d64d8d3c00e8d6a72a60d5ec854e89a22caaab495063caa8c",
+      "status": "COMPLETED",
+      "canonicalDigestMatchesWindows": true,
+      "androidIdentityAndContentVisible": true,
+      "pass": true
+    },
+    {
+      "case": "skill-ref:owner/repo@main",
+      "invocationId": "I-f2968cfd-d192-48e7-ae18-723b11454fd5",
+      "resultDigest": "e048e0d3029e715e6984c26c117127f046b4c02563d6396da47a554248fd2182",
+      "status": "COMPLETED",
+      "canonicalDigestMatchesWindows": true,
+      "androidIdentityAndContentVisible": true,
+      "pass": true
+    },
+    {
+      "case": "evidence-review",
+      "invocationId": "I-985e515a-3a0b-424f-8f00-59818a4e7f24",
+      "resultDigest": "b7ce54f7568dbb1df5e0ce1ec6ddedc69775e62c33cb310f6521194828084abb",
+      "status": "COMPLETED",
+      "canonicalDigestMatchesWindows": true,
+      "androidIdentityAndContentVisible": true,
+      "pass": true
+    },
+    {
+      "case": "theme-generate",
+      "invocationId": "I-a097312b-3bd7-4b80-a935-24b7d859870d",
+      "resultDigest": "91fbcfdf5a0dd3b39301657536786f6fd7ffd2cf71e8fbec715ecb2aab4b1baf",
+      "status": "COMPLETED",
+      "canonicalDigestMatchesWindows": true,
+      "androidIdentityAndContentVisible": true,
+      "pass": true
+    },
+    {
+      "case": "open-Windows-history:theme-generate",
+      "invocationId": "I-6214afad-e0dc-4c64-8357-0dc56c643df2",
+      "resultDigest": "91fbcfdf5a0dd3b39301657536786f6fd7ffd2cf71e8fbec715ecb2aab4b1baf",
+      "androidIdentityAndContentVisible": true,
+      "pass": true
+    },
+    {
+      "case": "open-Windows-history:evidence-review",
+      "invocationId": "I-f05bdff2-ddcc-45d8-bbb6-a2ac6f697faf",
+      "resultDigest": "b7ce54f7568dbb1df5e0ce1ec6ddedc69775e62c33cb310f6521194828084abb",
+      "androidIdentityAndContentVisible": true,
+      "pass": true
+    }
+  ],
+  "scope": "Physical Android UI, generated/public inputs only",
+  "status": "PASS",
+  "finishedAt": "2026-09-29T10:45:46.270Z"
+}

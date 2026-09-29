@@ -1,0 +1,10 @@
+{
+  "startedAt": "2026-09-29T10:37:41.074Z",
+  "codeSha": "c31035f9fd7e40a63033dcd1d63fde1629a8f31b",
+  "apkSha256": "f3b2bcc6115e7cc0cefe1b12ad6c5454e001005bc2065db3497a27a40306e043",
+  "rows": [],
+  "scope": "Physical Android UI, generated/public inputs only",
+  "status": "FAIL",
+  "failure": "UI_TEXT_NOT_FOUND:Services",
+  "finishedAt": "2026-09-29T10:38:22.496Z"
+}

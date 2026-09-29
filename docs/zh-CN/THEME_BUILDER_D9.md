@@ -23,3 +23,5 @@ Generator 接受注入图像函数及有界重试／超时参数。它校验真�
 资源受尺寸／字节限制；完整产物上限为 24,000,000 字节。包包含声明式文档、真实 PNG 和预览。`summarizeBuild` 返回意图／计划／包／内容／校验 digest、判定、回退／降级及有界 PNG 预览，不暴露文件系统路径。确定性输入相同则包 digest 相同；注入的非确定性图片字节会自然改变 digest。
 
 测试：`node city/test-all.mjs theme-engine`。孵化浏览器证据保留在 Git 和 [D9 Room 验收](../../evidence/zh-CN/D9_ROOM_ACCEPTANCE.md)。City `DONOR.json` 记录七文件映射及行为分类。真实模型 API、运行时应用、registry／lifecycle／recovery 和外部 renderer 集成仍为 DEFERRED。GLOBAL_THEME_APPLY=NO。
+
+Alien Bridge 现提供真实的 `generate` 和 `build` 操作。Windows Services 与 Android Theme Lab 都提供构建提示词、生成的桌面观测样例（并非实时屏幕感知）、无观测模式及注入失败开关。Bridge 只接受受控输入；调用方指定输出路径和受保护外部表面会被拒绝。成功包保存在 Gateway 自有沙箱，独立保留最近八个成功包；重启清理未完成任务。结果包含 digest、预览和回退状态。高频 City 快照仍只传摘要，保留的调用详情按需读取。产物不会安装或应用到全局。

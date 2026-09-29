@@ -26,6 +26,7 @@ async function invoke(name,extra){
  report.rows.push({case:name,invocationId:row.invocationId,resultDigest:row.resultDigest,status:row.status,canonicalDigestMatchesWindows:true,androidIdentityAndContentVisible:true,pass:true});save();return row;
 }
 try{
+ cmd('shell','am','start','-W','-n','city.utopia.control/.MainActivity');
  await tap('Services');await top();selected=['Document Intake','Knowledge Query','Skill Inspect','Evidence Review','Theme Lab'].find(name=>false);const nodes=await tree();selected=['Document Intake','Knowledge Query','Skill Inspect','Evidence Review','Theme Lab'].find(name=>nodes.some(n=>n.text===name));assert.ok(selected);
  await select('Document Intake');await chooseFile('sample.txt');await invoke('sample.txt','Sections:');await tap('Query this document');selected='Knowledge Query';await invoke('document-to-knowledge','Utopia');
  await select('Skill Inspect');await invoke('skill-ref:owner/repo@main','Show result details');

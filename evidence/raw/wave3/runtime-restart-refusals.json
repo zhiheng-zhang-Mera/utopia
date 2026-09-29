@@ -1,0 +1,29 @@
+{
+  "sourceSha": "c31035f9fd7e40a63033dcd1d63fde1629a8f31b",
+  "scope": "Live local Gateway; generated/public refusal inputs and non-destructive restart",
+  "refusals": [
+    {
+      "errorCode": "OUTPUT_PATH_FORBIDDEN",
+      "status": "FAILED",
+      "invocationId": "I-d2b2cb34-5616-4e68-af66-74541d024a3d",
+      "pass": true
+    },
+    {
+      "errorCode": "PROTECTED_SURFACE",
+      "status": "FAILED",
+      "invocationId": "I-377b880d-e561-4873-b83b-625ac540e00d",
+      "pass": true
+    },
+    {
+      "errorCode": "INVALID_OBSERVATION",
+      "status": "FAILED",
+      "invocationId": "I-a17c6f79-2cb5-40bd-883d-03b9031acc41",
+      "pass": true
+    }
+  ],
+  "successfulBuildsRetained": 6,
+  "packageDirectoriesRetained": 6,
+  "summaryOnlySnapshot": true,
+  "detailsPreserved": true,
+  "status": "PASS"
+}

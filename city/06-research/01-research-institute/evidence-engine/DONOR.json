@@ -28,7 +28,7 @@
     "electron/evidence-engine.ts": "evidence-engine.mjs"
   },
   "adaptation": [
-    "TypeScript -> ESM JavaScript. The hashing, manifest sorting, integrityRoot, structured-claim extraction, claim statuses and decision rule are unchanged.",
+    "TypeScript -> ESM JavaScript. Artifact hashing, manifest sorting and integrityRoot preserve donor rules. Claim/dispute handling includes the explicit resolved-dispute adaptation below; no blanket all-rules-unchanged claim is made.",
     "The donor's runtime types (`BossTask`, `ClaimRecord`, `CouncilSession`, `DisputeRecord`, `EvidenceBundle`, `RawArtifact`) are replaced by plain value shapes in `contracts.mjs`: EvidenceTask, EvidenceArtifact, EvidenceClaim, EvidenceDispute, EvidenceBundle. Nothing here needs a task runtime, provider automation, a council process or root trust.",
     "`src/shared/contracts.ts` and `src/shared/provider-contracts.ts` are reference types only; no field of the Boss runtime was copied.",
     "Every otherwise non-deterministic input is injectable: `idFactory` (default `crypto.randomUUID`), `now`, and `hash`. The same artifacts therefore always produce the same manifest, the same integrityRoot and the same bundle.",
@@ -59,6 +59,28 @@
       "task completion is never evidence: the decision is derived from the claim and dispute state",
       "rehydration addresses only the unresolved claims and quotes only their artifacts",
       "the bundle is deterministic when ids and the clock are injected"
+    ]
+  },
+  "classification": {
+    "PARITY": [
+      "artifact hashing and mismatch refusal",
+      "sorted manifest and integrityRoot",
+      "structured label extraction"
+    ],
+    "PORT_ADAPTATION": [
+      "plain value shapes replace runtime types",
+      "injectable id/clock/hash",
+      "resolved disputes do not mark claims DISPUTED"
+    ],
+    "UTOPIA_EXTENSION": [
+      "decision reasons",
+      "describeBundle consumer summary"
+    ],
+    "DEFERRED": [
+      "provider automation",
+      "council runtime",
+      "Root Trust",
+      "external truth verification"
     ]
   }
 }

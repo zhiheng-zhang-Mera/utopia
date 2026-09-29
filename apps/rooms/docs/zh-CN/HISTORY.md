@@ -383,3 +383,7 @@ apps/rooms/tests/skill-intake.test.mjs 已删除（parity 测试随内核进入�
 apps/rooms/promotions/skill-intake-lab.json  保留
 city/.../skill-intake/tests/           城市模块自带 focused 测试
 ```
+
+## V0.3 消费边界维修
+
+技能目录字段改为 resolvable/source 与 previewable，替代 installable/install；检索与解析算法不变，不具备安装功能。Evidence Engine 来源现明确区分 PARITY、PORT_ADAPTATION、UTOPIA_EXTENSION。已解决争议的处理属于显式适配，reasons/describeBundle 属于扩展。历史提交保留。

@@ -19,8 +19,15 @@
               "zh": "技能接入",
               "en": "Skill Intake",
               "path": "city/02-engineering/02-worker-gateway/skill-intake",
-              "lifecycle": "PLANNED",
-              "donor": null,
+              "lifecycle": "ACTIVE",
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/DS-Hns",
+                "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+                "sourcePaths": [
+                  "app/extensions/mega/skills/skill-format.js",
+                  "app/extensions/mega/skills/tar.js"
+                ]
+              },
               "roomId": "skill-intake-lab"
             }
           ]

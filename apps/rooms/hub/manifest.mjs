@@ -157,9 +157,13 @@ const LOCAL_ROOMS = [
  * Donor incubator rooms (MECH ROOM PACK §8).
  *
  * A donor room starts as INCUBATING and only becomes part of the active catalog
- * once its local product surface really exists. A room that has been promoted to
- * city/ (or rejected) stops serving a live surface and is dropped from the
- * active catalog, keeping only its Git history and its promotions/*.json record.
+ * once its local product surface really exists. A room that was promoted to city/
+ * keeps its entry here with lifecycle PROMOTED: it no longer serves a surface and
+ * is therefore dropped from the active catalog, while its donor provenance, its
+ * Git history and its promotions/*.json record stay traceable.
+ *
+ * `skill-intake-lab` (D1) was promoted into
+ * city/02-engineering/02-worker-gateway/skill-intake.
  */
 const INCUBATOR_ROOMS = [
   {
@@ -167,10 +171,10 @@ const INCUBATOR_ROOMS = [
     number: 'D1',
     label: 'Skill Intake Lab',
     zh: '技能接入实验室',
-    summary: 'Incubating DS-Hns skill intake: validate SKILL.md and inspect tar bundles for safety.',
+    summary: 'Promoted to city/02-engineering/02-worker-gateway/skill-intake; no live surface here.',
     dataFile: null,
     initialData: null,
-    tags: ['incubator', 'donor'],
+    tags: ['promoted', 'donor'],
     lifecycle: 'PROMOTED',
     targetCityPath: 'city/02-engineering/02-worker-gateway/skill-intake',
     donorRepository: 'zhiheng-zhang-Mera/DS-Hns',

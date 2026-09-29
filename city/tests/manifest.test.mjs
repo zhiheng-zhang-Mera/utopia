@@ -117,27 +117,22 @@ test('module directories and lifecycles must not contradict each other', async (
   const manifest = await loadManifest();
 
   // a PLANNED module with an existing directory is a contradiction
-  await mkdir(join(root, '02-engineering/02-worker-gateway/skill-intake'), { recursive: true });
+  await mkdir(join(root, '09-planning-knowledge/01-knowledge-service/knowledge-core'), { recursive: true });
   const problems = await checkManifestAgainstTree(manifest, root);
-  assert.equal(problems.length, 1);
-  assert.match(problems[0], /exists but lifecycle is only PLANNED/);
+  assert.equal(problems.length, 1, JSON.stringify(problems));
+  assert.match(problems[0], /knowledge-core: .*exists but lifecycle is only PLANNED/);
 
-  // declaring it implemented while only one module exists reports no problem for
-  // that module, and keeps reporting the still-missing implemented ones
+  // declaring that module implemented resolves it, and the real tree now matches
   const promoted = JSON.parse(JSON.stringify(manifest));
-  promoted.districts[0].buildings[0].modules[0].lifecycle = 'PROMOTED';
-  promoted.districts[0].buildings[0].modules[0].donor = {
-    repository: 'zhiheng-zhang-Mera/DS-Hns',
-    commit: 'eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b',
-  };
+  promoted.districts[1].buildings[0].modules[0].lifecycle = 'PROMOTED';
   assert.deepEqual(await checkManifestAgainstTree(promoted, root), [], 'the promoted module now matches the tree');
 
   // an implemented module whose directory is missing is a contradiction
   const missing = JSON.parse(JSON.stringify(promoted));
-  missing.districts[1].buildings[0].modules[0].lifecycle = 'ACTIVE';
+  missing.districts[1].buildings[1].modules[0].lifecycle = 'ACTIVE';
   const problems2 = await checkManifestAgainstTree(missing, root);
   assert.equal(problems2.length, 1, 'only the missing implemented module is reported');
-  assert.match(problems2[0], /knowledge-core: lifecycle ACTIVE but .* does not exist/);
+  assert.match(problems2[0], /ingestion-core: lifecycle ACTIVE but .* does not exist/);
 });
 
 test('loadManifest reports an unreadable manifest instead of guessing', async (t) => {

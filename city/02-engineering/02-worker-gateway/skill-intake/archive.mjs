@@ -1,18 +1,21 @@
 /**
- * UTOPIA · Rooms · Skill Intake Lab — minimal dependency-free tar reader.
+ * UTOPIA · City · Skill Intake — minimal dependency-free tar reader.
  *
- * Ported from the HNS donor `app/extensions/mega/skills/tar.js`
- * (zhiheng-zhang-Mera/DS-Hns @ eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b).
+ * PROMOTED from the Room Pack incubator `apps/rooms/rooms/skill-intake-lab/`
+ * (promotion record: apps/rooms/promotions/skill-intake-lab.json).
+ *
+ * Donor: zhiheng-zhang-Mera/DS-Hns @ eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b
+ *        app/extensions/mega/skills/tar.js
  *
  * Safety is the point of this module, not convenience:
  *   - every entry path is normalized and refused if it escapes the destination;
  *   - absolute paths and `..` segments are rejected outright;
  *   - symlinks, hardlinks and device nodes are never materialized;
- *   - total extracted bytes and entry count are capped.
+ *   - total inspected bytes and entry count are capped.
  *
- * Port differences: CommonJS -> ESM. The incubator room does not install skills,
- * so `extractTar` is intentionally not carried over — entries are inspected in
- * memory and never written, which removes the filesystem from this module's job.
+ * Port differences from the donor: CommonJS -> ESM, and `extractTar` is
+ * intentionally not carried over — this module inspects archives in memory and
+ * never writes to the filesystem, so no extraction path exists to get wrong.
  */
 
 import zlib from 'node:zlib';

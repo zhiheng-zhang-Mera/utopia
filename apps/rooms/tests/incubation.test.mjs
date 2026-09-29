@@ -50,9 +50,12 @@ test('all ten local rooms are LOCAL_PRODUCT and carry null donor metadata', () =
 });
 
 test('every incubating room declares a full donor and promotion contract', () => {
-  const incubating = incubatingRooms();
-  assert.ok(incubating.length >= 1, 'at least one donor room is incubating');
-  for (const room of incubating) {
+  // A donor room is either still incubating or already promoted; both must carry
+  // the full §5.2 contract, and neither may be a plain LOCAL_PRODUCT room.
+  const donorRooms = ALL_ROOMS.filter((room) => room.lifecycle !== 'LOCAL_PRODUCT');
+  assert.ok(donorRooms.length >= 1, 'the pack knows at least one donor room');
+  for (const room of donorRooms) {
+    assert.ok(['INCUBATING', 'ACCEPTED_LOCAL', 'PROMOTION_CANDIDATE', 'PROMOTED', 'REJECTED'].includes(room.lifecycle), `${room.id} lifecycle ${room.lifecycle}`);
     assert.ok(room.targetCityPath?.startsWith('city/'), `${room.id} targets a city path`);
     assert.match(room.donorRepository ?? '', /^[\w.-]+\/[\w.-]+$/, `${room.id} names a donor repository`);
     assert.match(room.donorCommit ?? '', /^[0-9a-f]{40}$/i, `${room.id} pins a full donor commit`);
@@ -66,6 +69,9 @@ test('every incubating room declares a full donor and promotion contract', () =>
       'lifecycle',
       'targetCityPath',
     ]);
+  }
+  for (const room of incubatingRooms()) {
+    assert.equal(room.lifecycle, 'INCUBATING', `${room.id} is still being proved`);
   }
 });
 
@@ -100,25 +106,13 @@ test('lifecycle defaults and metadata projection follow the §5.2 contract', () 
 });
 
 test('a promoted room leaves the active catalog but stays known to Git history', () => {
-  const promoted = {
-    id: 'skill-intake-lab',
-    label: 'Skill Intake Lab',
-    number: '11',
-    zh: '技能接入实验室',
-    summary: 'Incubated skill intake core.',
-    dataFile: null,
-    initialData: null,
-    tags: ['incubator'],
-    lifecycle: 'PROMOTED',
-    targetCityPath: 'city/02-engineering/02-worker-gateway/skill-intake',
-    donorRepository: 'zhiheng-zhang-Mera/DS-Hns',
-    donorCommit: DONOR_COMMIT,
-    donorSourcePaths: ['app/extensions/mega/skills/skill-format.js'],
-  };
-  const all = [...ALL_ROOMS, promoted];
-  const active = all.filter((room) => !RETIRED_LIFECYCLES.includes(room.lifecycle));
-  assert.equal(active.length, ALL_ROOMS.length, 'the promoted room is not active');
-  assert.ok(all.some((room) => room.id === 'skill-intake-lab'), 'it is still known');
+  const promoted = ALL_ROOMS.find((room) => room.id === 'skill-intake-lab');
+  assert.ok(promoted, 'the promoted room is still known to the pack');
+  assert.equal(promoted.lifecycle, 'PROMOTED');
+  assert.ok(RETIRED_LIFECYCLES.includes(promoted.lifecycle), 'PROMOTED is a retired lifecycle');
+  assert.ok(!ROOMS.some((room) => room.id === promoted.id), 'it serves no live surface');
+  assert.equal(promoted.targetCityPath, 'city/02-engineering/02-worker-gateway/skill-intake', 'its city target is recorded');
+  assert.ok(ALL_ROOMS.length > ROOMS.length, 'the pack knows more rooms than it serves');
 });
 
 test('promotion records are validated and rejected when malformed', async (t) => {
@@ -214,18 +208,22 @@ test('hub exposes lifecycle metadata and the promotion record set', async (t) =>
     assert.equal(room.donorCommit, null);
     assert.deepEqual(room.donorSourcePaths, []);
   }
-  const incubating = catalog.payload.rooms.filter((room) => room.lifecycle === 'INCUBATING');
-  assert.ok(incubating.length >= 1, 'the incubating donor room is exposed');
-  for (const room of incubating) {
-    assert.ok(room.targetCityPath.startsWith('city/'), `${room.id} exposes its city target`);
-    assert.ok(room.donorCommit.length === 40, `${room.id} exposes its donor commit`);
-  }
+  assert.ok(
+    !catalog.payload.rooms.some((room) => room.lifecycle === 'PROMOTED'),
+    'a promoted room is not part of the served catalog',
+  );
 
   const promotions = await hub.api('GET', '/local-rooms/v1/promotions');
   assert.equal(promotions.status, 200);
-  assert.equal(promotions.payload.total, 0, 'no promotion has happened yet');
-  assert.equal(promotions.payload.consistent, true);
-  assert.deepEqual(promotions.payload.promotions, []);
+  assert.equal(promotions.payload.total, 1, 'the D1 promotion is recorded');
+  assert.equal(promotions.payload.consistent, true, JSON.stringify(promotions.payload.problems));
+  const [record] = promotions.payload.promotions;
+  assert.equal(record.roomId, 'skill-intake-lab');
+  assert.equal(record.status, 'PROMOTED');
+  assert.equal(record.targetCityPath, 'city/02-engineering/02-worker-gateway/skill-intake');
+  assert.equal(record.donor.commit, DONOR_COMMIT);
+  assert.match(record.acceptedRoomCommit, /^[0-9a-f]{40}$/);
+  assert.match(record.promotedAtCommit, /^[0-9a-f]{40}$/);
 
   const health = await hub.api('GET', '/health');
   assert.equal(health.payload.rooms.length, catalog.payload.rooms.length, 'health and the catalog agree on the room set');

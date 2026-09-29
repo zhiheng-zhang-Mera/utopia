@@ -1,16 +1,20 @@
 /**
  * UTOPIA · City · Skill Intake — skill source format.
  *
- * Ported from the HNS donor `app/extensions/mega/skills/skill-format.js`
- * (zhiheng-zhang-Mera/DS-Hns @ eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b).
+ * PROMOTED from the Room Pack incubator `apps/rooms/rooms/skill-intake-lab/`
+ * (promotion record: apps/rooms/promotions/skill-intake-lab.json).
+ *
+ * Donor: zhiheng-zhang-Mera/DS-Hns @ eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b
+ *        app/extensions/mega/skills/skill-format.js
+ *
  * The parser semantics are kept identical on purpose: a skill the intake accepts
  * must be one the harness would actually load, and anything it rejects must be
  * something the harness would silently skip.
  *
- * What changed in the port:
- * - CommonJS -> ESM, and the filesystem helpers (`readSkillFile`, `scanSkillRoot`,
- *   `resolveInstalled`) were dropped: this module is a pure text transform with no
- *   disk access and no dependency on the HNS installation directory.
+ * Port differences from the donor: CommonJS -> ESM, and the filesystem helpers
+ * (`readSkillFile`, `scanSkillRoot`, `resolveInstalled`) were dropped — this module
+ * is a pure text transform with no disk access and no dependency on the HNS
+ * installation directory.
  */
 
 /** The harness's public skill-name grammar. */

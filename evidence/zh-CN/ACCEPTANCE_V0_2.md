@@ -1,5 +1,7 @@
 # V0.2 验收检查点
 
+> 历史检查点。已发布的[最终验收](ACCEPTANCE_V0_2_FINAL.md)取代下文的待发布状态；原检查点保留用于追溯。
+
 STATUS: NOT_ACCEPTED
 PAIR_STATUS: SYNCHRONIZED
 CODE-SHA: 2607912f85c22f6075367dc0eff1c45a58d75419

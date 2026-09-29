@@ -1,5 +1,7 @@
 # V0.2 acceptance checkpoint
 
+> Historical checkpoint. The published [final acceptance](ACCEPTANCE_V0_2_FINAL.md) supersedes the pending-release status below. This checkpoint is retained for provenance.
+
 STATUS: NOT_ACCEPTED
 PAIR_STATUS: SYNCHRONIZED
 CODE-SHA: 2607912f85c22f6075367dc0eff1c45a58d75419

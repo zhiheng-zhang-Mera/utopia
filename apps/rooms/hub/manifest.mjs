@@ -167,6 +167,21 @@ const LOCAL_ROOMS = [
  */
 const INCUBATOR_ROOMS = [
   {
+    id: 'skill-discovery-lab',
+    number: 'D5',
+    label: 'Skill Discovery Lab',
+    zh: '技能发现实验室',
+    summary: 'Incubating DS-Hns skill source and catalog: GitHub reference parsing, local source scanning and curated search.',
+    dataFile: null,
+    initialData: null,
+    tags: ['incubator', 'donor'],
+    lifecycle: 'INCUBATING',
+    targetCityPath: 'city/02-engineering/02-worker-gateway/skill-intake',
+    donorRepository: 'zhiheng-zhang-Mera/DS-Hns',
+    donorCommit: 'eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b',
+    donorSourcePaths: ['app/extensions/mega/skills/skill-source.js', 'app/extensions/mega/skills/skill-catalog.js'],
+  },
+  {
     id: 'document-intake-lab',
     number: 'D4',
     label: 'Document Intake Lab',

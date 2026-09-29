@@ -20,7 +20,9 @@ const now=()=>new Date().toISOString();
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
 const equals=(a,b)=>Buffer.byteLength(a)===Buffer.byteLength(b)&&timingSafeEqual(Buffer.from(a),Buffer.from(b));
 // Utopia's placement policy, unchanged: a node must be online and expose both of these.
-const REQUIRED_TASK_CAPABILITIES=['task.execute.safe','filesystem.temp'];
+// Exported so the consumption test asserts against the gateway's real policy instead of
+// restating it (a restated copy could be wrong in the same way the policy is wrong).
+export const REQUIRED_TASK_CAPABILITIES=['task.execute.safe','filesystem.temp'];
 // The Core's node shape, filled from the gateway's own liveness truth. A node that is
 // not online is OFFLINE, and the Core refuses an OFFLINE node whatever it lists.
 const claimNodeFor=n=>({nodeId:n.id,state:n.online?'READY':'OFFLINE',capabilities:n.capabilities,lastHeartbeatAt:Date.parse(n.lastHeartbeatAt)||0,seq:0});

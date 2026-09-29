@@ -126,6 +126,24 @@ test('a promoted room leaves the active catalog but stays known to Git history',
   ]);
   assert.ok(!ROOMS.some((room) => room.id === d5.id), 'it serves no live surface either');
   assert.ok(!incubatingRooms().some((room) => room.id === d5.id), 'a promoted room is never still being proved');
+
+  // D6 was promoted into the theme engine module D2 already owns, so the same
+  // one-module-two-rooms shape appears a second time and both rooms stay retired
+  const d2 = ALL_ROOMS.find((room) => room.id === 'theme-engine-lab');
+  const d6 = ALL_ROOMS.find((room) => room.id === 'theme-package-lab');
+  assert.ok(d2 && d6, 'both theme rooms are still known to the pack');
+  assert.equal(d6.lifecycle, 'PROMOTED');
+  assert.equal(d2.lifecycle, 'PROMOTED');
+  assert.equal(d6.targetCityPath, d2.targetCityPath, 'D6 targets the module D2 owns');
+  assert.equal(d6.targetCityPath, 'city/11-entertainment/01-entertainment-centre/theme-engine');
+  assert.deepEqual(d6.donorSourcePaths, [
+    'app/extensions/mega/theme/contract.js',
+    'app/extensions/mega/theme/surface.js',
+    'app/extensions/mega/theme/validator.js',
+    'app/extensions/mega/theme/asset-factory.js',
+  ]);
+  assert.ok(!ROOMS.some((room) => room.id === d6.id), 'it serves no live surface either');
+  assert.ok(!incubatingRooms().some((room) => room.id === d6.id), 'a promoted room is never still being proved');
 });
 
 test('promotion records are validated and rejected when malformed', async (t) => {
@@ -248,6 +266,12 @@ test('hub exposes lifecycle metadata and the promotion record set', async (t) =>
   assert.equal(d5.donor.commit, DONOR_COMMIT);
   assert.equal(d5.targetCityPath, d1.targetCityPath, 'two rooms may strengthen the same city module');
   assert.notEqual(d5.acceptedRoomCommit, d1.acceptedRoomCommit, 'each room has its own accepted commit');
+
+  const d6 = promotions.payload.promotions.find((record) => record.roomId === 'theme-package-lab');
+  assert.ok(d6, 'the D6 promotion is recorded');
+  assert.equal(d6.donor.commit, DONOR_COMMIT);
+  assert.equal(d6.targetCityPath, 'city/11-entertainment/01-entertainment-centre/theme-engine');
+  assert.notEqual(d6.acceptedRoomCommit, d6.promotedAtCommit, 'the accepted room commit is not the promotion commit');
 
   const health = await hub.api('GET', '/health');
   assert.equal(health.payload.rooms.length, catalog.payload.rooms.length, 'health and the catalog agree on the room set');

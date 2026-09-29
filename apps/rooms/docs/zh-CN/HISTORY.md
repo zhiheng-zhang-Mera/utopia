@@ -20,10 +20,52 @@ promotedAtCommit   = 第一个正式 city module 已落位的 commit（可达、
 | `knowledge-core-lab` (D3) | `01f932bd2aad2403bec61961410ca19ca0cf28ad` | `b82fcfd0f153a63b8424051affd86bf7df0a41d0` | `city/09-planning-knowledge/01-knowledge-service/knowledge-core` |
 | `document-intake-lab` (D4) | `165e2664ad4e2d777889d8dec47893144e8c81dd` | `e3d6bbd9dd9196ce0991e095fb91993df3ec3dd1` | `city/09-planning-knowledge/02-document-intake/ingestion-core` |
 | `skill-discovery-lab` (D5) | `b4dff81503128ae0d2ad163732171eb6dd887f4b` | `48494263d75532eaaba3490bc6c4223d5ff44ead` | `city/02-engineering/02-worker-gateway/skill-intake` |
+| `theme-package-lab` (D6) | `95d958ddacc6071fc6c2b0ee4c2be8b132c9dd4d` | `5d1abecdc38ace5f5cf02aafbf097026d3427eec` | `city/11-entertainment/01-entertainment-centre/theme-engine` |
 
 > **D1 说明：** 最初写入 `city/02-engineering/02-worker-gateway/skill-intake` 的那次提交在 Wave 1 期间的一次历史整理中被改写，已不可达；本记录因此指向当前历史中**第一个包含该 module 且可达**的提交 `1402872`。Wave 1 曾预填的旧值（形如 `6b29e84…`）是提交 amend 之前的 SHA，已作废。
 >
 > **禁止预猜当前 commit 自己的 SHA**：记录只能在目标提交已经存在之后回填，并由 `scripts/verify-promotion-history.mjs` 用本地 Git 历史核验。
+
+---
+
+## D6 · theme-package-lab → city/11-entertainment/01-entertainment-centre/theme-engine
+
+| 项 | 值 |
+| --- | --- |
+| Donor 仓库 | `zhiheng-zhang-Mera/DS-Hns` |
+| Donor SHA | `eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b` |
+| Donor 源文件 | `app/extensions/mega/theme/contract.js`、`surface.js`、`validator.js`、`asset-factory.js` |
+| 孵化房间 | `apps/rooms/rooms/theme-package-lab/`（已从活跃树移除） |
+| 孵化验收 commit | `95d958ddacc6071fc6c2b0ee4c2be8b132c9dd4d` |
+| 晋升 commit | `5d1abecdc38ace5f5cf02aafbf097026d3427eec` |
+| 最终城市路径 | `city/11-entertainment/01-entertainment-centre/theme-engine` |
+| Lifecycle | `PROMOTED`（Wave 2 期间） |
+| 共用 module | 是：D2 已把颜色与栅格内核晋升到同一 module，因此它现在记录 `incubationRooms: ["theme-engine-lab", "theme-package-lab"]` |
+| D6a 范围 | Theme Package API 版本、带权限的 slot 词表、token schema、worker 状态词表、四个所有权 surface 与唯一的写入门、包校验器、确定性过程化资产生成器 |
+| D6b 状态 | `DEFERRED_SCOPE_ALLOCATION` |
+
+### 适配说明
+
+- CommonJS → ESM，算法不变；
+- donor 的永久产品名词不进入 Utopia 公共 API：`hns_native` → `owned_surface`，`official_shell` → `external_shell`，`official_overlay` → `owned_overlay`，`official_renderer` → `protected_external_surface`；slot 家族 `hns.*` / `official.*` → `surface.*` / `shell.*` / `overlay.*` / `external.*`；CSS 自定义属性 `--hns-*` → `--utopia-*`；
+- 校验器新增 `validateDocuments()`：同一套检查既能跑内存文档，也能跑落盘 package 目录，只保留一份实现。孵化房间因此**不需要写文件**也能成为真实产品面；
+- overlay 强度上限并入校验器：package 声明的 overlay plan 直接按工程上限校验，而不再只依赖 builder 自己的降级阶梯；
+- 颜色与栅格辅助函数继续留在已晋升的 `color/` 与 `raster/`，不复制任何算法。
+
+### 已知差异
+
+- 不向任何 UI 应用主题：本 module 只产出并校验 package；
+- 不带 registry / lifecycle / recovery：donor 的编排层不在范围内；
+- 不带 builder 与 designer：D6b 闭包（`builder.js`、`designer.js` 以及 `assets/` 下的 planner、generator、processor、validator、fallback）不在本 wave；
+- 不带图像模型：过程化生成是确定性且离线的。
+
+### D6b 延后说明
+
+决定之前已检查 D6b 的 donor 闭包，结论是它很干净：`builder.js`、`designer.js` 与五个 `assets/*` 只依赖 `node:fs`、`node:path` 和本 module 自己的文件，没有 Electron、没有外部运行时、没有 session 依赖、没有强制网络，且所有写入都限制在调用方提供的 `outDir`。因此它**不是**按 `DEFERRED_RUNTIME_COUPLING` 延后，而是按 `DEFERRED_SCOPE_ALLOCATION` 延后：本 wave 不可延后项（D7a YAML、D7b 文档读取器、D8 证据内核）先落地，且没有交付半成品 builder，所以这里不假装完成。闭包清单已记录在上，下一 wave 可直接从证据出发。
+
+### 平价测试
+
+覆盖：四个 surface 及其权限与输入/访问契约；写入门拒绝受保护 surface、并拒绝 surface 不接受的资产类型；plan 可以如实声明受保护 surface 但不得声称写入（含嵌套 target 引用）；slot 白名单（未知 slot、结构性 slot、未声明属性）；token schema（未知 token、非法颜色/长度/数字、空资产值）；manifest 必填字段、slug id、禁止的 parent/extends 字段、supported apps 与 API 版本兼容；仅声明式（package 内任何可执行文件都被拒绝）；资产封闭性（声明的资产必须存在于包内且不得越出包外）；可读性与 worker 状态可分性一律 fail closed；overlay 单层与叠加不透明度上限以及输入必须穿透；过程化确定性（同 palette/style/seed 字节一致，换 palette 或 style 即不同）；角色资产保留真实 alpha 而不是画一个矩形。
 
 ---
 

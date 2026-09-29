@@ -24,6 +24,7 @@ ancestor of `promotedAtCommit`. Verifier: `node scripts/verify-promotion-history
 | `knowledge-core-lab` (D3) | `01f932bd2aad2403bec61961410ca19ca0cf28ad` | `b82fcfd0f153a63b8424051affd86bf7df0a41d0` | `city/09-planning-knowledge/01-knowledge-service/knowledge-core` |
 | `document-intake-lab` (D4) | `165e2664ad4e2d777889d8dec47893144e8c81dd` | `e3d6bbd9dd9196ce0991e095fb91993df3ec3dd1` | `city/09-planning-knowledge/02-document-intake/ingestion-core` |
 | `skill-discovery-lab` (D5) | `b4dff81503128ae0d2ad163732171eb6dd887f4b` | `48494263d75532eaaba3490bc6c4223d5ff44ead` | `city/02-engineering/02-worker-gateway/skill-intake` |
+| `theme-package-lab` (D6) | `95d958ddacc6071fc6c2b0ee4c2be8b132c9dd4d` | `5d1abecdc38ace5f5cf02aafbf097026d3427eec` | `city/11-entertainment/01-entertainment-centre/theme-engine` |
 
 > **D1 note:** the commit that first wrote
 > `city/02-engineering/02-worker-gateway/skill-intake` was rewritten during a
@@ -35,6 +36,79 @@ ancestor of `promotedAtCommit`. Verifier: `node scripts/verify-promotion-history
 > **Never pre-guess a commit's own SHA.** A record is only filled in after the
 > target commit exists, and it is checked against local Git history by
 > `scripts/verify-promotion-history.mjs`.
+
+---
+
+## D6 · theme-package-lab → city/11-entertainment/01-entertainment-centre/theme-engine
+
+| Item | Value |
+| --- | --- |
+| Donor repository | `zhiheng-zhang-Mera/DS-Hns` |
+| Donor SHA | `eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b` |
+| Donor source files | `app/extensions/mega/theme/contract.js`, `surface.js`, `validator.js`, `asset-factory.js` |
+| Incubator room | `apps/rooms/rooms/theme-package-lab/` (removed from the live tree) |
+| Accepted incubator commit | `95d958ddacc6071fc6c2b0ee4c2be8b132c9dd4d` |
+| Promotion commit | `5d1abecdc38ace5f5cf02aafbf097026d3427eec` |
+| Final city path | `city/11-entertainment/01-entertainment-centre/theme-engine` |
+| Lifecycle | `PROMOTED` (during wave 2) |
+| Shared module | yes: D2 already promoted the colour and raster helpers into the same module, so it now records `incubationRooms: ["theme-engine-lab", "theme-package-lab"]` |
+| D6a scope | the Theme Package API version, the slot vocabulary with per-slot permission, the token schema, the worker-state vocabulary, the four ownership surfaces with the single write gate, the package validator and the deterministic procedural asset factory |
+| D6b status | `DEFERRED_SCOPE_ALLOCATION` |
+
+### Adaptation
+
+- CommonJS → ESM with the algorithms unchanged;
+- the donor's permanent product nouns are not Utopia's public API: `hns_native` →
+  `owned_surface`, `official_shell` → `external_shell`, `official_overlay` →
+  `owned_overlay`, `official_renderer` → `protected_external_surface`; slot families
+  `hns.*` / `official.*` → `surface.*` / `shell.*` / `overlay.*` / `external.*`; CSS
+  custom properties `--hns-*` → `--utopia-*`;
+- the validator gained `validateDocuments()`, so the same checks run over in-memory
+  documents and over a materialized package directory from one implementation. The
+  incubator room validates without writing a file, which is why it can be a real
+  product surface without a durable store;
+- the overlay strength ceilings moved into the validator: a package's declared
+  overlay plan is checked against the engineering limits, not only against the
+  builder's own downgrade ladder;
+- the colour and raster helpers stay in the already-promoted `color/` and `raster/`
+  directories, so no algorithm is duplicated.
+
+### Known differences
+
+- Nothing is applied to any UI: the module produces and validates packages;
+- no registry, lifecycle or recovery: the donor's orchestration layer is out of scope;
+- no builder and no designer: the D6b closure (`builder.js`, `designer.js` and the
+  `assets/` planner, generator, processor, validator and fallback modules) is not
+  carried in this wave;
+- no image model: procedural generation is deterministic and offline.
+
+### D6b deferral
+
+The D6b donor closure was inspected before deciding, and it is clean: `builder.js`,
+`designer.js` and the five `assets/*` modules require only `node:fs`, `node:path` and
+this module's own files, so there is no Electron, no foreign runtime, no session
+dependency and no mandatory network, and every write is confined to a caller-supplied
+`outDir`. It is therefore **not** deferred as `DEFERRED_RUNTIME_COUPLING`. It is
+deferred as `DEFERRED_SCOPE_ALLOCATION`: the wave's non-deferrable items (D7a YAML,
+D7b document readers, D8 evidence core) land first, and no partial builder is shipped,
+so nothing here pretends to be complete. The closure list is recorded above so the
+next wave starts from evidence rather than from a re-investigation.
+
+### Parity tests
+
+Coverage: the four surfaces with their permissions and input/access contracts; the
+write gate refusing the protected surface and refusing an asset kind a surface does
+not accept; a plan naming the protected surface honestly versus claiming to write it
+(including a nested target reference); the slot whitelist (unknown slot, structural
+slot, undeclared property); the token schema (unknown token, invalid colour, length
+and number, empty asset values); manifest required fields, slug id, forbidden
+parent/extends fields, supported apps and API-version compatibility; declarative-only
+packages (an executable file anywhere is refused); asset confinement (declared assets
+exist inside the package and may not leave it); readability and worker-state
+separability failing closed; overlay per-layer and stacked opacity ceilings with
+input passing through; procedural determinism (identical bytes for the same palette,
+style and seed, different bytes for a different palette or style); and character
+assets keeping real alpha instead of painting a rectangle.
 
 ---
 

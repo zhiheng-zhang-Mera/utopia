@@ -1,0 +1,17 @@
+{
+    "roomId":  "theme-package-lab",
+    "acceptedRoomCommit":  "95d958ddacc6071fc6c2b0ee4c2be8b132c9dd4d",
+    "promotedAtCommit":  "5d1abecdc38ace5f5cf02aafbf097026d3427eec",
+    "targetCityPath":  "city/11-entertainment/01-entertainment-centre/theme-engine",
+    "donor":  {
+                  "repository":  "zhiheng-zhang-Mera/DS-Hns",
+                  "commit":  "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+                  "sourcePaths":  [
+                                      "app/extensions/mega/theme/contract.js",
+                                      "app/extensions/mega/theme/surface.js",
+                                      "app/extensions/mega/theme/validator.js",
+                                      "app/extensions/mega/theme/asset-factory.js"
+                                  ]
+              },
+    "status":  "PROMOTED"
+}

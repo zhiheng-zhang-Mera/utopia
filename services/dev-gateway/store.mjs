@@ -10,6 +10,9 @@ export class Store {
     const meta=this.db.prepare('SELECT version FROM meta').get();
     if(meta && meta.version!==0) throw new Error('Unsupported stored schema version');
     if(!meta) this.db.prepare('INSERT INTO meta VALUES(0)').run();
+    this.db.exec('CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+    this.db.prepare('INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)').run('cityId',randomUUID());
+    this.cityId=this.db.prepare('SELECT value FROM settings WHERE key=?').get('cityId').value;
   }
   list(table) { return this.db.prepare(`SELECT json FROM ${table} ORDER BY rowid`).all().map(r=>JSON.parse(r.json)); }
   get(table,id) { const r=this.db.prepare(`SELECT json FROM ${table} WHERE id=?`).get(id); return r?JSON.parse(r.json):null; }

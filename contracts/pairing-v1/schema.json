@@ -1,0 +1,17 @@
+{
+ "$schema":"https://json-schema.org/draft/2020-12/schema",
+ "$id":"urn:utopia:pairing:v1",
+ "title":"City bootstrap descriptor",
+ "type":"object",
+ "required":["descriptorVersion","cityId","displayName","endpoint","apiVersion","schemaVersion","pairingSessionId","expiresAt"],
+ "properties":{
+  "descriptorVersion":{"const":1},"cityId":{"type":"string","minLength":1},"displayName":{"type":"string"},
+  "endpoint":{"type":"object","required":["scheme","host","port"],"properties":{"scheme":{"enum":["http","https"]},"host":{"type":"string","minLength":1},"port":{"type":"integer","minimum":1,"maximum":65535}},"additionalProperties":false},
+  "apiVersion":{"const":0},"schemaVersion":{"const":0},"pairingSessionId":{"type":["string","null"]},"expiresAt":{"type":["string","null"]}
+ },
+ "additionalProperties":false,
+ "$defs":{
+  "Telemetry":{"type":"object","required":["observedAt","cpu","memory","disk","uptimeSeconds"],"properties":{"observedAt":{"type":"string","format":"date-time"},"cpu":{"type":"object","properties":{"usagePercent":{"type":["number","null"],"minimum":0,"maximum":100}}},"memory":{"type":["object","null"],"properties":{"usedBytes":{"type":["number","null"],"minimum":0},"totalBytes":{"type":["number","null"],"minimum":0}}},"disk":{"type":["object","null"],"properties":{"usedBytes":{"type":["number","null"],"minimum":0},"freeBytes":{"type":["number","null"],"minimum":0},"totalBytes":{"type":["number","null"],"minimum":0}}},"uptimeSeconds":{"type":["number","null"],"minimum":0}}}
+ }
+}
+

@@ -1,0 +1,31 @@
+{
+  "format": "utopia-knowledge-room",
+  "schemaVersion": 0,
+  "exportedAt": "2026-09-29T00:00:00.000Z",
+  "entries": [
+    {
+      "id": "0f3a1c62-8b7d-4f2a-9c1e-2d5b7a4e6f01",
+      "title": "Knowledge Room scope (MECH-K0)",
+      "body": "The Knowledge Room is a single-host, local-only knowledge product in Utopia.\n\nIt creates, edits, searches, filters, deletes, exports and imports plain text knowledge entries. It binds to 127.0.0.1 only and has no dependency on the Gateway, a runtime node, Android, or any cloud service.\n\nAnything beyond plain text (attachments, embeddings, semantic search) is explicitly out of scope for K0.",
+      "tags": ["utopia", "knowledge-room", "scope"],
+      "createdAt": "2026-09-29T00:00:00.000Z",
+      "updatedAt": "2026-09-29T00:00:00.000Z"
+    },
+    {
+      "id": "6c2d9e41-3a58-4b77-8d10-9f4e2b6c8a02",
+      "title": "Import policy: IMPORT_MODE = replace",
+      "body": "V0 has exactly one import strategy: the imported bundle replaces the entire current data set.\n\nThere is no merge and no conflict resolution. A payload is either accepted whole or rejected whole; a rejected import leaves the existing data untouched.\n\nThe bundle must declare format \"utopia-knowledge-room\" and schemaVersion 0.",
+      "tags": ["utopia", "import-export", "policy"],
+      "createdAt": "2026-09-29T00:00:00.000Z",
+      "updatedAt": "2026-09-29T00:00:00.000Z"
+    },
+    {
+      "id": "b47f0a95-5e13-4c6d-a2f8-7c9d1e3b5a03",
+      "title": "Durability rules for the JSON store",
+      "body": "Data lives in apps/knowledge-room/runtime-data/knowledge-v0.json with schemaVersion 0.\n\nEvery save writes a temporary file in the same directory and renames it over the target, so an interrupted write can never truncate the store. Real user data is not committed to Git; only runtime-data/.gitkeep and a nested .gitignore are tracked.",
+      "tags": ["utopia", "durability", "storage"],
+      "createdAt": "2026-09-29T00:00:00.000Z",
+      "updatedAt": "2026-09-29T00:00:00.000Z"
+    }
+  ]
+}

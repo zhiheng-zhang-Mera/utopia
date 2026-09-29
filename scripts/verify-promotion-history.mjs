@@ -107,8 +107,29 @@ for (const file of files) {
   if (!(await pathExistsAt(record.promotedAtCommit, record.targetCityPath))) {
     problems.push(`${file}: ${record.targetCityPath} does not exist at promotedAtCommit ${record.promotedAtCommit.slice(0, 12)}`);
   }
-  if (!(await pathExistsAt('HEAD', record.targetCityPath))) {
-    problems.push(`${file}: ${record.targetCityPath} does not exist at HEAD`);
+
+  // Where the promoted code lives NOW.
+  //
+  // A promotion record is a historical fact: `targetCityPath` is where the promotion
+  // actually landed, and the check above pins it to `promotedAtCommit`, so it must not
+  // be rewritten when the code later moves. A later Mission may relocate a module — for
+  // example MB-009 moved the theme engine from 11 Entertainment to 00/05 Control Centre
+  // when Digital-City reassigned its ownership. Such a record therefore carries
+  // `relocatedTo` and `relocatedByMission`, and the chain stays honest by requiring
+  // that the *current* location exists instead of the original one. Without a
+  // relocation record the original path is still required at HEAD, so this cannot be
+  // used to lose track of a module.
+  const currentPath = typeof record.relocatedTo === 'string' && record.relocatedTo ? record.relocatedTo : record.targetCityPath;
+  if (currentPath !== record.targetCityPath) {
+    if (!String(record.relocatedByMission ?? '').trim()) {
+      problems.push(`${file}: relocatedTo is set without relocatedByMission, so the move has no recorded authority`);
+    }
+    if (!currentPath.startsWith('city/')) {
+      problems.push(`${file}: relocatedTo must live under city/`);
+    }
+  }
+  if (!(await pathExistsAt('HEAD', currentPath))) {
+    problems.push(`${file}: ${currentPath} does not exist at HEAD${currentPath === record.targetCityPath ? '' : ` (relocated from ${record.targetCityPath})`}`);
   }
 
   // the retired incubator must not still ship a live implementation

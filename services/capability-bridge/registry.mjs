@@ -5,7 +5,6 @@ import {describeOwnership} from '../../city/00-foundation/03-capability-fabric/c
 const root=new URL('../../',import.meta.url);
 const ref=(districtId,buildingId,moduleId)=>({districtId,buildingId,moduleId});
 export const moduleKey=({districtId,buildingId,moduleId})=>`${districtId}/${buildingId}/${moduleId}`;
-
 /**
  * The five providers this City currently composes.
  *
@@ -20,8 +19,9 @@ export const ADAPTER_PROVIDERS=[
  {capabilityId:'planning.knowledge.query',name:'Knowledge Query',owner:'provider.planning.knowledge-query',priority:50,moduleRefs:[ref('09-planning-knowledge','01-knowledge-service','knowledge-core')],operations:['query','fromDocument'],inputKind:'knowledge',describes:'Answer a query from the knowledge core.'},
  {capabilityId:'engineering.skill.inspect',name:'Skill Inspect',owner:'provider.engineering.skill-inspect',priority:50,moduleRefs:[ref('02-engineering','02-worker-gateway','skill-intake')],operations:['inspect','validate','catalog','archive'],inputKind:'skill',describes:'Inspect or validate a skill without installing it.'},
  {capabilityId:'research.evidence.review',name:'Evidence Review',owner:'provider.research.evidence-review',priority:50,moduleRefs:[ref('06-research','01-research-institute','evidence-engine')],operations:['review','tamper'],inputKind:'evidence',describes:'Review an evidence bundle for integrity and references.'},
- {capabilityId:'presentation.theme.lab',name:'Theme Lab',owner:'provider.presentation.theme-lab',priority:50,moduleRefs:[ref('11-entertainment','01-entertainment-centre','theme-engine')],operations:['generate','build'],inputKind:'theme',describes:'Generate or build a theme package inside a sandbox.'},
+ {capabilityId:'presentation.theme.lab',name:'Theme Lab',owner:'provider.presentation.theme-lab',priority:50,moduleRefs:[ref('00-foundation','05-control-centre','theme-engine')],operations:['generate','build'],inputKind:'theme',describes:'Generate or build a theme package inside a sandbox.'},
 ];
+
 /** The legacy export name, kept so existing callers keep working. */
 export const ADAPTERS=ADAPTER_PROVIDERS.map(provider=>({id:provider.capabilityId,name:provider.name,moduleRefs:provider.moduleRefs,operations:provider.operations,inputKind:provider.inputKind}));
 
@@ -53,14 +53,29 @@ export const DISTRICT_KINDS=['infrastructure','domain'];
  *     (MB-003's Worker Gateway and MB-006's Restart Recovery Station modules).
  * Enumerating either as a capability would advertise to Web and Android an
  * "unavailable" capability awaiting a bridge that is not going to be built.
+ *
+ * Both markers govern the *enumeration* only. Resolution is deliberately wider: an
+ * adapter that explicitly bridges a module can always resolve it, even when that
+ * module sits in an `infrastructure` district. Without that split, MB-009's
+ * relocation of the theme engine into `00-foundation/05-control-centre` (the City
+ * owner the mission names for presentation and theming) turned the accepted
+ * `presentation.theme.lab` capability `DEGRADED`, because the index — not the
+ * enumeration — had no entry for it.
  */
 export function registry(manifest=JSON.parse(readFileSync(new URL('city/CITY_IMPLEMENTATION_MANIFEST.json',root))),adapters=ADAPTER_PROVIDERS){
- const modules=manifest.districts
-  .filter(d=>(d.kind??'domain')!=='infrastructure')
-  .flatMap(d=>d.buildings.flatMap(b=>b.modules.filter(m=>m.capabilityProvider!==false).map(m=>({...m,ref:ref(d.id,b.id,m.id)}))));
+ // Every module the manifest declares, for adapter resolution.
+ const declared=manifest.districts.flatMap(d=>d.buildings.flatMap(b=>b.modules.map(m=>({...m,ref:ref(d.id,b.id,m.id)}))));
  const index=new Map();
- for(const m of modules){const key=moduleKey(m.ref);if(index.has(key))throw Error('Duplicate qualified module identity');index.set(key,m);}
+ for(const m of declared){const key=moduleKey(m.ref);if(index.has(key))throw Error('Duplicate qualified module identity');index.set(key,m);}
  const lifecycleFor=moduleRef=>index.get(moduleKey(moduleRef))?.lifecycle??'UNAVAILABLE';
+
+ // The narrower set that may be enumerated as a capability. A building may declare
+ // its own kind when it disagrees with its district: `00-foundation` hosts both the
+ // kernel and `05-control-centre`, which carries the bridged theme capability.
+ const modules=manifest.districts
+  .flatMap(d=>d.buildings
+   .filter(b=>(b.kind??d.kind??'domain')!=='infrastructure')
+   .flatMap(b=>b.modules.filter(m=>m.capabilityProvider!==false).map(m=>({...m,ref:ref(d.id,b.id,m.id)}))));
 
  // A real registry, populated from the provider declarations rather than asserted.
  const fabric=createCapabilityRegistry();

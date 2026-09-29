@@ -31,8 +31,10 @@ import {
  * This list is a census, not an aspiration: each entry must have real code in the
  * tree. The wave-1 modules are followed by the modules migrated by the Digital-City
  * mission-book control plane — MB-001's City Core, MB-002's Capability Fabric, MB-003's
- * Worker Gateway, MB-004's Project Foreman and MB-006's Restart Recovery Station — rather
- * than incubated in the Room Pack.
+ * Worker Gateway, MB-004's Project Foreman, MB-006's Restart Recovery Station and
+ * MB-009's relocation of the theme engine to 00-foundation/05-control-centre — rather
+ * than incubated in the Room Pack. `11-entertainment` is no longer declared: its only
+ * module moved, so the district holds nothing.
  */
 const EXPECTED_MODULES = [
   'city/00-foundation/01-city-core/root-authority',
@@ -40,6 +42,7 @@ const EXPECTED_MODULES = [
   'city/00-foundation/01-city-core/fleet-routing',
   'city/00-foundation/01-city-core/audit-ledger',
   'city/00-foundation/03-capability-fabric/capability-fabric',
+  'city/00-foundation/05-control-centre/theme-engine',
   'city/02-engineering/01-project-foreman/project-foreman',
   'city/02-engineering/02-worker-gateway/skill-intake',
   'city/02-engineering/03-host-health-station/host-health-station',
@@ -51,7 +54,6 @@ const EXPECTED_MODULES = [
   'city/09-planning-knowledge/01-knowledge-service/knowledge-core',
   'city/09-planning-knowledge/02-document-intake/ingestion-core',
   'city/09-planning-knowledge/02-document-intake/document-readers',
-  'city/11-entertainment/01-entertainment-centre/theme-engine',
 ];
 
 test('the real manifest describes exactly the districts and modules that exist', async () => {
@@ -60,8 +62,8 @@ test('the real manifest describes exactly the districts and modules that exist',
   assert.equal(manifest.schemaVersion, 2);
   assert.deepEqual(
     manifest.districts.map((district) => district.id),
-    ['00-foundation', '02-engineering', '06-research', '09-planning-knowledge', '11-entertainment'],
-    'only the districts that actually exist are declared',
+    ['00-foundation', '02-engineering', '06-research', '09-planning-knowledge'],
+    'only the districts that actually exist are declared, in manifest order; 00-foundation owns the theme engine after the MB-009 relocation, and 11-entertainment is no longer declared because it holds no module',
   );
   for (const district of manifest.districts) {
     assert.ok(district.zh.length > 0 && district.en.length > 0, `${district.id} has bilingual names`);

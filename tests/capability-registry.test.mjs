@@ -48,9 +48,25 @@ test('infrastructure modules are never advertised as capabilities',()=>{
  const core=district(m,'00-foundation');
  assert.equal(core.kind,'infrastructure','00-foundation is city infrastructure, not a domain district');
  const catalog=registry(m);
- for(const b of core.buildings)for(const mod of b.modules){
-  assert.equal(catalog.some(c=>c.capabilityId==='city.00-foundation/'+b.id+'/'+mod.id),false,`${mod.id} must not appear as a capability`);
-  assert.equal(catalog.some(c=>(c.moduleRefs??[]).some(r=>r.moduleId===mod.id)),false,`${mod.id} must not back a capability`);
+ // The rule is about the runtime kernel, so it is checked for every building whose
+ // effective kind is infrastructure, wherever it lives. A building may state its own
+ // kind when it disagrees with its district (see the control-centre case below).
+ let kernelBuildings=0;
+ for(const d of m.districts)for(const b of d.buildings){
+  if((b.kind??d.kind??'domain')!=='infrastructure')continue;
+  kernelBuildings+=1;
+  for(const mod of b.modules){
+   assert.equal(catalog.some(c=>c.capabilityId==='city.'+d.id+'/'+b.id+'/'+mod.id),false,`${mod.id} must not appear as a capability`);
+   assert.equal(catalog.some(c=>(c.moduleRefs??[]).some(r=>r.moduleId===mod.id)),false,`${mod.id} must not back a capability`);
+  }
  }
+ assert.equal(kernelBuildings,2,'00-foundation declares two kernel buildings: 01-city-core and 03-capability-fabric');
+ // 05-control-centre sits in the same infrastructure district but is the City map's
+ // presentation/theming owner, so it declares kind domain and carries a real,
+ // adapter-bridged capability. Without the building-level kind the bridge resolved it
+ // as DEGRADED, which is the regression this assertion pins.
+ const controlCentre=core.buildings.find(b=>b.id==='05-control-centre');
+ assert.equal(controlCentre.kind,'domain','a building may state a kind that differs from its district');
+ assert.equal(catalog.find(c=>c.capabilityId==='presentation.theme.lab').bridgeState,'AVAILABLE','the bridged theme capability resolves through its building kind');
  assert.equal(catalog.filter(c=>c.bridgeState==='AVAILABLE').length,5,'the five domain adapters are unaffected');
 });

@@ -1,8 +1,11 @@
 {
   "module": "theme-engine",
-  "cityPath": "city/11-entertainment/01-entertainment-centre/theme-engine",
-  "district": "11-entertainment",
-  "building": "01-entertainment-centre",
+  "cityPath": "city/00-foundation/05-control-centre/theme-engine",
+  "district": "00-foundation",
+  "building": "05-control-centre",
+  "relocatedFrom": "city/11-entertainment/01-entertainment-centre/theme-engine",
+  "relocatedAtMission": "MB-009",
+  "relocationNote": "The donor provenance and promotion waves below are unchanged: this module's code was promoted from its incubator rooms into city/11-entertainment/01-entertainment-centre/theme-engine, and MB-009 relocated the same code, with no semantic change, to city/00-foundation/05-control-centre/theme-engine because Digital-City reassigned presentation/theming ownership from 11 Entertainment to 00/05 Control Centre. The historical promotion records under apps/rooms/promotions/ deliberately still name the original path, because that is where the promotion actually landed.",
   "incubationRooms": [
     "theme-engine-lab",
     "theme-package-lab",

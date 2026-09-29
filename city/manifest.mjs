@@ -81,6 +81,9 @@ export function validateManifest(raw, source = 'manifest') {
       requireText(building?.en, `${source}: building ${building.id} en`, source);
       if (buildingIds.has(building.id)) throw new ManifestError(`${source}: duplicate building ${building.id}`);
       buildingIds.add(building.id);
+      if (building.kind !== undefined && !DISTRICT_KINDS.includes(building.kind)) {
+        throw new ManifestError(`${source}: building ${building.id} kind ${building.kind} is not a city district kind`);
+      }
       if (!Array.isArray(building.modules) || building.modules.length === 0) {
         throw new ManifestError(`${source}: building ${building.id} needs at least one module`);
       }
@@ -145,6 +148,34 @@ function requireText(value, field, source) {
 export function moduleIncubationRooms(module) {
   if (Array.isArray(module.incubationRooms)) return [...module.incubationRooms];
   return module.roomId ? [module.roomId] : [];
+}
+
+/**
+ * The effective kind of a building.
+ *
+ * `kind` is declared per district, because a district is the ownership unit that the
+ * City map draws. A district can still contain one building that is not the runtime
+ * kernel: `00-foundation` owns both the kernel (`01-city-core`,
+ * `03-capability-fabric`) and `05-control-centre`, which the City map makes the
+ * presentation/theming owner and which carries a real, adapter-bridged capability
+ * (`presentation.theme.lab`). A building therefore states its own kind when it
+ * disagrees with its district, and this helper is the single place that decides.
+ *
+ * @param {{kind?: string}} district
+ * @param {{kind?: string}} building
+ * @returns {string} `'infrastructure'` or `'domain'`; defaults to `'domain'`.
+ */
+export function buildingKind(district, building) {
+  return building?.kind ?? district?.kind ?? 'domain';
+}
+
+/** Every building the manifest declares, with its district and effective kind. */
+export function declaredBuildings(manifest) {
+  const out = [];
+  for (const district of manifest.districts) {
+    for (const building of district.buildings) out.push({ district, building, kind: buildingKind(district, building) });
+  }
+  return out;
 }
 
 /** Flatten the manifest into module records with their district and building. */

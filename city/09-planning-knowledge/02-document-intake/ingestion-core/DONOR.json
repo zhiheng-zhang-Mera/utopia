@@ -1,0 +1,49 @@
+{
+  "module": "ingestion-core",
+  "cityPath": "city/09-planning-knowledge/02-document-intake/ingestion-core",
+  "district": "09-planning-knowledge",
+  "building": "02-document-intake",
+  "room": "document-intake-lab",
+  "repository": "zhiheng-zhang-Mera/Codex-Boss",
+  "commit": "8df428eaa437a409368401e95194e40266b83080",
+  "sourcePaths": [
+    "electron/ingestion/xml-text.ts",
+    "electron/ingestion/text-parsers.ts"
+  ],
+  "portedFiles": {
+    "electron/ingestion/text-parsers.ts": "ingestion-core.mjs",
+    "electron/ingestion/xml-text.ts": "ingestion-core.mjs"
+  },
+  "adaptation": [
+    "TypeScript -> ESM JavaScript with the algorithms unchanged (encoding detection, offset-preserving section splitting, structured flattening, RFC4180-ish CSV, XML text runs).",
+    "The donor's GBK fallback becomes an explicit warning when the runtime's TextDecoder cannot provide GBK, so a lossy decode is never silent.",
+    "The donor's YAML branch is not carried: text-parsers.ts imports the external `yaml` package, and D4b only lands once that dependency can be isolated inside this building.",
+    "detectFormat() names the parser per extension and marks yaml/yml as explicitly deferred rather than falling through to a guess.",
+    "The parser guards (maxSections, maxBytes, maxContentLength, maxCsvRows) are kept exactly as the donor defaulted them and are overridable per request."
+  ],
+  "deferred": [
+    "D4b: YAML/yml intake (needs the external parser isolated inside this building).",
+    "DOCX/XLSX/PDF readers: they belong to the same building but are separate wave-2 work; the donor's docx-reader.ts, xlsx-reader.ts and pdf-reader.ts are untouched."
+  ],
+  "knownDifferences": [
+    "No persistence and no knowledge write: the module is pure and the incubator kept documents in the page only.",
+    "No OCR, no PDF text extraction, no spreadsheet workbook model.",
+    "Sections are emitted with offsets into the decoded text; the donor's downstream identity/hashing/redaction pipeline is not part of this module."
+  ],
+  "parity": {
+    "vectorSource": "Codex-Boss electron/ingestion/text-parsers.ts and xml-text.ts @ 8df428eaa437a409368401e95194e40266b83080",
+    "vectors": [
+      "UTF-8 BOM, UTF-16LE BOM, UTF-16BE BOM and strict-UTF-8 validation with a warned lossy fallback",
+      "markdown section splitting: ATX and setext headings, bullets, numbered items, fenced code blocks, key/value lines",
+      "plain-text Chinese numbered headings (一、二、) becoming HEADING sections",
+      "JSON parse, JSON Lines detection, empty/corrupt input refusal and the YAML deferral message",
+      "structured flattening to headed sections and the deterministic YAML-ish rendering",
+      "RFC4180-ish CSV: quoted fields, escaped quotes, embedded newlines, CRLF, row cap and unterminated-quote warning",
+      "delimiter detection by extension and by sampling",
+      "table section grouping by the first column label and the maxColumns cap",
+      "XML entity decoding (named, decimal, hex, invalid left alone, decoded exactly once)",
+      "XML text-run extraction and block matching",
+      "parser guards: maxBytes and maxContentLength produce TOO_LARGE"
+    ]
+  }
+}

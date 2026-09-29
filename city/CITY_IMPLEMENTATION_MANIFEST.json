@@ -71,8 +71,15 @@
               "zh": "摄入内核",
               "en": "Ingestion Core",
               "path": "city/09-planning-knowledge/02-document-intake/ingestion-core",
-              "lifecycle": "PLANNED",
-              "donor": null,
+              "lifecycle": "PROMOTED",
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/Codex-Boss",
+                "commit": "8df428eaa437a409368401e95194e40266b83080",
+                "sourcePaths": [
+                  "electron/ingestion/xml-text.ts",
+                  "electron/ingestion/text-parsers.ts"
+                ]
+              },
               "roomId": "document-intake-lab"
             }
           ]

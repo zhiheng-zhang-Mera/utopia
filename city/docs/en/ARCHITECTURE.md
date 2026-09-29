@@ -70,14 +70,19 @@ city/
 ├── test-all.mjs
 ├── docs/{zh-CN,en}/ARCHITECTURE.md
 ├── 00-foundation/
-│   └── 01-city-core/
-│       ├── root-authority/
-│       ├── task-lifecycle/
-│       ├── fleet-routing/
-│       └── audit-ledger/
+│   ├── 01-city-core/
+│   │   ├── root-authority/
+│   │   ├── task-lifecycle/
+│   │   ├── fleet-routing/
+│   │   └── audit-ledger/
+│   └── 03-capability-fabric/
+│       └── capability-fabric/
 ├── 02-engineering/
 │   └── 02-worker-gateway/
 │       └── skill-intake/
+├── 06-research/
+│   └── 01-research-institute/
+│       └── evidence-engine/
 ├── 09-planning-knowledge/
 │   ├── 01-knowledge-service/
 │   │   └── knowledge-core/
@@ -93,9 +98,12 @@ city/
 
 | District | Building | Module | Donor source |
 | --- | --- | --- | --- |
+| `00-foundation` City Foundation | `03-capability-fabric` Capability Fabric | `capability-fabric` | DS-Hns `app/core/{capability-registry,plugin-manager,health-supervisor,lockfile,contracts/capability}.cjs` + Codex-Boss `src/shared/{provider-contracts,provider-outcome,provider-state,capability-router}.ts` |
 | `02-engineering` Engineering Works | `02-worker-gateway` Worker Gateway | `skill-intake` | DS-Hns `app/extensions/mega/skills/*` |
+| `06-research` Research | `01-research-institute` Research Institute | `evidence-engine` | Codex-Boss `electron/evidence-engine.ts` |
 | `09-planning-knowledge` Planning & Knowledge | `01-knowledge-service` Knowledge Service | `knowledge-core` | Codex-Boss `src/shared/knowledge.ts` |
 | `09-planning-knowledge` Planning & Knowledge | `02-document-intake` Document Intake | `ingestion-core` | Codex-Boss `electron/ingestion/*` |
+| `09-planning-knowledge` Planning & Knowledge | `02-document-intake` Document Intake | `document-readers` | Codex-Boss `electron/ingestion/{docx,xlsx,pdf}-reader.ts` |
 | `11-entertainment` Entertainment | `01-entertainment-centre` Entertainment Centre | `theme-engine` | DS-Hns `app/extensions/mega/theme/*` |
 
 ### MB-001 City Core table

@@ -30,14 +30,16 @@ import {
  *
  * This list is a census, not an aspiration: each entry must have real code in the
  * tree. The wave-1 modules are followed by the modules migrated by the Digital-City
- * mission-book control plane (MB-001's City Core, MB-003's Worker Gateway and MB-006's
- * Restart Recovery Station) rather than incubated in the Room Pack.
+ * mission-book control plane — MB-001's City Core, MB-002's Capability Fabric, MB-003's
+ * Worker Gateway and MB-006's Restart Recovery Station — rather than incubated in the
+ * Room Pack.
  */
 const EXPECTED_MODULES = [
   'city/00-foundation/01-city-core/root-authority',
   'city/00-foundation/01-city-core/task-lifecycle',
   'city/00-foundation/01-city-core/fleet-routing',
   'city/00-foundation/01-city-core/audit-ledger',
+  'city/00-foundation/03-capability-fabric/capability-fabric',
   'city/02-engineering/02-worker-gateway/skill-intake',
   'city/02-engineering/04-restart-recovery-station/restart-protocol',
   'city/02-engineering/04-restart-recovery-station/restart-lock',
@@ -224,14 +226,21 @@ test('the manifest rejects malformed hierarchy, paths and lifecycles', async () 
       return next;
     }],
     ['one incubation room claimed by two modules', () => {
+      // The first district is 00-foundation, which is not the district that
+      // owns skill-intake-lab, so the shared room is read from the first
+      // module's own declaration rather than hard-coded. The rule under test is
+      // cross-module exclusivity, not which room happens to come first.
       const next = clone();
-      // addressed by id, not by index: adding a district must not silently turn this
-      // case into "a module claims its own room", which is legal and would not throw
+      // Addressed by id, not by index: adding a district must not silently turn
+      // this case into "a module claims its own room", which is legal and would
+      // not throw. The shared room is taken from the first module's own
+      // declaration rather than hard-coded, so the case survives a rename.
+      const claimed = next.districts[0].buildings[0].modules[0].incubationRooms[0];
       const other = next.districts
         .find((district) => district.id === '06-research')
         .buildings.find((building) => building.id === '01-research-institute')
         .modules.find((module) => module.id === 'evidence-engine');
-      other.incubationRooms = ['skill-intake-lab'];
+      other.incubationRooms = [claimed];
       return next;
     }],
     ['an empty incubation room entry', () => {

@@ -40,7 +40,6 @@ test('future promoted module stays pending and all five existing adapters still 
  assert.equal(catalog.length,baseline.length+1,'exactly one descriptor is added, and it is the future module');
  assert.equal(catalog.filter(c=>c.bridgeState==='AVAILABLE').length,5,'the five existing adapters are unaffected');
  assert.equal(catalog.filter(c=>c.bridgeState==='AVAILABLE').length,baseline.filter(c=>c.bridgeState==='AVAILABLE').length);
- assert.equal(catalog.filter(c=>c.bridgeState==='AVAILABLE').length,baseline.filter(c=>c.bridgeState==='AVAILABLE').length);
  const inputs={document:{fileName:'sample.txt',base64:Buffer.from('Utopia').toString('base64')},knowledge:{entries:[],query:'Utopia'},skill:{ref:'owner/repo'},evidence:{sample:true},theme:{seed:'future-module-check'}};for(const descriptor of catalog.filter(c=>c.bridgeState==='AVAILABLE'))assert.ok(await invokeAdapter(descriptor.capabilityId,descriptor.operations[0].operationId,inputs[descriptor.inputKind]));
 });
 test('malformed and oversized inputs have explicit refusals',async()=>{

@@ -9,7 +9,7 @@ const documentBuilding=m=>district(m,'09-planning-knowledge').buildings.find(b=>
 const intake=m=>registry(m).find(c=>c.capabilityId==='planning.document.intake');
 // The fixtures below address districts by id and keep their counts relative to the
 // current census: every City Mission that declares a new district or building would
-// otherwise break them, as three of them already did.
+// otherwise break them, as several already did.
 const unbridged=m=>registry(m).filter(c=>c.inputKind==='unavailable');
 test('qualified identities keep duplicate names independent and cannot replace missing dependencies',()=>{
  const m=load();const baseline=unbridged(m).length;
@@ -28,8 +28,12 @@ test('registry restricts mixed module lifecycle and exposes every dependency lif
 });
 test('unbridged duplicate module names receive different qualified capability IDs',()=>{
  const m=load();
+ // 09-planning-knowledge has two buildings, so "a duplicate module name in a
+ // second building" is genuinely exercised. Pointing this fixture at the LAST
+ // district silently reduced it to a one-element set, which made the uniqueness
+ // assertion below unable to fail — the exact weakening this repair undoes.
  const buildings=district(m,'09-planning-knowledge').buildings.length;
- assert.equal(buildings,2,'the fixture expects the two buildings of 09-planning-knowledge');
+ assert.equal(buildings,2,'the fixture needs a district with two buildings for this property to be real');
  for(const b of district(m,'09-planning-knowledge').buildings)b.modules.push({id:'parser',lifecycle:'PROMOTED'});
  const added=unbridged(m).filter(c=>c.capabilityId.endsWith('/parser'));
  assert.equal(added.length,buildings);

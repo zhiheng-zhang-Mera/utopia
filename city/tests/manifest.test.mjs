@@ -42,6 +42,7 @@ const EXPECTED_MODULES = [
   'city/00-foundation/03-capability-fabric/capability-fabric',
   'city/02-engineering/01-project-foreman/project-foreman',
   'city/02-engineering/02-worker-gateway/skill-intake',
+  'city/02-engineering/03-host-health-station/host-health-station',
   'city/02-engineering/04-restart-recovery-station/restart-protocol',
   'city/02-engineering/04-restart-recovery-station/restart-lock',
   'city/02-engineering/04-restart-recovery-station/checkpoint-gate',

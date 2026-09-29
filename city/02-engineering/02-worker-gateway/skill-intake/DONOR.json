@@ -7,16 +7,24 @@
     "skill-intake-lab",
     "skill-discovery-lab"
   ],
-  "roomSources": {
-    "skill-intake-lab": [
-      "app/extensions/mega/skills/skill-format.js",
-      "app/extensions/mega/skills/tar.js"
-    ],
-    "skill-discovery-lab": [
-      "app/extensions/mega/skills/skill-source.js",
-      "app/extensions/mega/skills/skill-catalog.js"
-    ]
-  },
+  "waves": [
+    {
+      "wave": "D1",
+      "room": "skill-intake-lab",
+      "sourcePaths": [
+        "app/extensions/mega/skills/skill-format.js",
+        "app/extensions/mega/skills/tar.js"
+      ]
+    },
+    {
+      "wave": "D5",
+      "room": "skill-discovery-lab",
+      "sourcePaths": [
+        "app/extensions/mega/skills/skill-source.js",
+        "app/extensions/mega/skills/skill-catalog.js"
+      ]
+    }
+  ],
   "repository": "zhiheng-zhang-Mera/DS-Hns",
   "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
   "sourcePaths": [

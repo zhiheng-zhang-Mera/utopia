@@ -227,11 +227,12 @@ test('provenance stays honest: DONOR.json pins the donor and records the adaptat
   // one module, two incubation rooms: the wave 1 format and archive core (D1) and
   // the wave 2 source and catalog core (D5)
   assert.deepEqual(donor.incubationRooms, ['skill-intake-lab', 'skill-discovery-lab']);
-  assert.deepEqual(donor.roomSources['skill-intake-lab'], [
+  assert.deepEqual(donor.waves.map((entry) => [entry.wave, entry.room]), [['D1', 'skill-intake-lab'], ['D5', 'skill-discovery-lab']]);
+  assert.deepEqual(donor.waves[0].sourcePaths, [
     'app/extensions/mega/skills/skill-format.js',
     'app/extensions/mega/skills/tar.js',
   ]);
-  assert.deepEqual(donor.roomSources['skill-discovery-lab'], [
+  assert.deepEqual(donor.waves[1].sourcePaths, [
     'app/extensions/mega/skills/skill-source.js',
     'app/extensions/mega/skills/skill-catalog.js',
   ]);

@@ -1,0 +1,75 @@
+[
+  {
+    "mode": "qr",
+    "run": 1,
+    "codeSha": "5dd62e4f48e54ef83fad4c8fa4c36759368edcaa",
+    "driverSha256": "9820a758f527e628394cf6b540649b5f2928191672fc309ba528130a27a3d907",
+    "workingTreeDirty": false,
+    "apkSha256": "ec30b0829a242aac05e604d3ade1aa5e91da2bbe45d22d4d9b5bcef222a5c9a7",
+    "startTimestamp": "2026-09-29T04:54:42.775Z",
+    "discoveryTimestamp": null,
+    "pairingSubmittedTimestamp": null,
+    "authenticatedTimestamp": null,
+    "snapshotLoadedTimestamp": null,
+    "websocketOnlineTimestamp": null,
+    "trialId": null,
+    "success": false,
+    "errorClass": "VISIBLE_PAIRING_DISPLAY_REFRESH_TIMEOUT",
+    "driver": "ADB onboarding plus physical camera; no QR injection",
+    "cameraLaunchRequestedAt": null,
+    "displayGeometry": {
+      "displayScale": 2,
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "qrBox": {
+        "x": 197,
+        "y": 295,
+        "width": 480,
+        "height": 720
+      },
+      "scope": "Operator QR display only; center preserved during scaling"
+    },
+    "stage": "CLEAR_PAIRING",
+    "driverErrorCode": null,
+    "driverExitStatus": null,
+    "driverSignal": null,
+    "endTimestamp": "2026-09-29T04:55:22.969Z"
+  },
+  {
+    "mode": "qr",
+    "run": 2,
+    "codeSha": "baceb0ce6b8eab8b04d071499ad7facecc5a2b40",
+    "driverSha256": "9820a758f527e628394cf6b540649b5f2928191672fc309ba528130a27a3d907",
+    "workingTreeDirty": false,
+    "apkSha256": "ec30b0829a242aac05e604d3ade1aa5e91da2bbe45d22d4d9b5bcef222a5c9a7",
+    "startTimestamp": "2026-09-29T04:57:36.671Z",
+    "discoveryTimestamp": "2026-09-29T04:58:08.247478Z",
+    "pairingSubmittedTimestamp": "2026-09-29T04:58:08.252242Z",
+    "authenticatedTimestamp": "2026-09-29T04:58:08.319028Z",
+    "snapshotLoadedTimestamp": "2026-09-29T04:58:08.425453Z",
+    "websocketOnlineTimestamp": "2026-09-29T04:58:08.539593Z",
+    "trialId": "cadb4704-0ab2-4cc8-b9a8-87a49b0d63ca",
+    "success": true,
+    "errorClass": null,
+    "driver": "ADB onboarding plus physical camera; no QR injection",
+    "cameraLaunchRequestedAt": "2026-09-29T04:58:08.386Z",
+    "displayGeometry": {
+      "displayScale": 2,
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "qrBox": {
+        "x": 197,
+        "y": 295,
+        "width": 480,
+        "height": 720
+      },
+      "scope": "Operator QR display only; center preserved during scaling"
+    },
+    "stage": "CAMERA_LAUNCHED",
+    "endTimestamp": "2026-09-29T04:58:10.505Z"
+  }
+]

@@ -1,0 +1,32 @@
+{
+  "sourceFile": "pre-apk-provenance-task-regression.json",
+  "installedApkHashMissingInOriginal": true,
+  "provenanceNote": "Original record lacks an installed APK hash. No hash has been assigned retrospectively.",
+  "sourceSha256": "4448917be4d6b4469dc1a4b1a1905f9ff5cbc83d7222b3a88d0861d44559cb99",
+  "applicability": "Historical or driver evidence, not final candidate passes",
+  "record": {
+    "codeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+    "startedAt": "2026-09-29T02:41:25.366Z",
+    "completedAt": "2026-09-29T02:41:37.440Z",
+    "taskId": "Q-bc0b95ec-2b6a-49b6-9dab-c6f85163b3f4",
+    "state": "COMPLETED",
+    "androidShowsTaskAndCompletion": true,
+    "webShowsTaskAndCompletion": true,
+    "eventTypes": [
+      "COMMAND_ACCEPTED",
+      "TASK_CREATED",
+      "TASK_ASSIGNED",
+      "TASK_STARTED",
+      "TASK_CHECKPOINTED",
+      "TASK_CHECKPOINTED",
+      "TASK_COMPLETED"
+    ],
+    "resultAvailable": true,
+    "checkpointAvailable": true,
+    "scope": "Android UI submitted task; real reference node; Web UI observes same task identity and completion",
+    "artifactSha256": "5ffcf9f73c65b7de24949957036ad38b71ac695d14d66d8ca23acfb0f9faa75a",
+    "androidResultMatches": true,
+    "webResultMatches": true,
+    "success": true
+  }
+}

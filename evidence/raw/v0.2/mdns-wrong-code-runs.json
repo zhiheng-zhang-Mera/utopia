@@ -1,0 +1,26 @@
+[
+  {
+    "mode": "mdns",
+    "scenario": "wrong-code",
+    "run": 1,
+    "codeSha": "5410fa8ade8c671189cd37bff0d2c34de8b55c6f",
+    "apkSha256": "7acd40e0d1d39b412b4cbd0e916cb2b66c38a2c944f0914f598cb4a9fbf85451",
+    "start": "2026-09-29T03:05:45.212Z",
+    "end": "2026-09-29T03:07:17.345Z",
+    "success": true,
+    "errorClass": null,
+    "driver": "ADB UI; no discovery injection"
+  },
+  {
+    "mode": "mdns",
+    "scenario": "wrong-code",
+    "run": 2,
+    "codeSha": "5410fa8ade8c671189cd37bff0d2c34de8b55c6f",
+    "apkSha256": "7acd40e0d1d39b412b4cbd0e916cb2b66c38a2c944f0914f598cb4a9fbf85451",
+    "start": "2026-09-29T03:07:17.346Z",
+    "end": "2026-09-29T03:08:58.759Z",
+    "success": true,
+    "errorClass": null,
+    "driver": "ADB UI; no discovery injection"
+  }
+]

@@ -1,0 +1,33 @@
+{
+  "observedAt": "2026-09-29T04:19:40.7902892Z",
+  "codeSha": "e1884e30d8667ee0f7eb0aada9d38e171cba9d8d",
+  "apkSha256": "e72d249efa92bf4da666f2f4066605a624086edf680105c9a0d6df357519e4e7",
+  "command": "gradlew :app:testDebugUnitTest :app:assembleDebug",
+  "success": true,
+  "suites": [
+    {
+      "suite": "city.utopia.control.CallbackFenceTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "suite": "city.utopia.control.PairingProtocolTest",
+      "tests": 8,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "suite": "city.utopia.control.ProtocolTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0
+    },
+    {
+      "suite": "city.utopia.control.ScanZoomPolicyTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0
+    }
+  ]
+}

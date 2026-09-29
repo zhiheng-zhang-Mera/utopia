@@ -1,0 +1,842 @@
+{
+  "codeSha": "2607912f85c22f6075367dc0eff1c45a58d75419",
+  "driverSha256": "8b9c4ec2bc162770884457941df4b619fca15d1d82d8d451b6ac714400440d87",
+  "workingTreeDirty": false,
+  "apkSha256": "ec30b0829a242aac05e604d3ade1aa5e91da2bbe45d22d4d9b5bcef222a5c9a7",
+  "startedAt": "2026-09-29T04:22:16.224Z",
+  "driver": "ADB onboarding plus physical camera; no QR or descriptor injection",
+  "scope": "Expired QR: two physical scans share one genuinely expired five-minute session. Replaced QR: two independent original sessions, each replaced before scanning.",
+  "fakeClock": false,
+  "shortenedTtl": false,
+  "runs": [
+    {
+      "kind": "expired",
+      "run": 1,
+      "codeSha": "2607912f85c22f6075367dc0eff1c45a58d75419",
+      "apkSha256": "ec30b0829a242aac05e604d3ade1aa5e91da2bbe45d22d4d9b5bcef222a5c9a7",
+      "driverStartTimestamp": "2026-09-29T04:27:18.760Z",
+      "cameraLaunchRequestedAt": "2026-09-29T04:27:51.962Z",
+      "trialId": "ad7d6dbd-8017-4fd0-8e9e-e417bb274131",
+      "rejectionObservedAt": null,
+      "returnedToMainActivity": false,
+      "uiRejectionObserved": false,
+      "noAuthenticationObserved": null,
+      "success": false,
+      "errorClass": "NO_EXPECTED_CAMERA_REJECTION_OBSERVED",
+      "stage": "CAMERA_LAUNCHED",
+      "sharedExpiredSession": true,
+      "sessionGroup": "expired-shared-1",
+      "createdAt": "2026-09-29T04:22:17.243Z",
+      "expiresAt": "2026-09-29T04:27:17.243Z",
+      "scanPreparationElapsedMs": 301517,
+      "unexpiredAtCameraLaunchRequested": null,
+      "cameraLaunchCompletedAt": "2026-09-29T04:27:52.121Z",
+      "driverExitStatus": null,
+      "cameraZoomObservations": [
+        {
+          "timestamp": "2026-09-29T04:27:53.642350Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:27:55.842994Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:27:58.043958Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:00.244471Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:02.447632Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:04.661460Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:06.863447Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:09.063327Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:11.268085Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:13.469930Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:15.669099Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:17.871209Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:20.070156Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:22.270853Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:24.473796Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:26.674107Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:28.874068Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:31.074338Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:33.275292Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:35.489718Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:37.688864Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:39.890731Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:42.090840Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:44.291264Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:46.491026Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:48.691897Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:50.894083Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:53.093493Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:55.293886Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:57.503794Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:28:59.695198Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:29:01.896550Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:29:04.097683Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:29:06.298073Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:29:08.499700Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:29:10.699794Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:29:12.900018Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:29:15.101748Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:29:17.309173Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:29:19.501744Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:29:21.703820Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:29:23.904831Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:29:26.106041Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:29:28.306234Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:29:30.506927Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:29:32.708503Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:29:34.909288Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:29:37.109520Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:29:39.310547Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:29:41.510236Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:29:43.710883Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:29:45.911809Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:29:48.117644Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:29:50.313935Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        }
+      ],
+      "driverEndTimestamp": "2026-09-29T04:29:52.555Z"
+    },
+    {
+      "kind": "replaced",
+      "run": 1,
+      "codeSha": "2607912f85c22f6075367dc0eff1c45a58d75419",
+      "apkSha256": "ec30b0829a242aac05e604d3ade1aa5e91da2bbe45d22d4d9b5bcef222a5c9a7",
+      "driverStartTimestamp": "2026-09-29T04:30:07.815Z",
+      "cameraLaunchRequestedAt": "2026-09-29T04:30:39.188Z",
+      "trialId": "da3afe6e-d2aa-434a-b62c-5272c56bd5a2",
+      "rejectionObservedAt": null,
+      "returnedToMainActivity": false,
+      "uiRejectionObserved": false,
+      "noAuthenticationObserved": null,
+      "success": false,
+      "errorClass": "NO_EXPECTED_CAMERA_REJECTION_OBSERVED",
+      "stage": "CAMERA_LAUNCHED",
+      "sharedExpiredSession": false,
+      "sessionGroup": "replaced-independent-1",
+      "createdAt": "2026-09-29T04:29:52.779Z",
+      "expiresAt": "2026-09-29T04:34:52.779Z",
+      "replacedBeforeScan": true,
+      "unexpiredAtCameraLaunchRequested": true,
+      "cameraLaunchCompletedAt": "2026-09-29T04:30:39.332Z",
+      "driverExitStatus": null,
+      "cameraZoomObservations": [
+        {
+          "timestamp": "2026-09-29T04:30:40.863398Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:30:43.065752Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:30:45.265236Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:30:47.465866Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:30:49.666784Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:30:51.867940Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:30:54.068523Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:30:56.270975Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:30:58.472276Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:31:00.674336Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:31:02.873397Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:31:05.073772Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:31:07.273717Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:31:09.476386Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:31:11.678288Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:31:13.878379Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:31:16.078811Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:31:18.278542Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:31:20.479974Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:31:22.686639Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:31:24.882771Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:31:27.081328Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:31:29.280887Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:31:31.480638Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:31:33.681482Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:31:35.882383Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:31:38.084118Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:31:40.281482Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:31:42.483276Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:31:44.682458Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:31:46.882540Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:31:49.084190Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:31:51.283468Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:31:53.491695Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:31:55.685361Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:31:57.888686Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:32:00.088493Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:32:02.289870Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:32:04.492647Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:32:06.698184Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:32:08.898083Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:32:11.093837Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:32:13.293532Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:32:15.494272Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:32:17.694835Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:32:19.894119Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:32:22.094368Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:32:24.294893Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:32:26.495432Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:32:28.696650Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:32:30.897995Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:32:33.099996Z",
+          "supported": true,
+          "observedRatioPercent": 100,
+          "requestedRatioPercent": 145,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:32:35.298Z",
+          "supported": true,
+          "observedRatioPercent": 145,
+          "requestedRatioPercent": 200,
+          "focusMode": "continuous-picture"
+        },
+        {
+          "timestamp": "2026-09-29T04:32:37.502799Z",
+          "supported": true,
+          "observedRatioPercent": 200,
+          "requestedRatioPercent": 100,
+          "focusMode": "continuous-picture"
+        }
+      ],
+      "driverEndTimestamp": "2026-09-29T04:32:40.272Z"
+    }
+  ],
+  "displayGeometry": {
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "qrBox": {
+      "x": 317,
+      "y": 464,
+      "width": 240,
+      "height": 360
+    },
+    "source": "Measured real authenticated Web pairing QR before test-session creation",
+    "windowPosition": "Browser default; physical alignment still requires confirmation"
+  },
+  "finishedAt": "2026-09-29T04:32:40.704Z",
+  "status": "INCOMPLETE",
+  "driverHashMissingInOriginal": false,
+  "sourceDirectory": "qr-negative-2026-09-29T04-22-16.133Z",
+  "sourceRunsSha256": "fd2f47af06933a347641e66280a5ffcb327ede61f5505304a1ae3412b19fdd3f"
+}

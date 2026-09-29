@@ -1,4 +1,4 @@
-name: V0 checks
+name: V0.2 checks
 on: [push, pull_request]
 jobs:
   gateway-web:

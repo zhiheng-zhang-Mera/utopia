@@ -1,0 +1,19 @@
+{
+  "observedAt": "2026-09-29T04:04:43.190Z",
+  "codeSha": "5855a927e42ae2945728f509a7b4ef07bcd372bf",
+  "apkSha256": "7acd40e0d1d39b412b4cbd0e916cb2b66c38a2c944f0914f598cb4a9fbf85451",
+  "manualRestorationPassed": true,
+  "cityStatus": "ONLINE",
+  "nodes": [
+    {
+      "displayName": "Alien-PC",
+      "online": true,
+      "lastHeartbeatAt": "2026-09-29T04:04:42.343Z"
+    }
+  ],
+  "discovery": {
+    "mdns": "ACTIVE",
+    "ble": "ACTIVE"
+  },
+  "scope": "Host snapshot after separately recorded manual UI restoration; not an Android screenshot"
+}

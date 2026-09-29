@@ -1,0 +1,11 @@
+{"trialId":"618ad127-8560-4f00-a5af-621bfb6d410e","mode":"qr","event":"start","timestamp":"2026-09-29T04:37:41.727455Z","userActions":0,"retryCount":0}
+{"trialId":"618ad127-8560-4f00-a5af-621bfb6d410e","mode":"qr","event":"action","timestamp":"2026-09-29T04:37:41.728313Z","userActions":1,"retryCount":0}
+{"trialId":"618ad127-8560-4f00-a5af-621bfb6d410e","mode":"qr","event":"discovery","timestamp":"2026-09-29T04:37:43.074295Z","userActions":1,"retryCount":0}
+{"trialId":"618ad127-8560-4f00-a5af-621bfb6d410e","mode":"qr","event":"action","timestamp":"2026-09-29T04:37:43.076073Z","userActions":2,"retryCount":0}
+{"trialId":"618ad127-8560-4f00-a5af-621bfb6d410e","mode":"qr","event":"pairingSubmitted","timestamp":"2026-09-29T04:37:43.077507Z","userActions":2,"retryCount":0}
+{"trialId":"618ad127-8560-4f00-a5af-621bfb6d410e","mode":"qr","event":"authenticated","timestamp":"2026-09-29T04:37:43.102598Z","userActions":2,"retryCount":0}
+{"trialId":"618ad127-8560-4f00-a5af-621bfb6d410e","mode":"qr","event":"authenticated","timestamp":"2026-09-29T04:37:43.212913Z","userActions":2,"retryCount":0}
+{"trialId":"618ad127-8560-4f00-a5af-621bfb6d410e","mode":"qr","event":"snapshotLoaded","timestamp":"2026-09-29T04:37:43.215417Z","userActions":2,"retryCount":0}
+{"trialId":"618ad127-8560-4f00-a5af-621bfb6d410e","mode":"qr","event":"connection_RECONNECTING","timestamp":"2026-09-29T04:37:43.222509Z","userActions":2,"retryCount":0}
+{"trialId":"618ad127-8560-4f00-a5af-621bfb6d410e","mode":"qr","event":"connection_ONLINE","timestamp":"2026-09-29T04:37:43.293689Z","userActions":2,"retryCount":0}
+{"trialId":"618ad127-8560-4f00-a5af-621bfb6d410e","mode":"qr","event":"websocketOnline","timestamp":"2026-09-29T04:37:43.295152Z","userActions":2,"retryCount":0}

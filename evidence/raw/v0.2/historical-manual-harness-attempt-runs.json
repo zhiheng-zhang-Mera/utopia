@@ -1,0 +1,19 @@
+{
+  "sourceFile": "manual-harness-attempt-runs.json",
+  "sourceSha256": "20e0cd7777e17ed605d322a73925442e0951f3b7a74b85edba7478c7065cb18f",
+  "applicability": "Historical or driver evidence, not final candidate passes",
+  "record": [
+    {
+      "mode": "manual",
+      "scenario": "pairing",
+      "run": 1,
+      "codeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+      "apkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+      "start": "2026-09-29T02:11:36.028Z",
+      "end": "2026-09-29T02:13:06.254Z",
+      "success": false,
+      "errorClass": "Online device timeout",
+      "driver": "ADB UI; no discovery injection"
+    }
+  ]
+}

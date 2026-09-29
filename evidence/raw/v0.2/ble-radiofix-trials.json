@@ -1,0 +1,32 @@
+[
+  {
+    "mode": "ble",
+    "scenario": "radiofix",
+    "run": 1,
+    "codeSha": "5410fa8ade8c671189cd37bff0d2c34de8b55c6f",
+    "apkSha256": "7acd40e0d1d39b412b4cbd0e916cb2b66c38a2c944f0914f598cb4a9fbf85451",
+    "start": "2026-09-29T03:09:22.890Z",
+    "end": "2026-09-29T03:10:47.539Z",
+    "success": true,
+    "errorClass": null,
+    "driver": "ADB UI; no discovery injection",
+    "trialId": "f18126ff-8e12-456b-b84b-94ba76ef1ea3",
+    "driverStartTimestamp": "2026-09-29T03:09:22.890Z",
+    "driverEndTimestamp": "2026-09-29T03:10:47.539Z",
+    "startTimestamp": "2026-09-29T03:09:46.538859Z",
+    "discoveryTimestamp": "2026-09-29T03:09:46.611852Z",
+    "pairingSubmittedTimestamp": "2026-09-29T03:10:38.678862Z",
+    "authenticatedTimestamp": "2026-09-29T03:10:38.695284Z",
+    "snapshotLoadedTimestamp": "2026-09-29T03:10:38.755775Z",
+    "websocketOnlineTimestamp": "2026-09-29T03:10:38.837268Z",
+    "userActions": 3,
+    "retryCount": 0,
+    "observationEndedAt": "2026-09-29T03:10:47.539Z",
+    "sourceFile": "ble-radiofix-runs.json",
+    "sourceSha256": "1e94ebe70a39e20d015af9a8e783ee2dadfafd5382aee5c2e422d734383652ae",
+    "eventAssociationObserved": true,
+    "discoveryLatencyMs": 73,
+    "pairingExchangeLatencyMs": 17,
+    "timeToOnlineMs": 52299
+  }
+]

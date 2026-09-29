@@ -1,4 +1,4 @@
-param([string]$BindAddress = '127.0.0.1', [int]$Port = 4310)
+param([string]$BindAddress = '127.0.0.1', [int]$Port = 4310, [switch]$DisableDiscovery, [switch]$DisableTelemetry)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $runtime = Join-Path $root '.runtime'
@@ -16,6 +16,8 @@ $env:CITY_TOKEN = $config.token
 $env:CITY_NODE_TOKEN = $config.nodeToken
 $env:CITY_DATA = $runtime
 $env:CITY_WORKSPACE = Join-Path $runtime 'workspace'
+$env:CITY_DISCOVERY_DISABLED = if ($DisableDiscovery) { '1' } else { '0' }
+$env:CITY_TELEMETRY_DISABLED = if ($DisableTelemetry) { '1' } else { '0' }
 $node = (Get-Command node).Source
 $gateway = Start-Process -FilePath $node -ArgumentList 'services/dev-gateway/main.mjs' -WorkingDirectory $root -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $runtime 'gateway.log') -RedirectStandardError (Join-Path $runtime 'gateway-error.log')
 try {
@@ -28,4 +30,6 @@ try {
     $agent = Start-Process -FilePath $node -ArgumentList 'agents/reference-node/main.mjs' -WorkingDirectory $root -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $runtime 'agent.log') -RedirectStandardError (Join-Path $runtime 'agent-error.log')
     @{ gatewayPid = $gateway.Id; agentPid = $agent.Id; url = $env:CITY_URL } | ConvertTo-Json | Set-Content (Join-Path $runtime 'processes.json')
     Write-Output "City running at $env:CITY_URL; private pairing token: .runtime/local-config.json (token)."
+    Write-Output "Pairing page: $env:CITY_URL/pairing (sign in, then generate a short-lived QR/code)."
+    Write-Output 'Device Center shows reference-node telemetry and current mDNS/Bluetooth status. LAN DEVELOPMENT ONLY; NOT FOR PUBLIC INTERNET.'
 } catch { if (!$gateway.HasExited) { Stop-Process -Id $gateway.Id }; throw }

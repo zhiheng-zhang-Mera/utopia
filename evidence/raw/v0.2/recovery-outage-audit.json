@@ -1,0 +1,328 @@
+{
+  "schemaVersion": 1,
+  "kind": "EXISTING_RECOVERY_OUTAGE_FRAME_AUDIT",
+  "generatedAt": "2026-09-29T03:07:42.778Z",
+  "scope": "Read-only re-evaluation of nine previously recorded confirmed-outage frames; no device operations or new trials.",
+  "method": {
+    "frameAssociation": "For each kind/run, read kind-run-offline.xml and the observation whose at equals offlineObservedAt in kind-recovery.json.",
+    "nodeExtractionRegex": "<node\\s+([^>]+)>",
+    "appPackageRegex": "package=\"city\\.utopia\\.control\"",
+    "uiPresenceRegex": "text=\"UTOPIA\"",
+    "stateRegex": "text=\"(ONLINE|OFFLINE|UNKNOWN|RECONNECTING)[^\"]*\"",
+    "statusMatches": "Extracted app-package state array must exactly equal the recorded observation android array, including order.",
+    "wifiAndGateway": "Require Utopia UI, at least one OFFLINE/UNKNOWN/RECONNECTING, and no ONLINE; gateway additionally requires recorded Web node UNKNOWN.",
+    "node": "Require Utopia UI and Android OFFLINE plus recorded Web node OFFLINE; client ONLINE is allowed while the node is offline.",
+    "hashAlgorithm": "SHA-256 over exact source-file bytes",
+    "sourcePathBase": "evidence/raw/v0.2"
+  },
+  "limitations": [
+    "This audit confirms saved outage observations only; it does not establish continuously absent stale-green or outage-detection latency.",
+    "XML and JSON association follows the original collector naming and offlineObservedAt; hashes bind the audited bytes, not an independently timestamped capture.",
+    "Historical code/APK metadata is copied exactly as recorded; no current APK hash is assigned to historical trials."
+  ],
+  "status": "PASS",
+  "counts": {
+    "expected": 9,
+    "audited": 9,
+    "passed": 9
+  },
+  "rows": [
+    {
+      "kind": "wifi",
+      "run": 1,
+      "sources": [
+        {
+          "file": "wifi-recovery.json",
+          "sha256": "2ee01b6b02c6c53fe59b0e811922409865e91e6c9ef235f3955a85c98b7eb3b8"
+        },
+        {
+          "file": "wifi-1-offline.xml",
+          "sha256": "4e736083e612d9f7616aff9726e2a239a58fc9c2d587b4abb2257f95cef3b668"
+        }
+      ],
+      "recordedCodeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+      "recordedApkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+      "offlineObservedAt": "2026-09-29T02:33:33.908Z",
+      "matchingRecordedObservationFound": true,
+      "androidUiPresent": true,
+      "extractedAppStates": [
+        "OFFLINE",
+        "UNKNOWN"
+      ],
+      "recordedAppStates": [
+        "OFFLINE",
+        "UNKNOWN"
+      ],
+      "statusMatches": true,
+      "explicitOutage": true,
+      "recordedWebNode": null,
+      "webPredicate": true,
+      "strongerPredicate": true,
+      "pass": true
+    },
+    {
+      "kind": "wifi",
+      "run": 2,
+      "sources": [
+        {
+          "file": "wifi-recovery.json",
+          "sha256": "2ee01b6b02c6c53fe59b0e811922409865e91e6c9ef235f3955a85c98b7eb3b8"
+        },
+        {
+          "file": "wifi-2-offline.xml",
+          "sha256": "352032610c33ce3ec553befd29610628552b92377208566d1bf6ca3ff5c82e9b"
+        }
+      ],
+      "recordedCodeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+      "recordedApkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+      "offlineObservedAt": "2026-09-29T02:33:52.108Z",
+      "matchingRecordedObservationFound": true,
+      "androidUiPresent": true,
+      "extractedAppStates": [
+        "OFFLINE",
+        "UNKNOWN"
+      ],
+      "recordedAppStates": [
+        "OFFLINE",
+        "UNKNOWN"
+      ],
+      "statusMatches": true,
+      "explicitOutage": true,
+      "recordedWebNode": null,
+      "webPredicate": true,
+      "strongerPredicate": true,
+      "pass": true
+    },
+    {
+      "kind": "wifi",
+      "run": 3,
+      "sources": [
+        {
+          "file": "wifi-recovery.json",
+          "sha256": "2ee01b6b02c6c53fe59b0e811922409865e91e6c9ef235f3955a85c98b7eb3b8"
+        },
+        {
+          "file": "wifi-3-offline.xml",
+          "sha256": "95ad6f729d59336901be639ee1ae2c06d7dfaa66c467ceaaa7cf6d21e8b7550b"
+        }
+      ],
+      "recordedCodeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+      "recordedApkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+      "offlineObservedAt": "2026-09-29T02:34:10.119Z",
+      "matchingRecordedObservationFound": true,
+      "androidUiPresent": true,
+      "extractedAppStates": [
+        "RECONNECTING",
+        "UNKNOWN"
+      ],
+      "recordedAppStates": [
+        "RECONNECTING",
+        "UNKNOWN"
+      ],
+      "statusMatches": true,
+      "explicitOutage": true,
+      "recordedWebNode": null,
+      "webPredicate": true,
+      "strongerPredicate": true,
+      "pass": true
+    },
+    {
+      "kind": "gateway",
+      "run": 1,
+      "sources": [
+        {
+          "file": "gateway-recovery.json",
+          "sha256": "0efc5a13d0fb9801d11bc4a4e1e225885da62c2362621634d6044f396fc6d3b7"
+        },
+        {
+          "file": "gateway-1-offline.xml",
+          "sha256": "a0c6893c96d7e8a0e9de447cd8554b319e1ab75f352f27a1d7b85cdabd60b6e9"
+        }
+      ],
+      "recordedCodeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+      "recordedApkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+      "offlineObservedAt": "2026-09-29T02:39:38.695Z",
+      "matchingRecordedObservationFound": true,
+      "androidUiPresent": true,
+      "extractedAppStates": [
+        "RECONNECTING",
+        "UNKNOWN"
+      ],
+      "recordedAppStates": [
+        "RECONNECTING",
+        "UNKNOWN"
+      ],
+      "statusMatches": true,
+      "explicitOutage": true,
+      "recordedWebNode": "UNKNOWN",
+      "webPredicate": true,
+      "strongerPredicate": true,
+      "pass": true
+    },
+    {
+      "kind": "gateway",
+      "run": 2,
+      "sources": [
+        {
+          "file": "gateway-recovery.json",
+          "sha256": "0efc5a13d0fb9801d11bc4a4e1e225885da62c2362621634d6044f396fc6d3b7"
+        },
+        {
+          "file": "gateway-2-offline.xml",
+          "sha256": "b682ceeef5194410d327e7e9f845efb94b6da8f1fbd5c422c59ae28ecdc6cbdd"
+        }
+      ],
+      "recordedCodeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+      "recordedApkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+      "offlineObservedAt": "2026-09-29T02:39:58.848Z",
+      "matchingRecordedObservationFound": true,
+      "androidUiPresent": true,
+      "extractedAppStates": [
+        "RECONNECTING",
+        "UNKNOWN"
+      ],
+      "recordedAppStates": [
+        "RECONNECTING",
+        "UNKNOWN"
+      ],
+      "statusMatches": true,
+      "explicitOutage": true,
+      "recordedWebNode": "UNKNOWN",
+      "webPredicate": true,
+      "strongerPredicate": true,
+      "pass": true
+    },
+    {
+      "kind": "gateway",
+      "run": 3,
+      "sources": [
+        {
+          "file": "gateway-recovery.json",
+          "sha256": "0efc5a13d0fb9801d11bc4a4e1e225885da62c2362621634d6044f396fc6d3b7"
+        },
+        {
+          "file": "gateway-3-offline.xml",
+          "sha256": "8ec45580329ceab190ea901e992f9e3de26fefb0ea1066623c561dd9db76cdab"
+        }
+      ],
+      "recordedCodeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+      "recordedApkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+      "offlineObservedAt": "2026-09-29T02:40:18.666Z",
+      "matchingRecordedObservationFound": true,
+      "androidUiPresent": true,
+      "extractedAppStates": [
+        "RECONNECTING",
+        "UNKNOWN"
+      ],
+      "recordedAppStates": [
+        "RECONNECTING",
+        "UNKNOWN"
+      ],
+      "statusMatches": true,
+      "explicitOutage": true,
+      "recordedWebNode": "UNKNOWN",
+      "webPredicate": true,
+      "strongerPredicate": true,
+      "pass": true
+    },
+    {
+      "kind": "node",
+      "run": 1,
+      "sources": [
+        {
+          "file": "node-recovery.json",
+          "sha256": "172a5bb898c60cd36302e20d5809b0057786a3cbd9a640d5e33ce77876df0a08"
+        },
+        {
+          "file": "node-1-offline.xml",
+          "sha256": "642f65533a0ed923da7abaa7f3afa2b7594798c0f3d8b566656778d68e0a5f89"
+        }
+      ],
+      "recordedCodeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+      "recordedApkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+      "offlineObservedAt": "2026-09-29T02:37:19.983Z",
+      "matchingRecordedObservationFound": true,
+      "androidUiPresent": true,
+      "extractedAppStates": [
+        "ONLINE",
+        "OFFLINE"
+      ],
+      "recordedAppStates": [
+        "ONLINE",
+        "OFFLINE"
+      ],
+      "statusMatches": true,
+      "explicitOutage": true,
+      "recordedWebNode": "OFFLINE",
+      "webPredicate": true,
+      "strongerPredicate": true,
+      "pass": true
+    },
+    {
+      "kind": "node",
+      "run": 2,
+      "sources": [
+        {
+          "file": "node-recovery.json",
+          "sha256": "172a5bb898c60cd36302e20d5809b0057786a3cbd9a640d5e33ce77876df0a08"
+        },
+        {
+          "file": "node-2-offline.xml",
+          "sha256": "6fd9f14f0f3f149cb61a18ad58a15b2155ede8cfc3a666024e051f26c083c01f"
+        }
+      ],
+      "recordedCodeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+      "recordedApkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+      "offlineObservedAt": "2026-09-29T02:37:48.594Z",
+      "matchingRecordedObservationFound": true,
+      "androidUiPresent": true,
+      "extractedAppStates": [
+        "ONLINE",
+        "OFFLINE"
+      ],
+      "recordedAppStates": [
+        "ONLINE",
+        "OFFLINE"
+      ],
+      "statusMatches": true,
+      "explicitOutage": true,
+      "recordedWebNode": "OFFLINE",
+      "webPredicate": true,
+      "strongerPredicate": true,
+      "pass": true
+    },
+    {
+      "kind": "node",
+      "run": 3,
+      "sources": [
+        {
+          "file": "node-recovery.json",
+          "sha256": "172a5bb898c60cd36302e20d5809b0057786a3cbd9a640d5e33ce77876df0a08"
+        },
+        {
+          "file": "node-3-offline.xml",
+          "sha256": "5567b492d4349a328eb1e87b61bd5240a48f65b07ae4aaceb12331ecc28fc49c"
+        }
+      ],
+      "recordedCodeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+      "recordedApkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+      "offlineObservedAt": "2026-09-29T02:38:26.480Z",
+      "matchingRecordedObservationFound": true,
+      "androidUiPresent": true,
+      "extractedAppStates": [
+        "ONLINE",
+        "OFFLINE"
+      ],
+      "recordedAppStates": [
+        "ONLINE",
+        "OFFLINE"
+      ],
+      "statusMatches": true,
+      "explicitOutage": true,
+      "recordedWebNode": "OFFLINE",
+      "webPredicate": true,
+      "strongerPredicate": true,
+      "pass": true
+    }
+  ]
+}

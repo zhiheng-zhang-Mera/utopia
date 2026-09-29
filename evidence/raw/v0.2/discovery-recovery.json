@@ -1,0 +1,10 @@
+{
+  "kind": "DISCOVERY_EVIDENCE_INDEX",
+  "files": [
+    "mdns-discovery-recovery.json",
+    "ble-discovery-recovery.json"
+  ],
+  "limitations": [
+    "Mechanisms may have different source commits and installed APK hashes. Read each file; do not treat earlier rows as current-APK passes."
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "sourceFile": "pre-autozoom-task-regression.json",
+  "sourceSha256": "d9b7e807795bf8cac5e7dea3413c301d1358159cacbfe63a78c2474bc26f8cb3",
+  "applicability": "Historical or driver evidence, not final candidate passes",
+  "record": {
+    "codeSha": "5410fa8ade8c671189cd37bff0d2c34de8b55c6f",
+    "apkSha256": "7acd40e0d1d39b412b4cbd0e916cb2b66c38a2c944f0914f598cb4a9fbf85451",
+    "localApkSha256": "7acd40e0d1d39b412b4cbd0e916cb2b66c38a2c944f0914f598cb4a9fbf85451",
+    "installedApkMatchesLocal": true,
+    "startedAt": "2026-09-29T03:11:41.313Z",
+    "completedAt": "2026-09-29T03:11:52.299Z",
+    "taskId": "Q-8c990031-136b-4de9-8c56-adf67d4e13aa",
+    "state": "COMPLETED",
+    "androidShowsTaskAndCompletion": true,
+    "webShowsTaskAndCompletion": true,
+    "eventTypes": [
+      "COMMAND_ACCEPTED",
+      "TASK_CREATED",
+      "TASK_ASSIGNED",
+      "TASK_STARTED",
+      "TASK_CHECKPOINTED",
+      "TASK_CHECKPOINTED",
+      "TASK_COMPLETED"
+    ],
+    "resultAvailable": true,
+    "checkpointAvailable": true,
+    "scope": "Android UI submitted task; real reference node; Web UI observes same task identity and completion",
+    "artifactSha256": "ae149a46984f46a35f4e64f3e745084b66973b38aebe85b67af704a748cc827c",
+    "androidResultMatches": true,
+    "webResultMatches": true,
+    "success": true
+  }
+}

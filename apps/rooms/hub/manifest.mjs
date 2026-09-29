@@ -167,6 +167,21 @@ const LOCAL_ROOMS = [
  */
 const INCUBATOR_ROOMS = [
   {
+    id: 'evidence-engine-lab',
+    number: 'D8',
+    label: 'Evidence Engine Lab',
+    zh: '证据引擎实验室',
+    summary: 'Incubating the Boss evidence engine: artifact hashes, a sorted manifest and integrity root, claims, disputes, missing providers and the PASS/HOLD decision.',
+    dataFile: null,
+    initialData: null,
+    tags: ['incubator', 'donor'],
+    lifecycle: 'INCUBATING',
+    targetCityPath: 'city/06-research/01-research-institute/evidence-engine',
+    donorRepository: 'zhiheng-zhang-Mera/Codex-Boss',
+    donorCommit: '8df428eaa437a409368401e95194e40266b83080',
+    donorSourcePaths: ['electron/evidence-engine.ts'],
+  },
+  {
     id: 'document-readers-lab',
     number: 'D7b',
     label: 'Document Readers Lab',

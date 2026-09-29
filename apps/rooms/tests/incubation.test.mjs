@@ -155,6 +155,17 @@ test('a promoted room leaves the active catalog but stays known to Git history',
   assert.deepEqual(d7a.donorSourcePaths, ['electron/ingestion/text-parsers.ts']);
   assert.ok(!ROOMS.some((room) => room.id === d7a.id), 'it serves no live surface either');
   assert.ok(!incubatingRooms().some((room) => room.id === d7a.id), 'a promoted room is never still being proved');
+
+  // D7b lands in the same building as its own module, so the pack serves it while it
+  // is being proved and retires it once the readers are promoted
+  const d7b = ALL_ROOMS.find((room) => room.id === 'document-readers-lab');
+  assert.ok(d7b, 'the D7b room is known to the pack');
+  assert.equal(d7b.targetCityPath, 'city/09-planning-knowledge/02-document-intake/document-readers');
+  assert.deepEqual(d7b.donorSourcePaths, [
+    'electron/ingestion/docx-reader.ts',
+    'electron/ingestion/xlsx-reader.ts',
+    'electron/ingestion/pdf-reader.ts',
+  ]);
 });
 
 test('promotion records are validated and rejected when malformed', async (t) => {

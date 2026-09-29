@@ -167,6 +167,25 @@ const LOCAL_ROOMS = [
  */
 const INCUBATOR_ROOMS = [
   {
+    id: 'document-readers-lab',
+    number: 'D7b',
+    label: 'Document Readers Lab',
+    zh: '文档读取实验室',
+    summary: 'Incubating the Boss DOCX, XLSX and PDF readers with their real engines: choose a document, see what the reader found, store nothing.',
+    dataFile: null,
+    initialData: null,
+    tags: ['incubator', 'donor'],
+    lifecycle: 'INCUBATING',
+    targetCityPath: 'city/09-planning-knowledge/02-document-intake/document-readers',
+    donorRepository: 'zhiheng-zhang-Mera/Codex-Boss',
+    donorCommit: '8df428eaa437a409368401e95194e40266b83080',
+    donorSourcePaths: [
+      'electron/ingestion/docx-reader.ts',
+      'electron/ingestion/xlsx-reader.ts',
+      'electron/ingestion/pdf-reader.ts',
+    ],
+  },
+  {
     id: 'yaml-intake-lab',
     number: 'D7a',
     label: 'YAML Intake Lab',

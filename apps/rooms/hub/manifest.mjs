@@ -167,6 +167,24 @@ const LOCAL_ROOMS = [
  */
 const INCUBATOR_ROOMS = [
   {
+    id: 'theme-engine-lab',
+    number: 'D2',
+    label: 'Theme Engine Lab',
+    zh: '主题引擎实验室',
+    summary: 'Incubating DS-Hns theme engine: colour parsing, contrast, palette and PNG swatch output.',
+    dataFile: null,
+    initialData: null,
+    tags: ['incubator', 'donor'],
+    lifecycle: 'INCUBATING',
+    targetCityPath: 'city/11-entertainment/01-entertainment-centre/theme-engine',
+    donorRepository: 'zhiheng-zhang-Mera/DS-Hns',
+    donorCommit: 'eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b',
+    donorSourcePaths: [
+      'app/extensions/mega/theme/color.js',
+      'app/extensions/mega/theme/png.js',
+    ],
+  },
+  {
     id: 'skill-intake-lab',
     number: 'D1',
     label: 'Skill Intake Lab',

@@ -20,6 +20,7 @@ const FACTORIES = {
   focus: { load: () => import('../rooms/focus/room.server.mjs'), name: 'createFocusRoom' },
   calendar: { load: () => import('../rooms/calendar/room.server.mjs'), name: 'createCalendarRoom' },
   decisions: { load: () => import('../rooms/decisions/room.server.mjs'), name: 'createDecisionRoom' },
+  'theme-engine-lab': { load: () => import('../rooms/theme-engine-lab/room.server.mjs'), name: 'createThemeEngineRoom' },
 };
 
 /**

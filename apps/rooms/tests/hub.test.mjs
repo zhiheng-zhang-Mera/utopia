@@ -114,13 +114,14 @@ test('hub serves health, the room catalog and the product shell on loopback', as
   assert.equal(health.status, 200);
   assert.equal(health.payload.product, 'utopia-room-pack');
   assert.equal(health.payload.host, '127.0.0.1');
-  assert.equal(health.payload.rooms.length, 10, 'ten local rooms; the promoted lab no longer serves a surface');
 
   const catalog = await hub.api('GET', '/local-rooms/v1/rooms');
-  assert.equal(catalog.payload.rooms.length, 10);
-  assert.equal(catalog.payload.rooms[0].id, 'knowledge');
-  assert.equal(catalog.payload.rooms[9].id, 'decisions');
-  assert.ok(!catalog.payload.rooms.some((room) => room.id === 'skill-intake-lab'), 'a promoted room leaves the catalog');
+  const localRooms = catalog.payload.rooms.filter((room) => room.lifecycle === 'LOCAL_PRODUCT');
+  assert.equal(localRooms.length, 10, 'the ten local product rooms are all served');
+  assert.equal(localRooms[0].id, 'knowledge');
+  assert.equal(localRooms[9].id, 'decisions');
+  assert.ok(!catalog.payload.rooms.some((room) => room.lifecycle === 'PROMOTED'), 'a promoted room leaves the catalog');
+  assert.equal(health.payload.rooms.length, catalog.payload.rooms.length, 'health and the catalog agree');
 
   const page = await hub.get('/');
   assert.equal(page.status, 200);

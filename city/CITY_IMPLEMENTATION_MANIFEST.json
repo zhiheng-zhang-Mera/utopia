@@ -16,6 +16,51 @@
       "en": "Engineering Works District",
       "buildings": [
         {
+          "id": "01-project-foreman",
+          "zh": "项目工头",
+          "en": "Project Foreman",
+          "modules": [
+            {
+              "id": "project-foreman",
+              "zh": "工程任务编排器",
+              "en": "Engineering Task Orchestrator",
+              "path": "city/02-engineering/01-project-foreman/project-foreman",
+              "lifecycle": "PROMOTED",
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/DS-Hns",
+                "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+                "sourcePaths": [
+                  "app/engineering/plan.cjs",
+                  "app/engineering/discovery.cjs",
+                  "app/engineering/adapters/index.cjs",
+                  "app/engineering/failure.cjs",
+                  "app/engineering/episode.cjs",
+                  "app/engineering/autonomy.cjs",
+                  "app/engineering/checkpoint.cjs",
+                  "app/engineering/recovery-schema.cjs",
+                  "app/engineering/recovery-store.cjs",
+                  "app/engineering/locking.cjs",
+                  "app/engineering/mutation.cjs",
+                  "app/engineering/repository.cjs",
+                  "app/engineering/process-identity.cjs",
+                  "app/engineering/process.cjs",
+                  "app/engineering/context.cjs",
+                  "app/engineering/scheduler.cjs",
+                  "app/engineering/git.cjs",
+                  "app/engineering/cross-volume-cleanup.cjs",
+                  "app/engineering/verifier.cjs",
+                  "app/engineering/result.cjs",
+                  "app/engineering/supervisor.cjs",
+                  "app/engineering/index.cjs"
+                ]
+              },
+              "incubationRooms": [
+                "project-foreman-lab"
+              ]
+            }
+          ]
+        },
+        {
           "id": "02-worker-gateway",
           "zh": "施工队接入站",
           "en": "Worker Gateway",

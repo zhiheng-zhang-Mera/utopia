@@ -25,6 +25,7 @@ import {
 } from '../manifest.mjs';
 
 const WAVE1 = [
+  'city/02-engineering/01-project-foreman/project-foreman',
   'city/02-engineering/02-worker-gateway/skill-intake',
   'city/06-research/01-research-institute/evidence-engine',
   'city/09-planning-knowledge/01-knowledge-service/knowledge-core',

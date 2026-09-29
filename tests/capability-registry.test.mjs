@@ -7,6 +7,9 @@ const load=()=>JSON.parse(readFileSync('city/CITY_IMPLEMENTATION_MANIFEST.json')
 const district=(m,id)=>m.districts.find(d=>d.id===id);
 const documentBuilding=m=>district(m,'09-planning-knowledge').buildings.find(b=>b.id==='02-document-intake');
 const intake=m=>registry(m).find(c=>c.capabilityId==='planning.document.intake');
+// The fixtures below address districts by id and keep their counts relative to the
+// current census: every City Mission that declares a new district or building would
+// otherwise break them, as three of them already did.
 const unbridged=m=>registry(m).filter(c=>c.inputKind==='unavailable');
 test('qualified identities keep duplicate names independent and cannot replace missing dependencies',()=>{
  const m=load();const baseline=unbridged(m).length;

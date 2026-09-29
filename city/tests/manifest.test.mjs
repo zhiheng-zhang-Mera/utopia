@@ -31,8 +31,8 @@ import {
  * This list is a census, not an aspiration: each entry must have real code in the
  * tree. The wave-1 modules are followed by the modules migrated by the Digital-City
  * mission-book control plane — MB-001's City Core, MB-002's Capability Fabric, MB-003's
- * Worker Gateway and MB-006's Restart Recovery Station — rather than incubated in the
- * Room Pack.
+ * Worker Gateway, MB-004's Project Foreman and MB-006's Restart Recovery Station — rather
+ * than incubated in the Room Pack.
  */
 const EXPECTED_MODULES = [
   'city/00-foundation/01-city-core/root-authority',
@@ -40,6 +40,7 @@ const EXPECTED_MODULES = [
   'city/00-foundation/01-city-core/fleet-routing',
   'city/00-foundation/01-city-core/audit-ledger',
   'city/00-foundation/03-capability-fabric/capability-fabric',
+  'city/02-engineering/01-project-foreman/project-foreman',
   'city/02-engineering/02-worker-gateway/skill-intake',
   'city/02-engineering/04-restart-recovery-station/restart-protocol',
   'city/02-engineering/04-restart-recovery-station/restart-lock',

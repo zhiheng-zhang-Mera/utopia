@@ -4,6 +4,37 @@ This file records how each donor room moved from incubation into `city/`. The
 machine-readable record lives in `../promotions/<room-id>.json`; the full code
 stays in Git history.
 
+**The two SHAs have fixed definitions and must never be confused:**
+
+```text
+acceptedRoomCommit = the last accepted commit of the incubator room
+promotedAtCommit   = the first commit where the formal city module landed
+                     (reachable, and checkable as <sha>:<path>)
+```
+
+Both must really exist in Git history, and `acceptedRoomCommit` must be an
+ancestor of `promotedAtCommit`. Verifier: `node scripts/verify-promotion-history.mjs`.
+
+## Overview
+
+| Room | acceptedRoomCommit | promotedAtCommit | Target city path |
+| --- | --- | --- | --- |
+| `skill-intake-lab` (D1) | `1ba5b4809f05a155ed76fecdbb9479f900686fa1` | `140287250ef1440441df4eaf0dfefc14528eeee4` | `city/02-engineering/02-worker-gateway/skill-intake` |
+| `theme-engine-lab` (D2) | `9819ed7a4a212b8c8480d91c3812ce7f7a760ab9` | `a18b1e80b7405137ac3c56ef1bc1805677b6a93f` | `city/11-entertainment/01-entertainment-centre/theme-engine` |
+| `knowledge-core-lab` (D3) | `01f932bd2aad2403bec61961410ca19ca0cf28ad` | `b82fcfd0f153a63b8424051affd86bf7df0a41d0` | `city/09-planning-knowledge/01-knowledge-service/knowledge-core` |
+| `document-intake-lab` (D4) | `165e2664ad4e2d777889d8dec47893144e8c81dd` | `e3d6bbd9dd9196ce0991e095fb91993df3ec3dd1` | `city/09-planning-knowledge/02-document-intake/ingestion-core` |
+
+> **D1 note:** the commit that first wrote
+> `city/02-engineering/02-worker-gateway/skill-intake` was rewritten during a
+> Wave 1 history cleanup and is no longer reachable, so this record points at
+> `1402872`, the first *reachable* commit that contains the module. The value
+> pre-filled during Wave 1 (shaped like `6b29e84…`) was the pre-amend SHA and is
+> void.
+>
+> **Never pre-guess a commit's own SHA.** A record is only filled in after the
+> target commit exists, and it is checked against local Git history by
+> `scripts/verify-promotion-history.mjs`.
+
 ---
 
 ## D4 · document-intake-lab → city/09-planning-knowledge/02-document-intake/ingestion-core
@@ -15,7 +46,7 @@ stays in Git history.
 | Donor source files | `electron/ingestion/xml-text.ts`, `electron/ingestion/text-parsers.ts` |
 | Incubator room | `apps/rooms/rooms/document-intake-lab/` (removed from the live tree) |
 | Accepted incubator commit | `165e2664ad4e2d777889d8dec47893144e8c81dd` |
-| Promotion record | `../promotions/document-intake-lab.json` (holds the full promotion commit) |
+| Promotion commit | `e3d6bbd9dd9196ce0991e095fb91993df3ec3dd1` |
 | Final city path | `city/09-planning-knowledge/02-document-intake/ingestion-core` |
 | Lifecycle | `PROMOTED` (during wave 1) |
 | D4a scope | UTF-8/UTF-16 decoding, TXT/Markdown, JSON/JSON Lines, CSV/TSV, XML text, section splitting and input limits |
@@ -51,7 +82,7 @@ Coverage: UTF-8/UTF-16 BOMs and strict UTF-8 validation with a warned lossy fall
 | Deliberately not copied | `electron/knowledge/knowledge-store.ts` (depends on the Boss commander durable-json layer) |
 | Incubator room | `apps/rooms/rooms/knowledge-core-lab/` (removed from the live tree) |
 | Accepted incubator commit | `01f932bd2aad2403bec61961410ca19ca0cf28ad` |
-| Promotion record | `../promotions/knowledge-core-lab.json` (holds the full promotion commit) |
+| Promotion commit | `b82fcfd0f153a63b8424051affd86bf7df0a41d0` |
 | Final city path | `city/09-planning-knowledge/01-knowledge-service/knowledge-core` |
 | Lifecycle | `PROMOTED` (during wave 1) |
 
@@ -98,7 +129,7 @@ Coverage: trust ordering with unknown trust = 0, domain/shelf/all-tag filtering,
 | Donor source files | `app/extensions/mega/theme/color.js`, `app/extensions/mega/theme/png.js` |
 | Incubator room | `apps/rooms/rooms/theme-engine-lab/` (removed from the live tree) |
 | Accepted incubator commit | `9819ed7a4a212b8c8480d91c3812ce7f7a760ab9` |
-| Promotion commit | `d71b9946f249ed49eae6185791cdd9be4fd76e07` |
+| Promotion commit | `a18b1e80b7405137ac3c56ef1bc1805677b6a93f` |
 | Final city path | `city/11-entertainment/01-entertainment-centre/theme-engine` |
 | Lifecycle | `PROMOTED` (during wave 1) |
 | Promotion record | `../promotions/theme-engine-lab.json` |
@@ -148,7 +179,7 @@ city/.../theme-engine/tests/           the module carries its own focused tests
 | Donor source files | `app/extensions/mega/skills/skill-format.js`, `app/extensions/mega/skills/tar.js` |
 | Incubator room | `apps/rooms/rooms/skill-intake-lab/` (removed from the live tree) |
 | Accepted incubator commit | `1ba5b4809f05a155ed76fecdbb9479f900686fa1` |
-| Promotion commit | `6b29e84430ba888b6bc1d5bcde344e16f23b64c2` |
+| Promotion commit | `140287250ef1440441df4eaf0dfefc14528eeee4` |
 | Final city path | `city/02-engineering/02-worker-gateway/skill-intake` |
 | Lifecycle | `ACTIVE` |
 | Promotion record | `../promotions/skill-intake-lab.json` |

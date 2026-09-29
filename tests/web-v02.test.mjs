@@ -56,6 +56,10 @@ test('Web freshness, device detail, node offline and pairing expiry',async()=>{
  browser=await chromium.launch({channel:process.platform==='win32'?'msedge':undefined,headless:true});const page=await browser.newPage({locale:'en-US'});await page.goto(app.url);
  await page.getByLabel('Pairing token').fill('web-test');await page.getByRole('button',{name:'Connect',exact:true}).click();await page.locator('#connection.online').waitFor();
  await page.locator('[data-page="Devices"]').click();await page.locator('.telemetry.fresh').waitFor();
+ await page.evaluate(()=>window.UtopiaI18n.setLocale('zh-CN'));
+ assert.equal(await page.locator('#view .badge.ONLINE').innerText(),'在线');
+ assert.equal(await page.locator('#view .badge.在线').count(),0);
+ await page.evaluate(()=>window.UtopiaI18n.setLocale('en'));
  assert.match(await page.locator('#view').innerText(),/18.0%/);
  await page.locator('[data-node="test-device"]').click();
  for(const expected of ['Agent 0.2.0','Memory','Disk','1h 1m','Capabilities','task.execute.safe','Current tasks','NODE_ONLINE'])assert.ok((await page.locator('#detail').innerText()).includes(expected));

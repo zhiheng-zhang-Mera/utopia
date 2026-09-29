@@ -21,6 +21,9 @@ export const CITY_LIFECYCLES = ['PLANNED', 'INCUBATING', 'PROMOTED', 'ACTIVE', '
 /** Lifecycles that mean "code is present in this tree". */
 export const IMPLEMENTED_LIFECYCLES = ['PROMOTED', 'ACTIVE', 'DEPRECATED'];
 
+/** Manifest schema version owned by this tree. */
+export const MANIFEST_SCHEMA_VERSION = 2;
+
 export class ManifestError extends Error {
   constructor(message) {
     super(message);
@@ -44,8 +47,8 @@ export function validateManifest(raw, source = 'manifest') {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new ManifestError(`${source}: root must be a JSON object`);
   }
-  if (raw.schemaVersion !== 1) {
-    throw new ManifestError(`${source}: schemaVersion must be 1`);
+  if (raw.schemaVersion !== MANIFEST_SCHEMA_VERSION) {
+    throw new ManifestError(`${source}: schemaVersion must be ${MANIFEST_SCHEMA_VERSION}`);
   }
   if (!Array.isArray(raw.districts) || raw.districts.length === 0) {
     throw new ManifestError(`${source}: districts must be a non-empty array`);
@@ -90,13 +93,24 @@ export function validateManifest(raw, source = 'manifest') {
         }
         if (paths.has(module.path)) throw new ManifestError(`${source}: duplicate module path ${module.path}`);
         paths.add(module.path);
-        if (module.roomId) {
-          if (rooms.has(module.roomId)) throw new ManifestError(`${source}: room ${module.roomId} is claimed twice`);
-          rooms.add(module.roomId);
+
+        // A module may be strengthened by several incubation rooms over time, so
+        // it records a list. The same room may not be claimed by two modules.
+        const incubationRooms = module.incubationRooms ?? (module.roomId ? [module.roomId] : []);
+        if (!Array.isArray(incubationRooms)) {
+          throw new ManifestError(`${source}: module ${module.id} incubationRooms must be an array`);
         }
-        if (IMPLEMENTED_LIFECYCLES.includes(module.lifecycle) && !module.roomId) {
+        const uniqueRooms = new Set();
+        for (const room of incubationRooms) {
+          requireText(room, `${source}: module ${module.id} incubationRooms entry`, source);
+          if (uniqueRooms.has(room)) throw new ManifestError(`${source}: module ${module.id} lists room ${room} twice`);
+          uniqueRooms.add(room);
+          if (rooms.has(room)) throw new ManifestError(`${source}: incubation room ${room} is claimed by two modules`);
+          rooms.add(room);
+        }
+        if (IMPLEMENTED_LIFECYCLES.includes(module.lifecycle) && uniqueRooms.size === 0) {
           throw new ManifestError(
-            `${source}: implemented module ${module.id} must name the incubator room it was promoted from`,
+            `${source}: implemented module ${module.id} must name at least one incubator room`,
           );
         }
         if (module.donor !== null && module.donor !== undefined) {
@@ -118,13 +132,19 @@ function requireText(value, field, source) {
   }
 }
 
+/** The incubation rooms a module records (schema v2 list, or a legacy roomId). */
+export function moduleIncubationRooms(module) {
+  if (Array.isArray(module.incubationRooms)) return [...module.incubationRooms];
+  return module.roomId ? [module.roomId] : [];
+}
+
 /** Flatten the manifest into module records with their district and building. */
 export function flattenModules(manifest) {
   const out = [];
   for (const district of manifest.districts) {
     for (const building of district.buildings) {
       for (const module of building.modules) {
-        out.push({ district, building, module });
+        out.push({ district, building, module, incubationRooms: moduleIncubationRooms(module) });
       }
     }
   }

@@ -1,7 +1,7 @@
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 export async function executeTask(task,adapter,report,stepDelay=1200){
  let result={};
- const update=async(progress,lastCheckpoint)=>{const t=await report({state:'RUNNING',progress,lastCheckpoint});if(t.state==='CANCELLED')throw new Error('Task cancelled');};
+ const update=async(progress,lastCheckpoint)=>{const t=await report({state:'RUNNING',progress,lastCheckpoint});if(t.state!=='RUNNING')throw new Error('Task is no longer running: '+t.state);};
  try {
   await update(0,null);
   if(task.type==='WAIT'){
@@ -15,5 +15,5 @@ export async function executeTask(task,adapter,report,stepDelay=1200){
    await adapter.cleanup(task.id);result.cleaned=true;
   }
   await report({state:'COMPLETED',progress:100,result});
- }catch(e){await adapter.cleanup(task.id);try{await report({state:'FAILED',progress:100,error:e.message});}catch{/* Gateway interruption is marked failed by restart recovery. */}}
+ }catch(e){await adapter.cleanup(task.id);const failure={state:'FAILED',progress:100,error:e.message};try{await report(failure);}catch{return failure;}}
 }

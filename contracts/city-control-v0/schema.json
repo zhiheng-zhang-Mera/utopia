@@ -1,0 +1,14 @@
+{
+ "$schema":"https://json-schema.org/draft/2020-12/schema",
+ "$id":"urn:utopia:city-control:v0",
+ "title":"City Control Protocol v0",
+ "type":"object",
+ "required":["apiVersion","schemaVersion"],
+ "properties":{"apiVersion":{"const":0},"schemaVersion":{"const":0}},
+ "$defs":{
+  "TaskCommand":{"type":"object","required":["type"],"additionalProperties":false,"properties":{"type":{"enum":["WAIT","CREATE_TEMP_ARTIFACT","HASH_TEMP_ARTIFACT","DELETE_TEMP_ARTIFACT","CHECKPOINT_DEMO"]}}},
+  "Task":{"type":"object","required":["id","type","domain","state","createdAt","updatedAt","assignedNodeId","progress","lastCheckpoint","result","error"],"properties":{"id":{"type":"string"},"type":{"type":"string"},"domain":{"const":"system"},"state":{"enum":["QUEUED","ASSIGNED","RUNNING","COMPLETED","FAILED","CANCELLED"]},"progress":{"type":"number","minimum":0,"maximum":100},"assignedNodeId":{"type":["string","null"]}}},
+  "Node":{"type":"object","required":["id","devicePrincipalId","displayName","online","lastHeartbeatAt","capabilities","metadata"],"properties":{"id":{"type":"string"},"capabilities":{"type":"array","items":{"type":"string"}},"online":{"type":"boolean"},"metadata":{"type":"object"}}},
+  "Event":{"type":"object","required":["id","seq","timestamp","type","actor","taskId","payload"],"properties":{"seq":{"type":"integer"},"type":{"enum":["CITY_STARTED","NODE_ONLINE","NODE_OFFLINE","COMMAND_ACCEPTED","TASK_CREATED","TASK_ASSIGNED","TASK_STARTED","TASK_CHECKPOINTED","TASK_COMPLETED","TASK_FAILED","TASK_CANCELLED","CLIENT_CONNECTED","CLIENT_DISCONNECTED"]}}}
+ }
+}

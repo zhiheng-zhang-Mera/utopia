@@ -24,5 +24,14 @@ test('versioned authenticated gateway rejects unsafe commands and persists histo
     assert.equal(saved.state,'CANCELLED');
     const events = await (await request('events')).json();
     assert.ok(events.events.some(e=>e.taskId===task.id && e.type==='TASK_CANCELLED'));
+    const register={id:'node-1',displayName:'Reference',metadata:{platform:'reference'},capabilities:['task.execute.safe','filesystem.temp']};
+    const node=(path,data)=>request('node/'+path,data,'test-node-token');
+    await node('register',register);
+    const abandoned=await (await request('tasks',{type:'WAIT'})).json();
+    await node('claim',{id:'node-1'});
+    await node('register',register);
+    assert.equal((await (await request('tasks/'+abandoned.id)).json()).state,'FAILED');
+    const next=await (await request('tasks',{type:'WAIT'})).json();
+    assert.equal((await (await node('claim',{id:'node-1'})).json()).task.id,next.id);
   } finally { if(app) await app.close(); await rm(dir,{recursive:true,force:true}); }
 });

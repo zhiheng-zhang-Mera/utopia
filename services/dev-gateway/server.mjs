@@ -45,7 +45,9 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         const t=required('tasks',path.split('/').at(-2));if(terminal.includes(t.state))fail(409,'Task already finished');out=change(t,'CANCELLED');
       } else if(req.method==='POST' && path==='/api/v0/node/register'){
         const b=await body(req);if(!/^[a-zA-Z0-9-]{1,80}$/.test(b.id||'')||typeof b.displayName!=='string'||!Array.isArray(b.capabilities)||!b.capabilities.every(c=>typeof c==='string'))fail(400,'Invalid node registration');
-        const prior=store.get('nodes',b.id);out=store.put('nodes',{id:b.id,devicePrincipalId:b.id,displayName:b.displayName.slice(0,100),metadata:{platform:String(b.metadata?.platform||'unknown')},capabilities:b.capabilities,online:true,lastHeartbeatAt:now()});if(!prior?.online)emit('NODE_ONLINE',null,{nodeId:b.id});
+        const prior=store.get('nodes',b.id);
+        for(const t of store.list('tasks'))if(t.assignedNodeId===b.id&&!terminal.includes(t.state))change(t,'FAILED',{error:'Node re-registered; interrupted work is not replayed.'});
+        out=store.put('nodes',{id:b.id,devicePrincipalId:b.id,displayName:b.displayName.slice(0,100),metadata:{platform:String(b.metadata?.platform||'unknown')},capabilities:b.capabilities,online:true,lastHeartbeatAt:now()});if(!prior?.online)emit('NODE_ONLINE',null,{nodeId:b.id});
       } else if(req.method==='POST' && path==='/api/v0/node/heartbeat'){
         const b=await body(req);const n=required('nodes',b.id);if(!n.online)emit('NODE_ONLINE',null,{nodeId:n.id});out=store.put('nodes',{...n,online:true,lastHeartbeatAt:now()});
       } else if(req.method==='POST' && path==='/api/v0/node/claim'){

@@ -1,0 +1,33 @@
+name: V0 checks
+on: [push, pull_request]
+jobs:
+  gateway-web:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '11.19.0'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm check:docs
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+      - run: bash gradlew :app:testDebugUnitTest :app:assembleDebug --console=plain
+        working-directory: apps/android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: utopia-debug-apk
+          path: apps/android/app/build/outputs/apk/debug/app-debug.apk

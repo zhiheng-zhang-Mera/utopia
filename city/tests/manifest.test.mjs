@@ -28,6 +28,7 @@ const WAVE1 = [
   'city/02-engineering/02-worker-gateway/skill-intake',
   'city/09-planning-knowledge/01-knowledge-service/knowledge-core',
   'city/09-planning-knowledge/02-document-intake/ingestion-core',
+  'city/09-planning-knowledge/02-document-intake/document-readers',
   'city/11-entertainment/01-entertainment-centre/theme-engine',
 ];
 
@@ -74,6 +75,17 @@ test('the real manifest describes exactly the wave 1 districts and modules', asy
   const ingestionCore = modules.find((entry) => entry.module.id === 'ingestion-core').module;
   assert.equal(ingestionCore.lifecycle, 'PROMOTED');
   assert.deepEqual(ingestionCore.incubationRooms, ['document-intake-lab', 'yaml-intake-lab']);
+
+  // D7b lands as its own module in the same building
+  const readers = modules.find((entry) => entry.module.id === 'document-readers').module;
+  assert.equal(readers.lifecycle, 'PROMOTED');
+  assert.deepEqual(readers.incubationRooms, ['document-readers-lab']);
+  assert.deepEqual(readers.donor.sourcePaths, [
+    'electron/ingestion/docx-reader.ts',
+    'electron/ingestion/xlsx-reader.ts',
+    'electron/ingestion/pdf-reader.ts',
+    'tests/fixtures/workbook-fixtures.ts',
+  ]);
 
   const active = modules.filter(({ module }) => IMPLEMENTED_LIFECYCLES.includes(module.lifecycle));
   assert.ok(active.length <= modules.length);

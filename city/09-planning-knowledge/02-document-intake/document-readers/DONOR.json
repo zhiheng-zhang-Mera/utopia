@@ -1,0 +1,76 @@
+{
+  "module": "document-readers",
+  "cityPath": "city/09-planning-knowledge/02-document-intake/document-readers",
+  "district": "09-planning-knowledge",
+  "building": "02-document-intake",
+  "incubationRooms": [
+    "document-readers-lab"
+  ],
+  "waves": [
+    {
+      "wave": "D7b",
+      "room": "document-readers-lab",
+      "sourcePaths": [
+        "electron/ingestion/docx-reader.ts",
+        "electron/ingestion/xlsx-reader.ts",
+        "electron/ingestion/pdf-reader.ts",
+        "tests/fixtures/workbook-fixtures.ts"
+      ]
+    }
+  ],
+  "repository": "zhiheng-zhang-Mera/Codex-Boss",
+  "commit": "8df428eaa437a409368401e95194e40266b83080",
+  "sourcePaths": [
+    "electron/ingestion/docx-reader.ts",
+    "electron/ingestion/xlsx-reader.ts",
+    "electron/ingestion/pdf-reader.ts",
+    "tests/fixtures/workbook-fixtures.ts"
+  ],
+  "portedFiles": {
+    "electron/ingestion/docx-reader.ts": "docx.mjs",
+    "electron/ingestion/xlsx-reader.ts": "xlsx.mjs",
+    "electron/ingestion/pdf-reader.ts": "pdf.mjs",
+    "tests/fixtures/workbook-fixtures.ts": "samples.mjs (the synthetic in-memory document builders)"
+  },
+  "engines": {
+    "fflate": "0.8.3",
+    "mammoth": "1.12.2",
+    "pdfjs-dist": "6.3.289",
+    "quarantinedIn": "engines.mjs"
+  },
+  "adaptation": [
+    "TypeScript -> ESM JavaScript with every algorithm, limit and diagnostic string preserved.",
+    "The three third-party engines are quarantined in `engines.mjs`, the only module in the city tree that names them: each is imported lazily, and a missing install is reported as ENGINE_UNAVAILABLE (an installation problem) instead of as a broken document.",
+    "XLSX: the donor's static fflate import becomes `await loadFflate()`, so `readArchiveEntries` is async; the byte-level guards run before the engine load, so obviously wrong input fails closed without depending on engine availability. The donor's `decodeUtf8` maps to the ingestion core's `decodeText`, whose encoding warnings are forwarded rather than dropped.",
+    "DOCX: the donor's lazy mammoth import becomes `await loadMammoth()`, and the two injectable converter seams are kept exactly, so the heading/list mapping and the paragraph budgets are provable without the engine.",
+    "PDF: the donor's lazy engine import becomes `await loadPdfjs()`, which loads the legacy build (no worker, no DOM). Nothing had to be dropped from the donor's getDocument options.",
+    "The synthetic document builders of the donor's test-only `workbook-fixtures.ts` become product code in `samples.mjs`, because a real OOXML package or a real PDF can be assembled in memory and neither a product surface nor a test needs a committed binary fixture.",
+    "Error codes are namespaced per reader (NOT_XLSX/CORRUPT_XLSX/TOO_LARGE/ENCRYPTED_XLSX/ENGINE_UNAVAILABLE and the same shape for DOCX and PDF) so a caller can branch without parsing a message."
+  ],
+  "knownDifferences": [
+    "Nothing is persisted: the adapters take bytes and return sections, and the module never writes a file.",
+    "ENCRYPTED_* codes are preserved from the donor but no engine path raises them here: fflate 0.8.x silently ignores the ZIP encryption flag, and the readers have no password handling to exercise.",
+    "No OCR and no page rendering: the PDF adapter extracts text only.",
+    "The DOCX adapter emits paragraphs (text and HTML), not a full OOXML document model; anything mammoth cannot express is dropped by the engine, and its messages are mapped to typed warnings."
+  ],
+  "parity": {
+    "vectorSource": "Codex-Boss electron/ingestion/{docx,xlsx,pdf}-reader.ts and tests/fixtures/workbook-fixtures.ts @ 8df428eaa437a409368401e95194e40266b83080",
+    "vectors": [
+      "XLSX: shared strings, sheet name and part, used range, and rows recovered as a real grid",
+      "XLSX: markdown table rendering with a header row and a separator row",
+      "XLSX: a formula with no cached value warns and never yields a computed number",
+      "XLSX: archive byte, entry count, per-entry and total decompressed size, sheet, row and column limits all fail closed",
+      "XLSX: a non-ZIP payload is NOT_XLSX and a corrupt archive is CORRUPT_XLSX",
+      "DOCX: paragraph splitting, heading levels (including Chinese headings) and bullet/list mapping",
+      "DOCX: paragraph and character budgets produce the donor's truncated behaviour",
+      "DOCX: the injectable converter seams drive extraction and HTML mapping without the engine, and mammoth drives it with the engine",
+      "DOCX: a non-ZIP payload is NOT_DOCX and a ZIP that is not a DOCX is CORRUPT_DOCX",
+      "PDF: %PDF preflight, per-page text, and document info",
+      "PDF: byte, page, per-page character and total character limits fail closed before or during extraction",
+      "PDF: a truncated or corrupt document is CORRUPT_PDF, never a silent empty result",
+      "PDF: ENCRYPTED_PDF is reserved for an engine that reports encryption",
+      "all three: extracting the same bytes twice is deeply equal (deterministic)",
+      "all three: the module imports only the engine seam, the ingestion core and node: builtins"
+    ]
+  }
+}

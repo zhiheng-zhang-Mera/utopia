@@ -91,6 +91,26 @@
                 "document-intake-lab",
                 "yaml-intake-lab"
               ]
+            },
+            {
+              "id": "document-readers",
+              "zh": "文档读取器",
+              "en": "Document Readers",
+              "path": "city/09-planning-knowledge/02-document-intake/document-readers",
+              "lifecycle": "PROMOTED",
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/Codex-Boss",
+                "commit": "8df428eaa437a409368401e95194e40266b83080",
+                "sourcePaths": [
+                  "electron/ingestion/docx-reader.ts",
+                  "electron/ingestion/xlsx-reader.ts",
+                  "electron/ingestion/pdf-reader.ts",
+                  "tests/fixtures/workbook-fixtures.ts"
+                ]
+              },
+              "incubationRooms": [
+                "document-readers-lab"
+              ]
             }
           ]
         }

@@ -2,125 +2,122 @@
 
 STATUS: NOT_ACCEPTED
 PAIR_STATUS: SYNCHRONIZED
-CODE-SHA: cb50fdd6ba5f23c16167672f32853485701772fb
-FACT: APK_SHA256=3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db
-FACT: FINAL_ACCEPTANCE=NOT_ACCEPTED
-FACT: RADIO_FIX_APK_SHA256=0f2c3091661bf8818cd0995741ce6fea1f8fe00b4a0cf5867e705294dd383b77
-FACT: RADIO_FIX_SOURCE_SHA=3d7b8c9647fa13f75bc62829b5c96966dfba6dd2
-FACT: RADIO_FIX_TARGETED_RADIO=2_OF_2_PASS
-FACT: RADIO_FIX_TARGETED_BLE_PAIRING=NOT_RUN_SUPERSEDED_BY_LATEST_APK
-FACT: RADIO_FIX_CI=36514942297_PASS
-FACT: QR_CAMERA_ATTEMPTS=5_PASS_2_PRE_CAMERA_DRIVER_ERRORS
-FACT: LATEST_SOURCE_SHA=5410fa8ade8c671189cd37bff0d2c34de8b55c6f
-FACT: LATEST_APK_SHA256=7acd40e0d1d39b412b4cbd0e916cb2b66c38a2c944f0914f598cb4a9fbf85451
-FACT: LATEST_WRONG_CODE_UI=2_OF_2_PASS
-FACT: LATEST_ANDROID_UNIT=13_PASS
-FACT: LATEST_CI=36515630417_PASS
-FACT: LATEST_BLE_PAIRING=1_OF_1_PASS
-FACT: LATEST_TELEMETRY_AND_TASK=PASS
-FACT: BUNDLE_MANIFEST=126_FILES_VALID
-FACT: DELIVERY_AUDIT=244_FILES_ZERO_KNOWN_FINDINGS
+CODE-SHA: 2607912f85c22f6075367dc0eff1c45a58d75419
+FACT: UTOPIA_V0_2=NOT_ACCEPTED
+FACT: PRODUCT_APK_SHA256=ec30b0829a242aac05e604d3ade1aa5e91da2bbe45d22d4d9b5bcef222a5c9a7
+FACT: COLLECTION_SHA=ee3f3134efeabc3ff58d3c4fcbac6b57a5adec5c
+FACT: QR_AUTOZOOM=5_PASS_1_INITIAL_NO_DECODE
+FACT: QR_NEGATIVE=EXPIRED_2_PASS_SHARED_SESSION_REPLACED_2_PASS_INDEPENDENT_SESSIONS
+FACT: PRODUCT_CI=36521350387_PASS
+FACT: ANDROID_UNIT=16_PASS
+FACT: LATEST_TASK_AND_TELEMETRY=PASS
+FACT: MANUAL_RESTORATION=PASS
+FACT: BUNDLE_MANIFEST=150_FILES_VALID
+FACT: DELIVERY_AUDIT=273_FILES_ZERO_KNOWN_FINDINGS
+FACT: MAIN_INTEGRATION=IN_PROGRESS_NOT_VERIFIED
+FACT: RELEASE=NOT_PUBLISHED
 
-真实 QR 摄像头配对现有五次成功（1、2、5、6、7）及两次保留的摄像头前驱动错误（3、4）。QR 运行源码 f8285134f6ac8ef58f34c9c48bc6e21f21c1317e 与采集器 5855a927e42ae2945728f509a7b4ef07bcd372bf，分别区别于未改变的产品源码 5410fa8/APK 7acd40…。实物负向摄像头验证仍未完成：过期一次、已替换两次均未观察到解码/拒绝；另一次几何 guard 调用没有试验行。历史负向驱动哈希保持 UNKNOWN。Manual 恢复通过，尚未发布，并行 main 变更未合并。整体 NOT_ACCEPTED。
+六项结论均保持 PILOT。适用范围由文件溯源决定，集成/发布尚未完成。保留失败、中断及溯源未知的尝试。
 
 ## C-V02-01
 
 CLAIM-ID: C-V02-01
 STATUS: PILOT
-CODE-SHA: cb50fdd6ba5f23c16167672f32853485701772fb
-RUNS: manual=5_PILOT_BASELINE_PASS; qr=5_PASS_2_PRE_CAMERA_DRIVER_ERRORS; mdns=5_PILOT_BASELINE_PASS; ble=5_PILOT_BASELINE_PASS; QR_NEGATIVE=0_PASS_3_NO_DECODE_ATTEMPTS; API_NEGATIVE=8_PASS
+CODE-SHA: 2607912f85c22f6075367dc0eff1c45a58d75419
+RUNS: QR_CURRENT=5_PASS_1_NO_DECODE; QR_NEGATIVE=4_PASS_SHARED_EXPIRY_SESSION; OTHER_MODES=HISTORICAL_PILOTS
 
-CLAIM: 四种 bootstrap 路径最终收敛到同一经过认证的 City authority、API 和任务语义。
+CLAIM: 四种 bootstrap 路径收敛到 City 控制 authority。
 
-ENVIRONMENT: 单台 Alien Windows 主机；单台 Android 设备。自动化浏览器/Node 证据与实机证据分别记录。
+ENVIRONMENT: 单台 Alien Windows 主机与单台 Android 设备。
 
-RAW-EVIDENCE: `evidence/raw/v0.2/manual-trials.json`；`evidence/raw/v0.2/mdns-trials.json`；`evidence/raw/v0.2/ble-trials.json`；对应的 `<mode>-<1..5>-events.jsonl` 文件；`evidence/raw/v0.2/pairing-api-failures.json`。历史非最终试验：`evidence/raw/v0.2/historical-attempts.json`。 `evidence/raw/v0.2/qr-trials.json`; `evidence/raw/v0.2/qr-negative-index.json`; `evidence/raw/v0.2/qr-device-center.json`; `evidence/raw/v0.2/manual-qr-restoration-trials.json`.
+RAW-EVIDENCE: `evidence/raw/v0.2/qr-autozoom-trials.json`; `evidence/raw/v0.2/qr-negative-2026-09-29T04-39-14.835Z-runs.json`; `evidence/raw/v0.2/manual-trials.json`; `evidence/raw/v0.2/mdns-trials.json`; `evidence/raw/v0.2/ble-trials.json`.
 
-LIMITATIONS: 四种 bootstrap 方法现在均有正向实机观测，但分别绑定不同源码/APK，并非最新 APK 上的一套各五次矩阵。用户定位手机后 QR 通过摄像头解码，没有 descriptor 注入；两次摄像头前驱动失败保留。基线 Manual/mDNS/BLE 各五次成功。八次隔离 HTTP 负向测试不能替代摄像头拒绝：三次真实负向摄像头尝试零通过，另一次 guard 调用未进入摄像头。此前未解码和驱动尝试保留为历史。过期扫描计划使用一个共享过期 session，不是两个独立 session。本项仅支持 PILOT 收敛观测，整体验收保持 NOT_ACCEPTED。
+LIMITATIONS: 当前摄像头正向/负向已验证，其他模式保留较早源码/APK 溯源。两次过期扫描共享一个 session。一次成功期间显示几何改变，不将结果单独归因于 autozoom，也不声称此 APK 所有模式重跑五次。
 
-NOTES: PILOT 观测受各文件溯源与所述限制约束，不构成普适结论。
+NOTES: 各原始记录保留自身源码/APK 绑定，文件头不重新标记历史运行。
 
 ## C-V02-02
 
 CLAIM-ID: C-V02-02
 STATUS: PILOT
-CODE-SHA: cb50fdd6ba5f23c16167672f32853485701772fb
-RUNS: CODE_INSPECTION_ONLY
+CODE-SHA: 2607912f85c22f6075367dc0eff1c45a58d75419
+RUNS: SOURCE_INSPECTION
 
-CLAIM: QR、mDNS 和 BLE 只改变 bootstrap，不复制控制数据面。
+CLAIM: 发现仅改变 bootstrap，不复制数据面。
 
-ENVIRONMENT: 单台 Alien Windows 主机；单台 Android 设备。自动化浏览器/Node 证据与实机证据分别记录。
+ENVIRONMENT: 单台 Alien Windows 主机与单台 Android 设备。
 
-RAW-EVIDENCE: `services/dev-gateway/pairing.mjs`; `services/dev-gateway/discovery.mjs`; `platform/windows/ble.mjs`; `contracts/pairing-v1/descriptor.mjs`.
+RAW-EVIDENCE: `services/dev-gateway/pairing.mjs`; `platform/windows/ble.mjs`.
 
-LIMITATIONS: 本项是源码检查结果，不是四条路径的实机验收。Windows 保留 service UUID 广告段，因此实现采用 manufacturer payload：16 字节 UUID 标记加 7 字节 locator。广播不包含 credential 或 ephemeral secret。
+LIMITATIONS: 源码检查支持同一 HTTP/WebSocket 控制面。Windows 保留 service UUID 广告段，因此 manufacturer data 使用 UUID16+locator7。这不是普适安全结论。
 
-NOTES: PILOT 观测受各文件溯源与所述限制约束，不构成普适结论。
+NOTES: 各原始记录保留自身源码/APK 绑定，文件头不重新标记历史运行。
 
 ## C-V02-03
 
 CLAIM-ID: C-V02-03
 STATUS: PILOT
-CODE-SHA: 5410fa8ade8c671189cd37bff0d2c34de8b55c6f
-RUNS: LATEST_TELEMETRY_MATCH=PASS; LATEST_REAL_TASK=PASS; HISTORICAL_APK=UNKNOWN
+CODE-SHA: 2607912f85c22f6075367dc0eff1c45a58d75419
+RUNS: CURRENT_APK_TELEMETRY=PASS; CURRENT_APK_TASK=PASS
 
-CLAIM: Android 与 Web 通过同一权威 snapshot 获取 Node telemetry 和状态。
+CLAIM: Android 与 Web 共享权威 telemetry 和任务状态。
 
-ENVIRONMENT: 单台 Alien Windows 主机；单台 Android 设备。自动化浏览器/Node 证据与实机证据分别记录。
+ENVIRONMENT: 单台 Alien Windows 主机与单台 Android 设备。
 
-RAW-EVIDENCE: `evidence/raw/v0.2/telemetry-consistency.json`；`evidence/raw/v0.2/android-telemetry.xml`；`evidence/raw/v0.2/android-devices.png`；`evidence/raw/v0.2/web-devices.png`；`evidence/raw/v0.2/task-regression.json`。
+RAW-EVIDENCE: `evidence/raw/v0.2/telemetry-consistency.json`; `evidence/raw/v0.2/task-regression.json`.
 
-LIMITATIONS: 记录明确包含最新源码 5410fa8ade8c671189cd37bff0d2c34de8b55c6f 和已安装 APK 7acd40e0d1d39b412b4cbd0e916cb2b66c38a2c944f0914f598cb4a9fbf85451。Android host 时间戳、Web 精确样本及两个客户端显示值检查全部通过。任务 Q-8c990031-136b-4de9-8c56-adf67d4e13aa 由真实 reference Node 完成，checkpoint/result 可用；两个 UI 均匹配结果文件 SHA-256 ae149a46984f46a35f4e64f3e745084b66973b38aebe85b67af704a748cc827c。缺少已安装 APK 哈希的历史记录在单独保留文件中继续标记 UNKNOWN。顺序 snapshot 和格式化 UI 观测并非同时原子捕获；更新传播时中间 host/Web 样本可以不同。本项是单主机 PILOT，不是持续同步或跨平台精度结论。 单独绑定的 QR 后 Device Center 观测显示 Alien 最初 UNKNOWN · Cached，随后无需重新配对自动 ONLINE；这段采样序列不证明零瞬时过期。
+LIMITATIONS: 当前 ec30 观测的 Android/host 时间戳及 Web 精确样本匹配。两个 UI 的完成任务和结果文件与验收报告一致。顺序采样及格式化显示并非同时原子捕获；此前未知 APK 记录保留但不计入。
 
-NOTES: PILOT 观测受各文件溯源与所述限制约束，不构成普适结论。
+NOTES: 各原始记录保留自身源码/APK 绑定，文件头不重新标记历史运行。
 
 ## C-V02-04
 
 CLAIM-ID: C-V02-04
 STATUS: PILOT
 CODE-SHA: cb50fdd6ba5f23c16167672f32853485701772fb
-RUNS: WIFI=3_OF_3_PASS; NODE=3_OF_3_PASS; GATEWAY=3_OF_3_PASS; MDNS_DISAPPEAR_REAPPEAR=2_OF_2_PASS; BLE_TOGGLE=2_OF_2_RADIOFIX_PASS
+RUNS: WIFI=3; NODE=3; GATEWAY=3; OUTAGE_AUDIT=9; RADIO_TOGGLE=2
 
-CLAIM: 客户端或 Node 失联不会留下仍以实时绿色状态显示的过期 telemetry。
+CLAIM: 已确认中断显示为非实时状态。
 
-ENVIRONMENT: 单台 Alien Windows 主机；单台 Android 设备。自动化浏览器/Node 证据与实机证据分别记录。
+ENVIRONMENT: 单台 Alien Windows 主机与单台 Android 设备。
 
-RAW-EVIDENCE: `evidence/raw/v0.2/wifi-recovery.json`；`evidence/raw/v0.2/node-recovery.json`；`evidence/raw/v0.2/gateway-recovery.json`；对应的连接事件 JSONL 和离线 XML。原生 mDNS 恢复：`evidence/raw/v0.2/mdns-discovery-recovery.json`。单独绑定的无线电修复结果为 `evidence/raw/v0.2/ble-discovery-recovery.json`，CI 证据为 `evidence/raw/v0.2/ci-radiofix-product.json`。
+RAW-EVIDENCE: `evidence/raw/v0.2/wifi-recovery.json`; `evidence/raw/v0.2/node-recovery.json`; `evidence/raw/v0.2/gateway-recovery.json`; `evidence/raw/v0.2/recovery-outage-audit.json`; `evidence/raw/v0.2/ble-discovery-recovery.json`.
 
-LIMITATIONS: Wi-Fi、Node 与 Gateway 恢复各通过三次记录试验，历史与 City identity 均保留。最终 Node/Gateway 数据包含 Web Node 观测。指定的已确认中断观测显示 OFFLINE/UNKNOWN，而非实时绿色状态，随后观察到恢复。但 UI dump 与 Web 读取采用顺序采样；Node 停止后的早期观测中，Android 仍显示 ONLINE，之后才在较晚观测中确认为 OFFLINE。因此 staleGreenObserved=false 仅适用于指定的已确认中断样本，不代表整个过程 stale-green 时长为零，也不代表即时检测。原生 mDNS 消失/重现通过两次。首次 BLE toggle helper 虽然改变了无线电状态，却返回非零值，不计为通过。之后无线电修复源码/APK 的两次试验通过明确关闭/启用 UI 检查及原生重新发现，单独保留溯源。这些有边界的观测仅支持 PILOT。 已发布中断审计检查了全部九份 XML，确认明确 Utopia OFFLINE/UNKNOWN/RECONNECTING 或 Node OFFLINE 状态与记录一致，见 `evidence/raw/v0.2/recovery-outage-audit.json`。
+LIMITATIONS: 这些是历史、版本绑定的采样观测。Node 停止后早期样本仍显示 Android ONLINE，之后才确认 OFFLINE；不证明全过程零过期或即时检测。QR 后缓存到在线观测同样是采样。
 
-NOTES: PILOT 观测受各文件溯源与所述限制约束，不构成普适结论。
+NOTES: 各原始记录保留自身源码/APK 绑定，文件头不重新标记历史运行。
 
 ## C-V02-05
 
 CLAIM-ID: C-V02-05
 STATUS: PILOT
 CODE-SHA: cb50fdd6ba5f23c16167672f32853485701772fb
-RUNS: MANUAL=5; MDNS=5; BLE=5; QR=5_CAMERA_SUCCESS; WIFI_RECOVERY=3; NODE_RECOVERY=3; GATEWAY_RECOVERY=3
+RUNS: BASELINE_MANUAL=5; BASELINE_MDNS=5; BASELINE_BLE=5; CURRENT_QR=5_SUCCESS
 
-CLAIM: 配对与重连时延满足产品可接受范围。
+CLAIM: 配对与恢复时延可为产品接受。
 
-ENVIRONMENT: 单台 Alien Windows 主机；单台 Android 设备。自动化浏览器/Node 证据与实机证据分别记录。
+ENVIRONMENT: 单台 Alien Windows 主机与单台 Android 设备。
 
-RAW-EVIDENCE: `evidence/raw/v0.2/manual-trials.json`；`evidence/raw/v0.2/mdns-trials.json`；`evidence/raw/v0.2/ble-trials.json`，及对应的逐次事件文件。排除在最终统计之外的历史试验：`evidence/raw/v0.2/historical-attempts.json`。
+RAW-EVIDENCE: `evidence/raw/v0.2/manual-trials.json`; `evidence/raw/v0.2/mdns-trials.json`; `evidence/raw/v0.2/ble-trials.json`; `evidence/raw/v0.2/qr-autozoom-trials.json`.
 
-LIMITATIONS: pilot 基线构建每种模式各五次试验，观察到的提交至 authenticated 间隔（`pairingExchangeLatencyMs`）为 Manual 40–280 ms、mDNS 17–922 ms、BLE 22–275 ms。Manual 使用既有 credential 路径，其该项指标并非短码交换。整体 start-to-online 时间包含 ADB/UI 驱动等待和输入开销，不能估计真人配对速度，也不能作为不同模式间公平的可用性比较。现在每种中断类型均有三次恢复记录，但顺序 UI 采样及事件/捕获时间差异限制了时延解读。目前没有最终产品可接受阈值或所有模式的统一计时口径。小样本范围仅作描述；本项为 PILOT 数据，并非 SUPPORTED 时延结论。 基线认证间隔中位数为 103 / 24 / 32 ms，ADB 驱动整体时间中位数为 24987 / 37301 / 30358 ms（Manual / mDNS / BLE）；QR 计时单独记录。整体时间不能作为真人速度基准。 正向 QR 现有五次成功，单独绑定源码/APK；其计时不与较早三种模式的基线混合，不支持真人速度结论。
+LIMITATIONS: 基线认证中位数 103/24/32 ms、整体 ADB 中位数 24987/37301/30358 ms 仅描述 Manual/mDNS/BLE。驱动等待不等于真人速度，新 QR 运行不混入。不能推导阈值或普适性能验收。
 
-NOTES: PILOT 观测受各文件溯源与所述限制约束，不构成普适结论。
+NOTES: 各原始记录保留自身源码/APK 绑定，文件头不重新标记历史运行。
 
 ## C-V02-06
 
 CLAIM-ID: C-V02-06
 STATUS: PILOT
 CODE-SHA: cb50fdd6ba5f23c16167672f32853485701772fb
-RUNS: STACK_BASELINE=1x30s_PILOT; STACK_NORMAL=1x30s_PILOT; ISOLATED_SAMPLER_BASELINE=1x30s; ISOLATED_SAMPLER_ENABLED=1x30s
+RUNS: STACK_BASELINE=1x30s; STACK_NORMAL=1x30s
 
-CLAIM: Telemetry 与 discovery 的主机资源开销较低。
+CLAIM: Telemetry/discovery 资源开销较低。
 
-ENVIRONMENT: 单台 Alien Windows 主机；单台 Android 设备。自动化浏览器/Node 证据与实机证据分别记录。
+ENVIRONMENT: 单台 Alien Windows 主机与单台 Android 设备。
 
-RAW-EVIDENCE: `evidence/raw/v0.2/stack-resource-pilot.json`；命令：将 `CITY_RESOURCE_HOST` 设置为本机 LAN IPv4，然后执行 `node scripts/stack-resource-pilot.mjs`。补充：由 `node scripts/resource-pilot.mjs` 生成的 `evidence/raw/v0.2/resource-pilot.json`。
+RAW-EVIDENCE: `evidence/raw/v0.2/stack-resource-pilot.json`; `evidence/raw/v0.2/resource-pilot.json`.
 
-LIMITATIONS: 全栈 pilot 已完成一组顺序 baseline/normal 试验，每种模式配置为预热 5 秒后测量 30 秒（实际窗口为 30.581 与 30.726 秒）。Baseline 为关闭 discovery/telemetry 的 Gateway + Node，CPU 为单逻辑核的 0.817%，平均合计 WorkingSet64 为 125.73 MB。Normal 为 Gateway + Node + telemetry + mDNS + WinRT BLE publisher，CPU 为 0.966%，平均合计 WorkingSet64 为 223.60 MB。两次均标记 PILOT；normal 模式在测量前后 mDNS/BLE 均为 ACTIVE。Normal 工作集包含 PowerShell WinRT publisher；工作集求和可能重复计算共享页，并不等同于私有内存。共享主机噪声及顺序效应未受控制，单独的 PowerShell 测量进程会扰动主机，但不计入这些计数器。共享 Windows 服务、其他内核工作、初始化、Android/Web 客户端、用户任务及网络字节均未计入。单组试验不能证明普适的低开销或资源差异的因果关系；本项保持 PILOT，不标记 SUPPORTED。全栈 JSON 记录 pilot 基线代码 SHA，且 `worktreeModified=true`。此前独立 sampler 补充记录（CPU 0.210% 对 0.470%；平均 RSS 53.11 对 53.77 MB）保留自身历史溯源，不得归属于当前候选版本。
+LIMITATIONS: 历史全栈一组试验：单核 CPU 0.817%/0.966%，平均合计工作集 125.73/223.60 MB。Normal 包含 PowerShell BLE。共享页、主机噪声、顺序与测量效应仍存在。本项是 PILOT 测量，不支持普适低开销或单独较新 APK 的结论。
 
-NOTES: PILOT 观测受各文件溯源与所述限制约束，不构成普适结论。
+NOTES: 各原始记录保留自身源码/APK 绑定，文件头不重新标记历史运行。
+

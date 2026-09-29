@@ -2,41 +2,39 @@
 
 STATUS: NOT_ACCEPTED
 PAIR_STATUS: SYNCHRONIZED
-CODE-SHA: 5410fa8ade8c671189cd37bff0d2c34de8b55c6f
+CODE-SHA: 2607912f85c22f6075367dc0eff1c45a58d75419
 FACT: UTOPIA_V0_2=NOT_ACCEPTED
-FACT: PRODUCT_APK_SHA256=7acd40e0d1d39b412b4cbd0e916cb2b66c38a2c944f0914f598cb4a9fbf85451
-FACT: QR_RUN_SOURCE_SHA=f8285134f6ac8ef58f34c9c48bc6e21f21c1317e
-FACT: QR_DEVICE_OBSERVER_SOURCE_SHA=5855a927e42ae2945728f509a7b4ef07bcd372bf
-FACT: QR_POSITIVE=5_PASS_2_PRE_CAMERA_DRIVER_ERRORS
-FACT: QR_NEGATIVE=0_PASS_3_NO_DECODE_ATTEMPTS_1_GUARD_INVOCATION
-FACT: QR_NEGATIVE_LEGACY_DRIVER_HASH=UNKNOWN
+FACT: PRODUCT_APK_SHA256=ec30b0829a242aac05e604d3ade1aa5e91da2bbe45d22d4d9b5bcef222a5c9a7
+FACT: COLLECTION_SHA=ee3f3134efeabc3ff58d3c4fcbac6b57a5adec5c
+FACT: QR_AUTOZOOM=5_PASS_1_INITIAL_NO_DECODE
+FACT: QR_NEGATIVE=EXPIRED_2_PASS_SHARED_SESSION_REPLACED_2_PASS_INDEPENDENT_SESSIONS
+FACT: PRODUCT_CI=36521350387_PASS
+FACT: ANDROID_UNIT=16_PASS
+FACT: LATEST_TASK_AND_TELEMETRY=PASS
 FACT: MANUAL_RESTORATION=PASS
-FACT: PRODUCT_CI=36515630417_PASS
-FACT: BUNDLE_MANIFEST=126_FILES_VALID
-FACT: DELIVERY_AUDIT=244_FILES_ZERO_KNOWN_FINDINGS
+FACT: BUNDLE_MANIFEST=150_FILES_VALID
+FACT: DELIVERY_AUDIT=273_FILES_ZERO_KNOWN_FINDINGS
+FACT: MAIN_INTEGRATION=IN_PROGRESS_NOT_VERIFIED
 FACT: RELEASE=NOT_PUBLISHED
-FACT: MERGE=NOT_DONE
 
-**NOT_ACCEPTED：**真实 QR 摄像头正向配对现已有五次成功，但实物负向 QR 拒绝验证和发布交付仍未完成。用户定位了手机；成功运行序号为 1、2、5、6、7。摄像头启动前的驱动失败 3、4 保留可见，不计为摄像头失败。
+真实正向与负向摄像头试验已关闭 QR 产品缺口。Gate I 集成/发布仍待完成，因此整体保持 **NOT_ACCEPTED**；不声称已完成合并或发布。独立改变的 main 正在隔离检出中进行语义集成，尚未验证。
 
-APK 产品源码仍为 5410fa8/7acd40…。QR 试验绑定仓库源码 f828513…；Device Center 观测绑定采集器 5855a9…。这些采集器修订不代表新 APK。Pilot 基线 cb50fdd/315262… 保留 Manual/mDNS/BLE 各 5/5；无线电修复 3d7b8c9/0f2c30… 保留切换 2/2。最新产品错码 UI 2/2、定向 BLE 配对 1/1、精确 APK 的 telemetry/任务及 CI 已通过。此前错误文本覆盖、未解码、USB/首次进入界面及未知 APK 尝试保留为历史记录。
+产品源码 2607912/ec30… 与采集源码 ee3f313 分别记录。当前 APK 有五次成功摄像头配对（2–6）及一次初始未解码尝试。第 2 次运行期间显示几何发生改变，之后四个成功行记录 scale 2。这些观测不能证明单独由 autozoom 导致成功。较早的 5410/7acd 五成功序列保留为历史，不计入当前 APK 次数。
 
-| 门禁 | 证据与剩余边界 |
+04:39:14.835 UTC 序列的放大负向摄像头试验已成功完成：两次过期扫描复用真实五分钟 TTL 到期后的**同一个** session；两次替换扫描分别使用独立替换且尚未过期的 session。因此支持两次观察到的过期拒绝，而不是两个独立过期 session 实验。失败的未放大 04:22 序列记录真实摄像头 zoom 回读 1×/1.45×/2× 与 continuous-picture 对焦，但没有成功拒绝。04:18 对焦缺陷尝试在摄像头试验前中断，保留零行。所有失败均保留为证据。
+
+| 门禁 | 证据与边界 |
 |---|---|
-| A — V0 回归 | 最新 APK 的真实任务完成，Android/Web 任务与结果文件一致。基线恢复保留历史。产品 CI 已通过；证据提交后再验证最终分支 CI/干净工作区。 |
-| B — Device Center | 最新 telemetry 时间戳/精确样本/显示值检查通过。QR 成功后 Alien 最初显示 UNKNOWN · Cached，随后无需重新配对自动 ONLINE。这是两个采样观测，不证明零过期时长。 |
-| C — QR | 摄像头正向五次成功，另保留两次摄像头前驱动错误。负向摄像头拒绝仍为零次通过：过期一次、已替换 session 两次均未观察到解码/拒绝。门禁未完成。 |
-| D — mDNS | Pilot 基线发现/配对 5/5；原生消失/重现 2/2。最新错码 UI 拒绝 2/2 单独绑定。 |
-| E — BLE | Pilot 基线配对 5/5；无线电修复切换 2/2；最新定向配对 1/1。不声称最新 APK 做了五次，不适用硬件阻塞例外。 |
-| F — Manual | 基线干净 manual 试验 5/5；最新 QR 后 manual 恢复通过，主机已恢复可用在线状态。 |
-| G — 故障/恢复 | Wi-Fi/Node/Gateway 各 3/3，九份中断 XML 审计通过。API 负向 8/8 与摄像头 UI 分别记录。要求的过期/已替换 QR 摄像头拒绝重复试验尚未验证。 |
-| H — 证据 | 已有双语台账和有边界 pilot。刷新后的 manifest 覆盖 126 文件，244 文件交付审计报告零项已知发现。历史负向驱动哈希保持 UNKNOWN，不从新版源码补填。 |
-| I — 发布 | [草稿 PR #1](https://github.com/zhiheng-zhang-Mera/utopia/pull/1) 仍开放，release 为 NOT_PUBLISHED。并行 main 变更保留且未合并，不声称已经测试它们。经验证的功能分支发布不要求覆盖或合并 main。 |
+| A — V0 回归 | 当前 APK 的 Android 提交任务由真实 Node 完成，两个 UI 结果一致。历史恢复保留历史。产品 CI 通过，合并候选回归尚未验证。 |
+| B — Device Center | 当前 APK 的 Android/host 时间戳与 Web 精确样本匹配通过，最新截图经过目视检查。观测是采样的，并非同时持续相等。 |
+| C — QR | 当前 APK 五次正向成功与四次负向拒绝通过，受上述共享过期 session 限制。 |
+| D — mDNS | 单独绑定的 pilot 基线配对 5/5、消失/重现 2/2，之后错码 UI 2/2。不声称当前 APK 做了五次 mDNS。 |
+| E — BLE | 基线配对 5/5、无线电修复切换 2/2 及之后定向配对 1/1 各保留自己的版本。不适用硬件阻塞例外，也不声称当前 APK 做了五次。 |
+| F — Manual | 基线 5/5 和较早恢复通过。当前 ec30 manual 恢复已通过，绑定采集源码 ee3f313。 |
+| G — 恢复/故障 | 历史 Wi-Fi/Node/Gateway 各 3/3 和九次中断审计，API 负向 8/8 与新的真实摄像头负向分开记录。不声称全过程零过期。 |
+| H — 证据 | 源码/APK 版本与未成功尝试保留；150 文件清单已校验，273 个交付文件的有限审计无已知匹配。候选结论均为 PILOT，不是普适结论。 |
+| I — 集成/发布 | 语义集成与候选验证进行中，release 为 NOT_PUBLISHED。并行 main 工作保留，不声称已完成合并。 |
 
-负向尝试分三次调用保留：03:46 UTC 含一次过期、一次已替换 session 的未解码尝试；03:58 在摄像头前触发几何 guard，零行试验；03:59 含一次已替换 session 的未解码尝试。尝试的过期协议计划复用一个过期 session 重复扫描，不是两个独立过期 session。不因 API 测试通过而把任何摄像头尝试升级为 PASS。
+当前 APK 任务 `Q-688f30f7-11b5-451a-a7d8-52a4fa69bfb0` 完成，Android/Web 均匹配结果 SHA-256 `b2cd04407ccb978ee9c04ae504e1c1d724372540e3abc49b56cf193f106b91de`。时间戳一致性和当前任务证据位于 [telemetry](../raw/v0.2/telemetry-consistency.json) 与[任务](../raw/v0.2/task-regression.json)。
 
-已发布来源包括[基线试验](../raw/v0.2/manual-trials.json)、[mDNS](../raw/v0.2/mdns-trials.json)、[BLE](../raw/v0.2/ble-trials.json)、[telemetry](../raw/v0.2/telemetry-consistency.json)、[任务](../raw/v0.2/task-regression.json)、[中断审计](../raw/v0.2/recovery-outage-audit.json) 和[候选台账](PAPER_EVIDENCE_V0_2.md)。新增发布记录：[QR 试验](../raw/v0.2/qr-trials.json)、[QR Device Center](../raw/v0.2/qr-device-center.json)、[负向尝试索引](../raw/v0.2/qr-negative-index.json) 和 [manual 恢复](../raw/v0.2/manual-qr-restoration-trials.json)。筛查后证据包保留未成功尝试，manifest 已验证。
-
-基线认证间隔中位数为 Manual 103 ms、mDNS 24 ms、BLE 32 ms。整体 ADB 中位数 24987 / 37301 / 30358 ms 包含驱动/输入等待，不能用于真人比较；较新的 QR 计时不混入该基线。单组全栈资源试验是 PILOT，不是普适低开销证据。仍待实物负向 QR 验证，不声称全部自主工作已经完成。
-
-恢复后的主机观测：[在线主机](../raw/v0.2/post-qr-restoration-host.json)。
+证据目标：[autozoom 试验](../raw/v0.2/qr-autozoom-trials.json)、[放大负向](../raw/v0.2/qr-negative-2026-09-29T04-39-14.835Z-runs.json)、[负向索引](../raw/v0.2/qr-negative-index.json)、[autozoom 单测](../raw/v0.2/android-autozoom-unit-tests.json)、[产品 CI](../raw/v0.2/ci-autozoom-product.json)、[manifest](../raw/v0.2/manifest.json)、[候选台账](PAPER_EVIDENCE_V0_2.md)。新增证据已纳入校验后的证据包；发布证据不需要秘密或摄像头预览。

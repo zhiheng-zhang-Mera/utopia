@@ -25,6 +25,7 @@ import {
 } from '../manifest.mjs';
 
 const WAVE1 = [
+  'city/00-foundation/03-capability-fabric/capability-fabric',
   'city/02-engineering/02-worker-gateway/skill-intake',
   'city/06-research/01-research-institute/evidence-engine',
   'city/09-planning-knowledge/01-knowledge-service/knowledge-core',
@@ -39,7 +40,7 @@ test('the real manifest describes exactly the wave 1 districts and modules', asy
   assert.equal(manifest.schemaVersion, 2);
   assert.deepEqual(
     manifest.districts.map((district) => district.id),
-    ['02-engineering', '06-research', '09-planning-knowledge', '11-entertainment'],
+    ['00-foundation', '02-engineering', '06-research', '09-planning-knowledge', '11-entertainment'],
     'only the districts that actually exist are declared',
   );
   for (const district of manifest.districts) {
@@ -149,8 +150,13 @@ test('the manifest rejects malformed hierarchy, paths and lifecycles', async () 
       return next;
     }],
     ['one incubation room claimed by two modules', () => {
+      // The first district is 00-foundation, which is not the district that
+      // owns skill-intake-lab, so the shared room is read from the first
+      // module's own declaration rather than hard-coded. The rule under test is
+      // cross-module exclusivity, not which room happens to come first.
       const next = clone();
-      next.districts[1].buildings[0].modules[0].incubationRooms = ['skill-intake-lab'];
+      const claimed = next.districts[0].buildings[0].modules[0].incubationRooms[0];
+      next.districts[1].buildings[0].modules[0].incubationRooms = [claimed];
       return next;
     }],
     ['an empty incubation room entry', () => {

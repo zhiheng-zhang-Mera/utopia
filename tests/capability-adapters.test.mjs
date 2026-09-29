@@ -27,8 +27,15 @@ test('theme generation returns a reproducible PNG and validation',async()=>{
  assert.equal(digest(a),digest(b));assert.equal(Buffer.from(a.previewPngBase64,'base64').subarray(1,4).toString(),'PNG');assert.equal(a.globalApply,false);
 });
 test('future promoted module stays pending and all five existing adapters still execute',async()=>{
- const manifest=JSON.parse(readFileSync('city/CITY_IMPLEMENTATION_MANIFEST.json'));manifest.districts[0].buildings[0].modules.push({id:'future',en:'Future',lifecycle:'PROMOTED'});const catalog=registry(manifest);
- assert.equal(catalog.find(x=>x.moduleRefs?.[0]?.moduleId==='future').bridgeState,'BRIDGE_PENDING');assert.equal(catalog.length,6);assert.equal(catalog.filter(c=>c.bridgeState==='AVAILABLE').length,5);
+ const manifest=JSON.parse(readFileSync('city/CITY_IMPLEMENTATION_MANIFEST.json'));
+ // The fixture district is the last one so it does not depend on which district
+ // happens to sort first in the manifest census.
+ const baseline=registry(manifest);
+ manifest.districts.at(-1).buildings[0].modules.push({id:'future',en:'Future',lifecycle:'PROMOTED'});
+ const catalog=registry(manifest);
+ assert.equal(catalog.find(x=>x.moduleRefs?.[0]?.moduleId==='future').bridgeState,'BRIDGE_PENDING');
+ assert.equal(catalog.length,baseline.length+1);
+ assert.equal(catalog.filter(c=>c.bridgeState==='AVAILABLE').length,baseline.filter(c=>c.bridgeState==='AVAILABLE').length);
  const inputs={document:{fileName:'sample.txt',base64:Buffer.from('Utopia').toString('base64')},knowledge:{entries:[],query:'Utopia'},skill:{ref:'owner/repo'},evidence:{sample:true},theme:{seed:'future-module-check'}};for(const descriptor of catalog.filter(c=>c.bridgeState==='AVAILABLE'))assert.ok(await invokeAdapter(descriptor.capabilityId,descriptor.operations[0].operationId,inputs[descriptor.inputKind]));
 });
 test('malformed and oversized inputs have explicit refusals',async()=>{

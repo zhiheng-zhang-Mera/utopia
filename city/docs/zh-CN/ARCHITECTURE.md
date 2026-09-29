@@ -51,14 +51,21 @@ city/
 ├── manifest.mjs
 ├── test-all.mjs
 ├── docs/{zh-CN,en}/ARCHITECTURE.md
+├── 00-foundation/
+│   └── 03-capability-fabric/
+│       └── capability-fabric/
 ├── 02-engineering/
 │   └── 02-worker-gateway/
 │       └── skill-intake/
+├── 06-research/
+│   └── 01-research-institute/
+│       └── evidence-engine/
 ├── 09-planning-knowledge/
 │   ├── 01-knowledge-service/
 │   │   └── knowledge-core/
 │   └── 02-document-intake/
-│       └── ingestion-core/
+│       ├── ingestion-core/
+│       └── document-readers/
 └── 11-entertainment/
     └── 01-entertainment-centre/
         └── theme-engine/
@@ -68,9 +75,12 @@ city/
 
 | District | Building | Module | 来源 donor |
 | --- | --- | --- | --- |
+| `00-foundation` 城市地基 | `03-capability-fabric` 城市服务网 | `capability-fabric` | DS-Hns `app/core/{capability-registry,plugin-manager,health-supervisor,lockfile,contracts/capability}.cjs` + Codex-Boss `src/shared/{provider-contracts,provider-outcome,provider-state,capability-router}.ts` |
 | `02-engineering` 工务区 | `02-worker-gateway` 施工队接入站 | `skill-intake` | DS-Hns `app/extensions/mega/skills/*` |
+| `06-research` 研究院区 | `01-research-institute` 研究院 | `evidence-engine` | Codex-Boss `electron/evidence-engine.ts` |
 | `09-planning-knowledge` 规划知识区 | `01-knowledge-service` 知识服务所 | `knowledge-core` | Codex-Boss `src/shared/knowledge.ts` |
 | `09-planning-knowledge` 规划知识区 | `02-document-intake` 文档接入站 | `ingestion-core` | Codex-Boss `electron/ingestion/*` |
+| `09-planning-knowledge` 规划知识区 | `02-document-intake` 文档接入站 | `document-readers` | Codex-Boss `electron/ingestion/{docx,xlsx,pdf}-reader.ts` |
 | `11-entertainment` 娱乐区 | `01-entertainment-centre` 娱乐中心 | `theme-engine` | DS-Hns `app/extensions/mega/theme/*` |
 
 ---

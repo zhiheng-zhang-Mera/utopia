@@ -1,0 +1,15 @@
+{
+  "roomId": "skill-intake-lab",
+  "acceptedRoomCommit": "0000000000000000000000000000000000000000",
+  "promotedAtCommit": "0000000000000000000000000000000000000000",
+  "targetCityPath": "city/02-engineering/02-worker-gateway/skill-intake",
+  "donor": {
+    "repository": "zhiheng-zhang-Mera/DS-Hns",
+    "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+    "sourcePaths": [
+      "app/extensions/mega/skills/skill-format.js",
+      "app/extensions/mega/skills/tar.js"
+    ]
+  },
+  "status": "PROMOTED"
+}

@@ -161,7 +161,26 @@ const LOCAL_ROOMS = [
  * city/ (or rejected) stops serving a live surface and is dropped from the
  * active catalog, keeping only its Git history and its promotions/*.json record.
  */
-const INCUBATOR_ROOMS = [];
+const INCUBATOR_ROOMS = [
+  {
+    id: 'skill-intake-lab',
+    number: 'D1',
+    label: 'Skill Intake Lab',
+    zh: '技能接入实验室',
+    summary: 'Incubating DS-Hns skill intake: validate SKILL.md and inspect tar bundles for safety.',
+    dataFile: null,
+    initialData: null,
+    tags: ['incubator', 'donor'],
+    lifecycle: 'PROMOTED',
+    targetCityPath: 'city/02-engineering/02-worker-gateway/skill-intake',
+    donorRepository: 'zhiheng-zhang-Mera/DS-Hns',
+    donorCommit: 'eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b',
+    donorSourcePaths: [
+      'app/extensions/mega/skills/skill-format.js',
+      'app/extensions/mega/skills/tar.js',
+    ],
+  },
+];
 
 /** Every room the codebase knows about, active or retired. */
 export const ALL_ROOMS = [...LOCAL_ROOMS, ...INCUBATOR_ROOMS].map(withLifecycle);

@@ -103,10 +103,17 @@ export async function loadPromotionRecords(directory = PROMOTIONS_DIR) {
 
 /**
  * Cross-check records against the room catalog:
- * - a promoted room must still be known in Git history but no longer active;
+ * - a promoted room must still be known in Git history;
+ * - it must no longer serve a live surface, except while the promotion commit
+ *   itself is still in flight (a room id listed in `inFlight`);
  * - the record's targetCityPath must match the manifest when the room declares one.
+ *
+ * @param {Array<object>} records
+ * @param {Array<object>} allRooms
+ * @param {Array<object>} activeRooms
+ * @param {string[]} [inFlight] room ids allowed to stay active while their record lands
  */
-export function crossCheckPromotions(records, allRooms, activeRooms) {
+export function crossCheckPromotions(records, allRooms, activeRooms, inFlight = []) {
   const problems = [];
   for (const record of records) {
     const known = allRooms.find((room) => room.id === record.roomId);
@@ -114,10 +121,11 @@ export function crossCheckPromotions(records, allRooms, activeRooms) {
       problems.push(`${record.file}: roomId ${record.roomId} is not a known room`);
       continue;
     }
-    if (activeRooms.some((room) => room.id === record.roomId)) {
+    const stillActive = activeRooms.some((room) => room.id === record.roomId);
+    if (stillActive && !inFlight.includes(record.roomId)) {
       problems.push(`${record.file}: ${record.roomId} is still in the active catalog`);
     }
-    if (known.lifecycle !== 'PROMOTED') {
+    if (!stillActive && known.lifecycle !== 'PROMOTED') {
       problems.push(`${record.file}: ${record.roomId} lifecycle is ${known.lifecycle}, expected PROMOTED`);
     }
     if (known.targetCityPath && known.targetCityPath !== record.targetCityPath) {

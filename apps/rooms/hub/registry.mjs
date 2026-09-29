@@ -20,6 +20,7 @@ const FACTORIES = {
   focus: { load: () => import('../rooms/focus/room.server.mjs'), name: 'createFocusRoom' },
   calendar: { load: () => import('../rooms/calendar/room.server.mjs'), name: 'createCalendarRoom' },
   decisions: { load: () => import('../rooms/decisions/room.server.mjs'), name: 'createDecisionRoom' },
+  'skill-intake-lab': { load: () => import('../rooms/skill-intake-lab/room.server.mjs'), name: 'createSkillIntakeRoom' },
 };
 
 /**

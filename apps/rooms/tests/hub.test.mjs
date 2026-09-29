@@ -114,12 +114,14 @@ test('hub serves health, the room catalog and the product shell on loopback', as
   assert.equal(health.status, 200);
   assert.equal(health.payload.product, 'utopia-room-pack');
   assert.equal(health.payload.host, '127.0.0.1');
-  assert.equal(health.payload.rooms.length, 10);
+  assert.equal(health.payload.rooms.length, 11, 'ten local rooms plus the incubating skill intake lab');
 
   const catalog = await hub.api('GET', '/local-rooms/v1/rooms');
-  assert.equal(catalog.payload.rooms.length, 10);
+  assert.equal(catalog.payload.rooms.length, 11);
   assert.equal(catalog.payload.rooms[0].id, 'knowledge');
   assert.equal(catalog.payload.rooms[9].id, 'decisions');
+  assert.equal(catalog.payload.rooms[10].id, 'skill-intake-lab');
+  assert.equal(catalog.payload.rooms[10].lifecycle, 'INCUBATING');
 
   const page = await hub.get('/');
   assert.equal(page.status, 200);

@@ -92,7 +92,8 @@ export async function createRoomHubServer(options = {}) {
 
       if (path === `${ROOM_API_BASE}/promotions` && method === 'GET') {
         const records = await loadPromotionRecords();
-        const problems = crossCheckPromotions(records, ALL_ROOMS, ROOMS);
+        const inFlight = records.map((record) => record.roomId);
+        const problems = crossCheckPromotions(records, ALL_ROOMS, ROOMS, inFlight);
         sendJson(res, 200, {
           total: records.length,
           consistent: problems.length === 0,

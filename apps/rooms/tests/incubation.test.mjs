@@ -34,20 +34,39 @@ import { startTestHub } from './harness.mjs';
 const DONOR_COMMIT = 'eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b';
 
 test('all ten local rooms are LOCAL_PRODUCT and carry null donor metadata', () => {
-  assert.equal(ROOMS.length, 10, 'the active catalog still has ten local rooms');
-  for (const room of ROOMS) {
+  const localRooms = ROOMS.filter((room) => room.lifecycle === 'LOCAL_PRODUCT');
+  assert.equal(localRooms.length, 10, 'the ten local product rooms are unchanged');
+  for (const room of localRooms) {
     assert.ok(ROOM_LIFECYCLES.includes(room.lifecycle), `${room.id} lifecycle is known`);
-    assert.equal(room.lifecycle, 'LOCAL_PRODUCT', `${room.id} is a local product room`);
     assert.equal(room.donorRepository, null, `${room.id} has no donor repository`);
     assert.equal(room.donorCommit, null, `${room.id} has no donor commit`);
     assert.equal(room.targetCityPath, null, `${room.id} has no city target`);
     assert.deepEqual(room.donorSourcePaths, [], `${room.id} has no donor source paths`);
   }
-  assert.deepEqual(incubatingRooms(), [], 'no room is incubating yet');
   assert.equal(persistentRooms().length, 7, 'the seven durable rooms are unchanged');
   assert.equal(findActiveRoom('knowledge').id, 'knowledge');
   assert.equal(findRoom('knowledge').lifecycle, 'LOCAL_PRODUCT');
   assert.equal(findActiveRoom('nope'), null);
+});
+
+test('every incubating room declares a full donor and promotion contract', () => {
+  const incubating = incubatingRooms();
+  assert.ok(incubating.length >= 1, 'at least one donor room is incubating');
+  for (const room of incubating) {
+    assert.ok(room.targetCityPath?.startsWith('city/'), `${room.id} targets a city path`);
+    assert.match(room.donorRepository ?? '', /^[\w.-]+\/[\w.-]+$/, `${room.id} names a donor repository`);
+    assert.match(room.donorCommit ?? '', /^[0-9a-f]{40}$/i, `${room.id} pins a full donor commit`);
+    assert.ok(room.donorSourcePaths.length > 0, `${room.id} records the copied donor files`);
+    assert.deepEqual(Object.keys(roomIncubationMetadata(room)).sort(), [
+      'donorCommit',
+      'donorRepository',
+      'donorSourcePaths',
+      'id',
+      'label',
+      'lifecycle',
+      'targetCityPath',
+    ]);
+  }
 });
 
 test('lifecycle defaults and metadata projection follow the §5.2 contract', () => {
@@ -187,13 +206,19 @@ test('hub exposes lifecycle metadata and the promotion record set', async (t) =>
 
   const catalog = await hub.api('GET', '/local-rooms/v1/rooms');
   assert.equal(catalog.status, 200);
-  assert.equal(catalog.payload.rooms.length, 10);
-  for (const room of catalog.payload.rooms) {
-    assert.equal(room.lifecycle, 'LOCAL_PRODUCT', `${room.id} lifecycle is exposed`);
+  const localRooms = catalog.payload.rooms.filter((room) => room.lifecycle === 'LOCAL_PRODUCT');
+  assert.equal(localRooms.length, 10);
+  for (const room of localRooms) {
     assert.equal(room.targetCityPath, null);
     assert.equal(room.donorRepository, null);
     assert.equal(room.donorCommit, null);
     assert.deepEqual(room.donorSourcePaths, []);
+  }
+  const incubating = catalog.payload.rooms.filter((room) => room.lifecycle === 'INCUBATING');
+  assert.ok(incubating.length >= 1, 'the incubating donor room is exposed');
+  for (const room of incubating) {
+    assert.ok(room.targetCityPath.startsWith('city/'), `${room.id} exposes its city target`);
+    assert.ok(room.donorCommit.length === 40, `${room.id} exposes its donor commit`);
   }
 
   const promotions = await hub.api('GET', '/local-rooms/v1/promotions');
@@ -203,5 +228,5 @@ test('hub exposes lifecycle metadata and the promotion record set', async (t) =>
   assert.deepEqual(promotions.payload.promotions, []);
 
   const health = await hub.api('GET', '/health');
-  assert.equal(health.payload.rooms.length, 10);
+  assert.equal(health.payload.rooms.length, catalog.payload.rooms.length, 'health and the catalog agree on the room set');
 });

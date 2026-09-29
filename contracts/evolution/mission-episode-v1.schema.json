@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://utopia.local/contracts/evolution/mission-episode-v1.schema.json",
+  "title": "Utopia Verified Mission Episode v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "episodeId",
+    "missionId",
+    "status",
+    "participants",
+    "sourceRefs",
+    "target",
+    "inboxDigestSha256",
+    "timeline",
+    "failures",
+    "rejectedApproaches",
+    "repairs",
+    "verifierFindings",
+    "acceptedApproach",
+    "metrics",
+    "evidence",
+    "ci",
+    "learning"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "episodeId": {
+      "type": "string",
+      "pattern": "^MB-[0-9]{3}:[a-f0-9]{16}$"
+    },
+    "missionId": {
+      "type": "string",
+      "pattern": "^MB-[0-9]{3}$"
+    },
+    "status": {
+      "const": "VERIFIED"
+    },
+    "participants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "migrationHost",
+        "verificationHost"
+      ],
+      "properties": {
+        "migrationHost": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]{1,80}$"
+        },
+        "verificationHost": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]{1,80}$"
+        }
+      }
+    },
+    "sourceRefs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "branchFinalSha"
+      ],
+      "properties": {
+        "branchFinalSha": {
+          "type": "string",
+          "minLength": 7,
+          "maxLength": 64
+        },
+        "targetRefs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "inboxDigestSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "timeline": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "failures": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "rejectedApproaches": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "repairs": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "verifierFindings": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "acceptedApproach": {
+      "type": "object"
+    },
+    "metrics": {
+      "type": "object"
+    },
+    "evidence": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "ci": {
+      "type": "object",
+      "required": [
+        "run",
+        "outcome"
+      ],
+      "properties": {
+        "run": {
+          "type": "string"
+        },
+        "outcome": {
+          "const": "PASS"
+        }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eligible",
+        "authority"
+      ],
+      "properties": {
+        "eligible": {
+          "const": true
+        },
+        "authority": {
+          "const": "EXPERIENCE_ONLY"
+        }
+      }
+    }
+  }
+}

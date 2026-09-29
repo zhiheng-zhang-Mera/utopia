@@ -1,0 +1,55 @@
+{
+  "module": "knowledge-core",
+  "cityPath": "city/09-planning-knowledge/01-knowledge-service/knowledge-core",
+  "district": "09-planning-knowledge",
+  "building": "01-knowledge-service",
+  "room": "knowledge-core-lab",
+  "repository": "zhiheng-zhang-Mera/Codex-Boss",
+  "commit": "8df428eaa437a409368401e95194e40266b83080",
+  "sourcePaths": [
+    "src/shared/knowledge.ts"
+  ],
+  "skippedSourcePaths": [
+    "electron/knowledge/knowledge-store.ts"
+  ],
+  "skipReasons": {
+    "electron/knowledge/knowledge-store.ts": "depends on the Boss commander durable-json layer, which would drag a runtime into this module"
+  },
+  "portedFiles": {
+    "src/shared/knowledge.ts": "retrieval/knowledge-core.mjs"
+  },
+  "layout": {
+    "contracts/": "value shapes, required/optional field lists and the query field list",
+    "retrieval/": "entry matching, budgeted retrieval, goal reranking and planRetrieval",
+    "taxonomy/": "taxonomy derivation and the deterministic domain router",
+    "trust/": "trust order, trust floor and the trust-then-recency ordering",
+    "conflict/": "supersession and conflict metadata"
+  },
+  "adaptation": [
+    "TypeScript -> ESM JavaScript; the algorithms are unchanged (trust ordering, all-tag matching, validity windows, character budget, tokeniser weights).",
+    "conflictReport() and planRetrieval() were added on top of the donor surface so supersession/conflict metadata and goal-driven assembly each have one home.",
+    "entryMatches() accepts an explicit `now` for deterministic tests instead of always reading Date.now().",
+    "The donor's knowledge-store.ts was not copied at all, so this module has no storage, no durable-json dependency and no Boss runtime requirement.",
+    "The module is split into contracts/retrieval/taxonomy/trust/conflict facades over a single core implementation, so consumers can import a narrow surface without duplicating algorithms."
+  ],
+  "knownDifferences": [
+    "No persistence: the module is pure, and the incubator room holds catalogs in the page only.",
+    "No embeddings, no vector store, no LLM summarisation.",
+    "No domain route/rerank outside the deterministic tokeniser (the donor has no embeddings either)."
+  ],
+  "parity": {
+    "vectorSource": "Codex-Boss src/shared/knowledge.ts @ 8df428eaa437a409368401e95194e40266b83080",
+    "vectors": [
+      "trust ordering HIGH > MEDIUM > LOW > UNVERIFIED and unknown trust = 0",
+      "domain filter, shelf filter, all-tag matching",
+      "trustAtLeast floor",
+      "expired and not-yet-valid exclusion",
+      "character budget truncation and larger-budget behaviour",
+      "trust ordering with recency tie-break",
+      "taxonomy derivation (domains, shelves, tags sorted and de-duplicated)",
+      "deterministic domain router (domain match then up to three shared tags, no match routes nowhere)",
+      "relevance weights (title 3x, tags 2x, domain 2x, content 1x) and rerank order",
+      "supersession/conflict metadata including dangling supersedes pointers"
+    ]
+  }
+}

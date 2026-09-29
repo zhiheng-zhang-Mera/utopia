@@ -49,8 +49,14 @@
               "zh": "知识内核",
               "en": "Knowledge Core",
               "path": "city/09-planning-knowledge/01-knowledge-service/knowledge-core",
-              "lifecycle": "PLANNED",
-              "donor": null,
+              "lifecycle": "PROMOTED",
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/Codex-Boss",
+                "commit": "8df428eaa437a409368401e95194e40266b83080",
+                "sourcePaths": [
+                  "src/shared/knowledge.ts"
+                ]
+              },
               "roomId": "knowledge-core-lab"
             }
           ]

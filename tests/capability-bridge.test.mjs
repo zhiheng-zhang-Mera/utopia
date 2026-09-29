@@ -29,6 +29,7 @@ test('capabilities use control auth, canonical results, typed refusal and durabl
   const b=(await call('capabilities/engineering.skill.inspect/invoke',request)).data;
   assert.equal(a.status,'COMPLETED');assert.equal(a.resultDigest,b.resultDigest);assert.notEqual(a.invocationId,b.invocationId);
   const bad=(await call('capabilities/engineering.skill.inspect/invoke',{operationId:'install',input:{}}));assert.equal(bad.status,400);assert.equal(bad.data.errorCode,'OPERATION_BLOCKED');
+  const oversized=await call('capabilities/planning.document.intake/invoke',{operationId:'read',input:{base64:'A'.repeat(1500001)}});assert.equal(oversized.status,413);assert.equal(oversized.data.errorCode,'INPUT_TOO_LARGE');
   const broken=(await call('capabilities/planning.document.intake/invoke',{operationId:'read',input:{fileName:'broken.json',base64:Buffer.from('{').toString('base64')}})).data;assert.equal(broken.status,'FAILED');assert.ok(broken.errorCode);assert.equal(broken.resultDigest,null);
   g.store.put('invocations',{id:'I-interrupted',invocationId:'I-interrupted',capabilityId:'engineering.skill.inspect',operationId:'inspect',status:'RUNNING',resultDigest:null});
   await g.close();g=await createGateway({dir,port:0,token:'control-test',nodeToken:'node-test'});

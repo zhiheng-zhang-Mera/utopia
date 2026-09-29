@@ -19,7 +19,7 @@ export function createBridge(store,emit,{execute}={}){
   if(!descriptor.operations.some(o=>o.operationId===request.operationId))refuse('OPERATION_BLOCKED');
   objectInput(request.input);if(workers.size>=2)refuse('BUSY',429);
   const invocationId='I-'+randomUUID(),startedAt=new Date().toISOString();
-  let row={invocationId,capabilityId,operationId:request.operationId,startedAt,finishedAt:null,status:'RUNNING',resultDigest:null,errorCode:null,result:null};
+  let row={invocationId,capabilityId,operationId:request.operationId,inputBytes:Buffer.byteLength(JSON.stringify(request.input)),inputClass:descriptor.inputKind??request.operationId,startedAt,finishedAt:null,status:'RUNNING',resultDigest:null,errorCode:null,result:null};
   save(row);emit('CAPABILITY_INVOKED',null,{invocationId,capabilityId,operationId:row.operationId});
   const outcome=execute?await execute({capabilityId,operationId:request.operationId,input:request.input}):await new Promise(resolve=>{
    const worker=new Worker(new URL('./worker.mjs',import.meta.url),{workerData:{capabilityId,operationId:request.operationId,input:request.input},stdout:true,stderr:true,resourceLimits:{maxOldGenerationSizeMb:128}});workers.add(worker);

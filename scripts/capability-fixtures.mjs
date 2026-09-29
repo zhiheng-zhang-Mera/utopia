@@ -1,8 +1,8 @@
-import {mkdirSync,writeFileSync} from 'node:fs';
+import {mkdirSync,writeFileSync,readFileSync,existsSync} from 'node:fs';
 import {buildSample} from '../city/09-planning-knowledge/02-document-intake/document-readers/samples.mjs';
 import {buildTar,skillDoc} from '../city/02-engineering/02-worker-gateway/skill-intake/tests/fixtures.mjs';
 export async function capabilityFixtures(dir='.runtime/v03/fixtures'){
- mkdirSync(dir,{recursive:true});const items={
+ mkdirSync(dir,{recursive:true});const names=['sample.txt','sample.json','sample.yaml','malformed.json','oversize.txt','valid-SKILL.md','malformed-SKILL.md','unsafe.tar','valid.tar','sample.docx','sample.xlsx','sample.pdf','truncated.pdf'];if(names.every(name=>existsSync(dir+'/'+name)))return Object.fromEntries(names.map(name=>[name,readFileSync(dir+'/'+name)]));const items={
   'sample.txt':Buffer.from('Utopia shared knowledge\nProduct usability comes first.'),
   'sample.json':Buffer.from('{"city":"Utopia","purpose":"shared knowledge"}'),
   'sample.yaml':Buffer.from('city: Utopia\npurpose: shared knowledge\n'),

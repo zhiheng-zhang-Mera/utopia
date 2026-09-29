@@ -15,6 +15,9 @@ import { fileURLToPath } from 'node:url';
 export const CITY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)));
 export const MANIFEST_PATH = join(CITY_ROOT, 'CITY_IMPLEMENTATION_MANIFEST.json');
 
+/** District kinds. `infrastructure` districts own the runtime kernel, not capabilities. */
+export const DISTRICT_KINDS = ['infrastructure', 'domain'];
+
 /** Lifecycles a city module may declare. */
 export const CITY_LIFECYCLES = ['PLANNED', 'INCUBATING', 'PROMOTED', 'ACTIVE', 'DEPRECATED'];
 
@@ -64,6 +67,9 @@ export function validateManifest(raw, source = 'manifest') {
     districtIds.add(district.id);
     if (!/^\d{2}-[a-z0-9-]+$/.test(district.id)) {
       throw new ManifestError(`${source}: district id ${district.id} must look like 02-engineering`);
+    }
+    if (district.kind !== undefined && !DISTRICT_KINDS.includes(district.kind)) {
+      throw new ManifestError(`${source}: district ${district.id} kind ${district.kind} is not a city district kind`);
     }
     if (!Array.isArray(district.buildings) || district.buildings.length === 0) {
       throw new ManifestError(`${source}: district ${district.id} needs at least one building`);

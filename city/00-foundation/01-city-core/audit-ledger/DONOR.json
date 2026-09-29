@@ -1,0 +1,136 @@
+{
+  "module": "audit-ledger",
+  "cityPath": "city/00-foundation/01-city-core/audit-ledger",
+  "district": "00-foundation",
+  "building": "01-city-core",
+  "incubationRooms": [
+    "mb-001-audit-ledger-lab"
+  ],
+  "mission": {
+    "missionId": "MB-001",
+    "book": "Digital-City/mission-book/MB-001-core-os.md",
+    "role": "MIGRATION",
+    "cluster": "D — continuation/recovery and durable audit primitives"
+  },
+  "repository": "zhiheng-zhang-Mera/Codex-Boss",
+  "commit": "8df428eaa437a409368401e95194e40266b83080",
+  "sourcePaths": [
+    "src/shared/decision-ledger.ts",
+    "src/shared/candidate-gate.ts",
+    "src/shared/recovery.ts"
+  ],
+  "portedFiles": {
+    "src/shared/decision-ledger.ts": [
+      "contracts.mjs",
+      "decision-ledger.mjs"
+    ],
+    "src/shared/candidate-gate.ts": [
+      "contracts.mjs",
+      "guardian-gate.mjs"
+    ],
+    "src/shared/recovery.ts": [
+      "contracts.mjs",
+      "recovery.mjs"
+    ]
+  },
+  "adaptation": [
+    "TypeScript -> ESM JavaScript. `decision-ledger.ts` is ported whole (validateLedgerEntry, appendToLedger, summarizeLedger) with its field bounds, its closed outcome/source lists and its duplicate-id refusal preserved one for one.",
+    "§36 of `candidate-gate.ts` is ported whole into guardian-gate.mjs (GUARDIAN_CHECKS, THEME_GUARDIAN_CHECKS, requiredGuardianChecks, evaluateGuardian, termsOf and the themeCheck helper). §35 of the same donor file is cluster B and lives in the sibling `task-lifecycle` module; the split is by mission cluster, not by donor file, and both halves cite the same donor.",
+    "The donor's ledger `outcome` vocabulary type was module-private; the constants DECISION_OUTCOMES / DECISION_SOURCES are exported here so a caller can enumerate the closed lists rather than re-typing them. The donor's own list contents are unchanged.",
+    "`AuditLedgerError` replaces the donor's bare `throw new Error(...)`. Every donor message string is kept verbatim so a caller matching on text still matches.",
+    "Deliberate detail preserved: `termsOf` uses `toLocaleLowerCase()` (not `toLowerCase()`), keeps runs of four or more alphanumerics and deduplicates exactly as the donor does.",
+    "`appendAllToLedger` and `entriesForTask` are thin conveniences over the ported reducer. `copyList` copies array arguments but passes a malformed non-array through untouched, so a spread can never turn an invalid entry into a valid one and the validator stays the single gate.",
+    "The donor's `GuardianCheckResult` / `GuardianVerdict` interfaces were type-only; the two factories here construct the same shapes.",
+    "`src/shared/recovery.ts` §33.1–§33.2 is ported whole in `recovery.mjs` (classifyFailure, planRecovery, advanceRecovery) with the CLASS_RULES ladder, its `requires` preconditions, its precedence, its confidence/severity table, its reasons, the RECOVERY_ORDER and THEME_RECOVERY_STEPS declarations and the per-class step budgets preserved one for one. The donor's `RecoveryPlan`, `RecoveryProgress`, `RecoveryStepPlan` and `HnsFallbackDecision` were interfaces with no runtime existence; nothing about them is re-declared here.",
+    "Shape placement: the §33 value vocabularies (FAILURE_CLASSES, FAILURE_SEVERITIES, VERIFICATION_GATES, RECOVERY_ORDER, THEME_RECOVERY_STEPS, RECOVERY_ATTEMPT_OUTCOMES) and the value shapes (WorkspaceFacts, FailureObservation, FailureClassification, RecoveryAttempt) live in `contracts.mjs` beside the module's other declared vocabularies, so the closed sets and the containers have exactly one home; `recovery.mjs` holds only behaviour and re-exports the three §33 vocabularies its own API is read through.",
+    "The donor's `VerificationGate` type import is dropped (a type cannot survive plain ESM, and this module imports no TypeScript). The ten gates it could hold are declared as VERIFICATION_GATES so the classifier's own gate fallback is enumerable and the shape validators can refuse a gate outside the donor union.",
+    "The donor's type-only shape annotations became factories (workspaceFacts, failureObservation, failureClassification, recoveryAttempt) plus assert helpers. The asserts are the module's own guard: they refuse a field that lies about its type (a string where a list belongs, a non-integer exit code, a confidence outside 0..1, a step or class outside the declared sets) without adding a rule the donor did not have.",
+    "`planRecovery` uses the ported `assertFailureClassification`, so a classification that is not one of §33.1's classes is refused rather than indexing RECOVERY_RULES and crashing on `undefined`."
+  ],
+  "knownDifferences": [
+    "No durable store: the donor keeps the JSON store in `electron/commander/decision-ledger-store.ts` and this module, like the donor's own, is only the record model plus the append reducer. Persistence stays the caller's responsibility.",
+    "No fs, no git, no secret scanner, no requirement graph and no review pipeline. Every §36 observation is supplied by the caller; an omission becomes NOT_RUN rather than an inferred value.",
+    "The donor's §36 context can carry a requirement graph and a scope grant computed by other Boss subsystems; those subsystems are NOT migrated, so the caller must supply their outputs.",
+    "`candidateIdFor` (the candidate record's id) is NOT here. It belongs to §35 and lives with the lifecycle in `task-lifecycle`.",
+    "§33.3's HNS external-executor fallback is NOT ported: `planHnsFallback`, `recordHnsUsage`, `HNS_ROLES`, the `CapabilityGap` record, the max-consecutive-HNS ceiling and its improvement-backlog stage describe a named third-party product's invocation budget and integration wiring, not a recovery primitive. The recovery ladder keeps its `HNS_FALLBACK` rung and its `hns_allowed` decision, because those are §33.2's own ordering rules; what is left out is the external product's invocation policy, which belongs to whatever executor integration ever calls HNS. Carrying the budget here would put a vendor's rate limit inside the city's recovery model.",
+    "No clock. The donor's HNS path read `new Date(0).toISOString()` as its `now` default; no ported function needs a time input, so no function here takes one and no timestamp is produced anywhere.",
+    "No CapabilityGap and no improvisation record: both were only reachable through the HNS path, and neither is a §33.1/§33.2 recovery primitive."
+  ],
+  "parity": {
+    "vectorSource": "Codex-Boss src/shared/decision-ledger.ts, src/shared/candidate-gate.ts §36 and src/shared/recovery.ts §33 @ 8df428eaa437a409368401e95194e40266b83080",
+    "vectors": [
+      "every ledger field bound is enforced at its donor value: question 2000, 10 candidates of 200, chosen 2000, 50 evidence rows of 2000, rollback 2000, policy 200; the exact boundary values are accepted and one past them is refused",
+      "the outcome and source lists are closed: MAYBE and 'vibes' are refused",
+      "an invalid `createdAt` is refused by Date.parse, not accepted as a string",
+      "append returns a new array and never mutates the input; a duplicate id is refused rather than merged",
+      "summarizeLedger counts by source and outcome with every known source present at zero, and reports the ROLLED_BACK count as `rollbacks`",
+      "with no observations all seven checks are NOT_RUN, all seven are listed in `not_inspected` and in `blocking`, and the verdict is REPAIR with '0 check(s) failed, 7 could not be run'",
+      "a fully evidenced candidate is ACCEPTED with reason '§36 every required check passed (7)'",
+      "a destructive context carrying `unchecked` reasons yields NOT_RUN, never PASS, and blocks release",
+      "an unapproved removal fails and names the removal kind (file/test/script); an approved one does not",
+      "requirement coverage below 100% fails and reports the ratio; the empty-required case is 100%",
+      "an empty goal, and a deliverable with no serving requirement, each fail GOAL_COMPLIANCE",
+      "a file written outside the grant, and a refused change unit, each fail SCOPE_VALIDATION",
+      "a zero-row evidence ledger fails EVIDENCE_COMPLETENESS even with nothing outstanding; an uncovered review fails it too",
+      "an Owner override is matched lexically against the obligations and fails when fewer than half of its significant terms appear",
+      "a touched theme lane requires the four theme checks even when no package was read; with theme_required and no packages the verdict is REPAIR with '4 could not be run'",
+      "a clean readable theme package set yields 11 passing checks; a dirty one fails isolation, fallback, executable-payload and built-in integrity",
+      "a non-built-in theme is not judged on built-in integrity",
+      "termsOf lower-cases, keeps runs of four or more alphanumerics and deduplicates",
+      "§33.1 declares exactly thirteen failure classes in the donor order (TRANSIENT … UNKNOWN) and four severities; §33.2 declares exactly seven ladder steps (NATIVE_RETRY … HARD_BLOCKER) and three theme steps (DISABLE_THEME, FALLBACK_BUILT_IN_THEME, RECORD_DIAGNOSTIC)",
+      "every one of the twelve non-UNKNOWN classes is produced by its own observation with the donor's exact confidence, severity, reason string and signals: TRANSIENT 0.7/LOW, TERMINAL 1/CRITICAL, DEPENDENCY 0.9/MEDIUM, AUTH 0.95/HIGH, RATE_LIMIT 0.95/MEDIUM, PROVIDER_PAGE 0.9/MEDIUM, WORKSPACE 0.9/HIGH, BUILD 0.85/MEDIUM, TEST 0.85/MEDIUM, ENVIRONMENT 0.85/HIGH, THEME 0.9/MEDIUM, UI 0.85/MEDIUM",
+      "precedence is most-authoritative-first: a Guardian denial outranks the timeout in the same output; a policy_refusal carried in its own field outranks any prose and reports `policy_refusal:<text>` as its only signal; AUTH outranks RATE_LIMIT; PAGE_CHANGED outranks ECONNRESET; a missing module outranks the word `sandbox`; the UI rule outranks the THEME rule",
+      "a rule with a `requires` precondition does not fire when the host fact is absent: `Cannot find module` with `missing_modules: []` is UNKNOWN, `escapes workspace` with no scope fact is UNKNOWN, a theme diagnostic with no counted diagnostics is not THEME, `overflow` with `visual_failed: false` is UNKNOWN; each becomes its real class once the precondition holds",
+      "TS2307 is a DEPENDENCY (it is on the donor's DEPENDENCY pattern list) while a non-2307 `error TS<digits>` is a BUILD",
+      "a gate with no recognisable signature is classified from the gate at confidence 0.5 and signal `gate:<gate>` (SYNTAX/TYPECHECK/BUILD→BUILD, UNIT/MODULE/INTEGRATION/FULL→TEST, VISUAL/RUNTIME/BLACKBOX→UI); a gate outside that map, such as BENCHMARK, is UNKNOWN at 0.3 with the §33.1-has-no-class reason; an observation with nothing at all is UNKNOWN at 0.1 with no signals, and an exit code alone is not a signal",
+      "at most three matched patterns are reported as signals, in donor pattern order, and the classifier reads runtime_code and semantic_outcome as well as detail",
+      "the plan for every class lists all seven ladder steps in RECOVERY_ORDER, marks each applicable step with the donor budget, marks each other step inapplicable with its donor reason (never dropping it), and ends with HARD_BLOCKER applicable at budget 1 with `ends_at_hard_blocker: true`, `schemaVersion: 1` and `version: 'recovery-1'`",
+      "the plan's applicable budgets are the donor's per-class table: TRANSIENT 2/1, DEPENDENCY 2/1 (local/alternate-internal), AUTH alternate-provider 1, RATE_LIMIT 1/2/1, PROVIDER_PAGE 2/1/1, WORKSPACE local 2, BUILD local 3, TEST local 3, ENVIRONMENT 2/1, THEME 2/1, UI local 3, UNKNOWN 1/1/1 — plus HNS at 1 wherever `hns_allowed` is true",
+      "`next` is the first applicable step that is not HARD_BLOCKER, so TERMINAL has no `next` and produces the diagnostic 'no recovery step applies; the plan goes straight to the Hard Blocker'; `hns_allowed` is false exactly for TERMINAL, AUTH and WORKSPACE, and where it is false HNS_FALLBACK carries '§33.3: HNS is not a recovery route for this failure class'",
+      "`requires_owner` is set only for TERMINAL (AUTHORIZATION, policy), WORKSPACE (AUTHORIZATION, scope) and AUTH (SIGN_IN), with the donor's own reasons; every other class has none",
+      "only THEME carries `theme_steps` (the three-step ladder) and the theme diagnostic; every other class has no `theme_steps` and no diagnostics",
+      "progress counts attempts per step ignoring NOT_APPLICABLE, offers attempt `used + 1 of budget` while `used < budget`, and at the exact budget boundary moves to the next applicable step: TRANSIENT goes NATIVE_RETRY 1/2 → 2/2 → LOCAL_RECOVERY 1/1 → HNS_FALLBACK 1/1 → Hard Blocker",
+      "HNS cannot be reached while any cheaper applicable step still has budget, and attempting a later step does not advance the run past an unspent earlier one",
+      "a PASS spends budget exactly as a FAIL does, because the run advances on attempts made",
+      "total exhaustion reports `exhausted: true`, `hard_blocker: true` and '§33.2 Hard Blocker: every applicable recovery step is exhausted'; a class with no applicable step reports '§33.2 Hard Blocker: no step applies (<first skipped step's reason>)'",
+      "a TERMINAL plan offers no retry at all: its only applicable step is HARD_BLOCKER, and advanceRecovery returns no `next` even after attempts at NATIVE_RETRY and HNS_FALLBACK are recorded",
+      "the shape factories build the donor shapes (missing fields present as undefined, lists copied) and the assert helpers refuse a string where a list belongs, a non-integer exit code, a gate outside the donor union, a class or severity outside §33.1's sets, a confidence outside 0..1 or non-finite, and a step or outcome outside §33.2's sets"
+    ]
+  },
+  "classification": {
+    "PARITY": [
+      "the ledger's field bounds, closed vocabularies and error messages",
+      "immutable append and duplicate-id refusal",
+      "the summary shape including `rollbacks`",
+      "all seven §36 checks and their pass/fail reason strings",
+      "NOT_RUN-as-blocker and the ACCEPTED/REPAIR verdict derivation",
+      "the destructive-change `unchecked` fail-closed rule",
+      "the lexical Owner-override matching rule and its half-terms threshold",
+      "the four theme checks and their required-when-touched rule",
+      "§33.1's thirteen-class ladder, its `requires` preconditions, its precedence, and every confidence, severity and reason string",
+      "§33.1's gate fallback and the UNKNOWN-not-guessed rule for a gate §33.1 has no class for",
+      "§33.2's RECOVERY_ORDER, THEME_RECOVERY_STEPS, per-class applicability, budgets, inapplicable reasons and `next` selection",
+      "§33.2's advanceRecovery budget, exhaustion, next-step and Hard-Blocker semantics, including that a terminal failure is never planned for retry"
+    ],
+    "PORT_ADAPTATION": [
+      "AuditLedgerError in place of bare Error, with donor messages preserved",
+      "the closed lists exported as constants",
+      "copy-on-construct factories in place of donor interfaces",
+      "appendAllToLedger and entriesForTask conveniences",
+      "the donor's §33 type-only import (VerificationGate) is replaced by the VERIFICATION_GATES constant, and its type-only shapes (WorkspaceFacts, FailureObservation, FailureClassification, RecoveryPlan, RecoveryAttempt, RecoveryProgress) by factories/validators in contracts.mjs plus plain object construction in recovery.mjs",
+      "the §33 vocabularies live in contracts.mjs so the closed sets and containers have one home, with recovery.mjs holding the behaviour and re-exporting the three vocabularies its API is read through",
+      "planRecovery validates its classification through the ported assert, so an unknown class is refused instead of crashing on an undefined rule"
+    ],
+    "UTOPIA_EXTENSION": [
+      "DECISION_OUTCOMES / DECISION_SOURCES / CHECK_VERDICTS / GUARDIAN_VERDICTS exported as enumerable constants; they describe the donor's own closed sets and add no member.",
+      "entriesForTask: a filter over the ported ledger for the Owner's per-task audit view.",
+      "FAILURE_CLASSES / FAILURE_SEVERITIES / VERIFICATION_GATES / RECOVERY_ORDER / THEME_RECOVERY_STEPS / RECOVERY_ATTEMPT_OUTCOMES and the shape asserts are exported for the same reason: they describe the donor's own closed sets and add no member."
+    ],
+    "DEFERRED": [
+      "the durable JSON ledger store (electron/commander/decision-ledger-store.ts)",
+      "any requirement graph, scope grant, secret scanner or review pipeline that feeds §36",
+      "the donor's broader evidence-ledger and coordination-ledger modules (they value-import execution-planner, requirements-graph and the tenx knowledge module, which are outside this cluster's boundary)",
+      "§33.3's HNS external-executor fallback: planHnsFallback, recordHnsUsage, HNS_ROLES, the CapabilityGap record, MAX_CONSECUTIVE_HNS_CALLS and the improvement-backlog stage. It is a named third-party product's invocation budget and integration wiring, not a recovery primitive, and it is outside this module's boundary; the ladder's HNS_FALLBACK rung and its `hns_allowed` decision are kept because they are §33.2's own ordering rules."
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "name": "Utopia City Implementation",
-  "description": "Actual implementation layer of the Utopia Digital City. The Digital-City repository stays the map/planning reference; this tree owns the running modules. Only districts that really exist are listed. A module may be strengthened by several incubation rooms over time, so it records incubationRooms[] rather than a single roomId.",
+  "description": "Actual implementation layer of the Utopia Digital City. The Digital-City repository stays the map/planning reference; this tree owns the running modules. Only districts that really exist are listed. A module may be strengthened by several incubation rooms over time, so it records incubationRooms[] rather than a single roomId. Two incubation identities are recognised: a Room Pack incubator room (apps/rooms/rooms/<id>, recorded in apps/rooms/promotions/<id>.json) and a mission-book migration incubator, whose id has the form mb-<MISSION_ID>-<module>-lab and which MUST be accompanied by a module.mission block naming the mission and the cluster it migrated. The second form exists because Digital-City/mission-book is a separate, Owner-defined control plane: it lands code directly under city/ on a mission/<MISSION_ID>-<slug> branch, accepted by a second host, instead of incubating a live Room first.",
   "lifecycles": [
     "PLANNED",
     "INCUBATING",
@@ -10,6 +10,111 @@
     "DEPRECATED"
   ],
   "districts": [
+    {
+      "id": "00-foundation",
+      "kind": "infrastructure",
+      "zh": "城市地基",
+      "en": "City Foundation",
+      "buildings": [
+        {
+          "id": "01-city-core",
+          "zh": "城市核心",
+          "en": "City Core — Runtime Trust & Orchestration Kernel",
+          "modules": [
+            {
+              "id": "root-authority",
+              "zh": "根权限内核",
+              "en": "Root Authority",
+              "path": "city/00-foundation/01-city-core/root-authority",
+              "lifecycle": "PROMOTED",
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/Codex-Boss",
+                "commit": "8df428eaa437a409368401e95194e40266b83080",
+                "sourcePaths": [
+                  "src/shared/root-authority/contracts.ts",
+                  "src/shared/root-authority/protected-surface.ts",
+                  "electron/root-authority/protected-surface-guard.ts"
+                ]
+              },
+              "incubationRooms": [
+                "mb-001-root-authority-lab"
+              ],
+              "mission": {
+                "missionId": "MB-001",
+                "cluster": "A — owner sovereignty / root authority / root trust and protected-surface contracts"
+              }
+            },
+            {
+              "id": "task-lifecycle",
+              "zh": "任务生命周期",
+              "en": "Task Lifecycle",
+              "path": "city/00-foundation/01-city-core/task-lifecycle",
+              "lifecycle": "PROMOTED",
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/Codex-Boss",
+                "commit": "8df428eaa437a409368401e95194e40266b83080",
+                "sourcePaths": [
+                  "src/shared/candidate-gate.ts"
+                ]
+              },
+              "incubationRooms": [
+                "mb-001-task-lifecycle-lab"
+              ],
+              "mission": {
+                "missionId": "MB-001",
+                "cluster": "B — global task identity / lifecycle / durable state"
+              }
+            },
+            {
+              "id": "fleet-routing",
+              "zh": "节点路由",
+              "en": "Fleet Routing",
+              "path": "city/00-foundation/01-city-core/fleet-routing",
+              "lifecycle": "PROMOTED",
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/Codex-Boss",
+                "commit": "8df428eaa437a409368401e95194e40266b83080",
+                "sourcePaths": [
+                  "src/shared/fleet.ts",
+                  "src/shared/capability-router.ts",
+                  "src/shared/node-capabilities.ts",
+                  "src/shared/adaptive-routing.ts"
+                ]
+              },
+              "incubationRooms": [
+                "mb-001-fleet-routing-lab"
+              ],
+              "mission": {
+                "missionId": "MB-001",
+                "cluster": "C — cross-domain orchestration/routing and city-scope runtime coordination"
+              }
+            },
+            {
+              "id": "audit-ledger",
+              "zh": "审计账本",
+              "en": "Audit Ledger",
+              "path": "city/00-foundation/01-city-core/audit-ledger",
+              "lifecycle": "PROMOTED",
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/Codex-Boss",
+                "commit": "8df428eaa437a409368401e95194e40266b83080",
+                "sourcePaths": [
+                  "src/shared/decision-ledger.ts",
+                  "src/shared/candidate-gate.ts"
+                ]
+              },
+              "incubationRooms": [
+                "mb-001-audit-ledger-lab"
+              ],
+              "mission": {
+                "missionId": "MB-001",
+                "cluster": "D — continuation/recovery and durable audit primitives"
+              }
+            }
+          ]
+        }
+      ]
+    },
     {
       "id": "02-engineering",
       "zh": "工务区",

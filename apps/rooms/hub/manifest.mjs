@@ -167,6 +167,26 @@ const LOCAL_ROOMS = [
  */
 const INCUBATOR_ROOMS = [
   {
+    id: 'theme-package-lab',
+    number: 'D6',
+    label: 'Theme Package Lab',
+    zh: '主题包实验室',
+    summary: 'Incubating DS-Hns theme contract, ownership surfaces, package validator and deterministic procedural assets.',
+    dataFile: null,
+    initialData: null,
+    tags: ['incubator', 'donor'],
+    lifecycle: 'INCUBATING',
+    targetCityPath: 'city/11-entertainment/01-entertainment-centre/theme-engine',
+    donorRepository: 'zhiheng-zhang-Mera/DS-Hns',
+    donorCommit: 'eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b',
+    donorSourcePaths: [
+      'app/extensions/mega/theme/contract.js',
+      'app/extensions/mega/theme/surface.js',
+      'app/extensions/mega/theme/validator.js',
+      'app/extensions/mega/theme/asset-factory.js',
+    ],
+  },
+  {
     id: 'skill-discovery-lab',
     number: 'D5',
     label: 'Skill Discovery Lab',

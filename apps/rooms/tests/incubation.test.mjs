@@ -125,7 +125,7 @@ test('a promoted room leaves the active catalog but stays known to Git history',
     'app/extensions/mega/skills/skill-catalog.js',
   ]);
   assert.ok(!ROOMS.some((room) => room.id === d5.id), 'it serves no live surface either');
-  assert.equal(incubatingRooms().length, 0, 'no room is still being proved');
+  assert.ok(!incubatingRooms().some((room) => room.id === d5.id), 'a promoted room is never still being proved');
 });
 
 test('promotion records are validated and rejected when malformed', async (t) => {

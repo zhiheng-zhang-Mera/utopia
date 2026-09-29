@@ -23,7 +23,7 @@ async function invoke(name,expected='COMPLETED',button='Run service',inputFile=n
  await page.reload();await page.locator('[data-page="Services"]').click();await page.locator('[data-invocation="'+row.invocationId+'"]').click();await page.locator('#service-state').filter({hasText:row.status}).waitFor();
  const webIdentity=await page.locator('#service-id').innerText();const windows=JSON.parse(readFileSync('.runtime/v03/windows/runs.json')).rows.find(r=>r.case===name);
  const digestMatch=windows?.resultDigest?windows.resultDigest===row.resultDigest:null;
- const result={case:name,invocationId:row.invocationId,capabilityId:row.capabilityId,operationId:row.operationId,status:row.status,expected,resultDigest:row.resultDigest,errorCode:row.errorCode,androidIdVisible:uiId,androidDigestVisible:uiDigest,androidStatusVisible:uiStatus,webSameInvocationVisible:webIdentity.includes(row.invocationId)&&(!row.resultDigest||webIdentity.includes(row.resultDigest)),canonicalDigestMatchesWindows:digestMatch,inputSha256:inputFile?createHash('sha256').update(readFileSync('.runtime/v03/fixtures/'+inputFile)).digest('hex'):null,integrityRoot:row.result?.bundle?.integrityRoot??null};result.pass=result.status===expected&&uiId&&uiDigest&&uiStatus&&result.webSameInvocationVisible&&digestMatch!==false;report.rows.push(result);save();console.log(name,result.pass?'PASS':'FAIL');if(!result.pass)throw Error('ANDROID_CASE_FAILED:'+name);return row;
+ const result={case:name,invocationId:row.invocationId,capabilityId:row.capabilityId,operationId:row.operationId,startedAt:row.startedAt,finishedAt:row.finishedAt,latencyMs:Date.parse(row.finishedAt)-Date.parse(row.startedAt),inputClass:row.inputClass??null,inputBytes:row.inputBytes??null,status:row.status,expected,resultDigest:row.resultDigest,errorCode:row.errorCode,androidIdVisible:uiId,androidDigestVisible:uiDigest,androidStatusVisible:uiStatus,webSameInvocationVisible:webIdentity.includes(row.invocationId)&&(!row.resultDigest||webIdentity.includes(row.resultDigest)),canonicalDigestMatchesWindows:digestMatch,inputSha256:inputFile?createHash('sha256').update(readFileSync('.runtime/v03/fixtures/'+inputFile)).digest('hex'):null,integrityRoot:row.result?.bundle?.integrityRoot??null};result.pass=result.status===expected&&uiId&&uiDigest&&uiStatus&&result.webSameInvocationVisible&&digestMatch!==false;report.rows.push(result);save();console.log(name,result.pass?'PASS':'FAIL');if(!result.pass)throw Error('ANDROID_CASE_FAILED:'+name);return row;
 }
 try{
  await page.goto(url);await page.locator('#token').fill(config.token);await page.locator('#connect').click();await page.locator('#connection').filter({hasText:'ONLINE'}).waitFor();
@@ -44,6 +44,6 @@ try{
   await select('Evidence Review');if(!passed('evidence-review'))await invoke('evidence-review');await top();if(!passed('evidence-tamper'))await invoke('evidence-tamper','FAILED','Tamper Test');
   await select('Theme Lab');if(!passed('theme-generate'))await invoke('theme-generate');
  }
- report.status='PASS';report.finishedAt=new Date().toISOString();save();
+ report.status='PASS';delete report.failure;report.finishedAt=new Date().toISOString();save();
 }catch(e){report.status='FAIL';report.failure=String(e.message).split('\n')[0];save();console.log(report.failure);process.exitCode=1;}
 finally{await browser.close();}

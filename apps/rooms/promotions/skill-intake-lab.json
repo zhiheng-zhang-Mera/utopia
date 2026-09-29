@@ -1,7 +1,7 @@
 {
   "roomId": "skill-intake-lab",
-  "acceptedRoomCommit": "0000000000000000000000000000000000000000",
-  "promotedAtCommit": "0000000000000000000000000000000000000000",
+  "acceptedRoomCommit": "1ba5b4809f05a155ed76fecdbb9479f900686fa1",
+  "promotedAtCommit": "6b29e84430ba888b6bc1d5bcde344e16f23b64c2",
   "targetCityPath": "city/02-engineering/02-worker-gateway/skill-intake",
   "donor": {
     "repository": "zhiheng-zhang-Mera/DS-Hns",

@@ -1,0 +1,14 @@
+{
+  "checkedAt": "2026-09-29T04:50:31.084Z",
+  "checkedFiles": 273,
+  "knownPrivateValueKinds": [
+    "local credentials",
+    "connected device identifier"
+  ],
+  "findings": [],
+  "manifestValid": true,
+  "limitations": [
+    "Exact known-value and selected private-path checks; not a general secret detector.",
+    "Images require separate visual review. Active pairing material must never be captured."
+  ]
+}

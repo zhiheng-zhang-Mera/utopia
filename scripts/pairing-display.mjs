@@ -1,0 +1,22 @@
+process.on('unhandledRejection',()=>{console.error('PAIRING_DISPLAY_DRIVER_ERROR');process.exit(1);});
+import {chromium} from 'playwright';
+import {readFileSync,writeFileSync,existsSync,unlinkSync} from 'node:fs';
+const displayScale=Number(process.argv.find(x=>x.startsWith('--scale='))?.split('=')[1]||1);
+if(![1,2].includes(displayScale))throw Error('Display scale must be 1 or 2');
+const config=JSON.parse(readFileSync('.runtime/local-config.json'));
+const {url}=JSON.parse(readFileSync('.runtime/processes.json'));
+const browser=await chromium.launch({channel:'msedge',headless:false});
+const page=await browser.newPage({viewport:{width:1440,height:1000}});
+await page.goto(url+'/pairing');
+await page.locator('#token').fill(config.token);
+await page.locator('#connect').click();
+await page.locator('#generate-pairing').waitFor();
+// Private transient IPC. Never capture screenshots or print pairing material.
+page.on('response',async response=>{if(response.url().endsWith('/pairing/session')&&response.ok())writeFileSync('.runtime/active-pairing.json',JSON.stringify(await response.json()));});
+await page.locator('#generate-pairing').click();
+await page.locator('#pairing-qr svg').waitFor();
+await page.addStyleTag({content:'#pairing-qr{transform:scale('+displayScale+');transform-origin:center;position:relative;z-index:10;pointer-events:none}'});
+writeFileSync('.runtime/pairing-display-geometry.json',JSON.stringify({displayScale,viewport:{width:1440,height:1000},qrBox:await page.locator('#pairing-qr').boundingBox(),scope:'Operator QR display only; center preserved during scaling'}));
+console.log('Pairing display ready; no screenshots or secret output.');
+setInterval(async()=>{if(existsSync('.runtime/refresh-pairing')){unlinkSync('.runtime/refresh-pairing');await page.locator('#generate-pairing').click();await page.evaluate(()=>window.scrollTo(0,0));console.log('Session refreshed');}},500);
+process.on('SIGINT',async()=>{if(existsSync('.runtime/active-pairing.json'))unlinkSync('.runtime/active-pairing.json');await browser.close();process.exit();});

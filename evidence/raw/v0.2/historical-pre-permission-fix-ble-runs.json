@@ -1,0 +1,62 @@
+{
+  "sourceFile": "pre-permission-fix-ble-runs.json",
+  "sourceSha256": "9ff732743d261d82421c1acdf3e9296e343059f28a0cf85e1aab2050549c987b",
+  "applicability": "Historical or driver evidence, not final candidate passes",
+  "record": [
+    {
+      "mode": "ble",
+      "run": 1,
+      "codeSha": "612e123e2fdc861064a612290a7bc6f96edccd27",
+      "apkSha256": "e75c739037fc19d94ecbe685988914aa0f982bf358a490a11f720bbcfca56f09",
+      "start": "2026-09-29T02:06:10.403Z",
+      "end": "2026-09-29T02:07:12.469Z",
+      "success": true,
+      "errorClass": null,
+      "driver": "ADB UI; no discovery injection"
+    },
+    {
+      "mode": "ble",
+      "run": 2,
+      "codeSha": "612e123e2fdc861064a612290a7bc6f96edccd27",
+      "apkSha256": "e75c739037fc19d94ecbe685988914aa0f982bf358a490a11f720bbcfca56f09",
+      "start": "2026-09-29T02:07:12.470Z",
+      "end": "2026-09-29T02:08:15.042Z",
+      "success": true,
+      "errorClass": null,
+      "driver": "ADB UI; no discovery injection"
+    },
+    {
+      "mode": "ble",
+      "run": 3,
+      "codeSha": "612e123e2fdc861064a612290a7bc6f96edccd27",
+      "apkSha256": "e75c739037fc19d94ecbe685988914aa0f982bf358a490a11f720bbcfca56f09",
+      "start": "2026-09-29T02:08:15.042Z",
+      "end": "2026-09-29T02:09:16.926Z",
+      "success": true,
+      "errorClass": null,
+      "driver": "ADB UI; no discovery injection"
+    },
+    {
+      "mode": "ble",
+      "run": 4,
+      "codeSha": "612e123e2fdc861064a612290a7bc6f96edccd27",
+      "apkSha256": "e75c739037fc19d94ecbe685988914aa0f982bf358a490a11f720bbcfca56f09",
+      "start": "2026-09-29T02:09:16.926Z",
+      "end": "2026-09-29T02:10:19.161Z",
+      "success": true,
+      "errorClass": null,
+      "driver": "ADB UI; no discovery injection"
+    },
+    {
+      "mode": "ble",
+      "run": 5,
+      "codeSha": "612e123e2fdc861064a612290a7bc6f96edccd27",
+      "apkSha256": "e75c739037fc19d94ecbe685988914aa0f982bf358a490a11f720bbcfca56f09",
+      "start": "2026-09-29T02:10:19.161Z",
+      "end": "2026-09-29T02:11:22.716Z",
+      "success": true,
+      "errorClass": null,
+      "driver": "ADB UI; no discovery injection"
+    }
+  ]
+}

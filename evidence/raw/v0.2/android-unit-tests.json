@@ -1,0 +1,27 @@
+{
+  "apkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+  "codeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+  "suites": [
+    {
+      "errors": 0,
+      "tests": 3,
+      "failures": 0,
+      "name": "city.utopia.control.CallbackFenceTest",
+      "timestamp": "2026-09-29T02:10:17.148Z"
+    },
+    {
+      "errors": 0,
+      "tests": 8,
+      "failures": 0,
+      "name": "city.utopia.control.PairingProtocolTest",
+      "timestamp": "2026-09-29T02:10:17.159Z"
+    },
+    {
+      "errors": 0,
+      "tests": 2,
+      "failures": 0,
+      "name": "city.utopia.control.ProtocolTest",
+      "timestamp": "2026-09-29T02:10:17.242Z"
+    }
+  ]
+}

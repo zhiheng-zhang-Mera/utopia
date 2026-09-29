@@ -1,0 +1,338 @@
+{
+  "schemaVersion": 1,
+  "status": "PILOT",
+  "scope": "isolated_reference_telemetry_sampler_process",
+  "codeSha": "3e0bfb09b94b2d58c36948feb5e2f4b60676e4a9",
+  "worktreeModified": true,
+  "environment": {
+    "platform": "win32",
+    "architecture": "x64",
+    "nodeVersion": "v24.19.0"
+  },
+  "protocol": {
+    "durationMsPerProcess": 30000,
+    "telemetryIntervalMs": 3000,
+    "rssIntervalMs": 1000,
+    "order": [
+      "baseline_disabled",
+      "telemetry_enabled"
+    ],
+    "repetitionsPerMode": 1,
+    "cpuDenominator": "one_logical_core",
+    "command": "node scripts/resource-pilot.mjs"
+  },
+  "limitations": [
+    "Single sequential pair on a shared host; workload noise and order effects are uncontrolled.",
+    "Measures sampler processes only; excludes Gateway, heartbeat transport, Web, Android, mDNS and BLE.",
+    "No whole-application or causal overhead conclusion is supported.",
+    "RSS includes the Node runtime and imported modules; process startup before worker measurement is excluded."
+  ],
+  "runs": [
+    {
+      "mode": "baseline_disabled",
+      "startedAt": "2026-09-29T01:58:37.123Z",
+      "endedAt": "2026-09-29T01:59:07.129Z",
+      "elapsedMs": 30004.645900000003,
+      "cpu": {
+        "userMicroseconds": 47000,
+        "systemMicroseconds": 16000,
+        "totalMicroseconds": 63000,
+        "percentOfOneLogicalCore": 0.20996748373557708
+      },
+      "rss": {
+        "minBytes": 52940800,
+        "maxBytes": 53153792,
+        "meanBytes": 53113600,
+        "samples": [
+          {
+            "elapsedMs": 0,
+            "rssBytes": 52940800
+          },
+          {
+            "elapsedMs": 0,
+            "rssBytes": 53096448
+          },
+          {
+            "elapsedMs": 1004,
+            "rssBytes": 53096448
+          },
+          {
+            "elapsedMs": 2011,
+            "rssBytes": 53096448
+          },
+          {
+            "elapsedMs": 3020,
+            "rssBytes": 53096448
+          },
+          {
+            "elapsedMs": 4021,
+            "rssBytes": 53096448
+          },
+          {
+            "elapsedMs": 5025,
+            "rssBytes": 53096448
+          },
+          {
+            "elapsedMs": 6027,
+            "rssBytes": 53096448
+          },
+          {
+            "elapsedMs": 7032,
+            "rssBytes": 53100544
+          },
+          {
+            "elapsedMs": 8033,
+            "rssBytes": 53100544
+          },
+          {
+            "elapsedMs": 9039,
+            "rssBytes": 53112832
+          },
+          {
+            "elapsedMs": 10042,
+            "rssBytes": 53116928
+          },
+          {
+            "elapsedMs": 11053,
+            "rssBytes": 53116928
+          },
+          {
+            "elapsedMs": 12054,
+            "rssBytes": 53116928
+          },
+          {
+            "elapsedMs": 13059,
+            "rssBytes": 53116928
+          },
+          {
+            "elapsedMs": 14059,
+            "rssBytes": 53116928
+          },
+          {
+            "elapsedMs": 15070,
+            "rssBytes": 53116928
+          },
+          {
+            "elapsedMs": 16072,
+            "rssBytes": 53116928
+          },
+          {
+            "elapsedMs": 17072,
+            "rssBytes": 53116928
+          },
+          {
+            "elapsedMs": 18080,
+            "rssBytes": 53121024
+          },
+          {
+            "elapsedMs": 19087,
+            "rssBytes": 53125120
+          },
+          {
+            "elapsedMs": 20094,
+            "rssBytes": 53129216
+          },
+          {
+            "elapsedMs": 21094,
+            "rssBytes": 53133312
+          },
+          {
+            "elapsedMs": 22101,
+            "rssBytes": 53133312
+          },
+          {
+            "elapsedMs": 23107,
+            "rssBytes": 53137408
+          },
+          {
+            "elapsedMs": 24107,
+            "rssBytes": 53141504
+          },
+          {
+            "elapsedMs": 25111,
+            "rssBytes": 53145600
+          },
+          {
+            "elapsedMs": 26114,
+            "rssBytes": 53149696
+          },
+          {
+            "elapsedMs": 27114,
+            "rssBytes": 53145600
+          },
+          {
+            "elapsedMs": 28121,
+            "rssBytes": 53149696
+          },
+          {
+            "elapsedMs": 29128,
+            "rssBytes": 53153792
+          },
+          {
+            "elapsedMs": 30005,
+            "rssBytes": 53104640
+          }
+        ]
+      },
+      "eventLoopDelay": {
+        "meanMs": 23.271355680372384,
+        "p99Ms": 34.078719,
+        "maxMs": 39.682047
+      },
+      "telemetrySampleCount": 0
+    },
+    {
+      "mode": "telemetry_enabled",
+      "startedAt": "2026-09-29T01:59:08.592Z",
+      "endedAt": "2026-09-29T01:59:38.608Z",
+      "elapsedMs": 30015.1463,
+      "cpu": {
+        "userMicroseconds": 94000,
+        "systemMicroseconds": 47000,
+        "totalMicroseconds": 141000,
+        "percentOfOneLogicalCore": 0.4697628277094221
+      },
+      "rss": {
+        "minBytes": 52994048,
+        "maxBytes": 54181888,
+        "meanBytes": 53771520,
+        "samples": [
+          {
+            "elapsedMs": 0,
+            "rssBytes": 52994048
+          },
+          {
+            "elapsedMs": 3,
+            "rssBytes": 53383168
+          },
+          {
+            "elapsedMs": 1003,
+            "rssBytes": 53374976
+          },
+          {
+            "elapsedMs": 2007,
+            "rssBytes": 53374976
+          },
+          {
+            "elapsedMs": 3016,
+            "rssBytes": 53374976
+          },
+          {
+            "elapsedMs": 4022,
+            "rssBytes": 53374976
+          },
+          {
+            "elapsedMs": 5022,
+            "rssBytes": 53374976
+          },
+          {
+            "elapsedMs": 6022,
+            "rssBytes": 53391360
+          },
+          {
+            "elapsedMs": 7022,
+            "rssBytes": 53411840
+          },
+          {
+            "elapsedMs": 8023,
+            "rssBytes": 53485568
+          },
+          {
+            "elapsedMs": 9028,
+            "rssBytes": 53501952
+          },
+          {
+            "elapsedMs": 10031,
+            "rssBytes": 53501952
+          },
+          {
+            "elapsedMs": 11035,
+            "rssBytes": 53506048
+          },
+          {
+            "elapsedMs": 12036,
+            "rssBytes": 53522432
+          },
+          {
+            "elapsedMs": 13042,
+            "rssBytes": 53522432
+          },
+          {
+            "elapsedMs": 14049,
+            "rssBytes": 54022144
+          },
+          {
+            "elapsedMs": 15049,
+            "rssBytes": 54038528
+          },
+          {
+            "elapsedMs": 16063,
+            "rssBytes": 54042624
+          },
+          {
+            "elapsedMs": 17063,
+            "rssBytes": 54046720
+          },
+          {
+            "elapsedMs": 18063,
+            "rssBytes": 54059008
+          },
+          {
+            "elapsedMs": 19070,
+            "rssBytes": 54059008
+          },
+          {
+            "elapsedMs": 20070,
+            "rssBytes": 54063104
+          },
+          {
+            "elapsedMs": 21070,
+            "rssBytes": 54079488
+          },
+          {
+            "elapsedMs": 22071,
+            "rssBytes": 54083584
+          },
+          {
+            "elapsedMs": 23077,
+            "rssBytes": 54087680
+          },
+          {
+            "elapsedMs": 24088,
+            "rssBytes": 54108160
+          },
+          {
+            "elapsedMs": 25092,
+            "rssBytes": 54112256
+          },
+          {
+            "elapsedMs": 26098,
+            "rssBytes": 54116352
+          },
+          {
+            "elapsedMs": 27105,
+            "rssBytes": 54181888
+          },
+          {
+            "elapsedMs": 28112,
+            "rssBytes": 54181888
+          },
+          {
+            "elapsedMs": 29119,
+            "rssBytes": 54181888
+          },
+          {
+            "elapsedMs": 30015,
+            "rssBytes": 54128640
+          }
+        ]
+      },
+      "eventLoopDelay": {
+        "meanMs": 23.898306192828684,
+        "p99Ms": 34.734079,
+        "maxMs": 54.558719
+      },
+      "telemetrySampleCount": 10
+    }
+  ]
+}

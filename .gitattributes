@@ -2,3 +2,5 @@
 *.bat text eol=crlf
 *.jar binary
 *.png binary
+# Keep recorded evidence bytes stable across checkout for SHA-256 manifests.
+/evidence/raw/v0.2/** -text

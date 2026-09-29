@@ -1,0 +1,14 @@
+{
+  "scope": "PILOT: one Alien Windows host and one Android physical device",
+  "android": {
+    "model": "OPPO PERM00",
+    "apiLevel": 31
+  },
+  "transport": "Same local network, HTTP development deployment",
+  "limitations": [
+    "UI-driven pilots include ADB and UI hierarchy inspection overhead; timeToOnline is not a natural-user speed benchmark.",
+    "userActions counts primary app button actions; keyboard characters, OS permission gestures and harness setup are excluded.",
+    "Discovery and recovery observations are sampled, not continuous; zero transient stale duration cannot be inferred.",
+    "QR camera trials require physical positioning and are not substituted by injected deep links."
+  ]
+}

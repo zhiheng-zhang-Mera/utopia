@@ -1,0 +1,55 @@
+{
+  "codeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+  "apkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+  "mainCity": "cb60db4a-7203-43d9-afbb-e40916eedd00",
+  "startedAt": "2026-09-29T02:44:11.442Z",
+  "driver": "ADB UI; native discovery; no injected descriptor",
+  "runs": [
+    {
+      "kind": "mdns",
+      "run": 1,
+      "startTimestamp": "2026-09-29T02:45:07.756Z",
+      "discoveryTimestamp": "2026-09-29T02:45:56.589Z",
+      "disabledAt": "2026-09-29T02:45:56.590Z",
+      "unavailableObservedAt": "2026-09-29T02:46:07.344Z",
+      "restoreAt": "2026-09-29T02:46:07.345Z",
+      "recoveredAt": "2026-09-29T02:46:23.463Z",
+      "retryCount": 1,
+      "success": true,
+      "errorClass": null,
+      "snapshots": [
+        "mdns-discovery-1-before.xml",
+        "mdns-discovery-1-unavailable.xml",
+        "mdns-discovery-1-recovered.xml"
+      ],
+      "cityIdentityPreserved": true,
+      "endTimestamp": "2026-09-29T02:46:23.467Z"
+    },
+    {
+      "kind": "mdns",
+      "run": 2,
+      "startTimestamp": "2026-09-29T02:46:23.467Z",
+      "discoveryTimestamp": "2026-09-29T02:47:08.978Z",
+      "disabledAt": "2026-09-29T02:47:08.978Z",
+      "unavailableObservedAt": "2026-09-29T02:47:19.631Z",
+      "restoreAt": "2026-09-29T02:47:19.632Z",
+      "recoveredAt": "2026-09-29T02:47:35.479Z",
+      "retryCount": 1,
+      "success": true,
+      "errorClass": null,
+      "snapshots": [
+        "mdns-discovery-2-before.xml",
+        "mdns-discovery-2-unavailable.xml",
+        "mdns-discovery-2-recovered.xml"
+      ],
+      "cityIdentityPreserved": true,
+      "endTimestamp": "2026-09-29T02:47:35.482Z"
+    }
+  ],
+  "bluetoothToggleDriver": "svc bluetooth",
+  "bluetoothRestoredAfterFailure": true,
+  "finishedAt": "2026-09-29T02:47:40.859Z",
+  "sourceFile": "discovery-recovery-mdns-and-ble-attempt.json",
+  "sourceSha256": "d38b4eb419e1f8460d95672290ef72b869793c97f8671f83ab9a98ba0610a0bc",
+  "selection": "Only mdns rows from this source; source SHA and installed APK hash retained unchanged."
+}

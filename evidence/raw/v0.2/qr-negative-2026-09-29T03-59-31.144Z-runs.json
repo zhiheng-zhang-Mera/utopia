@@ -1,0 +1,58 @@
+{
+  "codeSha": "5855a927e42ae2945728f509a7b4ef07bcd372bf",
+  "apkSha256": "7acd40e0d1d39b412b4cbd0e916cb2b66c38a2c944f0914f598cb4a9fbf85451",
+  "startedAt": "2026-09-29T03:59:31.145Z",
+  "driver": "ADB onboarding plus physical camera; no QR or descriptor injection",
+  "scope": "Expired QR: two physical scans share one genuinely expired five-minute session. Replaced QR: two independent original sessions, each replaced before scanning.",
+  "fakeClock": false,
+  "shortenedTtl": false,
+  "runs": [
+    {
+      "kind": "replaced",
+      "run": 1,
+      "codeSha": "5855a927e42ae2945728f509a7b4ef07bcd372bf",
+      "apkSha256": "7acd40e0d1d39b412b4cbd0e916cb2b66c38a2c944f0914f598cb4a9fbf85451",
+      "driverStartTimestamp": "2026-09-29T03:59:47.163Z",
+      "cameraLaunchRequestedAt": "2026-09-29T04:00:19.351Z",
+      "trialId": "d8c7ab92-2be6-4e24-896f-b1e7ebe5d428",
+      "rejectionObservedAt": null,
+      "returnedToMainActivity": false,
+      "uiRejectionObserved": false,
+      "noAuthenticationObserved": null,
+      "success": false,
+      "errorClass": "NO_EXPECTED_CAMERA_REJECTION_OBSERVED",
+      "stage": "CAMERA_LAUNCHED",
+      "sharedExpiredSession": false,
+      "sessionGroup": "replaced-independent-1",
+      "createdAt": "2026-09-29T03:59:32.119Z",
+      "expiresAt": "2026-09-29T04:04:32.119Z",
+      "replacedBeforeScan": true,
+      "unexpiredAtCameraLaunchRequested": true,
+      "cameraLaunchCompletedAt": "2026-09-29T04:00:19.489Z",
+      "driverExitStatus": null,
+      "driverEndTimestamp": "2026-09-29T04:01:20.003Z"
+    }
+  ],
+  "displayGeometry": {
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "qrBox": {
+      "x": 317,
+      "y": 464,
+      "width": 240,
+      "height": 360
+    },
+    "source": "Measured real authenticated Web pairing QR before test-session creation",
+    "windowPosition": "Browser default; physical alignment still requires confirmation"
+  },
+  "finishedAt": "2026-09-29T04:01:20.465Z",
+  "status": "INCOMPLETE",
+  "driverSha256": null,
+  "workingTreeDirty": null,
+  "driverHashMissingInOriginal": true,
+  "driverProvenanceNote": "Original invocation did not record its helper hash. HEAD alone cannot bind a modified driver; no current helper hash has been assigned retrospectively.",
+  "sourceDirectory": "qr-negative-2026-09-29T03-59-31.144Z",
+  "sourceRunsSha256": "7c2f27a302be97f521a39698962a2fdda24ce4ae36e9bfb118d78b657779beb5"
+}

@@ -1,0 +1,30 @@
+{
+  "sourceFile": "discovery-recovery-driver-attempt.json",
+  "originalSnapshotReferencesUnresolved": true,
+  "originalSnapshotReferenceNote": "Snapshot references are original private filenames, not links to current published XML. Earlier XML was not preserved before reruns and filenames overlap; no association with newer snapshots is asserted.",
+  "sourceSha256": "8a0ed76bdc1c159aadedf25f6834ebb68f9b745ffe6df1466ef463a9a8a57e30",
+  "applicability": "Historical or driver evidence, not final candidate passes",
+  "record": {
+    "codeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+    "apkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+    "mainCity": "cb60db4a-7203-43d9-afbb-e40916eedd00",
+    "startedAt": "2026-09-29T02:42:17.666Z",
+    "driver": "ADB UI; native discovery; no injected descriptor",
+    "runs": [
+      {
+        "kind": "ble",
+        "run": 1,
+        "startTimestamp": "2026-09-29T02:42:17.667Z",
+        "discoveryTimestamp": null,
+        "disabledAt": null,
+        "unavailableObservedAt": null,
+        "restoreAt": null,
+        "recoveredAt": null,
+        "retryCount": 0,
+        "success": false,
+        "errorClass": null,
+        "snapshots": []
+      }
+    ]
+  }
+}

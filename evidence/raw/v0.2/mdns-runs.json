@@ -1,0 +1,62 @@
+[
+  {
+    "mode": "mdns",
+    "scenario": "pairing",
+    "run": 1,
+    "codeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+    "apkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+    "start": "2026-09-29T02:21:30.893Z",
+    "end": "2026-09-29T02:22:40.806Z",
+    "success": true,
+    "errorClass": null,
+    "driver": "ADB UI; no discovery injection"
+  },
+  {
+    "mode": "mdns",
+    "scenario": "pairing",
+    "run": 2,
+    "codeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+    "apkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+    "start": "2026-09-29T02:22:40.807Z",
+    "end": "2026-09-29T02:23:43.898Z",
+    "success": true,
+    "errorClass": null,
+    "driver": "ADB UI; no discovery injection"
+  },
+  {
+    "mode": "mdns",
+    "scenario": "pairing",
+    "run": 3,
+    "codeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+    "apkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+    "start": "2026-09-29T02:23:43.898Z",
+    "end": "2026-09-29T02:24:46.147Z",
+    "success": true,
+    "errorClass": null,
+    "driver": "ADB UI; no discovery injection"
+  },
+  {
+    "mode": "mdns",
+    "scenario": "pairing",
+    "run": 4,
+    "codeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+    "apkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+    "start": "2026-09-29T02:24:46.148Z",
+    "end": "2026-09-29T02:25:56.392Z",
+    "success": true,
+    "errorClass": null,
+    "driver": "ADB UI; no discovery injection"
+  },
+  {
+    "mode": "mdns",
+    "scenario": "pairing",
+    "run": 5,
+    "codeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+    "apkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+    "start": "2026-09-29T02:25:56.392Z",
+    "end": "2026-09-29T02:27:06.174Z",
+    "success": true,
+    "errorClass": null,
+    "driver": "ADB UI; no discovery injection"
+  }
+]

@@ -1,0 +1,88 @@
+{
+  "sourceFile": "pre-radio-fix-discovery-recovery.json",
+  "originalSnapshotReferencesUnresolved": true,
+  "originalSnapshotReferenceNote": "Snapshot references are original private filenames, not links to current published XML. Earlier XML was not preserved before reruns and filenames overlap; no association with newer snapshots is asserted.",
+  "sourceSha256": "0293dd2decdb12c3dea5d5fa8481444d8d543fcaccaf439b50e069da8b736e38",
+  "applicability": "Historical or driver evidence, not final candidate passes",
+  "record": {
+    "codeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+    "apkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+    "mainCity": "cb60db4a-7203-43d9-afbb-e40916eedd00",
+    "startedAt": "2026-09-29T02:47:50.031Z",
+    "driver": "ADB UI; native discovery; no injected descriptor",
+    "runs": [
+      {
+        "kind": "ble",
+        "run": 1,
+        "startTimestamp": "2026-09-29T02:47:50.033Z",
+        "discoveryTimestamp": "2026-09-29T02:48:35.777Z",
+        "disabledAt": "2026-09-29T02:48:35.777Z",
+        "unavailableObservedAt": "2026-09-29T02:49:09.862Z",
+        "restoreAt": "2026-09-29T02:49:09.863Z",
+        "recoveredAt": "2026-09-29T02:49:32.920Z",
+        "retryCount": 1,
+        "success": true,
+        "errorClass": null,
+        "snapshots": [
+          "ble-discovery-1-before.xml",
+          "ble-discovery-1-unavailable.xml",
+          "ble-discovery-1-recovered.xml"
+        ],
+        "cityIdentityPreserved": true,
+        "endTimestamp": "2026-09-29T02:49:32.923Z"
+      },
+      {
+        "kind": "ble",
+        "run": 2,
+        "startTimestamp": "2026-09-29T02:49:32.923Z",
+        "discoveryTimestamp": "2026-09-29T02:50:19.568Z",
+        "disabledAt": "2026-09-29T02:50:19.568Z",
+        "unavailableObservedAt": "2026-09-29T02:50:48.314Z",
+        "restoreAt": "2026-09-29T02:50:48.314Z",
+        "recoveredAt": "2026-09-29T02:51:11.000Z",
+        "retryCount": 1,
+        "success": true,
+        "errorClass": null,
+        "snapshots": [
+          "ble-discovery-2-before.xml",
+          "ble-discovery-2-unavailable.xml",
+          "ble-discovery-2-recovered.xml"
+        ],
+        "cityIdentityPreserved": true,
+        "endTimestamp": "2026-09-29T02:51:11.002Z"
+      }
+    ],
+    "bluetoothToggleDriver": "svc bluetooth",
+    "bluetoothToggleCommands": [
+      {
+        "action": "disable",
+        "at": "2026-09-29T02:48:46.065Z",
+        "exitStatus": 137,
+        "errorClass": null,
+        "observedState": "0"
+      },
+      {
+        "action": "enable",
+        "at": "2026-09-29T02:49:14.461Z",
+        "exitStatus": 137,
+        "errorClass": null,
+        "observedState": "1"
+      },
+      {
+        "action": "disable",
+        "at": "2026-09-29T02:50:24.238Z",
+        "exitStatus": 137,
+        "errorClass": null,
+        "observedState": "0"
+      },
+      {
+        "action": "enable",
+        "at": "2026-09-29T02:50:52.908Z",
+        "exitStatus": 137,
+        "errorClass": null,
+        "observedState": "1"
+      }
+    ],
+    "finishedAt": "2026-09-29T02:51:11.003Z"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "sourceFile": "mdns-wrong-code-status-overwrite-runs.json",
+  "diagnosticNote": "Historical driver observation: submitted rejection was followed by discovery status overwriting the displayed error. Preserve the original failure; this record is not a final rejection-UI pass.",
+  "sourceSha256": "4bf76f39159e64b6b42ef9e31c2592139bb337b4d1607be340739f71ad553904",
+  "applicability": "Historical or driver evidence, not final candidate passes",
+  "record": [
+    {
+      "mode": "mdns",
+      "scenario": "wrong-code",
+      "run": 1,
+      "codeSha": "3d7b8c9647fa13f75bc62829b5c96966dfba6dd2",
+      "apkSha256": "0f2c3091661bf8818cd0995741ce6fea1f8fe00b4a0cf5867e705294dd383b77",
+      "start": "2026-09-29T03:02:08.224Z",
+      "end": "2026-09-29T03:03:47.956Z",
+      "success": false,
+      "errorClass": "Wrong code rejection missing",
+      "driver": "ADB UI; no discovery injection"
+    }
+  ]
+}

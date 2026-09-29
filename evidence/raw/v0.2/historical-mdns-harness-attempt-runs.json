@@ -1,0 +1,19 @@
+{
+  "sourceFile": "mdns-harness-attempt-runs.json",
+  "sourceSha256": "b053c0e075b99315adf09b942f7c796691e914b7f9dd8e7de8f2752f290d3384",
+  "applicability": "Historical or driver evidence, not final candidate passes",
+  "record": [
+    {
+      "mode": "mdns",
+      "scenario": "pairing",
+      "run": 1,
+      "codeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+      "apkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+      "start": "2026-09-29T02:13:07.862Z",
+      "end": "2026-09-29T02:13:24.704Z",
+      "success": false,
+      "errorClass": "UI element missing",
+      "driver": "ADB UI; no discovery injection"
+    }
+  ]
+}

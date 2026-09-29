@@ -12,9 +12,9 @@ import org.json.JSONObject
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-data class CityState(val connection: String = "OFFLINE", val snapshot: JSONObject? = null, val message: String = "Enter your Gateway address and pairing token.")
+data class CityState(val connection: String = "OFFLINE", val snapshot: JSONObject? = null, val message: String = "Choose Scan QR, Nearby Cities (LAN), Nearby via Bluetooth, or Manual connection.")
 
-class CityClient(context: Context, private val host: String, private val token: String, private val changed: (CityState) -> Unit) {
+class CityClient(context: Context, private val host: String, private val token: String, private val log: PilotLog, private val expectedCity: String?, private val changed: (CityState) -> Unit) {
  private val handler = Handler(Looper.getMainLooper())
  private val executor = Executors.newSingleThreadScheduledExecutor()
  private val http = OkHttpClient.Builder().connectTimeout(3, TimeUnit.SECONDS).readTimeout(5, TimeUnit.SECONDS).callTimeout(6, TimeUnit.SECONDS).pingInterval(3, TimeUnit.SECONDS).build()
@@ -23,8 +23,9 @@ class CityClient(context: Context, private val host: String, private val token: 
  @Volatile private var socket: WebSocket? = null
  @Volatile private var socketOnline = false
  private var snapshot: JSONObject? = null
+ private var snapshotLogged = false
  private var lastPublishedConnection = ""
- private fun publish(connection: String, message: String = "") { val value = CityState(connection, snapshot, message); handler.post { if (!closed) { if (connection != lastPublishedConnection) { android.util.Log.i("UtopiaConnection", connection); lastPublishedConnection = connection }; changed(value) } } }
+ private fun publish(connection: String, message: String = "") { val value = CityState(connection, snapshot, message); handler.post { if (!closed) { if (connection != lastPublishedConnection) { android.util.Log.i("UtopiaConnection", connection); log.event("connection_" + connection); if(connection == "ONLINE") log.event("websocketOnline"); lastPublishedConnection = connection }; changed(value) } } }
  private fun request(path: String, body: JSONObject? = null): JSONObject {
   val builder = Request.Builder().url(host.trimEnd('/') + "/api/v0/" + path).header("Authorization", "Bearer $token").header("X-City-Api-Version", "0").header("X-City-Schema-Version", "0")
   if (body != null) builder.post(body.toString().toRequestBody("application/json".toMediaType()))
@@ -40,7 +41,10 @@ class CityClient(context: Context, private val host: String, private val token: 
   if (closed || host.isBlank() || token.isBlank()) return
   try {
    if (!socketOnline) publish("RECONNECTING", "Fetching the latest city snapshot…")
-   snapshot = request("city")
+   val fresh = request("city")
+   check(expectedCity == null || fresh.optString("cityId") == expectedCity) { "City identity conflict; clear pairing and verify host" }
+   snapshot = fresh
+   if(!snapshotLogged) { log.event("authenticated"); log.event("snapshotLoaded"); snapshotLogged=true }
    if (socket == null) openStream()
    publish(if (socketOnline) "ONLINE" else "RECONNECTING")
   } catch (e: Exception) { socketOnline = false; socket?.cancel(); socket = null; publish("OFFLINE", e.message ?: "Gateway unavailable") }

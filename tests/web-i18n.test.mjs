@@ -200,18 +200,18 @@ test('badge state and display label stay separate in every locale', async () => 
   assert.ok(!/badge\(t\(/.test(appJs), 'a translation is never passed as the badge state class');
 
   // Node rows derive the canonical state first, then look up the label.
-  assert.match(appJs, /const state=connection!=='ONLINE'\?'UNKNOWN':n\.online\?'online':'offline';/, 'node state comes from machine values');
+  assert.match(appJs, /const state=nodeState\(n\);/, 'node state comes from machine values');
   assert.match(appJs, /badge\(state,label\)/, 'node rows pass state and label separately');
   assert.ok(!/badge\(connection!=='ONLINE'\?t\(/.test(appJs), 'the old translated-class path is gone');
 
   // Task state must stay canonical.
-  assert.match(appJs, /badge\(x\.state\)/, 'task badges use the canonical state');
+  assert.match(appJs, /badge\([xt]\.state\)/, 'task badges use the canonical state');
   assert.match(appJs, /badge\(detail\.state\)/, 'the detail badge uses the canonical state');
 
   // The run button keys off the machine connection state, not displayed text.
   assert.match(appJs, /\$\('#run'\)\.disabled=connection!=='ONLINE';/, 'run disabled follows the canonical state');
   assert.ok(!/\$\('#connection'\)\.textContent!==/.test(appJs), 'displayed text never decides enablement');
-  assert.match(appJs, /el\.textContent=t\('connection\.'\+s\.toLowerCase\(\)\)/, 'the connection label is translated from the machine state');
+  assert.match(appJs, /\$\('#connection'\)\.textContent=t\('connection\.'\+s\.toLowerCase\(\)\)/, 'the connection label is translated from the machine state');
 
   // Under zh-CN the CSS classes must still be the canonical tokens.
   const doc = fakeDocument();
@@ -298,7 +298,8 @@ test('Web Settings language switch, persistence and protocol stability (real bro
     // 1 + 2: default locale is English, and each page exposes English copy
     assert.equal(await page.evaluate(() => localStorage.getItem('utopia.ui.locale')), null, 'nothing stored before a choice');
     for (const [page_, heading] of [
-      ['Nodes', 'The places work happens.'],
+      ['Devices', 'Your devices, in focus.'],
+      ['Pairing', 'Bring a device into your city.'],
       ['Tasks', 'From intent to done.'],
       ['Activity', 'Life in your city.'],
     ]) {
@@ -315,7 +316,8 @@ test('Web Settings language switch, persistence and protocol stability (real bro
     assert.equal(await page.evaluate(() => localStorage.getItem('utopia.ui.locale')), ZH_CN);
     for (const [page_, heading] of [
       ['Home', '一眼看清你的城市。'],
-      ['Nodes', '工作发生的地方。'],
+      ['Devices', '专注查看你的设备。'],
+      ['Pairing', '将设备接入你的城市。'],
       ['Tasks', '从意图到完成。'],
       ['Activity', '城市里的日常。'],
       ['Settings', '由你掌控的连接。'],

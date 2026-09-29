@@ -1,0 +1,17 @@
+{"trialId":"244f7a65-5492-498c-851f-0ab115874ba5","mode":"ble","event":"start","timestamp":"2026-09-29T02:27:43.239303Z","userActions":0,"retryCount":0}
+{"trialId":"244f7a65-5492-498c-851f-0ab115874ba5","mode":"ble","event":"action","timestamp":"2026-09-29T02:27:43.240169Z","userActions":1,"retryCount":0}
+{"trialId":"244f7a65-5492-498c-851f-0ab115874ba5","mode":"ble","event":"discovery","timestamp":"2026-09-29T02:27:43.408378Z","userActions":1,"retryCount":0}
+{"trialId":"244f7a65-5492-498c-851f-0ab115874ba5","mode":"ble","event":"discovery","timestamp":"2026-09-29T02:27:48.373156Z","userActions":1,"retryCount":0}
+{"trialId":"244f7a65-5492-498c-851f-0ab115874ba5","mode":"ble","event":"discovery","timestamp":"2026-09-29T02:27:53.629196Z","userActions":1,"retryCount":0}
+{"trialId":"244f7a65-5492-498c-851f-0ab115874ba5","mode":"ble","event":"action","timestamp":"2026-09-29T02:27:57.479805Z","userActions":2,"retryCount":0}
+{"trialId":"244f7a65-5492-498c-851f-0ab115874ba5","mode":"ble","event":"discovery","timestamp":"2026-09-29T02:27:58.684231Z","userActions":2,"retryCount":0}
+{"trialId":"244f7a65-5492-498c-851f-0ab115874ba5","mode":"ble","event":"discovery","timestamp":"2026-09-29T02:28:03.973781Z","userActions":2,"retryCount":0}
+{"trialId":"244f7a65-5492-498c-851f-0ab115874ba5","mode":"ble","event":"discovery","timestamp":"2026-09-29T02:28:08.787913Z","userActions":2,"retryCount":0}
+{"trialId":"244f7a65-5492-498c-851f-0ab115874ba5","mode":"ble","event":"action","timestamp":"2026-09-29T02:28:13.191288Z","userActions":3,"retryCount":0}
+{"trialId":"244f7a65-5492-498c-851f-0ab115874ba5","mode":"ble","event":"pairingSubmitted","timestamp":"2026-09-29T02:28:13.192861Z","userActions":3,"retryCount":0}
+{"trialId":"244f7a65-5492-498c-851f-0ab115874ba5","mode":"ble","event":"authenticated","timestamp":"2026-09-29T02:28:13.217534Z","userActions":3,"retryCount":0}
+{"trialId":"244f7a65-5492-498c-851f-0ab115874ba5","mode":"ble","event":"authenticated","timestamp":"2026-09-29T02:28:13.267942Z","userActions":3,"retryCount":0}
+{"trialId":"244f7a65-5492-498c-851f-0ab115874ba5","mode":"ble","event":"snapshotLoaded","timestamp":"2026-09-29T02:28:13.268736Z","userActions":3,"retryCount":0}
+{"trialId":"244f7a65-5492-498c-851f-0ab115874ba5","mode":"ble","event":"connection_RECONNECTING","timestamp":"2026-09-29T02:28:13.288607Z","userActions":3,"retryCount":0}
+{"trialId":"244f7a65-5492-498c-851f-0ab115874ba5","mode":"ble","event":"connection_ONLINE","timestamp":"2026-09-29T02:28:13.419354Z","userActions":3,"retryCount":0}
+{"trialId":"244f7a65-5492-498c-851f-0ab115874ba5","mode":"ble","event":"websocketOnline","timestamp":"2026-09-29T02:28:13.420260Z","userActions":3,"retryCount":0}

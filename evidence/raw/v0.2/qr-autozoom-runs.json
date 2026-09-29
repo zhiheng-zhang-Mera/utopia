@@ -1,0 +1,184 @@
+[
+  {
+    "mode": "qr",
+    "run": 1,
+    "codeSha": "2607912f85c22f6075367dc0eff1c45a58d75419",
+    "driverSha256": "9e35dea02e31e1a0d7fd06bff368030a26c505f620074748567f97ce87631b0b",
+    "workingTreeDirty": false,
+    "apkSha256": "ec30b0829a242aac05e604d3ade1aa5e91da2bbe45d22d4d9b5bcef222a5c9a7",
+    "startTimestamp": "2026-09-29T04:33:13.970Z",
+    "discoveryTimestamp": null,
+    "pairingSubmittedTimestamp": null,
+    "authenticatedTimestamp": null,
+    "snapshotLoadedTimestamp": null,
+    "websocketOnlineTimestamp": null,
+    "trialId": "ad9e1101-93bf-44d0-b4b0-fcf7a9fc9793",
+    "success": false,
+    "errorClass": "NO_CAMERA_DECODE_OBSERVED",
+    "driver": "ADB onboarding plus physical camera; no QR injection",
+    "cameraLaunchRequestedAt": "2026-09-29T04:33:46.029Z",
+    "stage": "CAMERA_LAUNCHED",
+    "endTimestamp": "2026-09-29T04:34:31.527Z"
+  },
+  {
+    "mode": "qr",
+    "run": 2,
+    "codeSha": "2607912f85c22f6075367dc0eff1c45a58d75419",
+    "driverSha256": "cc37af2e867119ad9da85212c5e2d50883217c331fa9e277db150ead8d471388",
+    "workingTreeDirty": true,
+    "apkSha256": "ec30b0829a242aac05e604d3ade1aa5e91da2bbe45d22d4d9b5bcef222a5c9a7",
+    "startTimestamp": "2026-09-29T04:35:49.573Z",
+    "discoveryTimestamp": "2026-09-29T04:36:34.789940Z",
+    "pairingSubmittedTimestamp": "2026-09-29T04:36:34.796432Z",
+    "authenticatedTimestamp": "2026-09-29T04:36:34.864092Z",
+    "snapshotLoadedTimestamp": "2026-09-29T04:36:34.972541Z",
+    "websocketOnlineTimestamp": "2026-09-29T04:36:35.111059Z",
+    "trialId": "dd190598-81d6-4354-a43a-e1f9070eb6bd",
+    "success": true,
+    "errorClass": null,
+    "driver": "ADB onboarding plus physical camera; no QR injection",
+    "cameraLaunchRequestedAt": "2026-09-29T04:36:21.720Z",
+    "stage": "CAMERA_LAUNCHED",
+    "endTimestamp": "2026-09-29T04:36:36.898Z"
+  },
+  {
+    "mode": "qr",
+    "run": 3,
+    "codeSha": "2607912f85c22f6075367dc0eff1c45a58d75419",
+    "driverSha256": "cc37af2e867119ad9da85212c5e2d50883217c331fa9e277db150ead8d471388",
+    "workingTreeDirty": true,
+    "apkSha256": "ec30b0829a242aac05e604d3ade1aa5e91da2bbe45d22d4d9b5bcef222a5c9a7",
+    "startTimestamp": "2026-09-29T04:36:36.899Z",
+    "discoveryTimestamp": "2026-09-29T04:37:08.584076Z",
+    "pairingSubmittedTimestamp": "2026-09-29T04:37:08.589952Z",
+    "authenticatedTimestamp": "2026-09-29T04:37:08.616955Z",
+    "snapshotLoadedTimestamp": "2026-09-29T04:37:08.690740Z",
+    "websocketOnlineTimestamp": "2026-09-29T04:37:08.774350Z",
+    "trialId": "0826a57d-b871-49ad-bfba-ecf548857c01",
+    "success": true,
+    "errorClass": null,
+    "driver": "ADB onboarding plus physical camera; no QR injection",
+    "cameraLaunchRequestedAt": "2026-09-29T04:37:08.615Z",
+    "displayGeometry": {
+      "displayScale": 2,
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "qrBox": {
+        "x": 197,
+        "y": 284,
+        "width": 480,
+        "height": 720
+      },
+      "scope": "Operator QR display only; center preserved during scaling"
+    },
+    "stage": "CAMERA_LAUNCHED",
+    "endTimestamp": "2026-09-29T04:37:10.751Z"
+  },
+  {
+    "mode": "qr",
+    "run": 4,
+    "codeSha": "2607912f85c22f6075367dc0eff1c45a58d75419",
+    "driverSha256": "cc37af2e867119ad9da85212c5e2d50883217c331fa9e277db150ead8d471388",
+    "workingTreeDirty": true,
+    "apkSha256": "ec30b0829a242aac05e604d3ade1aa5e91da2bbe45d22d4d9b5bcef222a5c9a7",
+    "startTimestamp": "2026-09-29T04:37:10.752Z",
+    "discoveryTimestamp": "2026-09-29T04:37:43.074295Z",
+    "pairingSubmittedTimestamp": "2026-09-29T04:37:43.077507Z",
+    "authenticatedTimestamp": "2026-09-29T04:37:43.102598Z",
+    "snapshotLoadedTimestamp": "2026-09-29T04:37:43.215417Z",
+    "websocketOnlineTimestamp": "2026-09-29T04:37:43.295152Z",
+    "trialId": "618ad127-8560-4f00-a5af-621bfb6d410e",
+    "success": true,
+    "errorClass": null,
+    "driver": "ADB onboarding plus physical camera; no QR injection",
+    "cameraLaunchRequestedAt": "2026-09-29T04:37:43.156Z",
+    "displayGeometry": {
+      "displayScale": 2,
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "qrBox": {
+        "x": 197,
+        "y": 284,
+        "width": 480,
+        "height": 720
+      },
+      "scope": "Operator QR display only; center preserved during scaling"
+    },
+    "stage": "CAMERA_LAUNCHED",
+    "endTimestamp": "2026-09-29T04:37:45.271Z"
+  },
+  {
+    "mode": "qr",
+    "run": 5,
+    "codeSha": "2607912f85c22f6075367dc0eff1c45a58d75419",
+    "driverSha256": "cc37af2e867119ad9da85212c5e2d50883217c331fa9e277db150ead8d471388",
+    "workingTreeDirty": true,
+    "apkSha256": "ec30b0829a242aac05e604d3ade1aa5e91da2bbe45d22d4d9b5bcef222a5c9a7",
+    "startTimestamp": "2026-09-29T04:37:45.272Z",
+    "discoveryTimestamp": "2026-09-29T04:38:18.671163Z",
+    "pairingSubmittedTimestamp": "2026-09-29T04:38:18.673940Z",
+    "authenticatedTimestamp": "2026-09-29T04:38:18.703010Z",
+    "snapshotLoadedTimestamp": "2026-09-29T04:38:18.784027Z",
+    "websocketOnlineTimestamp": "2026-09-29T04:38:18.909829Z",
+    "trialId": "f5bdfd40-0f4a-4d1a-ace3-3b3c662bc2ae",
+    "success": true,
+    "errorClass": null,
+    "driver": "ADB onboarding plus physical camera; no QR injection",
+    "cameraLaunchRequestedAt": "2026-09-29T04:38:18.716Z",
+    "displayGeometry": {
+      "displayScale": 2,
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "qrBox": {
+        "x": 197,
+        "y": 284,
+        "width": 480,
+        "height": 720
+      },
+      "scope": "Operator QR display only; center preserved during scaling"
+    },
+    "stage": "CAMERA_LAUNCHED",
+    "endTimestamp": "2026-09-29T04:38:20.855Z"
+  },
+  {
+    "mode": "qr",
+    "run": 6,
+    "codeSha": "2607912f85c22f6075367dc0eff1c45a58d75419",
+    "driverSha256": "cc37af2e867119ad9da85212c5e2d50883217c331fa9e277db150ead8d471388",
+    "workingTreeDirty": true,
+    "apkSha256": "ec30b0829a242aac05e604d3ade1aa5e91da2bbe45d22d4d9b5bcef222a5c9a7",
+    "startTimestamp": "2026-09-29T04:38:20.855Z",
+    "discoveryTimestamp": "2026-09-29T04:38:52.385348Z",
+    "pairingSubmittedTimestamp": "2026-09-29T04:38:52.389430Z",
+    "authenticatedTimestamp": "2026-09-29T04:38:52.413044Z",
+    "snapshotLoadedTimestamp": "2026-09-29T04:38:52.521927Z",
+    "websocketOnlineTimestamp": "2026-09-29T04:38:52.574933Z",
+    "trialId": "58433dc4-bdad-46c7-abe8-8682e8fa317a",
+    "success": true,
+    "errorClass": null,
+    "driver": "ADB onboarding plus physical camera; no QR injection",
+    "cameraLaunchRequestedAt": "2026-09-29T04:38:52.466Z",
+    "displayGeometry": {
+      "displayScale": 2,
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "qrBox": {
+        "x": 197,
+        "y": 284,
+        "width": 480,
+        "height": 720
+      },
+      "scope": "Operator QR display only; center preserved during scaling"
+    },
+    "stage": "CAMERA_LAUNCHED",
+    "endTimestamp": "2026-09-29T04:38:54.551Z"
+  }
+]

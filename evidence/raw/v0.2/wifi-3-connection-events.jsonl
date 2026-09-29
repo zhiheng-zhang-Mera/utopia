@@ -1,0 +1,13 @@
+{"trialId":"602c2e9d-3751-4e3a-bace-ba7759d37d3d","mode":"ble","event":"connection_RECONNECTING","timestamp":"2026-09-29T02:34:01.401379Z","userActions":3,"retryCount":0}
+{"trialId":"602c2e9d-3751-4e3a-bace-ba7759d37d3d","mode":"ble","event":"connection_OFFLINE","timestamp":"2026-09-29T02:34:01.438942Z","userActions":3,"retryCount":0}
+{"trialId":"602c2e9d-3751-4e3a-bace-ba7759d37d3d","mode":"ble","event":"connection_RECONNECTING","timestamp":"2026-09-29T02:34:03.422044Z","userActions":3,"retryCount":0}
+{"trialId":"602c2e9d-3751-4e3a-bace-ba7759d37d3d","mode":"ble","event":"connection_OFFLINE","timestamp":"2026-09-29T02:34:03.458573Z","userActions":3,"retryCount":0}
+{"trialId":"602c2e9d-3751-4e3a-bace-ba7759d37d3d","mode":"ble","event":"connection_RECONNECTING","timestamp":"2026-09-29T02:34:05.426197Z","userActions":3,"retryCount":0}
+{"trialId":"602c2e9d-3751-4e3a-bace-ba7759d37d3d","mode":"ble","event":"connection_OFFLINE","timestamp":"2026-09-29T02:34:05.442483Z","userActions":3,"retryCount":0}
+{"trialId":"602c2e9d-3751-4e3a-bace-ba7759d37d3d","mode":"ble","event":"connection_RECONNECTING","timestamp":"2026-09-29T02:34:07.443807Z","userActions":3,"retryCount":0}
+{"trialId":"602c2e9d-3751-4e3a-bace-ba7759d37d3d","mode":"ble","event":"connection_OFFLINE","timestamp":"2026-09-29T02:34:07.495406Z","userActions":3,"retryCount":0}
+{"trialId":"602c2e9d-3751-4e3a-bace-ba7759d37d3d","mode":"ble","event":"connection_RECONNECTING","timestamp":"2026-09-29T02:34:09.457968Z","userActions":3,"retryCount":0}
+{"trialId":"602c2e9d-3751-4e3a-bace-ba7759d37d3d","mode":"ble","event":"connection_OFFLINE","timestamp":"2026-09-29T02:34:09.523747Z","userActions":3,"retryCount":0}
+{"trialId":"602c2e9d-3751-4e3a-bace-ba7759d37d3d","mode":"ble","event":"connection_RECONNECTING","timestamp":"2026-09-29T02:34:11.046987Z","userActions":3,"retryCount":0}
+{"trialId":"602c2e9d-3751-4e3a-bace-ba7759d37d3d","mode":"ble","event":"connection_ONLINE","timestamp":"2026-09-29T02:34:11.240499Z","userActions":3,"retryCount":0}
+{"trialId":"602c2e9d-3751-4e3a-bace-ba7759d37d3d","mode":"ble","event":"websocketOnline","timestamp":"2026-09-29T02:34:11.241995Z","userActions":3,"retryCount":0}

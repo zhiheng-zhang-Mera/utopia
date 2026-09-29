@@ -1,0 +1,149 @@
+[
+  {
+    "kind": "node",
+    "run": 1,
+    "codeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+    "apkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+    "disconnectAt": "2026-09-29T02:37:01.030Z",
+    "offlineObservedAt": "2026-09-29T02:37:19.983Z",
+    "restoreAt": "2026-09-29T02:37:19.988Z",
+    "onlineObservedAt": "2026-09-29T02:37:29.674Z",
+    "historyPreserved": true,
+    "cityIdentityPreserved": true,
+    "observations": [
+      {
+        "at": "2026-09-29T02:37:10.868Z",
+        "android": [
+          "ONLINE",
+          "ONLINE"
+        ],
+        "web": "ONLINE",
+        "webNode": "OFFLINE"
+      },
+      {
+        "at": "2026-09-29T02:37:19.983Z",
+        "android": [
+          "ONLINE",
+          "OFFLINE"
+        ],
+        "web": "ONLINE",
+        "webNode": "OFFLINE"
+      },
+      {
+        "at": "2026-09-29T02:37:29.674Z",
+        "android": [
+          "ONLINE",
+          "ONLINE"
+        ],
+        "web": "ONLINE",
+        "webNode": "ONLINE"
+      }
+    ],
+    "success": true,
+    "reconnectStartedAt": null,
+    "onlineRecoveredAt": "2026-09-29T02:37:29.674Z",
+    "staleGreenObserved": false,
+    "observationLimitations": "staleGreenObserved describes the confirmed-outage UI observation only, not continuous absence. UI dump and Web reads are sequential. Node restart does not disconnect the client control channel; reconnectStartedAt may be null."
+  },
+  {
+    "kind": "node",
+    "run": 2,
+    "codeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+    "apkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+    "disconnectAt": "2026-09-29T02:37:29.685Z",
+    "offlineObservedAt": "2026-09-29T02:37:48.594Z",
+    "restoreAt": "2026-09-29T02:37:48.598Z",
+    "onlineObservedAt": "2026-09-29T02:38:07.834Z",
+    "historyPreserved": true,
+    "cityIdentityPreserved": true,
+    "observations": [
+      {
+        "at": "2026-09-29T02:37:39.360Z",
+        "android": [
+          "ONLINE",
+          "ONLINE"
+        ],
+        "web": "ONLINE",
+        "webNode": "OFFLINE"
+      },
+      {
+        "at": "2026-09-29T02:37:48.594Z",
+        "android": [
+          "ONLINE",
+          "OFFLINE"
+        ],
+        "web": "ONLINE",
+        "webNode": "OFFLINE"
+      },
+      {
+        "at": "2026-09-29T02:37:58.972Z",
+        "android": [
+          "ONLINE",
+          "UNKNOWN"
+        ],
+        "web": "ONLINE",
+        "webNode": "ONLINE"
+      },
+      {
+        "at": "2026-09-29T02:38:07.834Z",
+        "android": [
+          "ONLINE",
+          "ONLINE"
+        ],
+        "web": "ONLINE",
+        "webNode": "ONLINE"
+      }
+    ],
+    "success": true,
+    "reconnectStartedAt": null,
+    "onlineRecoveredAt": "2026-09-29T02:38:07.834Z",
+    "staleGreenObserved": false,
+    "observationLimitations": "staleGreenObserved describes the confirmed-outage UI observation only, not continuous absence. UI dump and Web reads are sequential. Node restart does not disconnect the client control channel; reconnectStartedAt may be null."
+  },
+  {
+    "kind": "node",
+    "run": 3,
+    "codeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+    "apkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+    "disconnectAt": "2026-09-29T02:38:07.843Z",
+    "offlineObservedAt": "2026-09-29T02:38:26.480Z",
+    "restoreAt": "2026-09-29T02:38:26.484Z",
+    "onlineObservedAt": "2026-09-29T02:38:36.158Z",
+    "historyPreserved": true,
+    "cityIdentityPreserved": true,
+    "observations": [
+      {
+        "at": "2026-09-29T02:38:17.602Z",
+        "android": [
+          "ONLINE",
+          "ONLINE"
+        ],
+        "web": "ONLINE",
+        "webNode": "OFFLINE"
+      },
+      {
+        "at": "2026-09-29T02:38:26.480Z",
+        "android": [
+          "ONLINE",
+          "OFFLINE"
+        ],
+        "web": "ONLINE",
+        "webNode": "OFFLINE"
+      },
+      {
+        "at": "2026-09-29T02:38:36.158Z",
+        "android": [
+          "ONLINE",
+          "ONLINE"
+        ],
+        "web": "ONLINE",
+        "webNode": "ONLINE"
+      }
+    ],
+    "success": true,
+    "reconnectStartedAt": null,
+    "onlineRecoveredAt": "2026-09-29T02:38:36.158Z",
+    "staleGreenObserved": false,
+    "observationLimitations": "staleGreenObserved describes the confirmed-outage UI observation only, not continuous absence. UI dump and Web reads are sequential. Node restart does not disconnect the client control channel; reconnectStartedAt may be null."
+  }
+]

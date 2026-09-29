@@ -671,12 +671,27 @@ test('the donor constants the port must not drift from', async () => {
   assert.equal(band(90_000).finalOnly, true);
   assert.equal(band(100_001).band, 'expired');
   assert.equal(band(100_001).expired, true);
-  // The absolute floor is a *floor*, not a trigger: a short episode whose remaining
-  // ratio is healthy is left alone, which is the whole point of banding on the
-  // episode's own budget.
-  assert.equal(deadlineState({ now: 16_000, startedAt: 0, deadline: 20_000 }).finalOnly, false, 'a short episode is not in its final band before it started work');
-  // ...and on a 24-hour budget the floor is what puts the last 10 seconds into `final`
-  // even though the remaining ratio is still tiny but positive.
+  // The donor's absolute floor is `totalMs > 15000 && remainingMs <= 15000`. On a
+  // 100-second budget, 16 seconds left (ratio 0.16) is still wrap-up, and 13 seconds
+  // left (ratio 0.13) is final because the floor applies — the floor is what decides
+  // the last 15 seconds of an episode that is long enough to have them.
+  assert.equal(deadlineState({ now: 84_000, startedAt: 0, deadline: 100_000 }).band, 'wrap-up');
+  assert.equal(deadlineState({ now: 84_000, startedAt: 0, deadline: 100_000 }).finalOnly, false);
+  assert.equal(deadlineState({ now: 87_000, startedAt: 0, deadline: 100_000 }).band, 'final');
+  assert.equal(deadlineState({ now: 87_000, startedAt: 0, deadline: 100_000 }).finalOnly, true);
+  // A fixed "15 minutes left" rule would put an episode in its final band three
+  // minutes before the end of a long unit of work, before it could finish it. The
+  // donor's banding is relative unless the *absolute* 15-second floor applies: on a
+  // 25-minute budget, the last five minutes are still wrap-up, not final.
+  const minutes = 60_000;
+  const wrap = deadlineState({ now: 20 * minutes, startedAt: 0, deadline: 25 * minutes });
+  assert.equal(wrap.remainingMs, 5 * minutes);
+  assert.equal(wrap.ratio, 0.2);
+  assert.equal(wrap.band, 'wrap-up');
+  assert.equal(wrap.finalOnly, false);
+  assert.equal(wrap.allowCurrentWork, true);
+  // On a long episode the 15-second absolute floor does decide the last stretch: the
+  // ratio is 0.011, which would already be final, and the floor agrees.
   const day = 24 * 60 * 60 * 1000;
   const floorBand = deadlineState({ now: day - 10_000, startedAt: 0, deadline: day });
   assert.equal(floorBand.remainingMs, 10_000);

@@ -33,13 +33,39 @@ import { createCrossVolumeTempRegistry } from '../../cross-volume-cleanup.mjs'
 import { createOffVolumeTempRoot } from './off-volume-temp.mjs'
 
 const WORK_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'cross-volume-work-root-'))
-const OFF_VOLUME_TEMP = createOffVolumeTempRoot(WORK_ROOT)
+
+/**
+ * The off-volume temp root, resolved without throwing at module scope.
+ *
+ * The donor helper requires a temp directory on a volume *separate* from the work
+ * root. A single-volume CI runner cannot provide one (observed: GitHub Actions
+ * `windows-latest`), and resolving it at module scope made that environment a hard
+ * load failure for the entire file. Resolving it here turns it into a named reason
+ * each test skips on: the subject of this suite IS cross-volume scratch ownership,
+ * so with one volume there is nothing faithful to assert. The tests' own bodies and
+ * assertions are unmodified.
+ */
+let OFF_VOLUME_TEMP = null
+let OFF_VOLUME_UNAVAILABLE = null
+try {
+  OFF_VOLUME_TEMP = createOffVolumeTempRoot(WORK_ROOT)
+} catch (error) {
+  OFF_VOLUME_UNAVAILABLE = String(error && error.message ? error.message : error)
+}
+
+/** Skip a test when this host has no volume separate from the work root. */
+const requireOffVolume = (t) => {
+  if (OFF_VOLUME_TEMP !== null) return false
+  t.skip(OFF_VOLUME_UNAVAILABLE || 'no volume separate from the work root is available')
+  return true
+}
 
 test.after(() => {
   try { fs.rmSync(WORK_ROOT, { recursive: true, force: true }) } catch { /* disposable temp root */ }
 })
 
 test('a Windows volume-GUID alias is accepted as the same non-reparse work root', (t) => {
+  if (requireOffVolume(t)) return
   if (process.platform !== 'win32' || !fs.existsSync('D:\\')) return t.skip('Windows D: is unavailable')
   const mountvol = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'mountvol.exe')
   const result = spawnSync(mountvol, ['D:\\', '/L'], { encoding: 'utf8', windowsHide: true })
@@ -61,7 +87,8 @@ function registry(episodeId = 'cleanup-fixture', onChange = () => {}) {
   return createCrossVolumeTempRegistry({ episodeId, workRoot: WORK_ROOT, onChange })
 }
 
-test('a task-owned off-volume directory is registered with an ownership marker and removed only at terminal cleanup', () => {
+test('a task-owned off-volume directory is registered with an ownership marker and removed only at terminal cleanup', (t) => {
+ if (requireOffVolume(t)) return
   const root = externalPath('directory')
   const changes = []
   const store = registry('cleanup-directory', (entries) => changes.push(entries))
@@ -87,7 +114,8 @@ test('a task-owned off-volume directory is registered with an ownership marker a
   }
 })
 
-test('a pre-existing directory sentinel cannot be registered or deleted', () => {
+test('a pre-existing directory sentinel cannot be registered or deleted', (t) => {
+ if (requireOffVolume(t)) return
   const root = externalPath('sentinel')
   fs.mkdirSync(root)
   const sentinel = path.join(root, 'keep.txt')
@@ -104,7 +132,8 @@ test('a pre-existing directory sentinel cannot be registered or deleted', () => 
   }
 })
 
-test('a mismatched ownership marker blocks cleanup and reports the exact residual', () => {
+test('a mismatched ownership marker blocks cleanup and reports the exact residual', (t) => {
+ if (requireOffVolume(t)) return
   const root = externalPath('marker')
   const store = registry('cleanup-marker')
   try {
@@ -121,7 +150,8 @@ test('a mismatched ownership marker blocks cleanup and reports the exact residua
   }
 })
 
-test('an unregistered foreign file inside an owned directory blocks recursive cleanup', () => {
+test('an unregistered foreign file inside an owned directory blocks recursive cleanup', (t) => {
+ if (requireOffVolume(t)) return
   const root = externalPath('foreign-child')
   const store = registry('cleanup-foreign-child')
   try {
@@ -137,7 +167,8 @@ test('an unregistered foreign file inside an owned directory blocks recursive cl
   }
 })
 
-test('a task-owned file is removed exactly without deleting its containing directory', () => {
+test('a task-owned file is removed exactly without deleting its containing directory', (t) => {
+ if (requireOffVolume(t)) return
   const parent = externalPath('file-parent')
   const file = path.join(parent, 'single.log')
   fs.mkdirSync(parent)
@@ -157,6 +188,7 @@ test('a task-owned file is removed exactly without deleting its containing direc
 })
 
 test('a symlink/reparse entry inside a registered root blocks recursive deletion', (t) => {
+  if (requireOffVolume(t)) return
   const root = externalPath('reparse')
   const store = registry('cleanup-reparse')
   const target = externalPath('reparse-target')
@@ -181,6 +213,7 @@ test('a symlink/reparse entry inside a registered root blocks recursive deletion
 })
 
 test('a locked registered child preserves its parent marker and cleanup debt retries after the handle closes', async (t) => {
+  if (requireOffVolume(t)) return
   if (process.platform !== 'win32') return t.skip('the file-share lock adapter is Windows-specific')
   const root = externalPath('locked-parent')
   const helper = externalPath('lock-helper', '.ps1')

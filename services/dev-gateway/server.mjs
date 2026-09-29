@@ -26,7 +26,11 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
     try {
       const path=new URL(req.url,'http://city').pathname;
       if(!path.startsWith('/api/')){
-        const file={'/':'index.html','/app.js':'app.js','/style.css':'style.css'}[path];if(!file)fail(404,'Not found');
+        // Static Web Control Surface assets. The allow-list is explicit so this
+        // route can never serve arbitrary files; the three /i18n modules are the
+        // en and zh-CN language packs plus the i18n runtime.
+        const file={'/':'index.html','/app.js':'app.js','/style.css':'style.css','/i18n/en.js':'i18n/en.js','/i18n/zh-CN.js':'i18n/zh-CN.js','/i18n/index.js':'i18n/index.js'}[path];
+        if(!file||file.includes('..'))fail(404,'Not found');
         const data=await readFile(new URL('../../apps/web/'+file,import.meta.url));
         res.writeHead(200,{'Content-Type':file.endsWith('.html')?'text/html':file.endsWith('.js')?'text/javascript':'text/css','Cache-Control':'no-store','Referrer-Policy':'no-referrer'});res.end(data);return;
       }

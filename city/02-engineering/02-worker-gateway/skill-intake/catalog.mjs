@@ -141,12 +141,13 @@ export const BUNDLED_SKILLS = [
  * @param {{fetchJson?: Function|null, searchLimit?: number, log?: Function}} [options]
  */
 export function createCatalog({ fetchJson = null, searchLimit = DEFAULT_SEARCH_LIMIT, log = () => {} } = {}) {
-  const curated = CURATED_COLLECTIONS.map((entry) => ({ ...entry, origin: 'curated', installable: true }));
+  const curated = CURATED_COLLECTIONS.map((entry) => ({ ...entry, origin: 'curated', resolvable: true }));
   const bundled = BUNDLED_SKILLS.map((entry) => ({
     ...entry,
     origin: 'bundled',
-    installable: true,
-    install: { kind: 'bundled', id: entry.id },
+    resolvable: true,
+    previewable: true,
+    source: { kind: 'bundled', id: entry.id },
   }));
 
   /** Every entry the UI can show with no network access. */
@@ -245,7 +246,7 @@ export function createCatalog({ fetchJson = null, searchLimit = DEFAULT_SEARCH_L
         summary: repository.description || `SKILL.md on GitHub: ${owner}/${repo}`,
         tags: ['github', 'search'],
         origin: 'live',
-        installable: true,
+        resolvable: true,
         stars: Number(repository.stargazers_count) || 0,
         updatedAt: repository.updated_at || null,
         url: repository.html_url || `https://github.com/${owner}/${repo}`,

@@ -48,7 +48,8 @@
     "The source scanner reads through an injectable adapter (isDirectory / isFile / list) instead of node:fs directly, so the same tiered scan runs over the real disk and over an in-memory tree in tests.",
     "GitHub resolution stays a plan: archive URL forms, ref splits and subpaths are produced as data, and the module has no fetch, request or download entry point.",
     "The catalog's live GitHub code search takes an injectable fetchJson; without one it answers 'unavailable' and the curated and bundled entries stand.",
-    "describeRef was moved out of the incubator room wiring into source.mjs, because it only describes a parsed reference."
+    "describeRef was moved out of the incubator room wiring into source.mjs, because it only describes a parsed reference.",
+    "V0.3 consumption repair: catalog installable/install metadata renamed to resolvable/source; bundled entries explicitly previewable. Source resolution is not installation. Search and parsing algorithms unchanged."
   ],
   "knownDifferences": [
     "No skill installation: this module validates, inspects and discovers; it never writes a skill to disk.",

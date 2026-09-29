@@ -25,6 +25,7 @@ ancestor of `promotedAtCommit`. Verifier: `node scripts/verify-promotion-history
 | `document-intake-lab` (D4) | `165e2664ad4e2d777889d8dec47893144e8c81dd` | `e3d6bbd9dd9196ce0991e095fb91993df3ec3dd1` | `city/09-planning-knowledge/02-document-intake/ingestion-core` |
 | `skill-discovery-lab` (D5) | `b4dff81503128ae0d2ad163732171eb6dd887f4b` | `48494263d75532eaaba3490bc6c4223d5ff44ead` | `city/02-engineering/02-worker-gateway/skill-intake` |
 | `theme-package-lab` (D6) | `95d958ddacc6071fc6c2b0ee4c2be8b132c9dd4d` | `5d1abecdc38ace5f5cf02aafbf097026d3427eec` | `city/11-entertainment/01-entertainment-centre/theme-engine` |
+| `yaml-intake-lab` (D7a) | `b6d7733c927288c8c1246d097d509cc9caeb5fa4` | `e068d58ee890f17e1b87efb9f5d5af461d2a784b` | `city/09-planning-knowledge/02-document-intake/ingestion-core` |
 
 > **D1 note:** the commit that first wrote
 > `city/02-engineering/02-worker-gateway/skill-intake` was rewritten during a
@@ -36,6 +37,57 @@ ancestor of `promotedAtCommit`. Verifier: `node scripts/verify-promotion-history
 > **Never pre-guess a commit's own SHA.** A record is only filled in after the
 > target commit exists, and it is checked against local Git history by
 > `scripts/verify-promotion-history.mjs`.
+
+---
+
+## D7a · yaml-intake-lab → city/09-planning-knowledge/02-document-intake/ingestion-core
+
+| Item | Value |
+| --- | --- |
+| Donor repository | `zhiheng-zhang-Mera/Codex-Boss` |
+| Donor SHA | `8df428eaa437a409368401e95194e40266b83080` |
+| Donor source file | `electron/ingestion/text-parsers.ts` (the YAML branch of `parseStructuredText`) |
+| Incubator room | `apps/rooms/rooms/yaml-intake-lab/` (removed from the live tree) |
+| Accepted incubator commit | `b6d7733c927288c8c1246d097d509cc9caeb5fa4` |
+| Promotion commit | `e068d58ee890f17e1b87efb9f5d5af461d2a784b` |
+| Final city path | `city/09-planning-knowledge/02-document-intake/ingestion-core` |
+| Lifecycle | `PROMOTED` (during wave 2) |
+| Shared module | yes: D4 already promoted the encoding, section-splitting, structured and XML cores into the same module, so it now records `incubationRooms: ["document-intake-lab", "yaml-intake-lab"]` |
+| City dependency layer | `city/package.json` + `city/pnpm-lock.yaml` (yaml 2.9.0, fflate 0.8.3, mammoth 1.12.2, pdfjs-dist 6.3.289), installed by the hosted job before the city tests |
+
+### Adaptation
+
+- the donor's order is completed, not reinterpreted: a `.yaml`/`.yml` document is
+  parsed as YAML first and only; any other extension tries JSON, then JSON Lines,
+  then YAML, and the fallback is reported as
+  `JSON parsing failed (...); parsed as YAML`;
+- the external `yaml` package is quarantined in one file inside this building
+  (`yaml-parser.mjs`): it imports the package lazily, applies the donor's
+  `maxAliasCount: 100` and a 4 MiB document bound, and separates `YAML_INVALID`
+  (the document is bad) from `YAML_PARSER_UNAVAILABLE` (the install is incomplete);
+- `parseStructuredText()` is asynchronous, because the YAML branch lazily loads its
+  parser; the new `ingestStructured()` returns parse outcome, sections, rendering and
+  stats as one reportable object so a product surface never re-implements the order;
+- `detectFormat()` no longer marks yaml/yml as deferred: it is a real format now;
+- a refusal carries the parser's own reason, line and column.
+
+### Known differences
+
+- no persistence and no knowledge write: the module is pure;
+- a multi-document YAML stream is refused with the parser's reason rather than being
+  silently truncated to its first document;
+- no Excel/PDF/DOCX readers here: those are D7b and land in their own module in the
+  same building.
+
+### Parity tests
+
+Coverage: the extension rule (`.yaml`/`.yml` is YAML first and only, and a YAML file
+that is also valid JSON is still reported as YAML), JSON and JSON Lines keeping their
+formats, the non-YAML fallback warning text, nested maps and sequences, scalars and
+dates, fail-closed refusals for malformed input, an empty document, a multi-document
+stream and an alias bomb, the parser's line/column detail, deterministic rendering and
+sections with offsets, the section cap and the byte bound, and the quarantine itself
+(the core reaches the seam and never the package).
 
 ---
 

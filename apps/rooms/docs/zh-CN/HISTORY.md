@@ -21,10 +21,46 @@ promotedAtCommit   = 第一个正式 city module 已落位的 commit（可达、
 | `document-intake-lab` (D4) | `165e2664ad4e2d777889d8dec47893144e8c81dd` | `e3d6bbd9dd9196ce0991e095fb91993df3ec3dd1` | `city/09-planning-knowledge/02-document-intake/ingestion-core` |
 | `skill-discovery-lab` (D5) | `b4dff81503128ae0d2ad163732171eb6dd887f4b` | `48494263d75532eaaba3490bc6c4223d5ff44ead` | `city/02-engineering/02-worker-gateway/skill-intake` |
 | `theme-package-lab` (D6) | `95d958ddacc6071fc6c2b0ee4c2be8b132c9dd4d` | `5d1abecdc38ace5f5cf02aafbf097026d3427eec` | `city/11-entertainment/01-entertainment-centre/theme-engine` |
+| `yaml-intake-lab` (D7a) | `b6d7733c927288c8c1246d097d509cc9caeb5fa4` | `e068d58ee890f17e1b87efb9f5d5af461d2a784b` | `city/09-planning-knowledge/02-document-intake/ingestion-core` |
 
 > **D1 说明：** 最初写入 `city/02-engineering/02-worker-gateway/skill-intake` 的那次提交在 Wave 1 期间的一次历史整理中被改写，已不可达；本记录因此指向当前历史中**第一个包含该 module 且可达**的提交 `1402872`。Wave 1 曾预填的旧值（形如 `6b29e84…`）是提交 amend 之前的 SHA，已作废。
 >
 > **禁止预猜当前 commit 自己的 SHA**：记录只能在目标提交已经存在之后回填，并由 `scripts/verify-promotion-history.mjs` 用本地 Git 历史核验。
+
+---
+
+## D7a · yaml-intake-lab → city/09-planning-knowledge/02-document-intake/ingestion-core
+
+| 项 | 值 |
+| --- | --- |
+| Donor 仓库 | `zhiheng-zhang-Mera/Codex-Boss` |
+| Donor SHA | `8df428eaa437a409368401e95194e40266b83080` |
+| Donor 源文件 | `electron/ingestion/text-parsers.ts`（`parseStructuredText` 的 YAML 分支） |
+| 孵化房间 | `apps/rooms/rooms/yaml-intake-lab/`（已从活跃树移除） |
+| 孵化验收 commit | `b6d7733c927288c8c1246d097d509cc9caeb5fa4` |
+| 晋升 commit | `e068d58ee890f17e1b87efb9f5d5af461d2a784b` |
+| 最终城市路径 | `city/09-planning-knowledge/02-document-intake/ingestion-core` |
+| Lifecycle | `PROMOTED`（Wave 2 期间） |
+| 共用 module | 是：D4 已把编码、分节、结构化与 XML 内核晋升到同一 module，因此它现在记录 `incubationRooms: ["document-intake-lab", "yaml-intake-lab"]` |
+| City 依赖层 | `city/package.json` + `city/pnpm-lock.yaml`（yaml 2.9.0、fflate 0.8.3、mammoth 1.12.2、pdfjs-dist 6.3.289），由 Hosted job 在 city 测试前安装 |
+
+### 适配说明
+
+- donor 的顺序被**补齐**而不是重新解释：`.yaml`/`.yml` 一律先且只按 YAML 解析；其他扩展名依次尝试 JSON、JSON Lines，最后才是 YAML，并且回退会被明确上报（`JSON parsing failed (...); parsed as YAML`）；
+- 外部 `yaml` 包被隔离在本 Building 的单个文件（`yaml-parser.mjs`）：它延迟加载该包，执行 donor 的 `maxAliasCount: 100` 以及 4 MiB 文档上限，并把 `YAML_INVALID`（文档有问题）与 `YAML_PARSER_UNAVAILABLE`（安装不完整）区分开；
+- `parseStructuredText()` 变为异步，因为 YAML 分支延迟加载解析器；新增的 `ingestStructured()` 一次返回解析结果、sections、渲染与统计，产品面无需重写顺序；
+- `detectFormat()` 不再把 yaml/yml 标为 deferred，它现在是正式格式；
+- 拒绝信息会带上解析器自己的原因、行号与列号。
+
+### 已知差异
+
+- 不持久化、不写入知识库：本 module 是纯函数；
+- 多文档 YAML 流会被拒绝并给出解析器原因，而不是静默截断为第一个文档；
+- 这里没有 Excel/PDF/DOCX 读取器：那些属于 D7b，落在同一 Building 的另一个 module。
+
+### 平价测试
+
+覆盖：扩展名规则（`.yaml`/`.yml` 先且只按 YAML，且本身是合法 JSON 的 YAML 文件仍上报为 YAML）、JSON 与 JSON Lines 保持各自格式、非 YAML 扩展名的回退 warning 文案、嵌套 map/sequence、标量与日期、畸形输入/空文档/多文档流/别名炸弹的一律 fail closed、解析器行号列号、渲染与 sections 的确定性（含偏移）、section 上限与字节上限，以及隔离本身（内核只经由 seam，绝不直接依赖该包）。
 
 ---
 

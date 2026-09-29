@@ -1,0 +1,14 @@
+{
+    "roomId":  "yaml-intake-lab",
+    "acceptedRoomCommit":  "b6d7733c927288c8c1246d097d509cc9caeb5fa4",
+    "promotedAtCommit":  "e068d58ee890f17e1b87efb9f5d5af461d2a784b",
+    "targetCityPath":  "city/09-planning-knowledge/02-document-intake/ingestion-core",
+    "donor":  {
+                  "repository":  "zhiheng-zhang-Mera/Codex-Boss",
+                  "commit":  "8df428eaa437a409368401e95194e40266b83080",
+                  "sourcePaths":  [
+                                      "electron/ingestion/text-parsers.ts"
+                                  ]
+              },
+    "status":  "PROMOTED"
+}

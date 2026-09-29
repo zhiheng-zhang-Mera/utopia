@@ -144,6 +144,17 @@ test('a promoted room leaves the active catalog but stays known to Git history',
   ]);
   assert.ok(!ROOMS.some((room) => room.id === d6.id), 'it serves no live surface either');
   assert.ok(!incubatingRooms().some((room) => room.id === d6.id), 'a promoted room is never still being proved');
+
+  // D7a completed the YAML branch inside the document intake module D4 already owns
+  const d4 = ALL_ROOMS.find((room) => room.id === 'document-intake-lab');
+  const d7a = ALL_ROOMS.find((room) => room.id === 'yaml-intake-lab');
+  assert.ok(d4 && d7a, 'both document intake rooms are still known to the pack');
+  assert.equal(d7a.lifecycle, 'PROMOTED');
+  assert.equal(d4.lifecycle, 'PROMOTED');
+  assert.equal(d7a.targetCityPath, d4.targetCityPath, 'D7a targets the module D4 owns');
+  assert.deepEqual(d7a.donorSourcePaths, ['electron/ingestion/text-parsers.ts']);
+  assert.ok(!ROOMS.some((room) => room.id === d7a.id), 'it serves no live surface either');
+  assert.ok(!incubatingRooms().some((room) => room.id === d7a.id), 'a promoted room is never still being proved');
 });
 
 test('promotion records are validated and rejected when malformed', async (t) => {
@@ -272,6 +283,12 @@ test('hub exposes lifecycle metadata and the promotion record set', async (t) =>
   assert.equal(d6.donor.commit, DONOR_COMMIT);
   assert.equal(d6.targetCityPath, 'city/11-entertainment/01-entertainment-centre/theme-engine');
   assert.notEqual(d6.acceptedRoomCommit, d6.promotedAtCommit, 'the accepted room commit is not the promotion commit');
+
+  const d7a = promotions.payload.promotions.find((record) => record.roomId === 'yaml-intake-lab');
+  assert.ok(d7a, 'the D7a promotion is recorded');
+  assert.equal(d7a.donor.commit, '8df428eaa437a409368401e95194e40266b83080');
+  assert.equal(d7a.targetCityPath, 'city/09-planning-knowledge/02-document-intake/ingestion-core');
+  assert.notEqual(d7a.acceptedRoomCommit, d7a.promotedAtCommit, 'the accepted room commit is not the promotion commit');
 
   const health = await hub.api('GET', '/health');
   assert.equal(health.payload.rooms.length, catalog.payload.rooms.length, 'health and the catalog agree on the room set');

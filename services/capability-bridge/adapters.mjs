@@ -9,7 +9,7 @@ export async function invokeAdapter(id,operation,input){
   case 'planning.knowledge.query':return knowledge(input,operation);
   case 'engineering.skill.inspect':return skill(input,operation);
   case 'research.evidence.review':return evidence(input,operation);
-  case 'presentation.theme.lab':return theme(input);
+  case 'presentation.theme.lab':if(operation!=='generate')refuse('OPERATION_BLOCKED');return theme(input);
   default:refuse('CAPABILITY_NOT_FOUND');
  }
 }

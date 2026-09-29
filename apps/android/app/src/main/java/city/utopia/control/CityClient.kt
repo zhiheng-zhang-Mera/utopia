@@ -30,7 +30,12 @@ class CityClient(context: Context, private val host: String, private val token: 
   val builder = Request.Builder().url(host.trimEnd('/') + "/api/v0/" + path).header("Authorization", "Bearer $token").header("X-City-Api-Version", "0").header("X-City-Schema-Version", "0")
   if (body != null) builder.post(body.toString().toRequestBody("application/json".toMediaType()))
   (if(path.startsWith("capabilities/")) http.newBuilder().readTimeout(25, TimeUnit.SECONDS).callTimeout(26, TimeUnit.SECONDS).build() else http).newCall(builder.build()).execute().use { response ->
-   val data = JSONObject(response.body?.string() ?: "{}")
+   val raw = response.body?.string() ?: "{}"
+   if (!response.isSuccessful && (path.startsWith("capabilities/") || path.startsWith("capability-invocations/"))) {
+    val error = runCatching { JSONObject(raw) }.getOrNull()
+    throw CapabilityRequestException(error?.optString("errorCode")?.takeIf { it.isNotBlank() } ?: "HTTP_${response.code}",response.code,error?.optString("error")?.takeIf { it.isNotBlank() } ?: "Request failed: ${response.code}")
+   }
+   val data = JSONObject(raw)
    if (!response.isSuccessful) error(data.optString("error", "Connection failed: ${response.code}"))
    check(compatible(data.optInt("apiVersion", -1), data.optInt("schemaVersion", -1))) { "Protocol mismatch: version 0 required" }
    return data
@@ -64,7 +69,9 @@ class CityClient(context: Context, private val host: String, private val token: 
  }
  fun start() { connectivity.registerDefaultNetworkCallback(callback); executor.scheduleWithFixedDelay({ refresh() }, 0, 2, TimeUnit.SECONDS) }
  fun createTask(done: (String) -> Unit) { submit { try { val task = request("tasks", JSONObject().put("type", "CHECKPOINT_DEMO")); handler.post { if (!closed) done(task.getString("id")) }; refresh() } catch (e: Exception) { publish(if (socketOnline) "ONLINE" else "OFFLINE", e.message ?: "Task creation failed") } } }
- fun invokeCapability(id: String, operation: String, input: JSONObject, done: (JSONObject) -> Unit) { submit { val response=try { request("capabilities/$id/invoke",JSONObject().put("operationId",operation).put("input",input)) } catch(e: Exception) { JSONObject().put("status","FAILED").put("errorCode",if(socketOnline) "INVOCATION_UNAVAILABLE" else "OFFLINE") };handler.post {if(!closed)done(response)};refresh() } }
+ private fun capabilityError(error: Exception): JSONObject { val failure=capabilityFailure(error,socketOnline);return JSONObject().put("status","FAILED").put("errorCode",failure.code).put("httpStatus",failure.status ?: JSONObject.NULL).put("error",failure.message) }
+ fun invokeCapability(id: String, operation: String, input: JSONObject, done: (JSONObject) -> Unit) { submit { val response=try { request("capabilities/$id/invoke",JSONObject().put("operationId",operation).put("input",input)) } catch(e: Exception) { capabilityError(e) };handler.post {if(!closed)done(response)};refresh() } }
+ fun invocationDetail(id: String, done: (JSONObject) -> Unit) { submit { val response=try { request("capability-invocations/"+java.net.URLEncoder.encode(id,"UTF-8")) } catch(e: Exception) { capabilityError(e) };handler.post {if(!closed)done(response)} } }
  fun cancel(id: String) { submit { try { request("tasks/$id/cancel", JSONObject()); refresh() } catch (e: Exception) { publish(if (socketOnline) "ONLINE" else "OFFLINE", e.message ?: "Cancel failed") } } }
  fun close() { closed = true; runCatching { connectivity.unregisterNetworkCallback(callback) }; socket?.cancel(); executor.shutdownNow(); http.dispatcher.cancelAll(); http.connectionPool.evictAll() }
 }

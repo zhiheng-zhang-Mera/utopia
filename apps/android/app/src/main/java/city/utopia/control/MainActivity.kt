@@ -48,11 +48,11 @@ class MainActivity : ComponentActivity() {
   val nodes = state.snapshot?.optJSONArray("nodes").objects()
   val events = state.snapshot?.optJSONArray("events").objects()
   Scaffold(containerColor = Color(0xFFF4F6F0), bottomBar = {
-   NavigationBar(containerColor = Color.White) { listOf("Home" to "◈", "Devices" to "◇", "Tasks" to "▤", "Activity" to "≋", "Settings" to "⚙").forEach { (name, icon) -> NavigationBarItem(selected = page == name, onClick = { page = name; selected = null; selectedNode = null }, icon = { Text(icon, fontSize = 22.sp) }, label = { Text(name) }) } }
+   NavigationBar(containerColor = Color.White) { listOf("Home" to "◈", "Devices" to "◇", "Services" to "◉", "Tasks" to "▤", "Activity" to "≋", "Settings" to "⚙").forEach { (name, icon) -> NavigationBarItem(selected = page == name, onClick = { page = name; selected = null; selectedNode = null }, icon = { Text(icon, fontSize = 22.sp) }, label = { Text(name) }) } }
   }) { padding ->
    LazyColumn(Modifier.fillMaxSize().padding(padding).imePadding().padding(horizontal = 22.dp), verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(top = 22.dp, bottom = 28.dp)) {
     item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("UTOPIA", color = Ink, fontWeight = FontWeight.Bold, letterSpacing = 3.sp); Text(state.connection, color = if (online) Color(0xFF456B29) else Color(0xFFA15C38), fontSize = 12.sp) } }
-    item { Column { Text(if (selected != null) "Task details" else when (page) { "Home" -> "Digital City"; "Find" -> "Welcome"; "Devices" -> if(selectedNode == null) "Devices" else "Device details"; "Tasks" -> "Your tasks"; "Activity" -> "City activity"; else -> "Connect your city" }, fontSize = 32.sp, color = Ink, fontWeight = FontWeight.Medium); Text(if (online) "Your devices. One shared view." else "Cached information · connection is not live", fontSize = 12.sp, color = Color.Gray) } }
+    item { Column { Text(if (selected != null) "Task details" else when (page) { "Home" -> "Digital City"; "Find" -> "Welcome"; "Devices" -> if(selectedNode == null) "Devices" else "Device details"; "Services" -> "City services"; "Tasks" -> "Your tasks"; "Activity" -> "City activity"; else -> "Connect your city" }, fontSize = 32.sp, color = Ink, fontWeight = FontWeight.Medium); Text(if (online) "Your devices. One shared view." else "Cached information · connection is not live", fontSize = 12.sp, color = Color.Gray) } }
     if (state.message.isNotBlank()) item { Text(state.message, color = Color(0xFFA15C38), fontSize = 12.sp) }
     if (page == "Find") {
      item { PairingPanel(log, intent?.dataString, { page="Settings" }, { h,t,id -> host=h; token=t; prefs.edit().putString("host",h).putString("token",t).putString("cityId",id).apply(); state=CityState("RECONNECTING"); settingsRevision++; page="Devices"; intent.data=null }) }
@@ -60,6 +60,8 @@ class MainActivity : ComponentActivity() {
      if(nodes.isEmpty()) item { Text("Waiting for devices") }
      nodes.filter { selectedNode == null || it.optString("id")==selectedNode }.forEach { n -> item { DeviceCard(n,online,now,selectedNode!=null,tasks,events) { selectedNode=n.optString("id") } } }
      if(selectedNode!=null) item { OutlinedButton(onClick={selectedNode=null}) { Text("All devices") } }
+    } else if (page == "Services") {
+     item { ServicesPanel(state,client) }
     } else if (page == "Settings") {
      item { OutlinedButton(onClick={ client?.close(); prefs.edit().clear().apply(); token=""; host="http://"; state=CityState(); settingsRevision++; page="Find"; log.event("clearPairing") }) { Text("Clear pairing / Find your City") } }
      item { OutlinedTextField(host, { host = it }, label = { Text("City URL") }, singleLine = true, modifier = Modifier.fillMaxWidth()) }

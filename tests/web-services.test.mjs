@@ -14,13 +14,13 @@ test('Windows Services invokes real document, knowledge, skill, evidence and the
   await page.locator('[data-service="planning.document.intake"]').click();
   await page.locator('#service-file').setInputFiles({name:'note.txt',mimeType:'text/plain',buffer:Buffer.from('Utopia shared knowledge')});
   await page.locator('#service-invoke').click();await page.locator('#service-state').filter({hasText:'COMPLETED'}).waitFor();
-  assert.match(await page.locator('#service-result').innerText(),/Utopia shared knowledge/);
+  assert.match(await page.locator('#service-summary').innerText(),/Utopia shared knowledge/);
   await page.locator('#document-to-knowledge').click();await page.locator('#service-invoke').click();await page.locator('#service-state').filter({hasText:'COMPLETED'}).waitFor();
-  assert.match(await page.locator('#service-result').innerText(),/Utopia shared knowledge/);
+  assert.match(await page.locator('#service-summary').innerText(),/Utopia shared knowledge/);
   for(const id of ['engineering.skill.inspect','research.evidence.review','presentation.theme.lab']){
    await page.locator('[data-service="'+id+'"]').click();await page.locator('#service-invoke').click();await page.locator('#service-state').filter({hasText:'COMPLETED'}).waitFor();
   }
   assert.ok(await page.locator('#theme-preview').getAttribute('src'));
-  await page.locator('[data-service="research.evidence.review"]').click();await page.locator('#service-tamper').click();await page.locator('#service-state').filter({hasText:'FAILED'}).waitFor();assert.match(await page.locator('#service-result').innerText(),/ARTIFACT_HASH_MISMATCH/);
+  await page.locator('[data-service="research.evidence.review"]').click();await page.locator('#service-tamper').click();await page.locator('#service-state').filter({hasText:'FAILED'}).waitFor();assert.match(await page.locator('#service-summary').innerText(),/ARTIFACT_HASH_MISMATCH/);
  }finally{await browser.close();await g.close();await rm(dir,{recursive:true,force:true});}
 });

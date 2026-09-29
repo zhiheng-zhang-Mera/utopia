@@ -10,6 +10,7 @@ import { Pairing } from './pairing.mjs';
 import { validateTelemetry } from '../../contracts/pairing-v1/descriptor.mjs';
 import { startDiscovery } from './discovery.mjs';
 import { envelope, terminal, validateCommand } from '../../contracts/city-control-v0/protocol.mjs';
+import { checkpointGate, unboundCheckpointPort } from '../../city/02-engineering/04-restart-recovery-station/checkpoint-gate/index.mjs';
 
 const now=()=>new Date().toISOString();
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
@@ -23,7 +24,19 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   const telemetry=b=>{if(b.telemetry===undefined)return {};if(b.telemetry===null)return {telemetry:null};try{validateTelemetry(b.telemetry);return {telemetry:b.telemetry};}catch(e){fail(400,e.message);}};
   const emit=(type,id,payload,actor)=>{const e=store.event(type,id,payload,actor); for(const c of wss.clients) if(c.readyState===1)c.send(JSON.stringify(envelope({event:e})));return e;};
   const change=(task,state,patch={},event='TASK_'+state)=>store.atomic(()=>{Object.assign(task,patch,{state,updatedAt:now()});store.put('tasks',task);emit(event,task.id,{state,progress:task.progress,...patch},task.assignedNodeId||'gateway');return task;});
-  for(const t of store.list('tasks'))if(!terminal.includes(t.state)&&t.state!=='QUEUED')change(t,'FAILED',{error:'Gateway restarted during execution; create a new task to retry safely.'});
+  // City Core (MB-006). Whether work interrupted by a restart may resume is decided by the
+  // migrated checkpoint-gate module, not by an inline state test. Utopia's policy travels as
+  // data: a task that was still QUEUED never started, so no checkpoint is required and the
+  // gate authorizes it (it stays queued); a task that had started would lose work, and
+  // Utopia binds no checkpoint port, so the donor's fail-closed default refuses it — the
+  // same outcome, error text and event the inline sweep produced. timeoutMs is 0 because the
+  // unbound port answers synchronously and a timeout budget would be meaningless.
+  const resumeGate=checkpointGate({port:unboundCheckpointPort(),timeoutMs:0});
+  for(const t of store.list('tasks')){
+    if(terminal.includes(t.state))continue;
+    const {authorized}=await resumeGate.prepare('application',t.state!=='QUEUED');
+    if(!authorized)change(t,'FAILED',{error:'Gateway restarted during execution; create a new task to retry safely.'});
+  }
   for(const n of store.list('nodes'))store.put('nodes',{...n,online:false});
   emit('CITY_STARTED',null,{schemaVersion:0});
   const auth=(req,node=false)=>{const raw=req.headers.authorization||'';if(!equals(raw,'Bearer '+(node?nodeToken:token)))fail(401,'Invalid pairing token');};

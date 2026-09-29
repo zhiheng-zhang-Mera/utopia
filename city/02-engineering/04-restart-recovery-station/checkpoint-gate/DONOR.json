@@ -1,0 +1,99 @@
+{
+  "module": "checkpoint-gate",
+  "cityPath": "city/02-engineering/04-restart-recovery-station/checkpoint-gate",
+  "district": "02-engineering",
+  "building": "04-restart-recovery-station",
+  "incubationRooms": [
+    "mb-006-checkpoint-gate-lab"
+  ],
+  "mission": {
+    "missionId": "MB-006",
+    "book": "Digital-City/mission-book/MB-006-restart-recovery.md",
+    "role": "MIGRATION",
+    "cluster": "the checkpoint seam and its bounded fail-closed gate: an unbound port means cannot-verify, and a required checkpoint that fails aborts the restart"
+  },
+  "repository": "zhiheng-zhang-Mera/dsh-restart",
+  "commit": "e20fb6cc43e27cedf6303471e5b8ee18e1383ecd",
+  "sourcePaths": [
+    "src/plugin/checkpoint-gate.ts"
+  ],
+  "portedFiles": {
+    "src/plugin/checkpoint-gate.ts": "checkpoint-gate.mjs (with contracts.mjs carrying the GateResult shape, the failure factory and the unbound port's own constants; the CheckpointOutcome shape and its copy constructor come from the sibling restart-protocol module)"
+  },
+  "adaptation": [
+    "TypeScript -> plain ESM JavaScript, Node 24, no new dependencies. `UnboundCheckpointPort` and `CheckpointGate` become factory-built objects; the unbound answer, the fail-closed authorization rule, the throw path and the bounded timeout are carried over path for path.",
+    "The donor's single shared contract layer is preserved as a single source. `checkpoint-gate.ts` imports `CheckpointOutcome` and `CheckpointPort` from `../shared/types.js`; that shared layer is the sibling `restart-protocol` module in this same building, and `contracts.mjs` imports `checkpointOutcome` from `../restart-protocol/contracts.mjs` and re-exports it unchanged. The dependency direction is the donor's own (`plugin/* -> shared/*`), expressed as a cross-module import within the building, so there is exactly one declaration of the outcome shape and nothing the gate validates can drift from what the rest of the protocol believes a checkpoint answer is.",
+    "`GateResult`, `NO_CHECKPOINT_PORT`, the unbound port's id and reason, and the failure factory stay local, because the donor declares them in `checkpoint-gate.ts` itself and nowhere else. `RestartMode` is the donor's `'application' | 'system'` string, passed straight through to the port and never interpreted.",
+    "The donor's `GateResult` interface and its `failure()` helper are exported as `gateResult()` and `checkpointFailure()`: frozen copy-on-construct shapes carrying exactly the donor's fields, so a port cannot smuggle extra state into an audit record.",
+    "The donor declared `available` with `this.port instanceof UnboundCheckpointPort`. This port is factory-built, so the unbound port carries a non-exported brand and `isUnboundPort()` checks that brand or the donor's `checkpoint-unbound` id. The check stays exactly as narrow: a port is unavailable only when it is the unbound one.",
+    "The donor's `const` failure codes are exported as data: `GATE_FAILURE_REASONS`, `NO_CHECKPOINT_PORT` ('no_checkpoint_port'), `UNBOUND_PORT_ID` ('checkpoint-unbound') and `UNBOUND_PORT_REASON` ('no checkpoint port is bound in this profile').",
+    "The timeout is kept ambient and real: `setTimeout` / `clearTimeout` are Node globals, the timer is `unref`'d when the runtime supports it, and the timeout path is tested with a genuine 10 ms budget against a 60 ms port, not with an injected fake timer. The clock used for `elapsedMs` is injected and defaults to a fixed clock pinned at epoch 0 (`createFixedClock()`), so this port never calls `Date.now`.",
+    "The donor's inline timeout `Error` becomes `CheckpointTimeoutError`, carrying the donor's message, the port id and the budget. It is still caught by the same `catch` and still becomes `checkpoint_threw` with detail `prepareForRestart threw: checkpoint port <id> did not answer within <timeoutMs> ms`, so no caller-visible behaviour changed.",
+    "The donor's `(error as Error).message` assumed the port threw an `Error`. `throwDetail()` keeps `instanceof Error` first and falls back to `String(error)`, so a port that throws a non-Error is still recorded instead of producing `undefined` in the audit detail.",
+    "`timeoutMs` defaults to 0 in the factory when it is omitted; the donor required it in its options type. 0 means 'no timeout', which is the donor's own rule, so no new behaviour was introduced.",
+    "The donor's `withTimeout` is a module-private helper here and its `T` type parameter is erased; the runtime behaviour, including rejecting a non-Error rejection with `new Error(String(rejection))`, is unchanged.",
+    "The donor's `UnboundCheckpointPort` and `CheckpointGate` names are exported as aliases of the factories, so the migration names survive without classes."
+  ],
+  "knownDifferences": [
+    "Timers are ambient. `setTimeout` / `clearTimeout` are the one dependency this port does not inject: the donor used them and the task of bounding a hung port needs them. A test drives the real path with a short timeout; `elapsedMs` and every other clock read use the injected `now`, which defaults to a fixed epoch-0 clock instead of `Date.now`.",
+    "The donor performed no runtime validation (TypeScript erased it), so a port answering with a missing `detail` would have carried `undefined` and a port answering with `safe: 'yes'` would have authorized a restart in a plain-JavaScript caller. This port validates each answered outcome through the shared `checkpointOutcome()` constructor and throws a `TypeError` at the gate; the thrown error is caught by the donor's own path and becomes `checkpoint_threw`, so a malformed answer cannot authorize a restart either way.",
+    "The outcome constructor refuses an incomplete answer: an absent or `undefined` `checkpointId`/`resumeToken` is a missing required field rather than a `null` one, and an empty `reason` or `detail` string is refused rather than accepted. This is a fail-closed restatement of the donor's declared types and not a behaviour the donor performs: the donor has no runtime constructor for `CheckpointOutcome` at all, it is a TypeScript interface that declares `safe`, `reason`, `checkpointId`, `resumeToken`, `completed` and `detail` as required fields, and every donor path that produces one supplies all six with non-empty strings (`failure(reason, detail)` and `UnboundCheckpointPort.prepareForRestart`'s constant literal). No donor-produced value is refused by it, so the strictness cannot reject a legitimate checkpoint answer; it only stops a malformed one from being read as a valid one.",
+    "The donor's `withTimeout` left the losing timer running when the port answered first only by clearing it; that is preserved. When `timeoutMs <= 0` the answer is returned unwrapped, so a hung port is waited on forever — the donor's behaviour and the caller's choice, not a new default.",
+    "The donor's `CheckpointGate` returned `outcome` unchanged for a required checkpoint and appended ` (checkpoint not required for this request)` only when the checkpoint was not required and the outcome was not safe; neither the suffix nor the required path was softened.",
+    "This port never saves task state and never reaches a harness. It calls the bound port and believes only its answer; there is still no default implementation that reports success, and the unbound port still cannot verify anything.",
+    "This module no longer declares the outcome shape locally: it is imported from the sibling `restart-protocol` module, which is the port of `src/shared/types.ts`. The donor's `RestartMode` import is replaced by documentation of the string it is; the rest of the protocol and the donor's `restart-executor`, `restart-supervisor` and lock consumers are out of scope.",
+    "`createFixedClock()`, `timeoutMessage()`, `throwDetail()`, `isUnboundPort()` and the `CheckpointTimeoutError` class are additions for porting and for the incubator surface; none of them changes an authorization decision."
+  ],
+  "parity": {
+    "vectorSource": "dsh-restart src/plugin/checkpoint-gate.ts and src/shared/types.ts @ e20fb6cc43e27cedf6303471e5b8ee18e1383ecd",
+    "vectors": [
+      "the unbound port id is `checkpoint-unbound` and its default reason is exactly `no checkpoint port is bound in this profile`",
+      "an unbound port answers {safe:false, reason:'no_checkpoint_port', checkpointId:null, resumeToken:null, completed:false, detail:<reason>} for both restart modes and a custom reason is carried verbatim",
+      "acknowledgeResume on an unbound port is false for null, a token and no argument",
+      "available is false exactly when the bound port is an unbound one, and true for any other port",
+      "a required checkpoint that is safe AND completed is authorized",
+      "a required checkpoint with safe:false is not authorized and its detail is kept verbatim with no suffix",
+      "a required checkpoint with completed:false is not authorized",
+      "a required checkpoint that is neither safe nor completed is not authorized",
+      "a checkpoint that is NOT required is always authorized, and the detail suffix ` (checkpoint not required for this request)` appears exactly when the outcome was not safe",
+      "a port that throws becomes {safe:false, reason:'checkpoint_threw', ...} with detail `prepareForRestart threw: <message>`, and never authorizes a required request",
+      "a rejected promise is the same failure as a throw",
+      "a port that throws while acknowledging reports false instead of propagating",
+      "a slow port with a 10 ms budget is not authorized, with detail `checkpoint port <id> did not answer within 10 ms`, and a late checkpointId is never carried into the result",
+      "timeoutMs <= 0 means no timeout: a 30 ms port answers and still authorizes",
+      "elapsedMs is measured from the injected clock, bracketing the port call",
+      "the requested mode is what the port is asked about, and the resume token is handed through unchanged",
+      "the outcome shape the gate validates is the sibling shared layer's own constructor, so a checkpoint answer is read the same way everywhere in the building",
+      "an incomplete outcome is refused (absent required field, or an empty reason/detail) while a complete answer — the unbound port's own literal included — constructs, stays frozen and keeps all six members"
+    ]
+  },
+  "classification": {
+    "PARITY": [
+      "the unbound port's answer and reason, and acknowledgeResume false",
+      "available false exactly for the unbound port",
+      "authorized = required ? safe && completed : true",
+      "the not-required detail suffix and its exact condition",
+      "checkpoint_threw with `prepareForRestart threw: <message>`",
+      "the bounded timeout message, clearTimeout on answer and unref'd timer",
+      "timeoutMs <= 0 meaning no timeout at all"
+    ],
+    "PORT_ADAPTATION": [
+      "TypeScript classes -> factory-built objects",
+      "interface GateResult and the failure helper -> frozen copy-on-construct contracts",
+      "the shared contract layer kept as one source: CheckpointOutcome is imported from the sibling restart-protocol module, the donor's plugin -> shared direction",
+      "elapsedMs from the injected clock, defaulting to a fixed-epoch clock instead of Date.now",
+      "the donor's error classes and constants exported as data"
+    ],
+    "UTOPIA_EXTENSION": [
+      "createFixedClock() deterministic default clock",
+      "CheckpointTimeoutError carrying the port id and budget",
+      "non-Error throw detail preserved by String()"
+    ],
+    "DEFERRED": [
+      "any real checkpoint port implementation",
+      "restart execution, ticket writing and supervisor coordination",
+      "the lock state machine that consumes an authorized checkpoint",
+      "persistence and audit records"
+    ]
+  }
+}

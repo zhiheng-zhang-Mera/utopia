@@ -142,3 +142,30 @@ Git history + 双语文档          保留追溯
 ```
 
 **禁止 Room 与 City 两份活代码长期漂移。**
+
+---
+
+## 7. MB-006 重启恢复站迁移
+
+`Digital-City/mission-book` 是另一套由 Owner 定义的施工控制面：它在 `mission/<MISSION_ID>-<slug>` 分支上直接把代码落到 `city/`，并由**另一台**主机对照 donor 独立验证后才允许进入 `main`。这是 Room Pack 之外的第二套孵化身份，两者不得混淆——这些 module 根本没有跑过房间，写成 Room Pack 晋升就是伪造来源。
+
+mission 形式的孵化 id 形如 `mb-<MISSION_ID>-<module>-lab`，并且该 module 必须同时带 `mission` 块。`city/tests/manifest.test.mjs` 会拒绝只写其一的情况，也会拒绝清单条目与该 module 自己的 `DONOR.json` 不一致的情况。
+
+MB-006（donor `dsh-restart @ e20fb6cc`）新增了一个 Building：`04-restart-recovery-station`。
+
+| Module | Donor 源 | 提供的能力 |
+| --- | --- | --- |
+| `restart-protocol` | `src/shared/{protocol,types}.ts`、`src/plugin/request-validator.ts` | 共享重启线协议与请求准入：形状与策略校验顺序、拒绝码、请求规范化与指纹 |
+| `restart-lock` | `src/plugin/restart-lock.ts` | 独占重启锁：声明式迁移边、持有者规则、有界历史、强制释放 |
+| `checkpoint-gate` | `src/plugin/checkpoint-gate.ts` | 检查点接缝及其有界、fail-closed 的闸门 |
+| `restart-ticket` | `src/plugin/ticket-store.ts`、`src/plugin/atomic.ts` | 带版本与校验和的凭据，及其校验阶梯 |
+
+donor 的结构被保留：`restart-protocol` 是 donor 共享契约层的移植，另外三个 module 从它导入，正如 donor 里 `src/plugin/*.ts` 导入 `src/shared/*.ts`。定义校验和的函数或状态词表只能有一个归属，不能每个 module 一份。
+
+### `capabilityProvider`
+
+这四个 module 属于重启基础设施：它们在 city 里真实存在，但不对外暴露任何能力，因此声明 `"capabilityProvider": false`，能力注册表会跳过它们。若没有这个标记，Web 与 Android 的能力列表会把它们当作"尚未接桥的不可用能力"——那是在断言一个并不存在的产品面。
+
+### 冻结，与 mission-book 的消费要求
+
+§5 冻结产品面，是为了不让某个 city module 悄悄改掉 Android 与 Web 依赖的协议。而 mission-book 迁移有一个更晚的要求：MB-006 必须被某个既有 task/control 流程真实消费。两者的调和方式仅限如下：当 mission-book 要求时消费接线可以进入 `services/**`，且必须是等价重构。因此 `services/dev-gateway/server.mjs` 判断"被重启打断的工作能否续跑"改由迁移后的 `checkpoint-gate` 作出，而 Utopia 自己的策略作为数据传入（从未开始的任务不需要检查点；已经开始的任务没有绑定检查点端口，因此按 donor 的 fail-closed 默认拒绝）。

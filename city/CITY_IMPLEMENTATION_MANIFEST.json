@@ -42,6 +42,104 @@
               ]
             }
           ]
+        },
+        {
+          "id": "04-restart-recovery-station",
+          "zh": "重启恢复站",
+          "en": "Restart Recovery Station",
+          "modules": [
+            {
+              "id": "restart-protocol",
+              "zh": "重启协议",
+              "en": "Restart Protocol",
+              "path": "city/02-engineering/04-restart-recovery-station/restart-protocol",
+              "lifecycle": "PROMOTED",
+              "capabilityProvider": false,
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/dsh-restart",
+                "commit": "e20fb6cc43e27cedf6303471e5b8ee18e1383ecd",
+                "sourcePaths": [
+                  "src/shared/protocol.ts",
+                  "src/shared/types.ts",
+                  "src/plugin/request-validator.ts"
+                ]
+              },
+              "incubationRooms": [
+                "mb-006-restart-protocol-lab"
+              ],
+              "mission": {
+                "missionId": "MB-006",
+                "cluster": "the shared restart wire protocol and request admission: shape and policy validation order, refusal codes, request normalisation and fingerprinting, and the protocol/config vocabularies"
+              }
+            },
+            {
+              "id": "restart-lock",
+              "zh": "重启锁",
+              "en": "Restart Lock",
+              "path": "city/02-engineering/04-restart-recovery-station/restart-lock",
+              "lifecycle": "PROMOTED",
+              "capabilityProvider": false,
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/dsh-restart",
+                "commit": "e20fb6cc43e27cedf6303471e5b8ee18e1383ecd",
+                "sourcePaths": [
+                  "src/plugin/restart-lock.ts"
+                ]
+              },
+              "incubationRooms": [
+                "mb-006-restart-lock-lab"
+              ],
+              "mission": {
+                "missionId": "MB-006",
+                "cluster": "the exclusive restart lock: declared transition edges, holder rules, bounded transition history and forced release"
+              }
+            },
+            {
+              "id": "checkpoint-gate",
+              "zh": "检查点闸门",
+              "en": "Checkpoint Gate",
+              "path": "city/02-engineering/04-restart-recovery-station/checkpoint-gate",
+              "lifecycle": "PROMOTED",
+              "capabilityProvider": false,
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/dsh-restart",
+                "commit": "e20fb6cc43e27cedf6303471e5b8ee18e1383ecd",
+                "sourcePaths": [
+                  "src/plugin/checkpoint-gate.ts"
+                ]
+              },
+              "incubationRooms": [
+                "mb-006-checkpoint-gate-lab"
+              ],
+              "mission": {
+                "missionId": "MB-006",
+                "cluster": "the checkpoint seam and its bounded fail-closed gate: an unbound port means cannot-verify, and a required checkpoint that fails aborts the restart"
+              }
+            },
+            {
+              "id": "restart-ticket",
+              "zh": "重启凭据",
+              "en": "Restart Ticket",
+              "path": "city/02-engineering/04-restart-recovery-station/restart-ticket",
+              "lifecycle": "PROMOTED",
+              "capabilityProvider": false,
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/dsh-restart",
+                "commit": "e20fb6cc43e27cedf6303471e5b8ee18e1383ecd",
+                "sourcePaths": [
+                  "src/plugin/ticket-store.ts",
+                  "src/plugin/atomic.ts"
+                ]
+              },
+              "incubationRooms": [
+                "mb-006-restart-ticket-lab"
+              ],
+              "mission": {
+                "missionId": "MB-006",
+                "cluster": "the versioned checksummed restart ticket: canonical checksum, construction, the expiry/pid/schema/checksum verification ladder, and the supervisor ledger shape"
+              }
+            }
+          ]
         }
       ]
     },

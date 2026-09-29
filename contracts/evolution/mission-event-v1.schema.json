@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://utopia.local/contracts/evolution/mission-event-v1.schema.json",
+  "title": "Utopia Mission Evolution Event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "eventId",
+    "missionId",
+    "role",
+    "hostId",
+    "eventType",
+    "timestamp",
+    "outcome",
+    "summary",
+    "evidence"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "eventId": {
+      "type": "string",
+      "pattern": "^MB-[0-9]{3}:[a-f0-9]{16}$"
+    },
+    "missionId": {
+      "type": "string",
+      "pattern": "^MB-[0-9]{3}$"
+    },
+    "role": {
+      "enum": [
+        "MIGRATION",
+        "VERIFICATION"
+      ]
+    },
+    "hostId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]{1,80}$"
+    },
+    "eventType": {
+      "enum": [
+        "MISSION_CLAIMED",
+        "ATTEMPT_STARTED",
+        "CHANGE_APPLIED",
+        "TEST_PASS",
+        "TEST_FAIL",
+        "RUNTIME_PASS",
+        "RUNTIME_FAIL",
+        "RECOVERY",
+        "OWNER_INTERVENTION",
+        "MIGRATION_COMPLETE",
+        "VERIFIER_FINDING",
+        "REPAIR_APPLIED",
+        "CI_RESULT",
+        "VERIFICATION_COMPLETE",
+        "MISSION_ACCEPTED"
+      ]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "outcome": {
+      "enum": [
+        "INFO",
+        "PASS",
+        "FAIL",
+        "BLOCKED",
+        "REJECTED",
+        "REPAIRED"
+      ]
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000
+    },
+    "sourceRef": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 500
+    },
+    "targetRef": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 500
+    },
+    "evidence": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2048
+      }
+    }
+  }
+}

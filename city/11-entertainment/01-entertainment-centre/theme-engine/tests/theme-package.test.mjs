@@ -318,15 +318,15 @@ test('the module is self-contained: built-ins only, no donor checkout dependency
   }
 });
 
-test('provenance stays honest: DONOR.json records both waves of this module', async () => {
+test('provenance stays honest: DONOR.json records all three waves of this module', async () => {
   const { readFile } = await import('node:fs/promises');
   const { join } = await import('node:path');
   const donor = JSON.parse(await readFile(join(import.meta.dirname, '..', 'DONOR.json'), 'utf8'));
   assert.equal(donor.repository, 'zhiheng-zhang-Mera/DS-Hns');
   assert.equal(donor.commit, 'eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b');
   assert.equal(donor.cityPath, 'city/11-entertainment/01-entertainment-centre/theme-engine');
-  assert.deepEqual(donor.incubationRooms, ['theme-engine-lab', 'theme-package-lab']);
-  assert.deepEqual(donor.waves.map((entry) => [entry.wave, entry.room]), [['D2', 'theme-engine-lab'], ['D6', 'theme-package-lab']]);
+  assert.deepEqual(donor.incubationRooms, ['theme-engine-lab', 'theme-package-lab', 'theme-builder-lab']);
+  assert.deepEqual(donor.waves.map((entry) => [entry.wave, entry.room]), [['D2', 'theme-engine-lab'], ['D6', 'theme-package-lab'], ['D9','theme-builder-lab']]);
   assert.deepEqual(donor.waves[0].sourcePaths, ['app/extensions/mega/theme/color.js', 'app/extensions/mega/theme/png.js']);
   assert.deepEqual(donor.waves[1].sourcePaths, [
     'app/extensions/mega/theme/contract.js',
@@ -335,10 +335,17 @@ test('provenance stays honest: DONOR.json records both waves of this module', as
     'app/extensions/mega/theme/asset-factory.js',
   ]);
   assert.deepEqual(Object.values(donor.portedFiles).sort(), [
+    'assets/pipeline/fallback.mjs',
+    'assets/pipeline/generator.mjs',
+    'assets/pipeline/processor.mjs',
+    'assets/pipeline/validator.mjs',
     'assets/procedural/factory.mjs',
+    'build/builder.mjs',
     'color/color.mjs',
     'contract/contract.mjs',
     'contract/surface.mjs',
+    'design/designer.mjs',
+    'planning/planner.mjs',
     'raster/png.mjs',
     'validation/validator.mjs',
   ]);

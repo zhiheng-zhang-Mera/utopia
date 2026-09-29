@@ -203,10 +203,9 @@ test('provenance stays honest: DONOR.json pins the donor and records the adaptat
   assert.equal(donor.repository, 'zhiheng-zhang-Mera/DS-Hns');
   assert.equal(donor.commit, 'eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b');
   assert.equal(donor.cityPath, 'city/11-entertainment/01-entertainment-centre/theme-engine');
-  // one module, two incubation rooms: the wave 1 colour and raster core (D2) and the
-  // wave 2 contract, surface, validator and procedural asset core (D6)
-  assert.deepEqual(donor.incubationRooms, ['theme-engine-lab', 'theme-package-lab']);
-  assert.deepEqual(donor.waves.map((entry) => [entry.wave, entry.room]), [['D2', 'theme-engine-lab'], ['D6', 'theme-package-lab']]);
+  // One module, three incubation rooms: D2 raster/colour, D6 package, D9 builder.
+  assert.deepEqual(donor.incubationRooms, ['theme-engine-lab', 'theme-package-lab', 'theme-builder-lab']);
+  assert.deepEqual(donor.waves.map((entry) => [entry.wave, entry.room]), [['D2', 'theme-engine-lab'], ['D6', 'theme-package-lab'], ['D9','theme-builder-lab']]);
   assert.deepEqual(donor.sourcePaths, [
     'app/extensions/mega/theme/color.js',
     'app/extensions/mega/theme/png.js',
@@ -214,6 +213,13 @@ test('provenance stays honest: DONOR.json pins the donor and records the adaptat
     'app/extensions/mega/theme/surface.js',
     'app/extensions/mega/theme/validator.js',
     'app/extensions/mega/theme/asset-factory.js',
+    'app/extensions/mega/theme/builder.js',
+    'app/extensions/mega/theme/designer.js',
+    'app/extensions/mega/theme/assets/planner.js',
+    'app/extensions/mega/theme/assets/generator.js',
+    'app/extensions/mega/theme/assets/processor.js',
+    'app/extensions/mega/theme/assets/validator.js',
+    'app/extensions/mega/theme/assets/fallback.js',
   ]);
   assert.ok(donor.adaptation.length >= 3);
   assert.ok(donor.knownDifferences.length >= 1);

@@ -167,6 +167,21 @@ const LOCAL_ROOMS = [
  */
 const INCUBATOR_ROOMS = [
   {
+    id: 'yaml-intake-lab',
+    number: 'D7a',
+    label: 'YAML Intake Lab',
+    zh: 'YAML 接入实验室',
+    summary: 'Incubating the Codex-Boss YAML branch: paste a document, get plain data and deterministic sections, or a fail-closed refusal.',
+    dataFile: null,
+    initialData: null,
+    tags: ['incubator', 'donor'],
+    lifecycle: 'INCUBATING',
+    targetCityPath: 'city/09-planning-knowledge/02-document-intake/ingestion-core',
+    donorRepository: 'zhiheng-zhang-Mera/Codex-Boss',
+    donorCommit: '8df428eaa437a409368401e95194e40266b83080',
+    donorSourcePaths: ['electron/ingestion/text-parsers.ts'],
+  },
+  {
     id: 'theme-package-lab',
     number: 'D6',
     label: 'Theme Package Lab',

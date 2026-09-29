@@ -9,6 +9,8 @@
 export const meta = { locale: 'zh-CN', label: '简体中文' };
 
 export const messages = {
+  "nav.services": "服务",
+  "heading.services": "城市服务，触手可及。",
   "nav.devices": "设备",
   "nav.pairing": "配对",
   "heading.devices": "专注查看你的设备。",

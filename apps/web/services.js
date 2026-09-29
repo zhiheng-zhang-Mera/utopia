@@ -1,0 +1,54 @@
+import {getLocale} from './i18n/index.js';
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const L=(en,zh)=>getLocale()==='zh-CN'?zh:en;
+let selected=null,current=null,documentResult=null,busy=false,formKey='',snapshot=null,call=null,online=false;
+const names={document:['Document Intake','文档读取'],knowledge:['Knowledge Query','知识查询'],skill:['Skill Inspect','技能检查'],evidence:['Evidence Review','证据审查'],theme:['Theme Lab','主题实验室']};
+const field=(id,label,value='')=>`<label>${label}<input id="${id}" value="${esc(value)}"></label>`;
+const area=(id,label,value)=>`<label>${label}<textarea id="${id}" rows="6">${esc(value)}</textarea></label>`;
+function editor(kind){
+ if(kind==='document')return `<label>${L('Choose or drop a document (up to 1 MiB)','选择或拖入文档（最大 1 MiB）')}<input id="service-file" type="file" accept=".txt,.md,.json,.jsonl,.yaml,.yml,.csv,.tsv,.xml,.docx,.xlsx,.pdf"></label><p>${L('Read on your City; file bytes are not retained after parsing. Invocation results are retained.','由城市读取；解析后不保留原文件字节，调用结果会保留。')}</p>`;
+ if(kind==='knowledge')return `${field('service-query',L('Query','查询'),'Utopia')}${field('service-budget',L('Character budget','字符预算'),'8000')}<label>${L('Minimum trust','最低信任级别')}<select id="service-trust"><option>UNVERIFIED</option><option>LOW</option><option>MEDIUM</option><option>HIGH</option></select></label>${area('service-entries',L('Temporary entries (JSON)','临时条目（JSON）'),JSON.stringify([{id:'note',title:'Utopia',content:'Utopia shared knowledge',domain:'document',shelf:'temporary',tags:['document'],trust:'UNVERIFIED',updatedAt:'2026-01-01'}],null,2))}<label><input type="checkbox" id="use-document" ${documentResult?'checked':''} ${documentResult?'':'disabled'}>${L('Use the last document result','使用上次文档结果')}</label>`;
+ if(kind==='skill')return `<label>${L('Action','操作')}<select id="skill-operation"><option value="inspect">${L('Inspect reference','检查引用')}</option><option value="validate">${L('Validate SKILL.md','校验 SKILL.md')}</option><option value="catalog">${L('Search offline catalog','检索离线目录')}</option><option value="archive">${L('Inspect archive','检查归档')}</option></select></label>${field('skill-ref',L('GitHub reference','GitHub 引用'),'owner/repo@main')}${field('skill-subpath',L('Optional subpath','可选子路径'))}${area('skill-text','SKILL.md','---\nname: demo-skill\ndescription: Generated inspection sample\n---\nRead the public sample.')}<label>${L('Archive file (tar / tar.gz)','归档文件（tar / tar.gz）')}<input type="file" id="service-file" accept=".tar,.gz,.tgz"></label><p>${L('Inspection only. No installation or remote code execution.','仅检查，不安装或执行远程代码。')}</p>`;
+ if(kind==='evidence')return `${area('evidence-input',L('Evidence sample or task/artifacts/disputes (JSON)','证据样例或 task/artifacts/disputes（JSON）'),'{"sample":true}')}<p>${L('Checks integrity and references; does not establish that claims are true.','检查完整性与引用，不证明论断真实。')}</p><button id="service-tamper">${L('Tamper Test','篡改测试')}</button>`;
+ if(kind==='theme')return `${field('theme-seed',L('Seed','种子'),'utopia')}${field('theme-style',L('Style','风格'),'research')}${field('theme-accent',L('Accent color','强调色'),'#4d93f8')}<p>${L('Generate, preview and validate. Does not apply to Utopia.','生成、预览并校验，不应用到 Utopia 全局。')}</p>`;
+ return L('Bridge pending','桥接待接入');
+}
+function showResult(){
+ const state=document.querySelector('#service-state'),result=document.querySelector('#service-result');if(!state||!result)return;
+ state.textContent=busy?'RUNNING':current?.status??'';
+ const payload=current?.result??(current?.errorCode?{errorCode:current.errorCode}:null);
+ const display=payload?structuredClone(payload):null;if(display?.previewPngBase64)delete display.previewPngBase64;
+ result.textContent=display?JSON.stringify(display,null,2):'';
+ document.querySelector('#service-id').textContent=current?`${current.invocationId??''}\n${current.resultDigest??''}`:'';
+ const preview=document.querySelector('#theme-preview');preview.hidden=!payload?.previewPngBase64;if(payload?.previewPngBase64)preview.src='data:image/png;base64,'+payload.previewPngBase64;
+ const map=document.querySelector('#document-to-knowledge');map.hidden=!(current?.capabilityId==='planning.document.intake'&&current.status==='COMPLETED');
+}
+async function fileInput(){const file=document.querySelector('#service-file')?.files[0];if(!file)throw Error(L('Choose a file first','请先选择文件'));if(file.size>1024*1024)throw Error('INPUT_TOO_LARGE');const bytes=new Uint8Array(await file.arrayBuffer());let raw='';for(let i=0;i<bytes.length;i+=8192)raw+=String.fromCharCode(...bytes.subarray(i,i+8192));return{fileName:file.name,base64:btoa(raw)};}
+async function submit(tamper=false){
+ if(busy||!online)return;const descriptor=snapshot.capabilities.find(c=>c.capabilityId===selected);let operationId=descriptor.operations[0].operationId,input={};
+ try{
+  switch(descriptor.inputKind){
+   case 'document':input=await fileInput();break;
+   case 'knowledge':input={query:document.querySelector('#service-query').value,budget:Number(document.querySelector('#service-budget').value),trustFloor:document.querySelector('#service-trust').value};if(document.querySelector('#use-document').checked){input.document=documentResult;operationId='fromDocument';}else input.entries=JSON.parse(document.querySelector('#service-entries').value);break;
+   case 'skill':operationId=document.querySelector('#skill-operation').value;input=operationId==='archive'?await fileInput():{ref:document.querySelector('#skill-ref').value,subpath:document.querySelector('#skill-subpath').value,text:document.querySelector('#skill-text').value,query:document.querySelector('#skill-ref').value};break;
+   case 'evidence':input=JSON.parse(document.querySelector('#evidence-input').value);operationId=tamper?'tamper':'review';break;
+   case 'theme':input={seed:document.querySelector('#theme-seed').value,style:document.querySelector('#theme-style').value,palette:{accent:document.querySelector('#theme-accent').value}};break;
+  }
+  busy=true;current=null;showResult();document.querySelector('#service-invoke').disabled=true;
+  current=await call('capabilities/'+selected+'/invoke',{operationId,input});
+  if(current.capabilityId==='planning.document.intake'&&current.status==='COMPLETED')documentResult=current.result;
+ }catch(error){current={status:'FAILED',errorCode:error.message};}
+ finally{busy=false;showResult();document.querySelector('#service-invoke').disabled=!online;}
+}
+export function renderServices(container,city,isOnline,api){
+ snapshot=city;call=api;online=isOnline;
+ if(!container.querySelector('#services-shell')){container.innerHTML='<div id="services-shell"><div id="service-cards" class="grid"></div><section id="service-editor" class="panel"></section><section class="panel"><h2>'+L('Invocation history','调用历史')+'</h2><div id="service-history"></div></section></div>';formKey='';}
+ container.querySelector('#service-cards').innerHTML=(city.capabilities??[]).map(c=>`<button data-service="${esc(c.capabilityId)}" class="card"><strong>${esc(names[c.inputKind]?L(...names[c.inputKind]):c.name)}</strong><p>${esc(c.bridgeState)} · ${esc(c.cityLifecycle)}</p></button>`).join('');
+ container.querySelectorAll('[data-service]').forEach(b=>b.onclick=()=>{selected=b.dataset.service;current=null;formKey='';renderServices(container,snapshot,online,call);});
+ const descriptor=(city.capabilities??[]).find(c=>c.capabilityId===selected);const key=selected+getLocale();
+ if(descriptor&&formKey!==key){formKey=key;container.querySelector('#service-editor').innerHTML=`<h2>${esc(names[descriptor.inputKind]?L(...names[descriptor.inputKind]):descriptor.name)}</h2><p id="service-connectivity"></p>${editor(descriptor.inputKind)}<button id="service-invoke" class="primary" ${descriptor.bridgeState!=='AVAILABLE'?'disabled':''}>${L('Run','运行')}</button><strong id="service-state" role="status"></strong><p id="service-id" class="task-id"></p><img id="theme-preview" hidden alt="Theme preview" style="max-width:100%"><pre id="service-result"></pre><button id="document-to-knowledge" hidden>${L('Query this document','查询此文档')}</button>`;container.querySelector('#service-invoke').onclick=()=>submit();const tamper=container.querySelector('#service-tamper');if(tamper)tamper.onclick=()=>submit(true);container.querySelector('#document-to-knowledge').onclick=()=>{documentResult=current.result;selected='planning.knowledge.query';formKey='';current=null;renderServices(container,snapshot,online,call);};}
+ if(descriptor){container.querySelector('#service-connectivity').textContent=isOnline?L('Live City authority','城市实时服务'):L('Cached · offline · invocation disabled','缓存 · 离线 · 暂停调用');container.querySelector('#service-invoke').disabled=busy||!isOnline||descriptor.bridgeState!=='AVAILABLE';const tamper=container.querySelector('#service-tamper');if(tamper)tamper.disabled=busy||!isOnline;}
+ if(!busy&&current?.invocationId){const authoritative=(city.invocations??[]).find(i=>i.invocationId===current.invocationId);if(authoritative)current=authoritative;}
+ showResult();container.querySelector('#service-history').innerHTML=(city.invocations??[]).slice(-20).reverse().map(i=>`<button class="row" data-invocation="${esc(i.invocationId)}"><span>${esc(i.capabilityId)} · ${esc(i.status)}<small class="task-id">${esc(i.invocationId)} · ${esc(i.resultDigest??i.errorCode??'')}</small></span></button>`).join('');
+ container.querySelectorAll('[data-invocation]').forEach(b=>b.onclick=()=>{current=snapshot.invocations.find(i=>i.invocationId===b.dataset.invocation);selected=current.capabilityId;formKey='';renderServices(container,snapshot,online,call);});
+}

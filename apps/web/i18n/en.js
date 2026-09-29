@@ -9,6 +9,8 @@
 export const meta = { locale: 'en', label: 'English' };
 
 export const messages = {
+  "nav.services": "Services",
+  "heading.services": "City services, in your hands.",
   "nav.devices": "Devices",
   "nav.pairing": "Pairing",
   "heading.devices": "Your devices, in focus.",

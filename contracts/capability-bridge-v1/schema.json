@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Utopia Capability Bridge v1",
+  "$defs": {
+    "CapabilityDescriptor": {
+      "type": "object",
+      "required": [
+        "capabilityId",
+        "cityLifecycle",
+        "bridgeState",
+        "operations"
+      ],
+      "properties": {
+        "capabilityId": {
+          "type": "string"
+        },
+        "cityLifecycle": {
+          "type": "string"
+        },
+        "bridgeState": {
+          "enum": [
+            "AVAILABLE",
+            "DEGRADED",
+            "BRIDGE_PENDING"
+          ]
+        },
+        "operations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CapabilityOperation"
+          }
+        }
+      }
+    },
+    "CapabilityOperation": {
+      "type": "object",
+      "required": [
+        "operationId"
+      ],
+      "properties": {
+        "operationId": {
+          "type": "string"
+        }
+      }
+    },
+    "CapabilityInvocation": {
+      "type": "object",
+      "required": [
+        "invocationId",
+        "capabilityId",
+        "operationId",
+        "startedAt",
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "RUNNING",
+            "COMPLETED",
+            "FAILED",
+            "INTERRUPTED"
+          ]
+        }
+      }
+    },
+    "CapabilityResult": {
+      "type": "object",
+      "required": [
+        "result",
+        "resultDigest"
+      ],
+      "properties": {
+        "resultDigest": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "result": {}
+      }
+    },
+    "CapabilityError": {
+      "type": "object",
+      "required": [
+        "errorCode"
+      ],
+      "properties": {
+        "errorCode": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

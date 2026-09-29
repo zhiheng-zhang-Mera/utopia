@@ -167,6 +167,21 @@ const LOCAL_ROOMS = [
  */
 const INCUBATOR_ROOMS = [
   {
+    id: 'knowledge-core-lab',
+    number: 'D3',
+    label: 'Knowledge Core Lab',
+    zh: '知识内核实验室',
+    summary: 'Incubating Codex-Boss knowledge core: trust-ordered retrieval, character budget, taxonomy and routing.',
+    dataFile: null,
+    initialData: null,
+    tags: ['incubator', 'donor'],
+    lifecycle: 'INCUBATING',
+    targetCityPath: 'city/09-planning-knowledge/01-knowledge-service/knowledge-core',
+    donorRepository: 'zhiheng-zhang-Mera/Codex-Boss',
+    donorCommit: '8df428eaa437a409368401e95194e40266b83080',
+    donorSourcePaths: ['src/shared/knowledge.ts'],
+  },
+  {
     id: 'theme-engine-lab',
     number: 'D2',
     label: 'Theme Engine Lab',

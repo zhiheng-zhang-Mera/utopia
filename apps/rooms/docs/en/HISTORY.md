@@ -533,3 +533,7 @@ city/.../skill-intake/tests/           the module carries its own focused tests
 ## V0.3 consumption repair
 
 Skill catalog metadata now uses resolvable/source and previewable, not installable/install. Search/parser algorithms are unchanged; no installer exists. Evidence Engine provenance now distinguishes PARITY, PORT_ADAPTATION and UTOPIA_EXTENSION. Resolved-dispute handling is an explicit adaptation; reasons/describeBundle are extensions. Historical commits remain unchanged.
+
+## D9 — Theme Builder Lab
+
+Accepted Room: `3ff7d805f0432d39499bee10741f54d3ec98f3de`. Promoted core: `74c277cbc2a44fc045b8c81e8e401df3729fbf28`. The seven-file pinned DS-Hns closure became the third incubation source of the existing theme-engine. Room browser and 16 focused/parity gates passed; full Rooms 83 passed before retirement, City 129 passed after extraction. The active Room and its API factory are removed; source, UI and browser tests remain recoverable at the accepted commit. Promotion record, City tests and DONOR remain. Alien build consumption is a later product gate; GLOBAL_THEME_APPLY=NO.

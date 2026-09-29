@@ -1,5 +1,5 @@
 {
-  "scope": "Wave3 staged evidence; D9 and product consumer not yet accepted",
+  "scope": "Wave3 staged evidence: hardening, activation and D9 local Room accepted; City promotion and Alien build pending",
   "files": [
     {
       "file": "activation-review.json",
@@ -8,6 +8,18 @@
     {
       "file": "hardening-freeze.json",
       "sha256": "2474b6962a835154b80ed15383c126d4305ada8b4e9063889f44ea92c95a1515"
+    },
+    {
+      "file": "room-observed-offline.png",
+      "sha256": "b6bf1276e023708143acd47dae31d10e99c9dc0b1f7df960fb454c3113851b75"
+    },
+    {
+      "file": "room-pilot.json",
+      "sha256": "2674dc8419e8d2246da4a9634fc464f3535703d20c3df0f7d6c4120022e307ff"
+    },
+    {
+      "file": "room-unobserved-fallback.png",
+      "sha256": "bb41a33928c6767ccb647e170a2fd11fdc9a3341bc946c824b4a5e21379b172b"
     }
   ]
 }

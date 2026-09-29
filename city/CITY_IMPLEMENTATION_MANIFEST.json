@@ -2,13 +2,20 @@
   "schemaVersion": 2,
   "name": "Utopia City Implementation",
   "description": "Actual implementation layer of the Utopia Digital City. The Digital-City repository stays the map/planning reference; this tree owns the running modules. Only districts that really exist are listed. A module may be strengthened by several incubation rooms over time, so it records incubationRooms[] rather than a single roomId.",
-  "lifecycles": ["PLANNED", "INCUBATING", "PROMOTED", "ACTIVE", "DEPRECATED"],
+  "lifecycles": [
+    "PLANNED",
+    "INCUBATING",
+    "PROMOTED",
+    "ACTIVE",
+    "DEPRECATED"
+  ],
   "districts": [
     {
       "id": "02-engineering",
       "zh": "工务区",
       "en": "Engineering Works District",
-      "buildings": [        {
+      "buildings": [
+        {
           "id": "02-worker-gateway",
           "zh": "施工队接入站",
           "en": "Worker Gateway",
@@ -171,12 +178,20 @@
                   "app/extensions/mega/theme/contract.js",
                   "app/extensions/mega/theme/surface.js",
                   "app/extensions/mega/theme/validator.js",
-                  "app/extensions/mega/theme/asset-factory.js"
+                  "app/extensions/mega/theme/asset-factory.js",
+                  "app/extensions/mega/theme/builder.js",
+                  "app/extensions/mega/theme/designer.js",
+                  "app/extensions/mega/theme/assets/planner.js",
+                  "app/extensions/mega/theme/assets/generator.js",
+                  "app/extensions/mega/theme/assets/processor.js",
+                  "app/extensions/mega/theme/assets/validator.js",
+                  "app/extensions/mega/theme/assets/fallback.js"
                 ]
               },
               "incubationRooms": [
                 "theme-engine-lab",
-                "theme-package-lab"
+                "theme-package-lab",
+                "theme-builder-lab"
               ]
             }
           ]

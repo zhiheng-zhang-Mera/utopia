@@ -1,0 +1,1351 @@
+{
+  "scope": "D9 Room product pilot; generated public prompts only",
+  "sourceSha": "28673e158594a1cc2df07f6ea8225cbae2e150c4",
+  "browser": "Chromium/Edge",
+  "cases": [
+    {
+      "case": "prompt-intent",
+      "status": "PASS",
+      "intent": {
+        "version": 1,
+        "design_language": "future_research_workstation",
+        "style_tag": "research",
+        "palette": [
+          "steel_blue"
+        ],
+        "palette_label": "钢蓝",
+        "base_hint": "#101724",
+        "density": "compact",
+        "density_scale": 0.86,
+        "persona": {
+          "enabled": false,
+          "prominence": 0,
+          "character": null
+        },
+        "motion": "subtle",
+        "decoration": "medium_low",
+        "brightness": 0,
+        "readability_priority": "high",
+        "notes": [
+          "persona disabled by the prompt"
+        ],
+        "prompt": "blue research compact no persona",
+        "interpreted_at": "1970-01-01T00:00:00.000Z"
+      }
+    },
+    {
+      "case": "observed-offline",
+      "status": "PASS",
+      "plan": {
+        "observed": true,
+        "degraded": false,
+        "surface_plan": {
+          "surfaces": [
+            {
+              "surface": "owned_surface",
+              "label": "Owned Surface",
+              "permission": "full",
+              "protected": false,
+              "writable": true,
+              "writes": true,
+              "layers": [
+                "tokens",
+                "slots",
+                "persona",
+                "asset",
+                "character",
+                "decoration"
+              ],
+              "merged": false,
+              "reason": "the HNS renderer is always themed",
+              "gate": null
+            },
+            {
+              "surface": "external_shell",
+              "label": "External Shell",
+              "permission": "full",
+              "protected": false,
+              "writable": true,
+              "writes": true,
+              "layers": [
+                "tokens",
+                "slots",
+                "asset",
+                "decoration"
+              ],
+              "merged": false,
+              "reason": "the outer frame around the official renderer is themed",
+              "gate": null
+            },
+            {
+              "surface": "owned_overlay",
+              "label": "Owned Overlay",
+              "permission": "visual-only",
+              "protected": false,
+              "writable": true,
+              "writes": true,
+              "layers": [
+                "tokens",
+                "slots",
+                "asset",
+                "character",
+                "decoration",
+                "effect"
+              ],
+              "merged": false,
+              "reason": "the visual overlay above the official renderer is themed",
+              "gate": null
+            },
+            {
+              "surface": "protected_external_surface",
+              "label": "Protected External Surface",
+              "permission": "protected",
+              "protected": true,
+              "writable": false,
+              "writes": false,
+              "layers": [],
+              "merged": false,
+              "reason": "PROTECTED: the official renderer is never written by the theme system",
+              "gate": "surface_protected"
+            }
+          ],
+          "owned_surface": {
+            "themed": true
+          },
+          "external_shell": {
+            "themed": true,
+            "padding": 6,
+            "frame": "outline",
+            "opacities": {
+              "background": 0.85
+            }
+          },
+          "owned_overlay": {
+            "themed": true,
+            "visual_only": true,
+            "pointer": false,
+            "keyboard": false
+          },
+          "protected_external_surface": {
+            "themed": false,
+            "protected": true,
+            "reason": "PROTECTED: the official renderer is owned by the harness",
+            "dom_access": false,
+            "css_injection": false,
+            "script_injection": false,
+            "capture": false
+          },
+          "observed": true,
+          "degraded": false,
+          "observation_reason": null
+        },
+        "overlay_plan": {
+          "version": 1,
+          "enabled": true,
+          "visual_only": true,
+          "input": {
+            "pointer": "passthrough",
+            "keyboard": "passthrough",
+            "focus": "none",
+            "scroll": "passthrough"
+          },
+          "layout": {
+            "mode": "framed",
+            "anchor": "bottom-right",
+            "fallback_modes": [
+              "corner",
+              "edge",
+              "framed",
+              "background",
+              "floating"
+            ],
+            "safe_region": {
+              "x": 800,
+              "y": 0,
+              "width": 480,
+              "height": 700
+            },
+            "margin": 16,
+            "follow_view": "official_view_bounds"
+          },
+          "components": {
+            "global_tint": {
+              "enabled": true,
+              "color": "#0b1019",
+              "opacity": 0.08,
+              "mode": "cool"
+            },
+            "gradient": {
+              "enabled": true,
+              "angle": 160,
+              "opacity": 0.06,
+              "stops": [
+                {
+                  "at": 0,
+                  "color": "#0b1019",
+                  "alpha": 1
+                },
+                {
+                  "at": 1,
+                  "color": "#172134",
+                  "alpha": 0.25
+                }
+              ]
+            },
+            "texture": {
+              "enabled": true,
+              "asset": "assets/overlay/overlay-texture.png",
+              "opacity": 0.08,
+              "tile": true,
+              "scale": 1
+            },
+            "skin": {
+              "enabled": true,
+              "asset": "assets/overlay/overlay-skin.png",
+              "opacity": 0.12,
+              "layout": "framed",
+              "inset": 0
+            },
+            "vignette": {
+              "enabled": true,
+              "opacity": 0.06,
+              "size": 0.78
+            },
+            "scanline": {
+              "enabled": false,
+              "opacity": 0,
+              "spacing": 4,
+              "width": 1
+            },
+            "frame_glow": {
+              "enabled": true,
+              "opacity": 0.35,
+              "width": 4,
+              "color": "#4d93f8"
+            },
+            "corner_decoration": {
+              "enabled": false,
+              "asset": "assets/decorations/decoration-hud.png",
+              "opacity": 0.4,
+              "anchor": "bottom-right",
+              "scale": 1
+            },
+            "character_primary": {
+              "enabled": false,
+              "asset": "assets/overlay/overlay-character.png",
+              "opacity": 0.85,
+              "anchor": "bottom-right",
+              "layout": "corner",
+              "framing": "half_body",
+              "crop": "contain",
+              "size": {
+                "width": 384,
+                "height": 576
+              },
+              "coverage": 0.22,
+              "safe_region": {
+                "x": 800,
+                "y": 0,
+                "width": 480,
+                "height": 700
+              }
+            },
+            "character_secondary": {
+              "enabled": false,
+              "asset": null,
+              "opacity": 0
+            }
+          },
+          "limits": {
+            "overlay_opacity": 0.22,
+            "vignette": 0.15,
+            "scanline": 0.05,
+            "character_coverage": 0.22,
+            "critical_overlap": 0.08
+          },
+          "palette": "钢蓝",
+          "degraded": false,
+          "reason": null
+        },
+        "asset_plan": {
+          "version": 1,
+          "asset_plan": [
+            {
+              "kind": "wallpaper",
+              "asset_type": "background",
+              "label": "Wallpaper",
+              "surface": "owned_surface",
+              "target": "owned_surface",
+              "width": 1440,
+              "height": 900,
+              "transparent": false,
+              "position": null,
+              "anchor": null,
+              "layout": "background",
+              "opacity": 1,
+              "prominence": 0.5,
+              "safe_region": {
+                "x": 0,
+                "y": 0,
+                "width": 1280,
+                "height": 800
+              },
+              "framing": "background",
+              "crop": "contain",
+              "scale": 1,
+              "generation_prompt": "clean future research workstation aesthetic, cold light, precise lines desktop wallpaper, palette 钢蓝, no text, no watermark, no UI elements",
+              "procedural_fallback": "assets/fallback.js",
+              "path": "assets/wallpapers/wallpaper.png"
+            },
+            {
+              "kind": "panel_texture",
+              "asset_type": "tile",
+              "label": "Panel Texture",
+              "surface": "owned_surface",
+              "target": "owned_surface",
+              "width": 320,
+              "height": 128,
+              "transparent": false,
+              "position": null,
+              "anchor": null,
+              "layout": "background",
+              "opacity": 1,
+              "prominence": 0.5,
+              "safe_region": {
+                "x": 0,
+                "y": 0,
+                "width": 1280,
+                "height": 800
+              },
+              "framing": "tile",
+              "crop": "contain",
+              "scale": 1,
+              "generation_prompt": "subtle panel texture, no text. Style: clean future research workstation aesthetic, cold light, precise lines. Palette: 钢蓝.",
+              "procedural_fallback": "assets/fallback.js",
+              "path": "assets/panels/panel.png"
+            },
+            {
+              "kind": "icon_set",
+              "asset_type": "sheet",
+              "label": "Icon Set",
+              "surface": "owned_surface",
+              "target": "owned_surface",
+              "width": 128,
+              "height": 128,
+              "transparent": true,
+              "position": null,
+              "anchor": null,
+              "layout": "background",
+              "opacity": 1,
+              "prominence": 0.5,
+              "safe_region": {
+                "x": 0,
+                "y": 0,
+                "width": 1280,
+                "height": 800
+              },
+              "framing": "sheet",
+              "crop": "contain",
+              "scale": 1,
+              "generation_prompt": "geometric icon sheet, transparent background, no text. Style: clean future research workstation aesthetic, cold light, precise lines. Palette: 钢蓝.",
+              "procedural_fallback": "assets/fallback.js",
+              "path": "assets/icons/icon-set.png"
+            },
+            {
+              "kind": "frame_decoration",
+              "asset_type": "frame",
+              "label": "Frame Decoration",
+              "surface": "external_shell",
+              "target": "external_shell",
+              "width": 1600,
+              "height": 1000,
+              "transparent": true,
+              "position": null,
+              "anchor": "center",
+              "layout": "framed",
+              "opacity": 0.5,
+              "prominence": 0.35,
+              "safe_region": {
+                "x": 0,
+                "y": 0,
+                "width": 1280,
+                "height": 800
+              },
+              "framing": "frame",
+              "crop": "contain",
+              "scale": 1,
+              "generation_prompt": "window frame ornament with transparent centre, no text. Style: clean future research workstation aesthetic, cold light, precise lines. Palette: 钢蓝.",
+              "procedural_fallback": "assets/fallback.js",
+              "path": "assets/decorations/decoration-frame.png"
+            },
+            {
+              "kind": "overlay_skin",
+              "asset_type": "plate",
+              "label": "Overlay Skin",
+              "surface": "owned_overlay",
+              "target": "owned_overlay",
+              "width": 1600,
+              "height": 1000,
+              "transparent": true,
+              "position": null,
+              "anchor": "center",
+              "layout": "framed",
+              "opacity": 0.5,
+              "prominence": 0.4,
+              "safe_region": {
+                "x": 0,
+                "y": 0,
+                "width": 1280,
+                "height": 800
+              },
+              "framing": "plate",
+              "crop": "contain",
+              "scale": 1,
+              "generation_prompt": "edge and frame skin for an application window, transparent centre, no text. Style: clean future research workstation aesthetic, cold light, precise lines. Palette: 钢蓝.",
+              "procedural_fallback": "assets/fallback.js",
+              "path": "assets/overlay/overlay-skin.png"
+            },
+            {
+              "kind": "overlay_texture",
+              "asset_type": "tile",
+              "label": "Overlay Texture",
+              "surface": "owned_overlay",
+              "target": "owned_overlay",
+              "width": 512,
+              "height": 512,
+              "transparent": true,
+              "position": null,
+              "anchor": null,
+              "layout": "background",
+              "opacity": 0.16,
+              "prominence": 0.5,
+              "safe_region": {
+                "x": 0,
+                "y": 0,
+                "width": 1280,
+                "height": 800
+              },
+              "framing": "tile",
+              "crop": "contain",
+              "scale": 1,
+              "generation_prompt": "seamless technical texture tile, subtle, transparent-friendly, no text. Style: clean future research workstation aesthetic, cold light, precise lines. Palette: 钢蓝.",
+              "procedural_fallback": "assets/fallback.js",
+              "path": "assets/overlay/overlay-texture.png"
+            },
+            {
+              "kind": "hud_decoration",
+              "asset_type": "corner",
+              "label": "HUD Decoration",
+              "surface": "owned_overlay",
+              "target": "owned_overlay",
+              "width": 512,
+              "height": 512,
+              "transparent": true,
+              "position": {
+                "anchor": "bottom-right",
+                "viewport_fraction": 0.3,
+                "size": {
+                  "width": 384,
+                  "height": 576
+                },
+                "box": {
+                  "x": 896,
+                  "y": 124,
+                  "width": 384,
+                  "height": 576
+                },
+                "safe_region": {
+                  "x": 800,
+                  "y": 0,
+                  "width": 480,
+                  "height": 700
+                },
+                "margin": 16,
+                "crop": "contain"
+              },
+              "anchor": "bottom-right",
+              "layout": "corner",
+              "opacity": 0.35,
+              "prominence": 0.25,
+              "safe_region": {
+                "x": 0,
+                "y": 0,
+                "width": 1280,
+                "height": 800
+              },
+              "framing": "corner",
+              "crop": "contain",
+              "scale": 1,
+              "generation_prompt": "corner HUD bracket ornament, transparent elsewhere, no text. Style: clean future research workstation aesthetic, cold light, precise lines. Palette: 钢蓝.",
+              "procedural_fallback": "assets/fallback.js",
+              "path": "assets/decorations/decoration-hud.png"
+            }
+          ],
+          "count": 7,
+          "per_surface": {
+            "owned_surface": 3,
+            "external_shell": 1,
+            "owned_overlay": 3
+          },
+          "character": {
+            "enabled": false,
+            "character": null,
+            "surfaces": []
+          },
+          "decoration": "medium_low",
+          "degraded": false,
+          "reason": null
+        }
+      },
+      "result": {
+        "ok": true,
+        "verdict": "PASS",
+        "intent": {
+          "version": 1,
+          "design_language": "future_research_workstation",
+          "style_tag": "research",
+          "palette": [
+            "steel_blue"
+          ],
+          "palette_label": "钢蓝",
+          "base_hint": "#101724",
+          "density": "compact",
+          "density_scale": 0.86,
+          "persona": {
+            "enabled": false,
+            "prominence": 0,
+            "character": null
+          },
+          "motion": "subtle",
+          "decoration": "medium_low",
+          "brightness": 0,
+          "readability_priority": "high",
+          "notes": [
+            "persona disabled by the prompt"
+          ],
+          "prompt": "blue research compact no persona",
+          "interpreted_at": "1970-01-01T00:00:00.000Z"
+        },
+        "intentDigest": "fe6584470a83dd8668bc13e2ad4bd8cec7da3b5dc26cfa9817d39911006e00ee",
+        "planDigest": "f8d70e7da81532fa9f32333a513ee469edcfac6a710e53779bb23ab14e6a8a8c",
+        "packageDigest": "80a8df48e9bf676098e11c3b9617ac70fd2a1859670eb5ff5cf70e231e15dcc0",
+        "contentDigest": "81e75d7407e83112ce1f997a3d86b318295a298ac41cfb5344437e22d1e1ddf2",
+        "validationDigest": "a450a675890e912a3ebddf05204ec06ace1f90dc13733b36f20533b61c52fdc4",
+        "validation": {
+          "ok": true,
+          "issues": []
+        },
+        "observed": true,
+        "degraded": false,
+        "fallback": {
+          "degraded": false,
+          "disabled": [],
+          "degraded_assets": [],
+          "warnings": [],
+          "image_generator": {
+            "imageGenerator": false,
+            "retries": 1,
+            "timeoutMs": 20000,
+            "attempts": 14
+          }
+        },
+        "files": [
+          {
+            "path": "README.md",
+            "bytes": 562
+          },
+          {
+            "path": "asset-plan.json",
+            "bytes": 9621
+          },
+          {
+            "path": "assets/decorations/corners.png",
+            "bytes": 1197
+          },
+          {
+            "path": "assets/decorations/decoration-frame.png",
+            "bytes": 9207
+          },
+          {
+            "path": "assets/decorations/decoration-hud.png",
+            "bytes": 684
+          },
+          {
+            "path": "assets/icons/icon-set.png",
+            "bytes": 551
+          },
+          {
+            "path": "assets/icons/set.png",
+            "bytes": 564
+          },
+          {
+            "path": "assets/icons/tray.png",
+            "bytes": 188
+          },
+          {
+            "path": "assets/overlay/overlay-skin.png",
+            "bytes": 50695
+          },
+          {
+            "path": "assets/overlay/overlay-texture.png",
+            "bytes": 217633
+          },
+          {
+            "path": "assets/panels/panel.png",
+            "bytes": 17278
+          },
+          {
+            "path": "assets/wallpapers/main.png",
+            "bytes": 94279
+          },
+          {
+            "path": "assets/wallpapers/wallpaper.png",
+            "bytes": 147038
+          },
+          {
+            "path": "components.json",
+            "bytes": 576460
+          },
+          {
+            "path": "manifest.json",
+            "bytes": 1657
+          },
+          {
+            "path": "overlay-plan.json",
+            "bytes": 2828
+          },
+          {
+            "path": "persona.json",
+            "bytes": 310
+          },
+          {
+            "path": "preview.html",
+            "bytes": 228182
+          },
+          {
+            "path": "preview.png",
+            "bytes": 4456
+          },
+          {
+            "path": "preview/composite-preview.html",
+            "bytes": 765531
+          },
+          {
+            "path": "preview/hns-preview.html",
+            "bytes": 199781
+          },
+          {
+            "path": "preview/official-overlay-preview.html",
+            "bytes": 360631
+          },
+          {
+            "path": "preview/official-preview.html",
+            "bytes": 360631
+          },
+          {
+            "path": "preview/official-shell-preview.html",
+            "bytes": 14519
+          },
+          {
+            "path": "surface-plan.json",
+            "bytes": 2444
+          },
+          {
+            "path": "tokens.json",
+            "bytes": 593160
+          }
+        ],
+        "packageBytes": 3660087,
+        "globalThemeApply": false
+      },
+      "previewVisible": true
+    },
+    {
+      "case": "unobserved-fallback",
+      "status": "PASS",
+      "plan": {
+        "observed": false,
+        "degraded": true,
+        "surface_plan": {
+          "surfaces": [
+            {
+              "surface": "owned_surface",
+              "label": "Owned Surface",
+              "permission": "full",
+              "protected": false,
+              "writable": true,
+              "writes": true,
+              "layers": [
+                "tokens",
+                "slots",
+                "persona",
+                "asset",
+                "character",
+                "decoration"
+              ],
+              "merged": false,
+              "reason": "the HNS renderer is always themed",
+              "gate": null
+            },
+            {
+              "surface": "external_shell",
+              "label": "External Shell",
+              "permission": "full",
+              "protected": false,
+              "writable": true,
+              "writes": true,
+              "layers": [
+                "tokens",
+                "slots",
+                "asset",
+                "decoration"
+              ],
+              "merged": false,
+              "reason": "the outer frame around the official renderer is themed",
+              "gate": null
+            },
+            {
+              "surface": "owned_overlay",
+              "label": "Owned Overlay",
+              "permission": "visual-only",
+              "protected": false,
+              "writable": true,
+              "writes": true,
+              "layers": [
+                "tokens",
+                "slots",
+                "asset",
+                "character",
+                "decoration",
+                "effect"
+              ],
+              "merged": false,
+              "reason": "the visual overlay above the official renderer is themed",
+              "gate": null
+            },
+            {
+              "surface": "protected_external_surface",
+              "label": "Protected External Surface",
+              "permission": "protected",
+              "protected": true,
+              "writable": false,
+              "writes": false,
+              "layers": [],
+              "merged": false,
+              "reason": "PROTECTED: the official renderer is never written by the theme system",
+              "gate": "surface_protected"
+            }
+          ],
+          "owned_surface": {
+            "themed": true
+          },
+          "external_shell": {
+            "themed": true,
+            "padding": 6,
+            "frame": "outline",
+            "opacities": {
+              "background": 0.85
+            }
+          },
+          "owned_overlay": {
+            "themed": true,
+            "visual_only": true,
+            "pointer": false,
+            "keyboard": false
+          },
+          "protected_external_surface": {
+            "themed": false,
+            "protected": true,
+            "reason": "PROTECTED: the official renderer is owned by the harness",
+            "dom_access": false,
+            "css_injection": false,
+            "script_injection": false,
+            "capture": false
+          },
+          "observed": false,
+          "degraded": true,
+          "observation_reason": "no UI observation reached the planner; placement uses conservative viewport fractions"
+        },
+        "overlay_plan": {
+          "version": 1,
+          "enabled": true,
+          "visual_only": true,
+          "input": {
+            "pointer": "passthrough",
+            "keyboard": "passthrough",
+            "focus": "none",
+            "scroll": "passthrough"
+          },
+          "layout": {
+            "mode": "framed",
+            "anchor": "bottom-right",
+            "fallback_modes": [
+              "corner",
+              "edge",
+              "framed",
+              "background",
+              "floating"
+            ],
+            "safe_region": {
+              "x": 0,
+              "y": 0,
+              "width": 1280,
+              "height": 800
+            },
+            "margin": 16,
+            "follow_view": "official_view_bounds"
+          },
+          "components": {
+            "global_tint": {
+              "enabled": true,
+              "color": "#0b1019",
+              "opacity": 0.08,
+              "mode": "cool"
+            },
+            "gradient": {
+              "enabled": true,
+              "angle": 160,
+              "opacity": 0.06,
+              "stops": [
+                {
+                  "at": 0,
+                  "color": "#0b1019",
+                  "alpha": 1
+                },
+                {
+                  "at": 1,
+                  "color": "#172134",
+                  "alpha": 0.25
+                }
+              ]
+            },
+            "texture": {
+              "enabled": true,
+              "asset": "assets/overlay/overlay-texture.png",
+              "opacity": 0.08,
+              "tile": true,
+              "scale": 1
+            },
+            "skin": {
+              "enabled": true,
+              "asset": "assets/overlay/overlay-skin.png",
+              "opacity": 0.12,
+              "layout": "framed",
+              "inset": 0
+            },
+            "vignette": {
+              "enabled": true,
+              "opacity": 0.06,
+              "size": 0.78
+            },
+            "scanline": {
+              "enabled": false,
+              "opacity": 0,
+              "spacing": 4,
+              "width": 1
+            },
+            "frame_glow": {
+              "enabled": true,
+              "opacity": 0.35,
+              "width": 4,
+              "color": "#4d93f8"
+            },
+            "corner_decoration": {
+              "enabled": false,
+              "asset": "assets/decorations/decoration-hud.png",
+              "opacity": 0.4,
+              "anchor": "bottom-right",
+              "scale": 1
+            },
+            "character_primary": {
+              "enabled": false,
+              "asset": "assets/overlay/overlay-character.png",
+              "opacity": 0.85,
+              "anchor": "bottom-right",
+              "layout": "corner",
+              "framing": "half_body",
+              "crop": "contain",
+              "size": {
+                "width": 384,
+                "height": 576
+              },
+              "coverage": 0.22,
+              "safe_region": {
+                "x": 0,
+                "y": 0,
+                "width": 1280,
+                "height": 800
+              }
+            },
+            "character_secondary": {
+              "enabled": false,
+              "asset": null,
+              "opacity": 0
+            }
+          },
+          "limits": {
+            "overlay_opacity": 0.22,
+            "vignette": 0.15,
+            "scanline": 0.05,
+            "character_coverage": 0.22,
+            "critical_overlap": 0.08
+          },
+          "palette": "钢蓝",
+          "degraded": true,
+          "reason": "planned without a UI observation; safe region falls back to the whole viewport"
+        },
+        "asset_plan": {
+          "version": 1,
+          "asset_plan": [
+            {
+              "kind": "wallpaper",
+              "asset_type": "background",
+              "label": "Wallpaper",
+              "surface": "owned_surface",
+              "target": "owned_surface",
+              "width": 1440,
+              "height": 900,
+              "transparent": false,
+              "position": null,
+              "anchor": null,
+              "layout": "background",
+              "opacity": 1,
+              "prominence": 0.5,
+              "safe_region": {
+                "x": 0,
+                "y": 0,
+                "width": 1280,
+                "height": 800
+              },
+              "framing": "background",
+              "crop": "contain",
+              "scale": 1,
+              "generation_prompt": "clean future research workstation aesthetic, cold light, precise lines desktop wallpaper, palette 钢蓝, no text, no watermark, no UI elements",
+              "procedural_fallback": "assets/fallback.js",
+              "path": "assets/wallpapers/wallpaper.png"
+            },
+            {
+              "kind": "panel_texture",
+              "asset_type": "tile",
+              "label": "Panel Texture",
+              "surface": "owned_surface",
+              "target": "owned_surface",
+              "width": 320,
+              "height": 128,
+              "transparent": false,
+              "position": null,
+              "anchor": null,
+              "layout": "background",
+              "opacity": 1,
+              "prominence": 0.5,
+              "safe_region": {
+                "x": 0,
+                "y": 0,
+                "width": 1280,
+                "height": 800
+              },
+              "framing": "tile",
+              "crop": "contain",
+              "scale": 1,
+              "generation_prompt": "subtle panel texture, no text. Style: clean future research workstation aesthetic, cold light, precise lines. Palette: 钢蓝.",
+              "procedural_fallback": "assets/fallback.js",
+              "path": "assets/panels/panel.png"
+            },
+            {
+              "kind": "icon_set",
+              "asset_type": "sheet",
+              "label": "Icon Set",
+              "surface": "owned_surface",
+              "target": "owned_surface",
+              "width": 128,
+              "height": 128,
+              "transparent": true,
+              "position": null,
+              "anchor": null,
+              "layout": "background",
+              "opacity": 1,
+              "prominence": 0.5,
+              "safe_region": {
+                "x": 0,
+                "y": 0,
+                "width": 1280,
+                "height": 800
+              },
+              "framing": "sheet",
+              "crop": "contain",
+              "scale": 1,
+              "generation_prompt": "geometric icon sheet, transparent background, no text. Style: clean future research workstation aesthetic, cold light, precise lines. Palette: 钢蓝.",
+              "procedural_fallback": "assets/fallback.js",
+              "path": "assets/icons/icon-set.png"
+            },
+            {
+              "kind": "frame_decoration",
+              "asset_type": "frame",
+              "label": "Frame Decoration",
+              "surface": "external_shell",
+              "target": "external_shell",
+              "width": 1600,
+              "height": 1000,
+              "transparent": true,
+              "position": null,
+              "anchor": "center",
+              "layout": "framed",
+              "opacity": 0.5,
+              "prominence": 0.35,
+              "safe_region": {
+                "x": 0,
+                "y": 0,
+                "width": 1280,
+                "height": 800
+              },
+              "framing": "frame",
+              "crop": "contain",
+              "scale": 1,
+              "generation_prompt": "window frame ornament with transparent centre, no text. Style: clean future research workstation aesthetic, cold light, precise lines. Palette: 钢蓝.",
+              "procedural_fallback": "assets/fallback.js",
+              "path": "assets/decorations/decoration-frame.png"
+            },
+            {
+              "kind": "overlay_skin",
+              "asset_type": "plate",
+              "label": "Overlay Skin",
+              "surface": "owned_overlay",
+              "target": "owned_overlay",
+              "width": 1600,
+              "height": 1000,
+              "transparent": true,
+              "position": null,
+              "anchor": "center",
+              "layout": "framed",
+              "opacity": 0.5,
+              "prominence": 0.4,
+              "safe_region": {
+                "x": 0,
+                "y": 0,
+                "width": 1280,
+                "height": 800
+              },
+              "framing": "plate",
+              "crop": "contain",
+              "scale": 1,
+              "generation_prompt": "edge and frame skin for an application window, transparent centre, no text. Style: clean future research workstation aesthetic, cold light, precise lines. Palette: 钢蓝.",
+              "procedural_fallback": "assets/fallback.js",
+              "path": "assets/overlay/overlay-skin.png"
+            },
+            {
+              "kind": "overlay_texture",
+              "asset_type": "tile",
+              "label": "Overlay Texture",
+              "surface": "owned_overlay",
+              "target": "owned_overlay",
+              "width": 512,
+              "height": 512,
+              "transparent": true,
+              "position": null,
+              "anchor": null,
+              "layout": "background",
+              "opacity": 0.16,
+              "prominence": 0.5,
+              "safe_region": {
+                "x": 0,
+                "y": 0,
+                "width": 1280,
+                "height": 800
+              },
+              "framing": "tile",
+              "crop": "contain",
+              "scale": 1,
+              "generation_prompt": "seamless technical texture tile, subtle, transparent-friendly, no text. Style: clean future research workstation aesthetic, cold light, precise lines. Palette: 钢蓝.",
+              "procedural_fallback": "assets/fallback.js",
+              "path": "assets/overlay/overlay-texture.png"
+            },
+            {
+              "kind": "hud_decoration",
+              "asset_type": "corner",
+              "label": "HUD Decoration",
+              "surface": "owned_overlay",
+              "target": "owned_overlay",
+              "width": 512,
+              "height": 512,
+              "transparent": true,
+              "position": {
+                "anchor": "bottom-right",
+                "viewport_fraction": 0.3,
+                "size": {
+                  "width": 384,
+                  "height": 576
+                },
+                "box": {
+                  "x": 896,
+                  "y": 224,
+                  "width": 384,
+                  "height": 576
+                },
+                "safe_region": {
+                  "x": 0,
+                  "y": 0,
+                  "width": 1280,
+                  "height": 800
+                },
+                "margin": 16,
+                "crop": "contain"
+              },
+              "anchor": "bottom-right",
+              "layout": "corner",
+              "opacity": 0.35,
+              "prominence": 0.25,
+              "safe_region": {
+                "x": 0,
+                "y": 0,
+                "width": 1280,
+                "height": 800
+              },
+              "framing": "corner",
+              "crop": "contain",
+              "scale": 1,
+              "generation_prompt": "corner HUD bracket ornament, transparent elsewhere, no text. Style: clean future research workstation aesthetic, cold light, precise lines. Palette: 钢蓝.",
+              "procedural_fallback": "assets/fallback.js",
+              "path": "assets/decorations/decoration-hud.png"
+            }
+          ],
+          "count": 7,
+          "per_surface": {
+            "owned_surface": 3,
+            "external_shell": 1,
+            "owned_overlay": 3
+          },
+          "character": {
+            "enabled": false,
+            "character": null,
+            "surfaces": []
+          },
+          "decoration": "medium_low",
+          "degraded": true,
+          "reason": "planned without a UI observation"
+        }
+      },
+      "result": {
+        "ok": true,
+        "verdict": "PASS",
+        "intent": {
+          "version": 1,
+          "design_language": "future_research_workstation",
+          "style_tag": "research",
+          "palette": [
+            "steel_blue"
+          ],
+          "palette_label": "钢蓝",
+          "base_hint": "#101724",
+          "density": "compact",
+          "density_scale": 0.86,
+          "persona": {
+            "enabled": false,
+            "prominence": 0,
+            "character": null
+          },
+          "motion": "subtle",
+          "decoration": "medium_low",
+          "brightness": 0,
+          "readability_priority": "high",
+          "notes": [
+            "persona disabled by the prompt"
+          ],
+          "prompt": "blue research compact no persona",
+          "interpreted_at": "1970-01-01T00:00:00.000Z"
+        },
+        "intentDigest": "fe6584470a83dd8668bc13e2ad4bd8cec7da3b5dc26cfa9817d39911006e00ee",
+        "planDigest": "4880830a05cb59d6783208c5690993ae83e1d38748fc985eb6c0e643c7f33d15",
+        "packageDigest": "ca02ec7753a63d1f85cf14049525f40b6a6b07619db7de2c463d7355041da923",
+        "contentDigest": "81e75d7407e83112ce1f997a3d86b318295a298ac41cfb5344437e22d1e1ddf2",
+        "validationDigest": "a450a675890e912a3ebddf05204ec06ace1f90dc13733b36f20533b61c52fdc4",
+        "validation": {
+          "ok": true,
+          "issues": []
+        },
+        "observed": false,
+        "degraded": true,
+        "fallback": {
+          "degraded": true,
+          "disabled": [],
+          "degraded_assets": [
+            {
+              "kind": "wallpaper",
+              "surface": "owned_surface",
+              "provenance": "procedural-fallback"
+            },
+            {
+              "kind": "panel_texture",
+              "surface": "owned_surface",
+              "provenance": "procedural-fallback"
+            },
+            {
+              "kind": "icon_set",
+              "surface": "owned_surface",
+              "provenance": "procedural-fallback"
+            },
+            {
+              "kind": "frame_decoration",
+              "surface": "external_shell",
+              "provenance": "procedural-fallback"
+            },
+            {
+              "kind": "overlay_skin",
+              "surface": "owned_overlay",
+              "provenance": "procedural-fallback"
+            },
+            {
+              "kind": "overlay_texture",
+              "surface": "owned_overlay",
+              "provenance": "procedural-fallback"
+            },
+            {
+              "kind": "hud_decoration",
+              "surface": "owned_overlay",
+              "provenance": "procedural-fallback"
+            }
+          ],
+          "warnings": [
+            "wallpaper: model attempt 1 failed (Injected image failure for local acceptance)",
+            "wallpaper: model attempt 2 failed (Injected image failure for local acceptance)",
+            "wallpaper: generated by the procedural fallback after the image generator did not deliver",
+            "panel_texture: model attempt 1 failed (Injected image failure for local acceptance)",
+            "panel_texture: model attempt 2 failed (Injected image failure for local acceptance)",
+            "panel_texture: generated by the procedural fallback after the image generator did not deliver",
+            "icon_set: model attempt 1 failed (Injected image failure for local acceptance)",
+            "icon_set: model attempt 2 failed (Injected image failure for local acceptance)",
+            "icon_set: generated by the procedural fallback after the image generator did not deliver",
+            "frame_decoration: model attempt 1 failed (Injected image failure for local acceptance)",
+            "frame_decoration: model attempt 2 failed (Injected image failure for local acceptance)",
+            "frame_decoration: generated by the procedural fallback after the image generator did not deliver",
+            "overlay_skin: model attempt 1 failed (Injected image failure for local acceptance)",
+            "overlay_skin: model attempt 2 failed (Injected image failure for local acceptance)",
+            "overlay_skin: generated by the procedural fallback after the image generator did not deliver",
+            "overlay_texture: model attempt 1 failed (Injected image failure for local acceptance)",
+            "overlay_texture: model attempt 2 failed (Injected image failure for local acceptance)",
+            "overlay_texture: generated by the procedural fallback after the image generator did not deliver",
+            "hud_decoration: model attempt 1 failed (Injected image failure for local acceptance)",
+            "hud_decoration: model attempt 2 failed (Injected image failure for local acceptance)",
+            "hud_decoration: generated by the procedural fallback after the image generator did not deliver"
+          ],
+          "image_generator": {
+            "imageGenerator": true,
+            "retries": 1,
+            "timeoutMs": 20000,
+            "attempts": 28
+          }
+        },
+        "files": [
+          {
+            "path": "README.md",
+            "bytes": 562
+          },
+          {
+            "path": "asset-plan.json",
+            "bytes": 9642
+          },
+          {
+            "path": "assets/decorations/corners.png",
+            "bytes": 1197
+          },
+          {
+            "path": "assets/decorations/decoration-frame.png",
+            "bytes": 9207
+          },
+          {
+            "path": "assets/decorations/decoration-hud.png",
+            "bytes": 684
+          },
+          {
+            "path": "assets/icons/icon-set.png",
+            "bytes": 551
+          },
+          {
+            "path": "assets/icons/set.png",
+            "bytes": 564
+          },
+          {
+            "path": "assets/icons/tray.png",
+            "bytes": 188
+          },
+          {
+            "path": "assets/overlay/overlay-skin.png",
+            "bytes": 50695
+          },
+          {
+            "path": "assets/overlay/overlay-texture.png",
+            "bytes": 217633
+          },
+          {
+            "path": "assets/panels/panel.png",
+            "bytes": 17278
+          },
+          {
+            "path": "assets/wallpapers/main.png",
+            "bytes": 94279
+          },
+          {
+            "path": "assets/wallpapers/wallpaper.png",
+            "bytes": 147038
+          },
+          {
+            "path": "components.json",
+            "bytes": 576460
+          },
+          {
+            "path": "manifest.json",
+            "bytes": 1657
+          },
+          {
+            "path": "overlay-plan.json",
+            "bytes": 2901
+          },
+          {
+            "path": "persona.json",
+            "bytes": 310
+          },
+          {
+            "path": "preview.html",
+            "bytes": 228182
+          },
+          {
+            "path": "preview.png",
+            "bytes": 4456
+          },
+          {
+            "path": "preview/composite-preview.html",
+            "bytes": 765531
+          },
+          {
+            "path": "preview/hns-preview.html",
+            "bytes": 199781
+          },
+          {
+            "path": "preview/official-overlay-preview.html",
+            "bytes": 360631
+          },
+          {
+            "path": "preview/official-preview.html",
+            "bytes": 360631
+          },
+          {
+            "path": "preview/official-shell-preview.html",
+            "bytes": 14519
+          },
+          {
+            "path": "surface-plan.json",
+            "bytes": 2527
+          },
+          {
+            "path": "tokens.json",
+            "bytes": 593160
+          }
+        ],
+        "packageBytes": 3660264,
+        "globalThemeApply": false
+      },
+      "previewVisible": true
+    }
+  ],
+  "globalThemeApply": false,
+  "status": "PASS"
+}

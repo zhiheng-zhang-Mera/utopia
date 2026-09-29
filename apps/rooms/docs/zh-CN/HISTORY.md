@@ -387,3 +387,7 @@ city/.../skill-intake/tests/           城市模块自带 focused 测试
 ## V0.3 消费边界维修
 
 技能目录字段改为 resolvable/source 与 previewable，替代 installable/install；检索与解析算法不变，不具备安装功能。Evidence Engine 来源现明确区分 PARITY、PORT_ADAPTATION、UTOPIA_EXTENSION。已解决争议的处理属于显式适配，reasons/describeBundle 属于扩展。历史提交保留。
+
+## D9 — 主题构建实验室
+
+Accepted Room：`3ff7d805f0432d39499bee10741f54d3ec98f3de`。晋升内核：`74c277cbc2a44fc045b8c81e8e401df3729fbf28`。固定 DS-Hns 七文件闭包成为现有 theme-engine 的第三个孵化来源。Room 浏览器与 16 项专项／parity 门禁通过；退役前完整 Rooms 83 项通过，提炼后 City 129 项通过。已删除 active Room 及 API factory，源码、界面和浏览器测试可从 accepted commit 恢复；保留晋升记录、City 测试和 DONOR。Alien build 消费属于后续产品门禁；GLOBAL_THEME_APPLY=NO。

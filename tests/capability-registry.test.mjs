@@ -14,7 +14,7 @@ test('qualified identities keep duplicate names independent and cannot replace m
 });
 test('registry restricts mixed module lifecycle and exposes every dependency lifecycle',()=>{
  for(const [lifecycle,expected] of [['PLANNED','BRIDGE_PENDING'],['INCUBATING','BRIDGE_PENDING'],['PROMOTED','AVAILABLE'],['ACTIVE','AVAILABLE'],['DEPRECATED','UNAVAILABLE'],['UNKNOWN','DEGRADED']]){
-  const m=load();documentBuilding(m).modules[1].lifecycle=lifecycle;const c=intake(m);
+  const m=load();documentBuilding(m).modules[0].lifecycle='PROMOTED';documentBuilding(m).modules[1].lifecycle=lifecycle;const c=intake(m);
   assert.equal(c.bridgeState,expected,lifecycle);assert.deepEqual(c.moduleLifecycles.map(x=>x.lifecycle),['PROMOTED',lifecycle]);
   assert.equal(c.cityLifecycle,lifecycle==='PROMOTED'?'PROMOTED':'MIXED');
  }

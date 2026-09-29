@@ -1,0 +1,225 @@
+{
+  "reviewedAt": "2026-09-29T09:35:56.826Z",
+  "sourceSha": "762d677f198126eaa11ab5b58f73ba998f210775",
+  "hardeningMain": "393f3b89a9c4fae61be1e431c4bcd47fee945e88",
+  "hardeningMainCI": 36549170404,
+  "roadCommit": "762d677f198126eaa11ab5b58f73ba998f210775",
+  "rows": [
+    {
+      "moduleRef": {
+        "districtId": "02-engineering",
+        "buildingId": "02-worker-gateway",
+        "moduleId": "skill-intake"
+      },
+      "from": "PROMOTED",
+      "decision": "ELIGIBLE_FOR_ACTIVE",
+      "provenance": [
+        {
+          "room": "skill-intake-lab",
+          "acceptedRoomCommit": "1ba5b4809f05a155ed76fecdbb9479f900686fa1",
+          "promotedAtCommit": "140287250ef1440441df4eaf0dfefc14528eeee4"
+        },
+        {
+          "room": "skill-discovery-lab",
+          "acceptedRoomCommit": "b4dff81503128ae0d2ad163732171eb6dd887f4b",
+          "promotedAtCommit": "48494263d75532eaaba3490bc6c4223d5ff44ead"
+        }
+      ],
+      "consumerCapabilities": [
+        "engineering.skill.inspect"
+      ],
+      "bridgeState": "AVAILABLE",
+      "moduleCodeUnchangedSinceHardening": true,
+      "windowsAndHistoricalAndroidCases": [
+        "skill-ref:owner/repo@main",
+        "valid-SKILL.md",
+        "valid.tar",
+        "unsafe.tar"
+      ],
+      "criteria": {
+        "provenance": "PASS",
+        "focusedParity": "PASS: hardening City 114; owning module sources unchanged",
+        "runtimeConsumer": "PASS",
+        "windows": "PASS",
+        "android": "PASS: historical full V0.3 plus current hardening smoke",
+        "availability": "AVAILABLE",
+        "ownership": "PASS: qualified manifest and DONOR agree; no dispute recorded in reviewed artifacts",
+        "semantics": "PASS: explicit adapters and Road; no installation or external truth claim",
+        "recovery": "PASS: hardening 98-row migration/two restarts plus historical Wi-Fi and interruption evidence"
+      }
+    },
+    {
+      "moduleRef": {
+        "districtId": "06-research",
+        "buildingId": "01-research-institute",
+        "moduleId": "evidence-engine"
+      },
+      "from": "PROMOTED",
+      "decision": "ELIGIBLE_FOR_ACTIVE",
+      "provenance": [
+        {
+          "room": "evidence-engine-lab",
+          "acceptedRoomCommit": "ec4202f774a996a1c1a7f867fac9f529abd43b00",
+          "promotedAtCommit": "e1dcfd73e9b35b44ad15112c2fc66aad41b1e099"
+        }
+      ],
+      "consumerCapabilities": [
+        "research.evidence.review"
+      ],
+      "bridgeState": "AVAILABLE",
+      "moduleCodeUnchangedSinceHardening": true,
+      "windowsAndHistoricalAndroidCases": [
+        "evidence-review",
+        "evidence-tamper"
+      ],
+      "criteria": {
+        "provenance": "PASS",
+        "focusedParity": "PASS: hardening City 114; owning module sources unchanged",
+        "runtimeConsumer": "PASS",
+        "windows": "PASS",
+        "android": "PASS: historical full V0.3 plus current hardening smoke",
+        "availability": "AVAILABLE",
+        "ownership": "PASS: qualified manifest and DONOR agree; no dispute recorded in reviewed artifacts",
+        "semantics": "PASS: explicit adapters and Road; no installation or external truth claim",
+        "recovery": "PASS: hardening 98-row migration/two restarts plus historical Wi-Fi and interruption evidence"
+      }
+    },
+    {
+      "moduleRef": {
+        "districtId": "09-planning-knowledge",
+        "buildingId": "01-knowledge-service",
+        "moduleId": "knowledge-core"
+      },
+      "from": "PROMOTED",
+      "decision": "ELIGIBLE_FOR_ACTIVE",
+      "provenance": [
+        {
+          "room": "knowledge-core-lab",
+          "acceptedRoomCommit": "01f932bd2aad2403bec61961410ca19ca0cf28ad",
+          "promotedAtCommit": "b82fcfd0f153a63b8424051affd86bf7df0a41d0"
+        }
+      ],
+      "consumerCapabilities": [
+        "planning.knowledge.query"
+      ],
+      "bridgeState": "AVAILABLE",
+      "moduleCodeUnchangedSinceHardening": true,
+      "windowsAndHistoricalAndroidCases": [
+        "document-to-knowledge"
+      ],
+      "criteria": {
+        "provenance": "PASS",
+        "focusedParity": "PASS: hardening City 114; owning module sources unchanged",
+        "runtimeConsumer": "PASS",
+        "windows": "PASS",
+        "android": "PASS: historical full V0.3 plus current hardening smoke",
+        "availability": "AVAILABLE",
+        "ownership": "PASS: qualified manifest and DONOR agree; no dispute recorded in reviewed artifacts",
+        "semantics": "PASS: explicit adapters and Road; no installation or external truth claim",
+        "recovery": "PASS: hardening 98-row migration/two restarts plus historical Wi-Fi and interruption evidence"
+      }
+    },
+    {
+      "moduleRef": {
+        "districtId": "09-planning-knowledge",
+        "buildingId": "02-document-intake",
+        "moduleId": "ingestion-core"
+      },
+      "from": "PROMOTED",
+      "decision": "ELIGIBLE_FOR_ACTIVE",
+      "provenance": [
+        {
+          "room": "document-intake-lab",
+          "acceptedRoomCommit": "165e2664ad4e2d777889d8dec47893144e8c81dd",
+          "promotedAtCommit": "e3d6bbd9dd9196ce0991e095fb91993df3ec3dd1"
+        },
+        {
+          "room": "yaml-intake-lab",
+          "acceptedRoomCommit": "b6d7733c927288c8c1246d097d509cc9caeb5fa4",
+          "promotedAtCommit": "e068d58ee890f17e1b87efb9f5d5af461d2a784b"
+        }
+      ],
+      "consumerCapabilities": [
+        "planning.document.intake"
+      ],
+      "bridgeState": "AVAILABLE",
+      "moduleCodeUnchangedSinceHardening": true,
+      "windowsAndHistoricalAndroidCases": [
+        "sample.txt",
+        "sample.json",
+        "sample.yaml"
+      ],
+      "criteria": {
+        "provenance": "PASS",
+        "focusedParity": "PASS: hardening City 114; owning module sources unchanged",
+        "runtimeConsumer": "PASS",
+        "windows": "PASS",
+        "android": "PASS: historical full V0.3 plus current hardening smoke",
+        "availability": "AVAILABLE",
+        "ownership": "PASS: qualified manifest and DONOR agree; no dispute recorded in reviewed artifacts",
+        "semantics": "PASS: explicit adapters and Road; no installation or external truth claim",
+        "recovery": "PASS: hardening 98-row migration/two restarts plus historical Wi-Fi and interruption evidence"
+      }
+    },
+    {
+      "moduleRef": {
+        "districtId": "09-planning-knowledge",
+        "buildingId": "02-document-intake",
+        "moduleId": "document-readers"
+      },
+      "from": "PROMOTED",
+      "decision": "ELIGIBLE_FOR_ACTIVE",
+      "provenance": [
+        {
+          "room": "document-readers-lab",
+          "acceptedRoomCommit": "e9a4c2370544028749c5cd0c2d492389ee53d7b5",
+          "promotedAtCommit": "6a95bf4502f1e07a8036e319146e608f2a8db943"
+        }
+      ],
+      "consumerCapabilities": [
+        "planning.document.intake"
+      ],
+      "bridgeState": "AVAILABLE",
+      "moduleCodeUnchangedSinceHardening": true,
+      "windowsAndHistoricalAndroidCases": [
+        "sample.docx",
+        "sample.xlsx",
+        "sample.pdf"
+      ],
+      "criteria": {
+        "provenance": "PASS",
+        "focusedParity": "PASS: hardening City 114; owning module sources unchanged",
+        "runtimeConsumer": "PASS",
+        "windows": "PASS",
+        "android": "PASS: historical full V0.3 plus current hardening smoke",
+        "availability": "AVAILABLE",
+        "ownership": "PASS: qualified manifest and DONOR agree; no dispute recorded in reviewed artifacts",
+        "semantics": "PASS: explicit adapters and Road; no installation or external truth claim",
+        "recovery": "PASS: hardening 98-row migration/two restarts plus historical Wi-Fi and interruption evidence"
+      }
+    }
+  ],
+  "theme": {
+    "decision": "REMAIN_PROMOTED",
+    "reason": "OWNERSHIP_REVIEW_PENDING; D9 not promoted"
+  },
+  "evidence": [
+    {
+      "path": "evidence/raw/v0.3-hardening/regression-summary.json",
+      "sha256": "bcc9e2a2802e6c400ec51e125ed2854ce6deb3e39642c4100cb7efb4db09d322"
+    },
+    {
+      "path": "evidence/raw/v0.3-hardening/runtime-migration.json",
+      "sha256": "490f19ac12139411d81035695c2860f6e645f8d2acb48a08c95c90dfa92b17e6"
+    },
+    {
+      "path": "evidence/raw/v0.3/connectivity-recovery.json",
+      "sha256": "f318299c8b585cf09559aab2f5278398567f7aadabe0924ad364c55fe5cc9b95"
+    },
+    {
+      "path": "evidence/raw/v0.3/interruption-recovery.json",
+      "sha256": "1f9e7deb9caa50bcd8badfdc754f15612c8c0769379e0767afd4fde5e5cc791c"
+    }
+  ],
+  "automaticManifestMutation": false
+}

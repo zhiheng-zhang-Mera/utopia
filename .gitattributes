@@ -6,6 +6,7 @@
 /evidence/raw/v0.2/** -text
 /evidence/raw/v0.3/** -text
 /evidence/raw/v0.3-hardening/** -text
+/evidence/raw/wave3/** -text
 *.pdf binary
 *.docx binary
 *.xlsx binary

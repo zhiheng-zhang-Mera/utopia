@@ -28,9 +28,9 @@ export class RoomStoreError extends Error {
   }
 }
 
-/** Default runtime directory: apps/rooms/.runtime */
+/** Default runtime directory: apps/rooms/.runtime-rooms */
 export function defaultRuntimeDir() {
-  return resolve(dirname(fileURLToPath(import.meta.url)), '..', '.runtime');
+  return resolve(dirname(fileURLToPath(import.meta.url)), '..', '.runtime-rooms');
 }
 
 export class RoomStore {

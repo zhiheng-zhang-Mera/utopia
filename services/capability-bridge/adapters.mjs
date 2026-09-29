@@ -1,4 +1,5 @@
 import {fileBytes,refuse,objectInput,MAX_FILE_BYTES,digest} from '../../contracts/capability-bridge-v1/protocol.mjs';
+import {documentSectionsToKnowledgeEntries} from '../../contracts/city-roads/document-knowledge-v1/index.mjs';
 const base=new URL('../../city/',import.meta.url);
 const moduleAt=path=>import(new URL(path,base));
 
@@ -39,7 +40,8 @@ async function knowledge(input,operation){
  let entries=input.entries??[];
  if(operation==='fromDocument'){
   if(!Array.isArray(input.document?.sections))refuse('DOCUMENT_REQUIRED');
-  entries=input.document.sections.map((s,i)=>({id:'document-'+i,title:s.heading??'Section '+(i+1),content:String(s.text??''),domain:'document',shelf:'temporary',tags:['document'],trust:'UNVERIFIED',updatedAt:'1970-01-01T00:00:00.000Z'}));
+  if(input.document.sections.length>200)refuse('INVALID_ENTRIES');
+  entries=documentSectionsToKnowledgeEntries(input.document.sections);
  }
  if(!Array.isArray(entries)||entries.length>200)refuse('INVALID_ENTRIES');
  for(const e of entries){if(!e||typeof e.id!=='string'||typeof e.title!=='string'||typeof e.content!=='string'||!Array.isArray(e.tags)||!e.tags.every(t=>typeof t==='string')||!(e.trust in c.TRUST_ORDER))refuse('INVALID_ENTRY');}

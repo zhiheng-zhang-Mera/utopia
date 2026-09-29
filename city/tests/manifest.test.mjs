@@ -66,20 +66,20 @@ test('the real manifest describes exactly the wave 1 districts and modules', asy
   const claimed = modules.flatMap((entry) => entry.incubationRooms);
   assert.equal(new Set(claimed).size, claimed.length, 'no incubation room is claimed twice');
 
-  // D1 is PROMOTED, not ACTIVE, until a real city runtime consumer exists, and the
-  // same module was later strengthened by the D5 source and catalog core
+  // Wave3's independent activation review accepts the real runtime consumers.
+  // The same D1 module was strengthened by the D5 source and catalog core.
   const skillIntake = modules.find((entry) => entry.module.id === 'skill-intake').module;
-  assert.equal(skillIntake.lifecycle, 'PROMOTED');
+  assert.equal(skillIntake.lifecycle, 'ACTIVE');
   assert.deepEqual(skillIntake.incubationRooms, ['skill-intake-lab', 'skill-discovery-lab']);
 
   // the document intake building was strengthened the same way: D4 then D7a
   const ingestionCore = modules.find((entry) => entry.module.id === 'ingestion-core').module;
-  assert.equal(ingestionCore.lifecycle, 'PROMOTED');
+  assert.equal(ingestionCore.lifecycle, 'ACTIVE');
   assert.deepEqual(ingestionCore.incubationRooms, ['document-intake-lab', 'yaml-intake-lab']);
 
   // D7b lands as its own module in the same building
   const readers = modules.find((entry) => entry.module.id === 'document-readers').module;
-  assert.equal(readers.lifecycle, 'PROMOTED');
+  assert.equal(readers.lifecycle, 'ACTIVE');
   assert.deepEqual(readers.incubationRooms, ['document-readers-lab']);
   assert.deepEqual(readers.donor.sourcePaths, [
     'electron/ingestion/docx-reader.ts',

@@ -1,0 +1,13 @@
+{
+  "scope": "Wave3 staged evidence; D9 and product consumer not yet accepted",
+  "files": [
+    {
+      "file": "activation-review.json",
+      "sha256": "7ab818e1aa9d8e91ef16513b8bacff15e77668358514ef892a97744436fdd54a"
+    },
+    {
+      "file": "hardening-freeze.json",
+      "sha256": "2474b6962a835154b80ed15383c126d4305ada8b4e9063889f44ea92c95a1515"
+    }
+  ]
+}

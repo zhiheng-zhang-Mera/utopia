@@ -1,0 +1,14 @@
+{
+  "requestClass": "GitHub Code Search filename:SKILL.md",
+  "timestamp": "2026-09-29T06:22:02.805Z",
+  "codeSha": "bd59fadda788594ec7eb6d95d6d9a4c5bd3ff5cb",
+  "workingTreeDirty": false,
+  "status": "PASS",
+  "httpStatus": 200,
+  "resultCount": 5,
+  "failureCategory": null,
+  "offlineCount": 6,
+  "offlineResultPreserved": true,
+  "controlledFailureAdditive": true,
+  "skillInspectUsable": true
+}

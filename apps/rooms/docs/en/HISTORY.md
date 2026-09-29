@@ -529,3 +529,7 @@ apps/rooms/tests/skill-intake.test.mjs removed (the parity suite travelled with 
 apps/rooms/promotions/skill-intake-lab.json  kept
 city/.../skill-intake/tests/           the module carries its own focused tests
 ```
+
+## V0.3 consumption repair
+
+Skill catalog metadata now uses resolvable/source and previewable, not installable/install. Search/parser algorithms are unchanged; no installer exists. Evidence Engine provenance now distinguishes PARITY, PORT_ADAPTATION and UTOPIA_EXTENSION. Resolved-dispute handling is an explicit adaptation; reasons/describeBundle are extensions. Historical commits remain unchanged.

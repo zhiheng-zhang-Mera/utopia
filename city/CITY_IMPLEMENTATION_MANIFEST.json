@@ -112,6 +112,34 @@
               }
             }
           ]
+        },
+        {
+          "id": "03-capability-fabric",
+          "zh": "城市服务网",
+          "en": "Capability Fabric",
+          "modules": [
+            {
+              "id": "capability-fabric",
+              "zh": "能力注册发现层",
+              "en": "Capability Registry & Discovery",
+              "path": "city/00-foundation/03-capability-fabric/capability-fabric",
+              "lifecycle": "PROMOTED",
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/DS-Hns",
+                "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+                "sourcePaths": [
+                  "app/core/capability-registry/index.cjs",
+                  "app/core/plugin-manager/index.cjs",
+                  "app/core/health-supervisor/index.cjs",
+                  "app/core/contracts/capability.cjs",
+                  "app/core/lockfile/index.cjs"
+                ]
+              },
+              "incubationRooms": [
+                "capability-fabric-lab"
+              ]
+            }
+          ]
         }
       ]
     },

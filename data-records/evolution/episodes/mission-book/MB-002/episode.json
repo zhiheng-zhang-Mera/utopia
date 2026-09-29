@@ -1,0 +1,360 @@
+{
+  "schemaVersion": 1,
+  "episodeId": "MB-002:f859fd8391837e33",
+  "missionId": "MB-002",
+  "status": "VERIFIED",
+  "participants": {
+    "migrationHost": "Mech",
+    "verificationHost": "Alien"
+  },
+  "sourceRefs": [
+    "Codex-Boss@8df428eaa437a409368401e95194e40266b83080 + DS-Hns@eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973",
+    "DS-Hns@eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973",
+    "zhiheng-zhang-Mera/utopia@c7ef3cd1c6be0155332d03afc3607dfdbf49c205",
+    "utopia@c7ef3cd1c6be0155332d03afc3607dfdbf49c205",
+    "zhiheng-zhang-Mera/utopia@00607f8b243e166b112319b1663eebb3d763fcfc",
+    "zhiheng-zhang-Mera/Codex-Boss@8df428eaa437a409368401e95194e40266b83080",
+    "zhiheng-zhang-Mera/DS-Hns@eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+    "zhiheng-zhang-Mera/utopia@db3ac518de1d6125e00cee1d9ff6ff7868b58336",
+    "zhiheng-zhang-Mera/utopia@d0052d029f769ecbe1b7e8279fafb7aa93510ef2"
+  ],
+  "target": {
+    "branchFinalSha": "d0052d029f769ecbe1b7e8279fafb7aa93510ef2",
+    "targetRefs": [
+      "zhiheng-zhang-Mera/utopia@c7ef3cd1c6be0155332d03afc3607dfdbf49c205",
+      "zhiheng-zhang-Mera/utopia@mission/MB-002-capability-fabric",
+      "utopia@mission/MB-002-capability-fabric",
+      "zhiheng-zhang-Mera/utopia@db3ac518de1d6125e00cee1d9ff6ff7868b58336"
+    ]
+  },
+  "inboxDigestSha256": "0779d9c364af3f99e8a84ed98ce8525545d488366dbc33b06df41dbafc71127a",
+  "timeline": [
+    {
+      "eventId": "MB-002:fa77bd69ab4d41d8",
+      "role": "MIGRATION",
+      "hostId": "Mech",
+      "eventType": "MISSION_CLAIMED",
+      "outcome": "INFO",
+      "timestamp": "2026-09-29T12:03:10Z",
+      "summary": "Host Mech claimed the MB-002 migration stage. Digital-City claim commit bc2bbbdbac9ff670f2c9b3cbc93f091a7e46694b pushed to City main with no write conflict (MB-001 was already claimed by Alien, so sequence order selected MB-002). Implementation branch mission/MB-002-capability-fabric created from utopia main c7ef3cd1c6be0155332d03afc3607dfdbf49c205.",
+      "evidence": [
+        "D:/A-utopia/.mission-book/mission-book/MB-002-capability-fabric.md"
+      ]
+    },
+    {
+      "eventId": "MB-002:8fa4ff88e212649e",
+      "role": "MIGRATION",
+      "hostId": "Mech",
+      "eventType": "ATTEMPT_STARTED",
+      "outcome": "INFO",
+      "timestamp": "2026-09-29T12:03:30Z",
+      "summary": "Reconnaissance: Utopia V0.3 capability-bridge (contracts/capability-bridge-v1/protocol.mjs, services/capability-bridge/{registry,bridge,adapters,invocation-store,worker,theme-artifacts}.mjs, services/dev-gateway/server.mjs) is the accepted reference baseline and must not be overturned. City target city/00-foundation/03-capability-fabric does not exist yet; city/CITY_IMPLEMENTATION_MANIFEST.json declares only 02-engineering, 06-research, 09-planning-knowledge, 11-entertainment and city/tests/manifest.test.mjs pins that census exactly, so a new 00-foundation district must extend that census rather than weaken it. Donor inventory of the Boss provider/capability registry and Hns capability/plugin lifecycle closures is in progress.",
+      "evidence": []
+    },
+    {
+      "eventId": "MB-002:5dd43d2501ffb68a",
+      "role": "MIGRATION",
+      "hostId": "Mech",
+      "eventType": "OWNER_INTERVENTION",
+      "outcome": "INFO",
+      "timestamp": "2026-09-29T12:20:00Z",
+      "summary": "SCOPE DECISION (mission named no option; optimal reading chosen, recorded here). Hns carries a whole plugin/adapter/installer platform. Carrying it all collides with adjacent missions: adapter format detection is MB-011 Customs, permission resolution is MB-012 Runtime Compliance, external-format plugins are MB-003 Worker Gateway. CHOICE: migrate only city-global capability-fabric semantics: capability provider registry (qualified identity, priority resolution, tie=conflict refusal, revocation, recorded misses); required-capability gating plus lifecycle questions installed/enabled/loaded/healthy; bounded invocation history preserving the accepted V0.3 bridge; typed runtime outcome plus provider state model; set-diff lockfile drift verification. NOT migrated: install/adapt/compat pipelines, permission policy, DSH/Cordis formats. JUDGEMENT: the V0.3 hardcoded five-adapter literal becomes a registry of exactly those five providers, preserving behaviour.",
+      "evidence": [
+        "D:/A-utopia/.runtime/evidence/mission-book/MB-002/donor-hns/app/core/capability-registry/index.cjs",
+        "D:/A-utopia/.runtime/evidence/mission-book/MB-002/donor-hns/app/core/plugin-manager/index.cjs",
+        "D:/A-utopia/.runtime/evidence/mission-book/MB-002/donor-hns/app/core/lockfile/index.cjs",
+        "D:/A-utopia/.runtime/evidence/mission-book/MB-002/donor-hns/app/core/health-supervisor/index.cjs"
+      ]
+    },
+    {
+      "eventId": "MB-002:79974974c25f4510",
+      "role": "MIGRATION",
+      "hostId": "Mech",
+      "eventType": "CHANGE_APPLIED",
+      "outcome": "INFO",
+      "timestamp": "2026-09-29T12:40:00Z",
+      "summary": "Implementation landed. New City module city/00-foundation/03-capability-fabric/capability-fabric with contracts.mjs, registry.mjs, providers.mjs, outcome.mjs, routing.mjs, lock.mjs, DONOR.json and tests/capability-fabric.test.mjs (44 tests). The accepted V0.3 services/capability-bridge/registry.mjs now builds its descriptors by REGISTERING the same five providers into the fabric registry and describing their ownership through the fabric, so the registry is a real registry instead of a literal. JUDGEMENT recorded: the manifest enforces module.path === city/<district>/<building>/<module>, so the mission's target path city/00-foundation/03-capability-fabric is realised as building 03-capability-fabric containing module capability-fabric; MB-001's announced path city/00-foundation/01-city-core follows the same shape.",
+      "evidence": [
+        "city/00-foundation/03-capability-fabric/capability-fabric/DONOR.json"
+      ]
+    },
+    {
+      "eventId": "MB-002:394efa040eb752d3",
+      "role": "MIGRATION",
+      "hostId": "Mech",
+      "eventType": "TEST_PASS",
+      "outcome": "PASS",
+      "timestamp": "2026-09-29T12:26:30Z",
+      "summary": "TEST_PASS: fabric parity 44/44 (node --test city/00-foundation/03-capability-fabric/capability-fabric/tests/capability-fabric.test.mjs) covering registry resolution and ownership refusal, requirement misses, provider lifecycle, health reaction ladder, runtime-vs-semantic outcome separation, goal drift, provider state, routing eligibility, ranking confinement, invocation digest/typed error/oversize/concurrency/BUSY and the strict lock set-diff.",
+      "evidence": [
+        ".runtime/evidence/mission-book/MB-002/run-1/tests/capability-fabric.test.txt"
+      ]
+    },
+    {
+      "eventId": "MB-002:995cba0ea59bfa91",
+      "role": "MIGRATION",
+      "hostId": "Mech",
+      "eventType": "CI_RESULT",
+      "outcome": "PASS",
+      "timestamp": "2026-09-29T12:27:00Z",
+      "summary": "TEST_PASS: every required CI gate that can run on this host is green. pnpm test 58/58 (includes 5 bridged capability-bridge suites plus the fabric parity file). node city/test-all.mjs 173/173. node --test apps/rooms/tests/*.test.mjs 67/67. node scripts/check-bilingual.mjs all PAIR_STATUS = SYNCHRONIZED. node scripts/verify-promotion-history.mjs 10 records verified. The Android job could not run locally: it needs a JDK the Android Gradle Plugin accepts, and this host only has JDK 25 (Android Studio JBR) and JDK 26, both refused; CI uses temurin 21. No Android source was touched by this Mission, and apps/android declares no dependency on the changed files.",
+      "evidence": [
+        ".runtime/evidence/mission-book/MB-002/run-1/tests/capability-fabric.test.txt"
+      ]
+    },
+    {
+      "eventId": "MB-002:18b57b164a4705f6",
+      "role": "MIGRATION",
+      "hostId": "Mech",
+      "eventType": "RUNTIME_PASS",
+      "outcome": "PASS",
+      "timestamp": "2026-09-29T12:27:30Z",
+      "summary": "RUNTIME_PASS: real product consumption through the existing Web Services surface (headed Microsoft Edge, no new UI). scripts/capability-windows-pilot.mjs 26/26 rows PASS, driving all five bridged capabilities through the visible controls: document intake across txt/json/yaml/docx/xlsx/pdf plus malformed/oversize/truncated refusals, document-to-knowledge handoff, knowledge query, skill inspect/validate/catalog/archive including a traversal refusal, evidence review and tamper refusal, and theme generation. Separately, the running gateway's GET /api/v0/capabilities returned the five providers as AVAILABLE through the new fabric registry and the newly declared capability-fabric module as BRIDGE_PENDING with no operations.",
+      "evidence": [
+        ".runtime/evidence/mission-book/MB-002/run-1/windows/runs.json",
+        ".runtime/evidence/mission-book/MB-002/run-1/tests/windows-pilot-rows.txt"
+      ]
+    },
+    {
+      "eventId": "MB-002:aea3b9cbf5718c81",
+      "role": "MIGRATION",
+      "hostId": "Mech",
+      "eventType": "RECOVERY",
+      "outcome": "PASS",
+      "timestamp": "2026-09-29T12:28:00Z",
+      "summary": "RECOVERY: durable interruption truth proven end to end through the real gateway. An invocation still RUNNING was observed over GET /api/v0/capability-invocations, the gateway process was killed, the gateway was restarted, and the same invocation id came back as INTERRUPTED with errorCode GATEWAY_RESTARTED, resultDigest null and resultAvailable false - never left RUNNING and never reported COMPLETED. Driver: .runtime/evidence/mission-book/MB-002/run-1/interruption-driver.mjs.",
+      "evidence": [
+        ".runtime/evidence/mission-book/MB-002/run-1/recovery/interruption.json",
+        ".runtime/evidence/mission-book/MB-002/run-1/interruption-driver.mjs"
+      ]
+    },
+    {
+      "eventId": "MB-002:de6ffbb4344622ca",
+      "role": "MIGRATION",
+      "hostId": "Mech",
+      "eventType": "CI_RESULT",
+      "outcome": "PASS",
+      "timestamp": "2026-09-29T12:40:00Z",
+      "summary": "CI_RESULT: PASS - utopia run 36568159888 (V0.2 checks) on migration HEAD 00607f8b243e166b112319b1663eebb3d763fcfc: gateway-web success, android success. The Android job ran on CI's temurin 21, which is the environment this host could not reproduce locally because it only carries JDK 25 and JDK 26. Migration stage complete; branch not merged to main.",
+      "evidence": [
+        "https://github.com/zhiheng-zhang-Mera/utopia/actions/runs/36568159888"
+      ]
+    },
+    {
+      "eventId": "MB-002:b112595e0a60e8b7",
+      "role": "MIGRATION",
+      "hostId": "Mech",
+      "eventType": "MIGRATION_COMPLETE",
+      "outcome": "PASS",
+      "timestamp": "2026-09-29T12:41:00Z",
+      "summary": "MIGRATION_COMPLETE: MB-002 migration stage finished by host Mech. City module city/00-foundation/03-capability-fabric/capability-fabric landed on branch mission/MB-002-capability-fabric at 00607f8b243e166b112319b1663eebb3d763fcfc, CI run 36568159888 fully green, City MIGRATION_REPORT committed, MB-002 migration_complete set true. The branch is deliberately NOT merged to main: Verification must be claimed by a different host.",
+      "evidence": [
+        "https://github.com/zhiheng-zhang-Mera/Digital-City/blob/main/mission-book/reports/MB-002/MIGRATION_REPORT.md"
+      ]
+    },
+    {
+      "eventId": "MB-002:a3712c9137d6a850",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "MISSION_CLAIMED",
+      "outcome": "INFO",
+      "timestamp": "2026-09-29T14:44:51.200Z",
+      "summary": "Host Alien claimed the MB-002 VERIFICATION stage. Digital-City claim commit 8c4d214a9287a346e9b4b8060f82e7c5e1c6d695 pushed to City main with no conflict. Alien is a different host from the migration host Mech (rule 5). Reviewed branch mission/MB-002-capability-fabric at db3ac518de1d6125e00cee1d9ff6ff7868b58336, merge-base with main c7ef3cd1. The branch adds six modules under city/00-foundation/03-capability-fabric and, critically, modifies the LIVE product surface services/capability-bridge/registry.mjs plus two capability tests, so the independent review starts there.",
+      "evidence": [
+        "D:/Digital-City/mission-book/MB-002-capability-fabric.md"
+      ]
+    },
+    {
+      "eventId": "MB-002:6c093f810343b0d3",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "ATTEMPT_STARTED",
+      "outcome": "INFO",
+      "timestamp": "2026-09-29T14:44:53.539Z",
+      "summary": "Independent review started per rule 9: donor, target code, diff, tests and running state ONLY, with the Migration Report deliberately not opened until the findings are written down. First target is the live-surface diff in services/capability-bridge/registry.mjs (77 changed lines) and the two modified capability tests, because those are what Web and Android actually read. Then the six new modules and their parity claims, then the acceptance matrix the Mission names: five bridged services regression, one Boss provider/broker parity scenario, one Hns lifecycle/fallback/compat parity scenario, and Web/Android availability/result/error/history agreement.",
+      "evidence": []
+    },
+    {
+      "eventId": "MB-002:3d3b614713a103db",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "VERIFIER_FINDING",
+      "outcome": "INFO",
+      "timestamp": "2026-09-29T14:48:57.377Z",
+      "summary": "Independent review (rule 9, before the Migration Report). Findings: F1 the live bridgeState/cityLifecycle derivation rewired into describeOwnership is equivalent to the accepted V0.3 rule for every reachable input; F2 the descriptors gained four additive fields (moduleState/owner/priority/fallback) - Web and Android read by key, and no operation allowlist, permission or network exposure changed; F3 the three modified tests were re-scoped to be census-independent with their intents preserved - read line by line, nothing was deleted or weakened; F4 the live invocation path does NOT consume the fabric: bridge.mjs keeps its own implementation of bounded concurrency, typed errors, the result bound, digest and INTERRUPTED-on-restart while the fabric implements the same contract tested only against itself, and NOTHING tied the two together; F5 composedProviders ignores its manifest parameter and always returns version null (minor).",
+      "evidence": [
+        "city/00-foundation/03-capability-fabric/capability-fabric/tests/v03-derivation-parity.test.mjs"
+      ]
+    },
+    {
+      "eventId": "MB-002:ca22385cc0e01689",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "REPAIR_APPLIED",
+      "outcome": "REPAIRED",
+      "timestamp": "2026-09-29T14:48:59.739Z",
+      "summary": "Bounded repair (rule 10 supplementary testing), addressing F1 and F4. Added tests/v03-derivation-parity.test.mjs, an independent parity test whose oracle is the PRE-MIGRATION expression transcribed verbatim from services/capability-bridge/registry.mjs at the merge-base c7ef3cd1. It walks every lifecycle mixture of length 1 to 3 from the six lifecycles in both adapter states - 516 cases - and proves describeOwnership.bridgeState equals the accepted V0.3 rule in all of them, and cityLifecycle in all 516. It also records, rather than hides, the single divergence found: for an EMPTY moduleRefs list the old rule answered MIXED and the new one answers UNAVAILABLE. That case is unreachable through the live registry, because all five providers name at least one module and every unwired module is described from a one-element list; the test is the tripwire if that ever changes. No production code was changed by this verification host; no test was deleted, skipped or relaxed.",
+      "evidence": [
+        "city/00-foundation/03-capability-fabric/capability-fabric/tests/v03-derivation-parity.test.mjs"
+      ]
+    },
+    {
+      "eventId": "MB-002:071e90e54961a4e1",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "VERIFIER_FINDING",
+      "outcome": "INFO",
+      "timestamp": "2026-09-29T14:51:20.604Z",
+      "summary": "Reconciliation with the Migration Report (read only after my findings, per rule 9). AGREEMENTS: landing boundary, the 44 parity tests, the two self-found defects (compareLock over Map keys; duplicate RUNNING row) and the composition-root description all match my review; the report never claims the invocation path was wired, agreeing with F4. DIFFERENCES. D1: the report does not prove the derivation it rewired; my parity test now does, over 516 mixtures. D2: its section 8.5 adaptation 2 says an unnamed module reference derives cityLifecycle NOT_IN_MANIFEST and bridgeState BRIDGE_PENDING - that is the fabric default when lifecycleFor returns undefined, but the LIVE registry passes a fallback of the literal UNAVAILABLE, so an unnamed module derives DEGRADED, as the pre-migration rule did. Behaviour right, description wrong. D3: the descriptor list grew from five entries to six, unflagged.",
+      "evidence": [
+        "D:/Digital-City/mission-book/reports/MB-002/MIGRATION_REPORT.md"
+      ]
+    },
+    {
+      "eventId": "MB-002:9e52451c38e7a6d9",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "TEST_PASS",
+      "outcome": "PASS",
+      "timestamp": "2026-09-29T14:54:58.223Z",
+      "summary": "Independent acceptance matrix re-run on the repaired branch HEAD d0052d0: pnpm test 58/58 (includes the five bridged-service vectors in tests/capability-bridge.test.mjs, capability-registry.test.mjs, capability-adapters.test.mjs and web-services.test.mjs); node --test apps/rooms/tests/*.test.mjs 67/67; node city/test-all.mjs 176/176 across 14 module test files, of which the capability-fabric module is 47/47 including the three parity tests added by this verification host; node scripts/verify-promotion-history.mjs 10 records OK; pnpm check:docs all three pairs SYNCHRONIZED. No test was skipped, deleted or relaxed.",
+      "evidence": [
+        "D:/A-Utopia/.runtime/evidence/mission-book/MB-002/run-001/WORKING_STATE.md"
+      ]
+    },
+    {
+      "eventId": "MB-002:e7de1af3832aa029",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "RUNTIME_PASS",
+      "outcome": "PASS",
+      "timestamp": "2026-09-29T14:55:00.565Z",
+      "summary": "Cross-client consumption parity, verified by source inspection plus the client unit tests rather than an emulator run. apps/web/services.js renders city.capabilities as cards showing bridgeState and cityLifecycle and enables Run only when descriptor.bridgeState === 'AVAILABLE'. apps/android ServicesPanel.kt renders the same array in a dropdown, shows the same two fields at line 106, and gates through CapabilityPolicy.canInvokeCapability(connection, bridgeState, busy) = ONLINE && AVAILABLE && !busy. Result and error come from the same bridge invocation records: resultDigest, errorCode, invocationId, status. So availability, result and error agree by construction, and history is the same invocation list. Observed surface change: the list gains one non-invocable entry, the new module.",
+      "evidence": [
+        "D:/A-Utopia/.runtime/evidence/mission-book/MB-002/run-001/WORKING_STATE.md"
+      ]
+    },
+    {
+      "eventId": "MB-002:3b652aabb45909d1",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "CI_RESULT",
+      "outcome": "PASS",
+      "timestamp": "2026-09-29T14:55:08.042Z",
+      "summary": "Required CI green on the repaired verification branch HEAD. Run 36585852227 (V0.2 checks) on d0052d029f769ecbe1b7e8279fafb7aa93510ef2: gateway-web success (pnpm install, city install, pnpm test, verify-promotion-history, rooms, city/test-all, check:docs) and android success (:app:testDebugUnitTest plus :app:assembleDebug). This is the implementation CI for the verification stage; a second run on the post-closeout HEAD is still required by rule 16 before merge.",
+      "evidence": [
+        "https://github.com/zhiheng-zhang-Mera/utopia/actions/runs/36585852227"
+      ]
+    },
+    {
+      "eventId": "MB-002:1141b5a67e0a8b87",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "VERIFICATION_COMPLETE",
+      "outcome": "PASS",
+      "timestamp": "2026-09-29T14:55:10.406Z",
+      "summary": "MB-002 verification gate met. Five bridged services keep their accepted vectors. Donor parity is covered on both sides: Boss provider/broker through the fabric's provider registration, routing and invocation tests, Hns lifecycle/fallback/compat through the lifecycle and adapter-compat tests, and additionally across all 516 lifecycle mixtures by the oracle test added here. Web and Android agree on availability, result, error and history. Repairs stayed inside the same branch and inside the migration boundary: one test file added, no product surface widened. Independent review preceded reading the Migration Report and three differences are recorded. Two open observations carry forward to the Owner: the descriptor list grew by one non-invocable entry, and the live bridge.mjs still holds its own invocation implementation that does not consume the fabric.",
+      "evidence": [
+        "D:/A-Utopia/.runtime/evidence/mission-book/MB-002/run-001/WORKING_STATE.md"
+      ]
+    }
+  ],
+  "failures": [],
+  "rejectedApproaches": [],
+  "repairs": [
+    {
+      "eventId": "MB-002:aea3b9cbf5718c81",
+      "role": "MIGRATION",
+      "hostId": "Mech",
+      "eventType": "RECOVERY",
+      "outcome": "PASS",
+      "timestamp": "2026-09-29T12:28:00Z",
+      "summary": "RECOVERY: durable interruption truth proven end to end through the real gateway. An invocation still RUNNING was observed over GET /api/v0/capability-invocations, the gateway process was killed, the gateway was restarted, and the same invocation id came back as INTERRUPTED with errorCode GATEWAY_RESTARTED, resultDigest null and resultAvailable false - never left RUNNING and never reported COMPLETED. Driver: .runtime/evidence/mission-book/MB-002/run-1/interruption-driver.mjs.",
+      "evidence": [
+        ".runtime/evidence/mission-book/MB-002/run-1/recovery/interruption.json",
+        ".runtime/evidence/mission-book/MB-002/run-1/interruption-driver.mjs"
+      ]
+    },
+    {
+      "eventId": "MB-002:ca22385cc0e01689",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "REPAIR_APPLIED",
+      "outcome": "REPAIRED",
+      "timestamp": "2026-09-29T14:48:59.739Z",
+      "summary": "Bounded repair (rule 10 supplementary testing), addressing F1 and F4. Added tests/v03-derivation-parity.test.mjs, an independent parity test whose oracle is the PRE-MIGRATION expression transcribed verbatim from services/capability-bridge/registry.mjs at the merge-base c7ef3cd1. It walks every lifecycle mixture of length 1 to 3 from the six lifecycles in both adapter states - 516 cases - and proves describeOwnership.bridgeState equals the accepted V0.3 rule in all of them, and cityLifecycle in all 516. It also records, rather than hides, the single divergence found: for an EMPTY moduleRefs list the old rule answered MIXED and the new one answers UNAVAILABLE. That case is unreachable through the live registry, because all five providers name at least one module and every unwired module is described from a one-element list; the test is the tripwire if that ever changes. No production code was changed by this verification host; no test was deleted, skipped or relaxed.",
+      "evidence": [
+        "city/00-foundation/03-capability-fabric/capability-fabric/tests/v03-derivation-parity.test.mjs"
+      ]
+    }
+  ],
+  "verifierFindings": [
+    {
+      "eventId": "MB-002:3d3b614713a103db",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "VERIFIER_FINDING",
+      "outcome": "INFO",
+      "timestamp": "2026-09-29T14:48:57.377Z",
+      "summary": "Independent review (rule 9, before the Migration Report). Findings: F1 the live bridgeState/cityLifecycle derivation rewired into describeOwnership is equivalent to the accepted V0.3 rule for every reachable input; F2 the descriptors gained four additive fields (moduleState/owner/priority/fallback) - Web and Android read by key, and no operation allowlist, permission or network exposure changed; F3 the three modified tests were re-scoped to be census-independent with their intents preserved - read line by line, nothing was deleted or weakened; F4 the live invocation path does NOT consume the fabric: bridge.mjs keeps its own implementation of bounded concurrency, typed errors, the result bound, digest and INTERRUPTED-on-restart while the fabric implements the same contract tested only against itself, and NOTHING tied the two together; F5 composedProviders ignores its manifest parameter and always returns version null (minor).",
+      "evidence": [
+        "city/00-foundation/03-capability-fabric/capability-fabric/tests/v03-derivation-parity.test.mjs"
+      ]
+    },
+    {
+      "eventId": "MB-002:071e90e54961a4e1",
+      "role": "VERIFICATION",
+      "hostId": "Alien",
+      "eventType": "VERIFIER_FINDING",
+      "outcome": "INFO",
+      "timestamp": "2026-09-29T14:51:20.604Z",
+      "summary": "Reconciliation with the Migration Report (read only after my findings, per rule 9). AGREEMENTS: landing boundary, the 44 parity tests, the two self-found defects (compareLock over Map keys; duplicate RUNNING row) and the composition-root description all match my review; the report never claims the invocation path was wired, agreeing with F4. DIFFERENCES. D1: the report does not prove the derivation it rewired; my parity test now does, over 516 mixtures. D2: its section 8.5 adaptation 2 says an unnamed module reference derives cityLifecycle NOT_IN_MANIFEST and bridgeState BRIDGE_PENDING - that is the fabric default when lifecycleFor returns undefined, but the LIVE registry passes a fallback of the literal UNAVAILABLE, so an unnamed module derives DEGRADED, as the pre-migration rule did. Behaviour right, description wrong. D3: the descriptor list grew from five entries to six, unflagged.",
+      "evidence": [
+        "D:/Digital-City/mission-book/reports/MB-002/MIGRATION_REPORT.md"
+      ]
+    }
+  ],
+  "acceptedApproach": {
+    "summary": "MB-002 verification gate met. Five bridged services keep their accepted vectors. Donor parity is covered on both sides: Boss provider/broker through the fabric's provider registration, routing and invocation tests, Hns lifecycle/fallback/compat through the lifecycle and adapter-compat tests, and additionally across all 516 lifecycle mixtures by the oracle test added here. Web and Android agree on availability, result, error and history. Repairs stayed inside the same branch and inside the migration boundary: one test file added, no product surface widened. Independent review preceded reading the Migration Report and three differences are recorded. Two open observations carry forward to the Owner: the descriptor list grew by one non-invocable entry, and the live bridge.mjs still holds its own invocation implementation that does not consume the fabric.",
+    "eventId": "MB-002:1141b5a67e0a8b87"
+  },
+  "metrics": {
+    "eventCount": 19,
+    "attempts": 2,
+    "testPasses": 2,
+    "testFailures": 0,
+    "runtimePasses": 2,
+    "runtimeFailures": 0,
+    "repairs": 2,
+    "verifierFindings": 2,
+    "ownerInterventions": 1
+  },
+  "evidence": [
+    "D:/A-utopia/.mission-book/mission-book/MB-002-capability-fabric.md",
+    "D:/A-utopia/.runtime/evidence/mission-book/MB-002/donor-hns/app/core/capability-registry/index.cjs",
+    "D:/A-utopia/.runtime/evidence/mission-book/MB-002/donor-hns/app/core/plugin-manager/index.cjs",
+    "D:/A-utopia/.runtime/evidence/mission-book/MB-002/donor-hns/app/core/lockfile/index.cjs",
+    "D:/A-utopia/.runtime/evidence/mission-book/MB-002/donor-hns/app/core/health-supervisor/index.cjs",
+    "city/00-foundation/03-capability-fabric/capability-fabric/DONOR.json",
+    ".runtime/evidence/mission-book/MB-002/run-1/tests/capability-fabric.test.txt",
+    ".runtime/evidence/mission-book/MB-002/run-1/windows/runs.json",
+    ".runtime/evidence/mission-book/MB-002/run-1/tests/windows-pilot-rows.txt",
+    ".runtime/evidence/mission-book/MB-002/run-1/recovery/interruption.json",
+    ".runtime/evidence/mission-book/MB-002/run-1/interruption-driver.mjs",
+    "https://github.com/zhiheng-zhang-Mera/utopia/actions/runs/36568159888",
+    "https://github.com/zhiheng-zhang-Mera/Digital-City/blob/main/mission-book/reports/MB-002/MIGRATION_REPORT.md",
+    "D:/Digital-City/mission-book/MB-002-capability-fabric.md",
+    "city/00-foundation/03-capability-fabric/capability-fabric/tests/v03-derivation-parity.test.mjs",
+    "D:/Digital-City/mission-book/reports/MB-002/MIGRATION_REPORT.md",
+    "D:/A-Utopia/.runtime/evidence/mission-book/MB-002/run-001/WORKING_STATE.md",
+    "https://github.com/zhiheng-zhang-Mera/utopia/actions/runs/36585852227"
+  ],
+  "ci": {
+    "run": "36585852227",
+    "outcome": "PASS"
+  },
+  "learning": {
+    "eligible": true,
+    "authority": "EXPERIENCE_ONLY"
+  }
+}

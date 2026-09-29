@@ -51,6 +51,7 @@ if(rows.some(r=>r.apkSha256!==apkSha256))failure('RESUME_APK_MISMATCH_USE_NEW_SE
 const save=()=>{writeFileSync(directory+'/'+prefix+'-runs.json',JSON.stringify(rows,null,2));writeFileSync(directory+'/'+prefix+'-events.jsonl',recordedEvents.map(e=>JSON.stringify(e)).join('\n')+(recordedEvents.length?'\n':''));};
 for(let run=rows.length+1;rows.filter(r=>r.success).length<count;run++){
  const row={mode:'qr',run,codeSha,driverSha256,workingTreeDirty,apkSha256,startTimestamp:timestamp(),discoveryTimestamp:null,pairingSubmittedTimestamp:null,authenticatedTimestamp:null,snapshotLoadedTimestamp:null,websocketOnlineTimestamp:null,trialId:null,success:false,errorClass:null,driver:'ADB onboarding plus physical camera; no QR injection',cameraLaunchRequestedAt:null};
+ if(existsSync('.runtime/pairing-display-geometry.json'))row.displayGeometry=JSON.parse(readFileSync('.runtime/pairing-display-geometry.json'));
  rows.push(row);save();let cameraLaunched=false;
  try{
   row.stage='STARTING';save();cmd('shell','am','force-stop','city.utopia.control');cmd('shell','am','start','-n','city.utopia.control/.MainActivity');await sleep(2500);

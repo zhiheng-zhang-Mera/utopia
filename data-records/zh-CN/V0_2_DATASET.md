@@ -94,3 +94,5 @@ QR 记录独立发布为 `qr-runs.json`、`qr-trials.json`、`qr-events.jsonl` �
 安装自动缩放 APK 后，运行 `node scripts/device-qr-pilot.mjs 5 --series=autozoom`，单独记录新的五次成功扫码序列。只有续跑同一 APK 序列才添加 `--resume`；已有文件不会被隐式覆盖，跨 APK 续跑会被拒绝。原 `qr-*` 文件保留此前的相机观察。此收集器在启动时记录自身 SHA-256 和工作区是否有未提交更改。
 
 负向试验收集白名单 `cameraZoomObservations`：硬件支持、请求倍率、此前读取的实际倍率和对焦模式。实际读取倍率超过 100% 才能证明相机已处于放大状态；单有请求值不能证明。不保存预览画面或解码内容。正向与负向收集器必须在手机上顺序运行。当前 APK 重跑前，旧任务及遥测记录以 pre-autozoom 历史记录保留原代码与 APK。
+
+操作端显示脚本支持 `--scale=2`：`node scripts/pairing-display.mjs --scale=2` 和 `node scripts/device-qr-negative-pilot.mjs --run all --scale=2`。它在保持中心不变的情况下把显示的二维码放大两倍，不改变编码的配对内容或 Android 相机输入。显示倍率与相机倍率分别记录。试验途中改变显示、缺少几何记录等仍属限制，不能据此证明普遍扫码性能改善的因果关系。

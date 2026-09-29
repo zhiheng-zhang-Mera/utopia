@@ -11,6 +11,8 @@ if(!process.argv.includes('--run')){
  process.exit(0);
 }
 const mode=process.argv.find(x=>['all','expired','replaced'].includes(x))||'all';
+const displayScale=Number(process.argv.find(x=>x.startsWith('--scale='))?.split('=')[1]||1);
+if(![1,2].includes(displayScale))throw Error('Display scale must be 1 or 2');
 const adb=process.env.ADB||'adb',now=()=>new Date().toISOString();
 const cmd=(...a)=>execFileSync(adb,a,{timeout:30000,maxBuffer:8*1024*1024,windowsHide:true}).toString();
 const fail=(code,exitStatus=null)=>{const error=new Error(code);error.pilotCode=code;error.driverExitStatus=exitStatus;throw error;};
@@ -52,18 +54,18 @@ async function measureRealPairingGeometry(){
  await page.getByRole('button',{name:'Generate pairing session',exact:true}).click();await page.locator('#pairing-qr svg').waitFor();await page.evaluate(()=>window.scrollTo(0,0));
  qrBox=await page.locator('#pairing-qr').boundingBox();
  if(!qrBox||Math.abs(qrBox.width-240)>1||qrBox.height<=0)fail('REAL_PAIRING_QR_GEOMETRY_UNEXPECTED');
- result.displayGeometry={viewport:{width:1440,height:1000},qrBox,source:'Measured real authenticated Web pairing QR before test-session creation',windowPosition:'Browser default; physical alignment still requires confirmation'};save();
+ result.displayGeometry={displayScale,viewport:{width:1440,height:1000},qrBox,source:'Measured real authenticated Web pairing QR before test-session creation',windowPosition:'Browser default; physical alignment still requires confirmation'};save();
 }
 async function display(s,label){
  // Preserve the real Web QR's exact viewport box. Overlay sits outside #view so
  // ordinary polling/session expiry cannot remove the retained negative-test SVG.
- await page.evaluate(({svg,label,box})=>{
+ await page.evaluate(({svg,label,box,scale})=>{
   let qr=document.getElementById('private-negative-qr');if(!qr){qr=document.createElement('div');qr.id='private-negative-qr';document.body.append(qr);}
-  Object.assign(qr.style,{position:'fixed',left:box.x+'px',top:box.y+'px',width:box.width+'px',height:box.height+'px',zIndex:'2147483646',background:'#fff',pointerEvents:'none'});qr.innerHTML=svg;
+  Object.assign(qr.style,{position:'fixed',left:box.x+'px',top:box.y+'px',width:box.width+'px',height:box.height+'px',zIndex:'2147483646',background:'#fff',pointerEvents:'none',transform:'scale('+scale+')',transformOrigin:'center'});qr.innerHTML=svg;
   const image=qr.querySelector('svg');if(image){image.style.width='100%';image.style.height='100%';image.style.display='block';}
   let banner=document.getElementById('private-negative-label');if(!banner){banner=document.createElement('div');banner.id='private-negative-label';document.body.append(banner);}
   banner.textContent=label+' · PRIVATE TEST · No capture';Object.assign(banner.style,{position:'fixed',left:'0',right:'0',top:'0',padding:'8px',background:'#fff5ce',color:'#111',zIndex:'2147483647',font:'bold 14px Arial',textAlign:'center',pointerEvents:'none'});
- },{svg:s.qrSvg,label,box:qrBox});await page.bringToFront();
+ },{svg:s.qrSvg,label,box:qrBox,scale:displayScale});await page.bringToFront();
 }
 async function scan(kind,index,s,extra={}){
  const row={kind,run:index,codeSha,apkSha256,driverStartTimestamp:now(),cameraLaunchRequestedAt:null,trialId:null,rejectionObservedAt:null,returnedToMainActivity:false,uiRejectionObserved:false,noAuthenticationObserved:null,success:false,errorClass:null,stage:'PREPARING',...extra};result.runs.push(row);save();let selected=[];

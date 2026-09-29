@@ -1,0 +1,251 @@
+{
+  "schemaVersion": 1,
+  "episodeId": "MB-006:0a48549fc6f5f8c6",
+  "missionId": "MB-006",
+  "status": "VERIFIED",
+  "participants": {
+    "migrationHost": "Alien",
+    "verificationHost": "Mech"
+  },
+  "sourceRefs": [
+    "zhiheng-zhang-Mera/dsh-restart@e20fb6cc43e27cedf6303471e5b8ee18e1383ecd",
+    "zhiheng-zhang-Mera/utopia@mission/MB-006-restart-recovery"
+  ],
+  "target": {
+    "branchFinalSha": "d83ad16",
+    "targetRefs": [
+      "zhiheng-zhang-Mera/utopia@c7ef3cd1c6be0155332d03afc3607dfdbf49c205",
+      "zhiheng-zhang-Mera/utopia@mission/MB-006-restart-recovery",
+      "zhiheng-zhang-Mera/utopia@9584b98bd9f2bacad93274c74716281c7e0b2b1e"
+    ]
+  },
+  "inboxDigestSha256": "28ace102e8d97c9ae43a76c600233aa87f850f4ddb76a2319a0c7d7a8b051eaf",
+  "timeline": [
+    {
+      "eventId": "MB-006:28d31927fea95493",
+      "role": "MIGRATION",
+      "hostId": "Alien",
+      "eventType": "MISSION_CLAIMED",
+      "outcome": "INFO",
+      "timestamp": "2026-09-29T13:03:12.615Z",
+      "summary": "Host Alien claimed the MB-006 migration stage. Digital-City claim commit 3bb6a1c3ea80781a4912b604d388b8bf7fa4b139 pushed to City main. MB-001 (Alien) and MB-003 (Alien) are migration-complete; MB-002 and MB-005 are migration-complete under host Mech. MB-004 is the lowest-sequence unclaimed migration but declares a dependency on MB-003, which is unverified and unmerged, so a branch cut from main could not contain it; MB-006 declares no dependency and is claimed instead. Branch mission/MB-006-restart-recovery created from utopia main c7ef3cd1c6be0155332d03afc3607dfdbf49c205.",
+      "evidence": [
+        "D:/Digital-City/mission-book/MB-006-restart-recovery.md"
+      ]
+    },
+    {
+      "eventId": "MB-006:0bc66c175382bd0d",
+      "role": "MIGRATION",
+      "hostId": "Alien",
+      "eventType": "ATTEMPT_STARTED",
+      "outcome": "INFO",
+      "timestamp": "2026-09-29T13:03:15.104Z",
+      "summary": "Reconnaissance started. Target is a NEW building city/02-engineering/04-restart-recovery-station. Single donor dsh-restart @ e20fb6cc. Mission scope: request validation, dedup/lock/cooldown; checkpoint/safe-point gate; atomic checksummed restart ticket; graceful shutdown request, external supervisor heartbeat, exit observation/relaunch; post-relaunch verification; crash-loop breaker/safe mode; append-only audit. Explicitly forbidden: deciding whether to restart, inventing a WAITING_FOR_EXIT deadline, enabling the donor's declared-but-unused force-terminate behaviour, and extending into general power management.",
+      "evidence": []
+    },
+    {
+      "eventId": "MB-006:a6f18c389c31fc58",
+      "role": "MIGRATION",
+      "hostId": "Alien",
+      "eventType": "CHANGE_APPLIED",
+      "outcome": "INFO",
+      "timestamp": "2026-09-29T13:23:02.553Z",
+      "summary": "Landed four modules in a NEW building city/02-engineering/04-restart-recovery-station: restart-protocol (donor src/shared/protocol.ts + types.ts + src/plugin/request-validator.ts, 36 tests), restart-lock (src/plugin/restart-lock.ts, 10), checkpoint-gate (src/plugin/checkpoint-gate.ts, 11), restart-ticket (src/plugin/ticket-store.ts + atomic.ts, 19). 76 module tests. Registered the building in city/CITY_IMPLEMENTATION_MANIFEST.json with capabilityProvider:false and extended the census test; documented the mission-incubation identity, the capabilityProvider flag and the consumption reconciliation in both city architecture docs.",
+      "evidence": [
+        "city/02-engineering/04-restart-recovery-station"
+      ]
+    },
+    {
+      "eventId": "MB-006:71ea239e0c6e2ac4",
+      "role": "MIGRATION",
+      "hostId": "Alien",
+      "eventType": "TEST_FAIL",
+      "outcome": "FAIL",
+      "timestamp": "2026-09-29T13:23:05.014Z",
+      "summary": "Three fidelity defects were found by review after the first ports reported green, all in the same class: the port had ADDED semantics the donor does not have. (1) restart-ticket's verifyTicket grew a field-presence and undeclared-field rung the donor lacks, changing verdicts for documents the donor accepts, and buildTicket grew a draft guard the donor does not have; (2) restart-ticket inlined its own copy of the checksum-defining canonicalJson and restart-lock/checkpoint-gate re-declared vocabularies that restart-protocol already owns, breaking the donor's single shared layer; (3) one checkpoint-gate assertion asserted a leniency the port had invented rather than the donor's declared required fields. A fourth, self-inflicted failure was a pinned 71-character digest literal silently written to disk with one extra character.",
+      "evidence": []
+    },
+    {
+      "eventId": "MB-006:1c1e491fc1260a46",
+      "role": "MIGRATION",
+      "hostId": "Alien",
+      "eventType": "TEST_PASS",
+      "outcome": "PASS",
+      "timestamp": "2026-09-29T13:23:09.992Z",
+      "summary": "Full CI-equivalent suite green: pnpm test 59/59, apps/rooms tests 67/67, city/test-all.mjs 206/206, verify-promotion-history.mjs 10 records verified, check:docs SYNCHRONIZED in docs, evidence and data-records. New module tests: restart-protocol 36, restart-lock 10, checkpoint-gate 11, restart-ticket 19 (76 total). restart-protocol additionally carries a differential harness result of 32,801 comparisons against a fresh transcription of the donor validator with 0 mismatches.",
+      "evidence": [
+        "city/02-engineering/04-restart-recovery-station"
+      ]
+    },
+    {
+      "eventId": "MB-006:336d28b3d853cfa6",
+      "role": "MIGRATION",
+      "hostId": "Alien",
+      "eventType": "RUNTIME_PASS",
+      "outcome": "PASS",
+      "timestamp": "2026-09-29T13:23:12.478Z",
+      "summary": "Real consumption verified end to end: a real dev-gateway instance accepted a task over HTTP, restarted on the same store, and its post-restart decision about whether interrupted work may resume is now made by the migrated checkpoint-gate module with Utopia's policy supplied as data. tests/gateway.test.mjs proves the gateway and the Core agree: a task that never started requires no checkpoint and stays QUEUED, while a task that had reached RUNNING has no bound checkpoint port, so the donor's fail-closed default refuses it and it becomes FAILED with the unchanged error text and event. Protocol, state names and response shapes are unchanged.",
+      "evidence": [
+        "tests/gateway.test.mjs",
+        "services/dev-gateway/server.mjs"
+      ]
+    },
+    {
+      "eventId": "MB-006:a22d9f115d9943bb",
+      "role": "MIGRATION",
+      "hostId": "Alien",
+      "eventType": "REPAIR_APPLIED",
+      "outcome": "REPAIRED",
+      "timestamp": "2026-09-29T13:23:22.068Z",
+      "summary": "Repairs, all verified against the donor line by line. verifyTicket is now exactly the donor's six rungs in the donor's order with the donor's detail strings and no seventh rung; buildTicket is the donor's body verbatim, so an invalid instant throws the donor's own RangeError. The added rungs and the guard are deleted, and the false justification for them is replaced by a verdictParity block stating that no verdict differs. canonicalJson is imported from restart-protocol instead of duplicated, and restart-lock/checkpoint-gate import their vocabularies from restart-protocol rather than re-declaring them, so the donor's plugin -> shared direction is preserved as a cross-module import; identity assertions prove a re-declared copy cannot return silently. The leniency assertion now asserts the donor-faithful strictness plus a positive companion. The corrupted digest literal was repaired and the suite asserts its 71-char/64-hex shape. No assertion was deleted or weakened to reach green.",
+      "evidence": [
+        "city/02-engineering/04-restart-recovery-station/restart-ticket/DONOR.json"
+      ]
+    },
+    {
+      "eventId": "MB-006:0ad36d9c720f6210",
+      "role": "MIGRATION",
+      "hostId": "Alien",
+      "eventType": "CI_RESULT",
+      "outcome": "PASS",
+      "timestamp": "2026-09-29T13:28:55.882Z",
+      "summary": "Hosted required CI green for the implementation SHA 9584b98bd9f2bacad93274c74716281c7e0b2b1e: V0.2 checks run 36574888667 completed success, both jobs success (gateway-web, android). The intermediate head d5587756b8866139d2b2b91df7ae84b434488fd6 also ran green (runs 36574760625, 36574754834, 36574753356), and the claim-stage push 52946b69f71a825ba60b98bf14612f578edf5cce ran green under run 36572337586. Local CI-equivalent results on the same tree: pnpm test 59/59, apps/rooms 67/67, city/test-all.mjs 206/206, verify-promotion-history 10 records, check:docs SYNCHRONIZED.",
+      "evidence": [
+        "https://github.com/zhiheng-zhang-Mera/utopia/actions/runs/36574888667"
+      ]
+    },
+    {
+      "eventId": "MB-006:6a310ed1faf7df35",
+      "role": "MIGRATION",
+      "hostId": "Alien",
+      "eventType": "MIGRATION_COMPLETE",
+      "outcome": "PASS",
+      "timestamp": "2026-09-29T13:28:58.387Z",
+      "summary": "MB-006 migration stage complete on host Alien. Four modules landed in the new building city/02-engineering/04-restart-recovery-station: restart-protocol, restart-lock, checkpoint-gate, restart-ticket (76 parity tests), with the donor's single shared contract layer preserved as one source. Real consumption: the gateway's post-restart resume decision is owned by the migrated checkpoint-gate with Utopia's policy as data. Recorded boundaries, not hidden: three of four modules have no product consumer; the donor's restart-manager, supervisor, durable storage and audit were not migrated; the donor's two declared limitations (WAITING_FOR_EXIT has no deadline; allowForceTerminate is never consulted) are recorded verbatim and were NOT repaired; and MB-001/MB-003/MB-006 now all edit the same manifest, census test and bilingual docs. Branch not merged and mission:finalize not run. City report: Digital-City/mission-book/reports/MB-006/MIGRATION_REPORT.md.",
+      "evidence": [
+        "D:/Digital-City/mission-book/reports/MB-006/MIGRATION_REPORT.md"
+      ]
+    },
+    {
+      "eventId": "MB-006:3958262a8adc753c",
+      "role": "VERIFICATION",
+      "hostId": "Mech",
+      "eventType": "TEST_PASS",
+      "outcome": "PASS",
+      "timestamp": "2026-09-29T15:18:36.368Z",
+      "summary": "Verification gates green on the reconciled MB-006 tree d83ad16, which merges MB-001 (already in main) and MB-009's relocation. Local: root 62/62, city 305/305, apps/rooms 67/67, verify-promotion-history 10 records, check:docs SYNCHRONIZED. The real controlled process restart was re-run on this reconciled tree with the migrated modules deciding every step: a fail-closed scenario where the unbound checkpoint port refuses and the subject survives untouched, and an authorized scenario where the subject reads the graceful shutdown request, exits with its own code 7, is observed by the supervisor, and is relaunched as generation 2 under a different pid, with post-relaunch verification returning wrong_pid and the lock walking all declared edges back to IDLE.",
+      "evidence": []
+    },
+    {
+      "eventId": "MB-006:5b8e0d46d8b05f66",
+      "role": "VERIFICATION",
+      "hostId": "Mech",
+      "eventType": "CI_RESULT",
+      "outcome": "PASS",
+      "timestamp": "2026-09-29T15:18:42.093Z",
+      "summary": "Hosted required CI green for the verification SHA d83ad167b98276639d076a8095bfb449ef272aac: V0.2 checks run 36588756363 completed success, both jobs success (gateway-web, android).",
+      "evidence": []
+    },
+    {
+      "eventId": "MB-006:b67f1368cca5d1c3",
+      "role": "VERIFICATION",
+      "hostId": "Mech",
+      "eventType": "VERIFICATION_COMPLETE",
+      "outcome": "PASS",
+      "timestamp": "2026-09-29T15:18:48.051Z",
+      "summary": "MB-006 verification complete on host Mech, after an independent review written before the Migration Report. This host performed a real controlled process restart and relaunch of a real child process with every decision made by the migrated modules: fail-closed refusal when the checkpoint port is unbound, then a graceful shutdown the subject chose itself, an observed exit, a relaunch under a new pid, post-relaunch verification, and a 27-entry audit. The ticket ladder was compared rung by rung against the donor and all rejections exercised; both donor limitations are recorded verbatim and unrepaired; the reconciled tree merges MB-001's changes and passes root 62/62, city 305/305, rooms 67/67, with hosted CI 36588756363 green on gateway-web and android. One mission-design tension is recorded rather than silently satisfied: the gate asks for two hosts, while rule 5 permits one verification host.",
+      "evidence": []
+    },
+    {
+      "eventId": "MB-006:6db7f93d0fc4b198",
+      "role": "VERIFICATION",
+      "hostId": "Mech",
+      "eventType": "VERIFIER_FINDING",
+      "outcome": "BLOCKED",
+      "timestamp": "2026-09-29T15:19:02.683Z",
+      "summary": "Verifier finding from the rule 9 independent review, recorded before the Migration Report was read. (1) The crash-loop breaker and safe mode are NOT migrated: the ledgers defer the donor supervisor, so the ported code can carry the crashLoopState vocabulary and refuse with CRASH_LOOP but can never enter safe mode. The Mission's Mission-specific evidence list asks for a crash-loop/safe-mode targeted test, which the migrated boundary cannot produce without reimplementing the breaker, i.e. new capability. Recorded as a boundary, not repaired. (2) The Verification gate requires two hosts to complete a real controlled restart, while rule 5 permits exactly one verification host; this host therefore ran one real restart and records both readings of the clause rather than choosing one. (3) The donor's WAITING_FOR_EXIT has no deadline and force-terminate is never consulted; both are recorded verbatim and deliberately unrepaired, so a hung shutdown is still waited on indefinitely.",
+      "evidence": []
+    }
+  ],
+  "failures": [
+    {
+      "eventId": "MB-006:71ea239e0c6e2ac4",
+      "role": "MIGRATION",
+      "hostId": "Alien",
+      "eventType": "TEST_FAIL",
+      "outcome": "FAIL",
+      "timestamp": "2026-09-29T13:23:05.014Z",
+      "summary": "Three fidelity defects were found by review after the first ports reported green, all in the same class: the port had ADDED semantics the donor does not have. (1) restart-ticket's verifyTicket grew a field-presence and undeclared-field rung the donor lacks, changing verdicts for documents the donor accepts, and buildTicket grew a draft guard the donor does not have; (2) restart-ticket inlined its own copy of the checksum-defining canonicalJson and restart-lock/checkpoint-gate re-declared vocabularies that restart-protocol already owns, breaking the donor's single shared layer; (3) one checkpoint-gate assertion asserted a leniency the port had invented rather than the donor's declared required fields. A fourth, self-inflicted failure was a pinned 71-character digest literal silently written to disk with one extra character.",
+      "evidence": []
+    },
+    {
+      "eventId": "MB-006:6db7f93d0fc4b198",
+      "role": "VERIFICATION",
+      "hostId": "Mech",
+      "eventType": "VERIFIER_FINDING",
+      "outcome": "BLOCKED",
+      "timestamp": "2026-09-29T15:19:02.683Z",
+      "summary": "Verifier finding from the rule 9 independent review, recorded before the Migration Report was read. (1) The crash-loop breaker and safe mode are NOT migrated: the ledgers defer the donor supervisor, so the ported code can carry the crashLoopState vocabulary and refuse with CRASH_LOOP but can never enter safe mode. The Mission's Mission-specific evidence list asks for a crash-loop/safe-mode targeted test, which the migrated boundary cannot produce without reimplementing the breaker, i.e. new capability. Recorded as a boundary, not repaired. (2) The Verification gate requires two hosts to complete a real controlled restart, while rule 5 permits exactly one verification host; this host therefore ran one real restart and records both readings of the clause rather than choosing one. (3) The donor's WAITING_FOR_EXIT has no deadline and force-terminate is never consulted; both are recorded verbatim and deliberately unrepaired, so a hung shutdown is still waited on indefinitely.",
+      "evidence": []
+    }
+  ],
+  "rejectedApproaches": [],
+  "repairs": [
+    {
+      "eventId": "MB-006:a22d9f115d9943bb",
+      "role": "MIGRATION",
+      "hostId": "Alien",
+      "eventType": "REPAIR_APPLIED",
+      "outcome": "REPAIRED",
+      "timestamp": "2026-09-29T13:23:22.068Z",
+      "summary": "Repairs, all verified against the donor line by line. verifyTicket is now exactly the donor's six rungs in the donor's order with the donor's detail strings and no seventh rung; buildTicket is the donor's body verbatim, so an invalid instant throws the donor's own RangeError. The added rungs and the guard are deleted, and the false justification for them is replaced by a verdictParity block stating that no verdict differs. canonicalJson is imported from restart-protocol instead of duplicated, and restart-lock/checkpoint-gate import their vocabularies from restart-protocol rather than re-declaring them, so the donor's plugin -> shared direction is preserved as a cross-module import; identity assertions prove a re-declared copy cannot return silently. The leniency assertion now asserts the donor-faithful strictness plus a positive companion. The corrupted digest literal was repaired and the suite asserts its 71-char/64-hex shape. No assertion was deleted or weakened to reach green.",
+      "evidence": [
+        "city/02-engineering/04-restart-recovery-station/restart-ticket/DONOR.json"
+      ]
+    }
+  ],
+  "verifierFindings": [
+    {
+      "eventId": "MB-006:6db7f93d0fc4b198",
+      "role": "VERIFICATION",
+      "hostId": "Mech",
+      "eventType": "VERIFIER_FINDING",
+      "outcome": "BLOCKED",
+      "timestamp": "2026-09-29T15:19:02.683Z",
+      "summary": "Verifier finding from the rule 9 independent review, recorded before the Migration Report was read. (1) The crash-loop breaker and safe mode are NOT migrated: the ledgers defer the donor supervisor, so the ported code can carry the crashLoopState vocabulary and refuse with CRASH_LOOP but can never enter safe mode. The Mission's Mission-specific evidence list asks for a crash-loop/safe-mode targeted test, which the migrated boundary cannot produce without reimplementing the breaker, i.e. new capability. Recorded as a boundary, not repaired. (2) The Verification gate requires two hosts to complete a real controlled restart, while rule 5 permits exactly one verification host; this host therefore ran one real restart and records both readings of the clause rather than choosing one. (3) The donor's WAITING_FOR_EXIT has no deadline and force-terminate is never consulted; both are recorded verbatim and deliberately unrepaired, so a hung shutdown is still waited on indefinitely.",
+      "evidence": []
+    }
+  ],
+  "acceptedApproach": {
+    "summary": "MB-006 verification complete on host Mech, after an independent review written before the Migration Report. This host performed a real controlled process restart and relaunch of a real child process with every decision made by the migrated modules: fail-closed refusal when the checkpoint port is unbound, then a graceful shutdown the subject chose itself, an observed exit, a relaunch under a new pid, post-relaunch verification, and a 27-entry audit. The ticket ladder was compared rung by rung against the donor and all rejections exercised; both donor limitations are recorded verbatim and unrepaired; the reconciled tree merges MB-001's changes and passes root 62/62, city 305/305, rooms 67/67, with hosted CI 36588756363 green on gateway-web and android. One mission-design tension is recorded rather than silently satisfied: the gate asks for two hosts, while rule 5 permits one verification host.",
+    "eventId": "MB-006:b67f1368cca5d1c3"
+  },
+  "metrics": {
+    "eventCount": 13,
+    "attempts": 1,
+    "testPasses": 2,
+    "testFailures": 1,
+    "runtimePasses": 1,
+    "runtimeFailures": 0,
+    "repairs": 1,
+    "verifierFindings": 1,
+    "ownerInterventions": 0
+  },
+  "evidence": [
+    "D:/Digital-City/mission-book/MB-006-restart-recovery.md",
+    "city/02-engineering/04-restart-recovery-station",
+    "tests/gateway.test.mjs",
+    "services/dev-gateway/server.mjs",
+    "city/02-engineering/04-restart-recovery-station/restart-ticket/DONOR.json",
+    "https://github.com/zhiheng-zhang-Mera/utopia/actions/runs/36574888667",
+    "D:/Digital-City/mission-book/reports/MB-006/MIGRATION_REPORT.md"
+  ],
+  "ci": {
+    "run": "36588756363",
+    "outcome": "PASS"
+  },
+  "learning": {
+    "eligible": true,
+    "authority": "EXPERIENCE_ONLY"
+  }
+}

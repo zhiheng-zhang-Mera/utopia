@@ -29,5 +29,14 @@ test('Windows Services invokes real document, knowledge, skill, evidence and the
   assert.deepEqual(errors,[],'late completion must not mutate a detached Services editor');
   await page.locator('[data-page="Services"]').click();
   assert.equal(await page.locator('#service-state').innerText(),'','late result stays in shared history, not a different view');
+  const pendingGate=await page.evaluate(async()=>{
+   const {renderServices}=await import('/services.js');const container=document.createElement('div');document.body.replaceChildren(container);
+   const city={capabilities:[{capabilityId:'available',name:'Theme',inputKind:'theme',bridgeState:'AVAILABLE',operations:[{operationId:'generate'}]},{capabilityId:'future',name:'Future',bridgeState:'BRIDGE_PENDING',operations:[]}],invocations:[]};
+   let calls=0;renderServices(container,city,true,async()=>{calls++;await new Promise(r=>setTimeout(r,100));return {status:'COMPLETED'};});
+   container.querySelector('[data-service="available"]').click();container.querySelector('#service-invoke').click();container.querySelector('[data-service="future"]').click();await new Promise(r=>setTimeout(r,160));
+   const disabled=container.querySelector('#service-invoke').disabled;
+   container.querySelector('[data-service="available"]').click();container.querySelector('#service-invoke').click();await new Promise(r=>setTimeout(r,160));return {disabled,calls};
+  });
+  assert.deepEqual(pendingGate,{disabled:true,calls:2},'late completion must preserve pending gate and leave available services usable');
  }finally{await browser.close();await g.close();await rm(dir,{recursive:true,force:true});}
 });

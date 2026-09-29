@@ -12,6 +12,39 @@
     "role": "MIGRATION",
     "cluster": "the shared restart wire protocol and request admission: shape and policy validation order, refusal codes, request normalisation and fingerprinting, and the protocol/config vocabularies"
   },
+  "donorLimitations": {
+    "note": "MB-006 requires the donor's known limitations to be recorded verbatim and NOT repaired in passing ('已知两项 donor limitation 必须原样记录，不得在迁移中顺手修好'). These are the donor's own words at e20fb6cc43e27cedf6303471e5b8ee18e1383ecd. None of the code that would exhibit them was migrated, so nothing here is a claim about the ported modules; they are recorded so a later mission does not silently close a donor gap and call it a migration.",
+    "items": [
+      {
+        "id": "WAITING_FOR_EXIT_HAS_NO_DEADLINE",
+        "donorSource": "docs/failure-modes.md:106-109",
+        "verbatim": "There is **no timeout** on `WAITING_FOR_EXIT`, and **no \"dirty restart\" record** is written anywhere.",
+        "supporting": "docs/acceptance.zh.md:111 — 「截止时间尚未实现」：`WAITING_FOR_EXIT` 没有超时，`allowForceTerminate` 从未被读取。 README.md:244 — the supervisor's `WAITING_FOR_EXIT` state has no deadline, so a hung shutdown is waited on indefinitely.",
+        "status": "NOT_MIGRATED_AND_NOT_FIXED"
+      },
+      {
+        "id": "ALLOW_FORCE_TERMINATE_NEVER_CONSULTED",
+        "donorSource": "README.md:272",
+        "verbatim": "`safety.allowForceTerminate` | boolean | `false` | declared, validated, **never consulted** by this release",
+        "supporting": "docs/failure-modes.md:108 — `safety.allowForceTerminate` is read, but only after `WAITING_FOR_EXIT` exceeds `safety.shutdownTimeoutMs`, and it still needs a bound `ProcessTerminator`. The shipped `bin/supervisor.mjs` binds one only when that setting is on, so the default supervisor cannot terminate anything.",
+        "status": "NOT_MIGRATED_AND_NOT_FIXED"
+      }
+    ],
+    "additionalDonorGapsObserved": [
+      {
+        "id": "SUPERVISOR_STATE_STOPPED_NEVER_ASSIGNED",
+        "donorSource": "docs/architecture.md:193",
+        "verbatim": "`STOPPED` | declared in the `SupervisorState` union | **never assigned by any code path**",
+        "status": "VOCABULARY_MIGRATED_AS_DECLARED; the state is present in SUPERVISOR_STATES because the donor declares it, and no code path in this port assigns it either."
+      },
+      {
+        "id": "CROSS_RESTART_COOLDOWN_NOT_ENFORCED",
+        "donorSource": "docs/acceptance.md:111",
+        "verbatim": "cooldown state is in-memory, so a fresh process starts with `remainingMs: 0`. The cross-restart bound is therefore **not** enforced",
+        "status": "NOT_MIGRATED_AND_NOT_FIXED"
+      }
+    ]
+  },
   "repository": "zhiheng-zhang-Mera/dsh-restart",
   "commit": "e20fb6cc43e27cedf6303471e5b8ee18e1383ecd",
   "sourcePaths": [

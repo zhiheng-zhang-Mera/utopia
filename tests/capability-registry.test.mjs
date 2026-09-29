@@ -23,7 +23,7 @@ test('unbridged duplicate module names receive different qualified capability ID
  const m=load();for(const b of m.districts[2].buildings)b.modules.push({id:'parser',lifecycle:'PROMOTED'});
  const pending=registry(m).filter(c=>c.inputKind==='unavailable');assert.equal(pending.length,2);assert.equal(new Set(pending.map(c=>c.capabilityId)).size,2);
 });
-test('Theme advertises only its implemented generate operation and refuses validate',async()=>{
- assert.deepEqual(registry().find(c=>c.capabilityId==='presentation.theme.lab').operations,[{operationId:'generate'}]);
+test('Theme advertises implemented generate and build operations and refuses validate',async()=>{
+ assert.deepEqual(registry().find(c=>c.capabilityId==='presentation.theme.lab').operations,[{operationId:'generate'},{operationId:'build'}]);
  await assert.rejects(invokeAdapter('presentation.theme.lab','validate',{}),{code:'OPERATION_BLOCKED'});
 });

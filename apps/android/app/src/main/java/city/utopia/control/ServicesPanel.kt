@@ -6,6 +6,7 @@ import android.util.Base64
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -53,6 +54,12 @@ private fun JSONArray?.values(): List<JSONObject> = if(this==null) emptyList() e
  var seed by remember { mutableStateOf("utopia") }
  var style by remember { mutableStateOf("research") }
  var accent by remember { mutableStateOf("#4d93f8") }
+ var themeOperation by remember { mutableStateOf("generate") }
+ var themeOperationMenu by remember { mutableStateOf(false) }
+ var themePrompt by remember { mutableStateOf("blue research compact no persona") }
+ var themeObservation by remember { mutableStateOf("none") }
+ var themeObservationMenu by remember { mutableStateOf(false) }
+ var themeFailure by remember { mutableStateOf(false) }
  var showDetails by remember { mutableStateOf(false) }
  var detailLoading by remember { mutableStateOf(false) }
  val descriptor=descriptors.find { it.optString("capabilityId")==selected }
@@ -82,7 +89,7 @@ private fun JSONArray?.values(): List<JSONObject> = if(this==null) emptyList() e
     "knowledge" -> {operation=if(useDocument)"fromDocument" else "query";JSONObject().put("query",query).put("budget",budget.toInt()).put("trustFloor",trust).apply {if(useDocument)put("document",document?:throw IllegalArgumentException("DOCUMENT_REQUIRED")) else put("entries",JSONArray(entries))}}
     "skill" -> {operation=skillOperation;if(operation=="archive")JSONObject().put("base64",Base64.encodeToString(fileBytes?:throw IllegalArgumentException("CHOOSE_FILE"),Base64.NO_WRAP)) else JSONObject().put("ref",reference).put("subpath",subpath).put("text",skillText).put("query",reference)}
     "evidence" -> {operation=if(tamper)"tamper" else "review";JSONObject(evidenceInput)}
-    "theme" -> {operation="generate";JSONObject().put("seed",seed).put("style",style).put("palette",JSONObject().put("accent",accent))}
+    "theme" -> {operation=themeOperation;if(operation=="build")JSONObject().put("prompt",themePrompt).put("observationPreset",themeObservation).put("injectFailure",themeFailure) else JSONObject().put("seed",seed).put("style",style).put("palette",JSONObject().put("accent",accent))}
     else -> throw IllegalArgumentException("BRIDGE_PENDING")
    }
    resultFence.invalidate();val ticket=resultFence.ticket()?:return
@@ -114,7 +121,17 @@ private fun JSONArray?.values(): List<JSONObject> = if(this==null) emptyList() e
     Text("Inspection only. No installation or remote code execution.",fontSize=12.sp)
    }
    "evidence" -> {OutlinedButton(onClick={resultFence.invalidate();detailLoading=false;evidenceInput="{\"sample\":true}";result=null}){Text("Load public sample")};OutlinedTextField(evidenceInput,{evidenceInput=it},label={Text("Evidence JSON")},maxLines=6,modifier=Modifier.fillMaxWidth());Text("Integrity and references only; does not verify claims as true.",fontSize=12.sp);OutlinedButton(onClick={invoke(true)},enabled=enabled){Text("Tamper Test")}}
-   "theme" -> {OutlinedTextField(seed,{seed=it},label={Text("Seed")},modifier=Modifier.fillMaxWidth());OutlinedTextField(style,{style=it},label={Text("Style")},modifier=Modifier.fillMaxWidth());OutlinedTextField(accent,{accent=it},label={Text("Accent color")},modifier=Modifier.fillMaxWidth());Text("Generate, preview and validate; no global apply.",fontSize=12.sp)}
+   "theme" -> {
+    Box {OutlinedButton(onClick={themeOperationMenu=true},enabled=!busy){Text("Theme action: $themeOperation")};DropdownMenu(themeOperationMenu,{themeOperationMenu=false}){listOf("generate","build").forEach { op -> DropdownMenuItem(text={Text(op)},onClick={resultFence.invalidate();detailLoading=false;themeOperation=op;themeOperationMenu=false;result=null}) }}}
+    if(themeOperation=="generate"){
+     OutlinedTextField(seed,{seed=it},label={Text("Seed")},modifier=Modifier.fillMaxWidth());OutlinedTextField(style,{style=it},label={Text("Style")},modifier=Modifier.fillMaxWidth());OutlinedTextField(accent,{accent=it},label={Text("Accent color")},modifier=Modifier.fillMaxWidth())
+    }else{
+     OutlinedTextField(themePrompt,{themePrompt=it},label={Text("Theme prompt")},enabled=!busy,modifier=Modifier.fillMaxWidth())
+     Box {OutlinedButton(onClick={themeObservationMenu=true},enabled=!busy){Text("Observation: $themeObservation")};DropdownMenu(themeObservationMenu,{themeObservationMenu=false}){listOf("none","desktop").forEach { preset -> DropdownMenuItem(text={Text(preset)},onClick={themeObservation=preset;themeObservationMenu=false}) }}}
+     Row(Modifier.clickable(enabled=!busy){themeFailure=!themeFailure}){Checkbox(themeFailure,{themeFailure=it},enabled=!busy);Text("Test image failure")}
+    }
+    Text("Generate, preview and validate; no global apply.",fontSize=12.sp)
+   }
   }
   Button(onClick={invoke()},enabled=enabled,modifier=Modifier.fillMaxWidth()){Text(if(busy)"Running…" else "Run service")}
   if(busy)LinearProgressIndicator(modifier=Modifier.fillMaxWidth())
@@ -134,6 +151,7 @@ private fun JSONArray?.values(): List<JSONObject> = if(this==null) emptyList() e
     if(payload.has("matches"))payload.getJSONArray("matches").values().forEach {Text(it.optString("title")+": "+it.optString("content"))}
     payload.optJSONObject("bundle")?.let { b ->Text("Decision: "+b.optString("decision"));Text("Integrity root: "+b.optString("integrityRoot"),fontSize=11.sp);b.optJSONArray("claims").values().forEach {Text(it.optString("status")+": "+it.optString("text"))}}
     if(payload.has("previewPngBase64")){val bitmap=remember(payload.optString("previewPngBase64")){runCatching {val bytes=Base64.decode(payload.getString("previewPngBase64"),Base64.DEFAULT);BitmapFactory.decodeByteArray(bytes,0,bytes.size)}.getOrNull()};bitmap?.let {Image(it.asImageBitmap(),"Theme preview",Modifier.fillMaxWidth().height(180.dp))};Text("Validation: "+payload.optJSONObject("validation")?.optBoolean("ok"))}
+    if(payload.has("packageDigest")){Text("Package: "+payload.optString("packageDigest"),fontSize=11.sp);Text((if(payload.optBoolean("observed"))"Observed layout" else "No observation · degraded layout")+" · Fallback: "+(payload.optJSONObject("fallback")?.optJSONArray("degraded_assets")?.length()?:0)+" · Disabled: "+(payload.optJSONObject("fallback")?.optJSONArray("disabled")?.length()?:0),fontSize=12.sp)}
     OutlinedButton(onClick={showDetails=!showDetails}){Text(if(showDetails)"Hide result details" else "Show result details")}
     if(showDetails){val readable=JSONObject(payload.toString());readable.remove("previewPngBase64");Text(readable.toString(2),fontSize=12.sp)}
     if(row.optString("capabilityId")=="planning.document.intake"&&row.optString("status")=="COMPLETED")OutlinedButton(onClick={resultFence.invalidate();document=payload;useDocument=true;selected="planning.knowledge.query";result=null;detailLoading=false}){Text("Query this document")}

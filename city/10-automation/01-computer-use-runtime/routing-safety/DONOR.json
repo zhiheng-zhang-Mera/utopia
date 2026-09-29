@@ -1,0 +1,112 @@
+{
+  "module": "routing-safety",
+  "cityPath": "city/10-automation/01-computer-use-runtime/routing-safety",
+  "district": "10-automation",
+  "building": "01-computer-use-runtime",
+  "incubationRooms": [
+    "mb-008-routing-safety-lab"
+  ],
+  "mission": {
+    "missionId": "MB-008",
+    "book": "Digital-City/mission-book/MB-008-computer-use.md",
+    "role": "MIGRATION",
+    "cluster": "channel routing with reason and ordered alternatives, destructive-action and focus/foreground/modal safety gates, secret redaction, and evidence risk grading"
+  },
+  "repository": "zhiheng-zhang-Mera/DS-Hns",
+  "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+  "sourcePaths": [
+    "app/computer-use/routing.cjs",
+    "app/computer-use/safety.cjs",
+    "app/computer-use/modal.cjs",
+    "app/computer-use/evidence.cjs"
+  ],
+  "portedFiles": {
+    "app/computer-use/routing.cjs": "routing.mjs",
+    "app/computer-use/safety.cjs": "safety.mjs",
+    "app/computer-use/modal.cjs": "modal.mjs",
+    "app/computer-use/evidence.cjs": "evidence.mjs"
+  },
+  "adaptation": [
+    "CommonJS `.cjs` -> plain ESM `.mjs`. Every decision object, reason string, message, code, ordering, threshold and precedence is the donor's, character for character; the only edits are `require` -> `import`, `module.exports` -> `export`, and the removal of the `'use strict'` prologue that ESM makes redundant.",
+    "The four ported files consume donor siblings that are being ported concurrently, so nothing here imports them. `contracts.mjs` redeclares, verbatim, only the values the four ported files actually used: `constants.cjs` -> `ACTION_TYPES`, `ROUTE_CHANNELS`, `VERIFICATION_KINDS`, `DESTRUCTIVE_KINDS`, `DESTRUCTIVE_MODES`; `errors.cjs` -> `CODES`, `ComputerUseError`, `redactDetails`; `action.cjs` -> `describeAction`, `destructiveKinds`; `target.cjs` -> `describeTarget`; `contract.cjs` -> `hasCapability`. No donor value was re-derived, widened or narrowed, and no sibling module was imported.",
+    "`contracts.mjs` also re-exports `describeAction`, `destructiveKinds` and `describeTarget` because `safety.cjs` consumed them from its siblings; they are helpers, not extra behaviour, and `evidence.cjs` calls `describeTargetName` inside itself exactly as the donor does.",
+    "`contracts.mjs` declares only the `CODES` members the four ported modules can raise (`CONTROLLER_UNAVAILABLE`, `ACTION_UNSUPPORTED`, `WINDOW_MISMATCH`, `FOCUS_MISMATCH`, `SAFETY_REFUSED`, `DESTRUCTIVE_FORBIDDEN`, `DESTRUCTIVE_NEEDS_CONFIRMATION`, `MODAL_BLOCKING`) instead of reproducing the donor's whole table, so no ported file can report a code it never raised. The `ComputerUseError` shape (`name`, `code`, `details`, `retryable`, `controllerId`, `state`, `toJSON`) and `redactDetails`/`SENSITIVE_KEY` are the donor's verbatim.",
+    "`assertActionAllowed`'s confirmation branch is ported in full (the host `confirm` request shape, the refused answer and the `SAFETY_REFUSED` throw), but nothing in this building or in the building's neighbours ever supplies a `confirm` callback, so the branch is unreachable in this tree by construction rather than by removal. It is recorded under `classification.DEFERRED`.",
+    "Time is the one non-deterministic input `safety.cjs` has: `createSafetyGuard` still defaults `now` to `Date.now()`, exactly as the donor does, and the suite injects `now` so the recorded audit trail is deterministic. No `Math.random`, no `process.env`, no filesystem and no network is used anywhere in the ported files; ids are never generated.",
+    "`index.mjs` is a barrel over the four ported modules. It adds no export that the donor `module.exports` blocks did not already have; the `contracts.mjs` values are re-exported only because a donor consumer reached them through `constants.cjs`/`errors.cjs`.",
+    "Purity: the four modules are pure functions of their arguments and of the injected clock. `routeAction` reads only the action and the host's availability/world/contract context; `createSafetyGuard` accumulates its audit trail in a local array; `classifyRisk`/`gradeEvidence`/`assess` learn nothing between calls."
+  ],
+  "knownDifferences": [
+    "DEFERRED and unreachable: `assertActionAllowed`'s live confirmation path needs a host `confirm` callback and no Utopia consumer exists. The code is ported and covered by a test that supplies a callback, but nothing in this tree wires it; the production path a real caller takes is `DESTRUCTIVE_NEEDS_CONFIRMATION`.",
+    "DEFERRED: all of `controllers/**`. This module ports routing and safety decisions only; no browser, desktop, accessibility, vision, file or shell controller is imported, constructed or contacted.",
+    "DEFERRED: the donor's remaining `CODES` members and its `defaultRetryable` table. Only `CONTROLLER_UNAVAILABLE`, `ACTION_UNSUPPORTED`, `WINDOW_MISMATCH`, `FOCUS_MISMATCH`, `SAFETY_REFUSED`, `DESTRUCTIVE_FORBIDDEN`, `DESTRUCTIVE_NEEDS_CONFIRMATION` and `MODAL_BLOCKING` are reachable from the ported surface, and only `MODAL_BLOCKING` is retryable among them, exactly as the donor's table has it.",
+    "DEFERRED: target resolution, world observation, verification, the executor, the state machine, contracts and plan intake. `routeAction` consumes a `context.resolved` that some other module must produce.",
+    "The donor never declares `ACTION_TYPES.OPEN_APP`'s api plan, so the `channel === 'api' && context.action.type === OPEN_APP` branch in `channelAvailable` is dead code. Preserved verbatim rather than removed, because it is donor behaviour and removing it would change nothing observable while making the port harder to compare.",
+    "The api channel does not consult `context.pageReady`. `BROWSER_NAVIGATE` therefore routes to `api` with `ok: true` even when no page is attached; `pageReady === false` only changes the reason `describeUnavailable` reports for `api`/`dom` and only actually gates `dom`. Pinned by test.",
+    "`vision` availability reports the *desktop* controller reason when the desktop capability is missing (`isAvailable(availability, 'desktop')` is false), so a degraded vision controller is never named in that combination. Pinned by test.",
+    "The accessibility channel consumes the `desktop` capability, so an available desktop makes accessibility *available* even when no accessibility controller was provided; it is then refused as unsuited rather than unavailable. Pinned by test.",
+    "`checkWindow` reads its safety toggle from the guard's own `options.contract` (`createSafetyGuard({ contract })`), never from the `context` passed to the call, while `evaluateDestructive` reads `context.contract || options.contract`. A caller cannot disable the foreground check per action. Pinned by test.",
+    "`checkFocus` reads `options.contract` from `createSafetyGuard`'s closure (its third parameter is named `options_`), so `safety.requireFocusForTyping === false` on the guard's contract does disable the focus check, unlike the per-call context. Pinned by test.",
+    "`record()` pushes `{ at, ...decision }` into the audit trail but returns the un-stamped `decision`, so the value a caller receives has no `at` field. Pinned by test.",
+    "The `destructive-confirmation` record spreads `...decision` last, so a confirmed destructive action is recorded with `kind: 'destructive'` and `requiresConfirmation: true` again; a `kind: 'destructive-confirmation'` entry never appears in the trail. Preserved and pinned.",
+    "`modal.cjs` decides a label by *substring* regular expression, not by whole-label equality, so a table is reached by any contained word: \"Send later\" is a `SEND` while \"Later\" is a dismissal, \"Delete and close\" is a `DELETE` although it contains \"close\", \"Reset\" is a `DELETE`, and \"上传\" resolves to `PUBLISH` (a later table) even though the `SEND` table also names it. `POSITIVE_LABELS` matches a bare \"Yes\", which makes the bare-yes/no fallback below it reachable only for labels that table misses (\"是\", \"好的\"). Pinned by test.",
+    "The dismissal, neutral and positive tables hold bare `RegExp` values while the destructive table holds `{ pattern, kind }` records. That asymmetry is the donor's and is asserted directly.",
+    "`FILE_DELETE` is listed in `HIGH_RISK_ACTIONS` and is not in `CRITICAL_KEYWORDS`, and a bare `FILE_DELETE` action declares no destructive kind and its description (\"FILE_DELETE path=...\") names no destructive word. `classifyRisk` therefore returns `high`, not `critical`, for it, so the critical \"must declare its expected effect\" rule never fires for a plain file deletion. Pinned by test.",
+    "`gradeEvidence` returns `medium` — not `weak` — when a declared expected effect held and the verification kind is `none`/`visual`/`state`/`focus`, and returns `strong` when the kind is `direct`/`event` or any medium kind. A `direct` \"something changed\" observation therefore grades `strong` (and clears a critical bar) once a declared effect is present, while the same kind without a declared effect grades `weak`. Pinned at, just below and just above each boundary.",
+    "A single evidence entry with an unrecognised `strength` discards the whole declared-strength branch, so a mix of `strong` and `cosmic` falls through to the kind table instead of taking the strongest of the recognised ones. Pinned by test."
+  ],
+  "parity": {
+    "vectorSource": "DS-Hns app/computer-use/{routing,safety,modal,evidence}.cjs @ eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+    "vectors": [
+      "CHANNEL_PLANS is the donor table action by action (36 of 36, in declaration order), and fallbackChannels returns an ordered copy of the plan",
+      "every planned channel has exactly the donor capability and controller mapping",
+      "channelRank is the index in the donor cost ladder [api, file, shell, dom, accessibility, gui, vision], and the ladder length for an unknown channel",
+      "isBrowserAction is the donor's case-sensitive BROWSER_/DOM_ prefix test",
+      "an unknown action type is refused with ACTION_UNSUPPORTED, `no routing plan for <type>` and an empty alternative list",
+      "routeAction returns the first channel that is allowed, available and suitable, with the donor reason and `alternatives` = the failed attempts' channels followed by the untouched tail of the plan",
+      "a contract that withholds a capability records `capability \"<c>\" is not allowed by the contract` and continues to the next rung",
+      "an unavailable channel is described from the host's availability entry (`<label> unavailable: <reason>` / `<label> unavailable` / `<label> was not provided by the host`), and with `pageReady === false` the browser channels report `no browser page is attached to the runtime`",
+      "an available-but-unsuited channel reports the donor unsuitability reason, and `no available channel for <type>` + CONTROLLER_UNAVAILABLE is returned when no rung fits",
+      "the destructive gate classifies via the donor destructiveKinds (declared kinds, FILE_DELETE, and the rm/format/install/git-push shell patterns), defaults to `confirm` with no contract, refuses under `forbidden` with DESTRUCTIVE_FORBIDDEN, and records every decision with the injected clock",
+      "TYPING_ACTIONS and POINTING_ACTIONS are the donor sets, and checkWindow covers ACCESSIBILITY_INVOKE as well as the pointing actions",
+      "checkWindow refuses an unobservable foreground with WINDOW_MISMATCH, and a mismatched foreground with the observed title and process id",
+      "matchesWindow compares handle and processId by string/number coercion, className case-insensitively, and process/title by case-insensitive containment",
+      "checkFocus refuses typing with no observed focus (FOCUS_MISMATCH), refuses a targeted type whose focus is elsewhere, and accepts a verified focus receipt or a matching resolved ref",
+      "inspectModals treats a dialog as blocking unless `blocking === false` or `open === false`, defaults `dismissible` to null and `unexpected` to true, and assertNoBlockingModal throws MODAL_BLOCKING with the messages joined by `; `",
+      "redactAction redacts text/value for sensitive or typing actions, masks single-character keys only for a sensitive action, redacts stdin, reduces env to its key list, and redactText removes inline secrets and bearer tokens",
+      "classifyControl consults the destructive table first, then safe-dismiss, neutral, positive, then the bare-yes/no fallback, and returns the donor reason for each",
+      "classifyModal keeps each control's ref/label/source/role/bbox, counts the kinds, and records the dialog message's destructive kind from the first matching table entry",
+      "chooseControl prefers a safe dismissal unconditionally; presses a destructive control only under a non-forbidden mode AND a declared matching expected effect AND `safetyPassed === true`; presses a positive confirmation only with a declared effect or destructive kind; presses an acknowledgement only for a harmless message; and otherwise requires the user with the donor reason",
+      "planModal drops disabled candidates before classification, never falls back to the first button, and returns the chosen ref and surface",
+      "destructiveAllowed is false only for the exact `forbidden` mode, and isDestructiveKind is the donor DESTRUCTIVE_KINDS membership test",
+      "classifyRisk returns standard for no action, critical for a declared destructive kind / `destructive: true` / a destructive-or-public keyword in the description or target name, low for LOW_RISK_ACTIONS, high for HIGH_RISK_ACTIONS, and standard for an interactive desktop/browser action",
+      "a modal dismissal (`params.__modalDismiss`) is low risk and is the only exemption from the critical declared-effect requirement",
+      "gradeEvidence refuses to grade a non-success verdict, takes the strongest controller-declared strength, grades file/process/navigation strong, state/focus/visual medium, and direct/event/none weak, and upgrades to strong (or medium) when a declared expected effect held",
+      "RISK_BAR is weak/medium/strong/strong for low/standard/high/critical, and assess fails a non-success verdict before any bar comparison",
+      "assess returns `ok` only when the grade reaches the bar, with the donor's clear/does-not-clear reason string, and concatenates the grade reasons before the risk reasons"
+    ]
+  },
+  "classification": {
+    "PARITY": [
+      "channel plan table, ordered fallbacks and route reasons",
+      "capability/controller mapping and the cost-ladder rank",
+      "destructive classification including the shell command patterns",
+      "window/foreground matching and focus verification",
+      "modal label classification, precedence and the fail-safe control choice",
+      "risk classification and the evidence grade bar"
+    ],
+    "PORT_ADAPTATION": [
+      "CommonJS .cjs -> plain ESM .mjs",
+      "donor siblings redeclared locally in contracts.mjs instead of imported",
+      "CODES restricted to the members reachable from these four modules",
+      "createSafetyGuard keeps the donor's Date.now default; tests inject `now`"
+    ],
+    "UTOPIA_EXTENSION": [],
+    "DEFERRED": [
+      "assertActionAllowed's live confirmation path (needs a host confirm callback; unreachable, not wired)",
+      "controllers/** (browser, desktop, accessibility, vision, file, shell)",
+      "the donor's remaining error codes and retryable entries",
+      "target resolution, world observation, verification and the executor loop"
+    ]
+  }
+}

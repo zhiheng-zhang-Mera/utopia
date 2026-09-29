@@ -8,11 +8,12 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
   CITY_LIFECYCLES,
+  CITY_ROOT,
   IMPLEMENTED_LIFECYCLES,
   MANIFEST_SCHEMA_VERSION,
   ManifestError,
@@ -24,22 +25,36 @@ import {
   validateManifest,
 } from '../manifest.mjs';
 
+/**
+ * Every module the manifest declares, in declaration order.
+ *
+ * This is a census, not an aspiration: each entry must have real code in the tree. The
+ * wave-1 modules are followed by the MB-008 Computer Use Runtime modules, which were
+ * migrated by the Digital-City mission-book control plane rather than incubated in the
+ * Room Pack.
+ */
 const WAVE1 = [
   'city/02-engineering/02-worker-gateway/skill-intake',
   'city/06-research/01-research-institute/evidence-engine',
   'city/09-planning-knowledge/01-knowledge-service/knowledge-core',
   'city/09-planning-knowledge/02-document-intake/ingestion-core',
   'city/09-planning-knowledge/02-document-intake/document-readers',
+  'city/10-automation/01-computer-use-runtime/execution-contract',
+  'city/10-automation/01-computer-use-runtime/target-guard',
+  'city/10-automation/01-computer-use-runtime/routing-safety',
+  'city/10-automation/01-computer-use-runtime/world-verification',
+  'city/10-automation/01-computer-use-runtime/bounded-run',
+  'city/10-automation/01-computer-use-runtime/backend-surface',
   'city/11-entertainment/01-entertainment-centre/theme-engine',
 ];
 
-test('the real manifest describes exactly the wave 1 districts and modules', async () => {
+test('the real manifest describes exactly the districts and modules that exist', async () => {
   const manifest = await loadManifest();
   assert.equal(manifest.schemaVersion, MANIFEST_SCHEMA_VERSION);
   assert.equal(manifest.schemaVersion, 2);
   assert.deepEqual(
     manifest.districts.map((district) => district.id),
-    ['02-engineering', '06-research', '09-planning-knowledge', '11-entertainment'],
+    ['02-engineering', '06-research', '09-planning-knowledge', '10-automation', '11-entertainment'],
     'only the districts that actually exist are declared',
   );
   for (const district of manifest.districts) {
@@ -96,6 +111,59 @@ test('the manifest and the city tree agree on what exists', async () => {
   const manifest = await loadManifest();
   const problems = await checkManifestAgainstTree(manifest);
   assert.deepEqual(problems, [], 'every implemented module exists and no unplanned module directory has appeared');
+});
+
+/**
+ * Two incubation identities are recognised by this tree, and they must never blur:
+ *
+ *   - a Room Pack incubator room, recorded as `apps/rooms/promotions/<id>.json`;
+ *   - a mission-book migration incubator, whose id is `mb-<MISSION_ID>-<module>-lab` and
+ *     which must ALSO carry a `mission` block.
+ *
+ * Digital-City/mission-book is a separate Owner-defined control plane: it lands code
+ * directly under city/ on a mission branch, accepted by a second host, instead of
+ * incubating a live Room first. Recording that honestly is the point of this test —
+ * without it a mission migration could claim a room that never existed.
+ */
+test('mission-book incubators are named and provenanced, and Room Pack incubators are not disguised', async () => {
+  const manifest = await loadManifest();
+  const modules = flattenModules(manifest);
+  const missionModules = modules.filter((entry) => entry.incubationRooms.some((room) => room.startsWith('mb-')));
+
+  assert.ok(missionModules.length > 0, 'the mission-book modules are declared as mission incubations');
+
+  for (const { module } of modules) {
+    const rooms = moduleIncubationRooms(module);
+    const missionRooms = rooms.filter((room) => room.startsWith('mb-'));
+    if (missionRooms.length === 0) {
+      assert.equal(module.mission, undefined, `${module.id} is not mission-incubated and must not carry a mission block`);
+      continue;
+    }
+    assert.equal(missionRooms.length, rooms.length, `${module.id} must not mix a mission incubator with a Room Pack room`);
+    assert.ok(module.mission && typeof module.mission.missionId === 'string', `${module.id} names its mission`);
+    assert.match(module.mission.missionId, /^MB-[0-9]{3}$/, `${module.id} mission id looks like MB-xxx`);
+    const prefix = module.mission.missionId.toLowerCase();
+    for (const room of missionRooms) {
+      assert.match(room, /^mb-[0-9]{3}-[a-z0-9-]+-lab$/, `${module.id} mission incubator room id shape`);
+      assert.ok(room.startsWith(`${prefix}-`), `${module.id} room ${room} must start with its mission id ${prefix}`);
+      assert.ok(room.includes(module.id), `${module.id} room ${room} must name the module it incubated`);
+    }
+    assert.ok(typeof module.mission.cluster === 'string' && module.mission.cluster.length > 0, `${module.id} names its cluster`);
+  }
+
+  // The on-disk provenance must agree with the manifest, so the manifest cannot claim an
+  // incubation the module's own DONOR.json does not record.
+  for (const { module } of missionModules) {
+    const donorPath = join(CITY_ROOT, module.path.replace(/^city\//, ''), 'DONOR.json');
+    const donor = JSON.parse(await readFile(donorPath, 'utf8'));
+    assert.equal(donor.module, module.id, `${module.id} DONOR.json names the module`);
+    assert.equal(donor.cityPath, module.path, `${module.id} DONOR.json records the same city path`);
+    assert.deepEqual(donor.incubationRooms, moduleIncubationRooms(module), `${module.id} DONOR.json agrees on the incubator`);
+    assert.equal(donor.commit, module.donor.commit, `${module.id} DONOR.json agrees on the donor commit`);
+    assert.equal(donor.repository, module.donor.repository, `${module.id} DONOR.json agrees on the donor repository`);
+    assert.equal(donor.mission?.missionId, module.mission.missionId, `${module.id} DONOR.json agrees on the mission id`);
+    assert.equal(donor.mission?.cluster, module.mission.cluster, `${module.id} DONOR.json agrees on the cluster`);
+  }
 });
 
 test('the manifest rejects malformed hierarchy, paths and lifecycles', async () => {

@@ -1,0 +1,90 @@
+{
+  "module": "target-guard",
+  "cityPath": "city/10-automation/01-computer-use-runtime/target-guard",
+  "district": "10-automation",
+  "building": "01-computer-use-runtime",
+  "incubationRooms": [
+    "mb-008-target-guard-lab"
+  ],
+  "mission": {
+    "missionId": "MB-008",
+    "book": "Digital-City/mission-book/MB-008-computer-use.md",
+    "role": "MIGRATION",
+    "cluster": "the Hns computer-use target model: normalization, the fixed resolution ladder, revalidation thresholds and geometric/semantic/accessibility/window matching"
+  },
+  "repository": "zhiheng-zhang-Mera/DS-Hns",
+  "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+  "sourcePaths": [
+    "app/computer-use/target.cjs"
+  ],
+  "portedFiles": {
+    "app/computer-use/target.cjs": "target.mjs"
+  },
+  "adaptation": [
+    "CommonJS -> ESM. Every one of the donor's twelve exports is re-exported from `index.mjs` unchanged: TARGET_KINDS, normalizeTarget, targetKinds, describeTarget, resolveTarget, revalidate, distance, centerOf, containsPoint, matchesSemantic, matchesAccessibility, matchesWindow. `target.mjs` holds the ported bodies and `contracts.mjs` holds the value shapes; `index.mjs` is the donor's public surface plus three pass-through names (see the next entry). The bodies are otherwise character-for-character the donor's, including its comments and every message string.",
+    "Local declaration instead of import, as instructed. The donor opens with `require('./constants.cjs')` and `require('./errors.cjs')`; both siblings are being ported concurrently by another agent into other directories of this tree. To keep this module independently loadable, `contracts.mjs` declares exactly the three values the donor takes from them and nothing more: TARGET_MOVEMENT (`Object.freeze({ stablePx: 3, updatePx: 10 })`, donor constants.cjs line 264), the CODES `TARGET_INVALID` / `TARGET_NOT_FOUND` (donor errors.cjs lines 25-26), and a `ComputerUseError` class with the donor's exact fields — name, code, details, retryable, controllerId, state and toJSON(). `retryable` reproduces the donor's `defaultRetryable()` answer for the two codes reachable from target resolution: both false. No error code that this module never raises was invented.",
+    "`index.mjs` additionally re-exports ComputerUseError and CODES (the donor's callers switch on `error.code`, and that type has to cross the module boundary to be catchable) and TARGET_MOVEMENT (the frozen default `revalidate` uses). All three are the local declarations above, re-exported by identity; none adds behaviour. No new public function, option, threshold, default or error path exists anywhere in this module.",
+    "`resolveTarget` is still resolver-driven and pure. The donor's contract is kept exactly: a resolver that is missing, is not a function, or throws degrades the ladder to the next rung instead of failing it, and the reason is recorded on the attempt (`error.code` when present, otherwise `error.message`). Nothing here reads a filesystem, a network, a clock, a random source or the environment, and no time or id is injected because the donor's target model has no timestamp or id to inject — `buildResolved` sets `resolvedAt: null` verbatim.",
+    "The donor's `coordinateFallback` audit label, the `(no target)` / `(unresolved)` describe fallbacks, the rank/primaryKind derivation and the candidate-list union are all preserved, because they are the donor's own audit trail rather than presentation."
+  ],
+  "knownDifferences": [
+    "DEFERRED, not ported: `createWorkspaceGuard` / `planWorkspaceGate` from `app/computer-use/workspace.cjs` (they call `node:fs.statSync` at two call sites). Not imported, not stubbed, not re-implemented. A stub here would have to invent a workspace verdict.",
+    "DEFERRED, not ported: `controllers/file.cjs`'s `isProtectedPath` (it lives inside an `fs.watch`-coupled controller, so it has no standalone boundary).",
+    "DEFERRED, not ported: `drivers/win32.cjs`'s `resolveVirtualKey` / `composeHotkey` (koffi native bindings and `child_process`; 73 koffi references). MB-008 forbids new OS backends, so the Win32 input driver, the UIA driver, the CDP driver and the screenshot pipeline are all out of scope here.",
+    "No module of the donor's world-state, stabilization, recovery, executor, contract, routing or verification layers is included: this module is the target model only. It resolves against whatever `world` and `resolvers` the caller passes and never observes anything itself.",
+    "No DOM, accessibility-tree, Win32 or vision access is performed. The `visual` rung has no world fallback by design (the donor returns null without a resolver), and the point rung's synthetic 1x1 descriptor is the donor's own last-resort label, not an observation.",
+    "Donor defects and donor rough edges preserved verbatim and pinned by tests rather than repaired. PURE MIGRATION rejects a 'helpful' guard that would change the result for an input the donor accepts, so nothing below was tightened: (1) a semantic target with no text/label/name/placeholder, e.g. `{ semantic: { inside: '#dialog' } }`, describes itself as the literal string `semantic:undefined`; (2) that same target is an unconstrained predicate and matches EVERY element in the world, so the first pool entry is resolved; (3) a candidate-list wrapper re-walks a candidate's kind with no query, `matchAx` hands the undefined query straight to `matchesAccessibility`, and that throws a TypeError on `query.exact` — the throw is swallowed into the attempt's reason, so a query-less rung is a miss only because the predicate refuses it rather than answering it vacuously; (4) an empty `window: {}` / `visual: {}` object survives `compact()` as an empty object and IS accepted as a rung, describing itself as `window:(any)` / `visual:template`; (5) the synthetic point box is anchored at the requested point, so its rounded centre is one pixel down and right of it (the centre of `{x:10,y:20,width:1,height:1}` is `{x:11,y:21}`) while the embedded element keeps the requested point; (6) `window.className` is case-insensitive equality while `window.title` is a substring, so a `pad` query matches the title but not the class; (7) a beyond-tolerance move with no `ref` on either side reports the text intended for a different node (`target moved Npx and is a different node`); (8) `distance()` propagates NaN for a missing coordinate, and `revalidate` then returns `stale` with the literal reason `target moved NaNpx - re-observe before acting`; (9) an explicit `null` threshold is treated as `0` because `Number(null)` is finite, so `{ updatePx: null }` is not the same as omitting the key; (10) only the boolean `true` selects `exact` matching, so `exact: 1` and `exact: 'false'` both mean substring matching; (11) the flat visual trigger list reads `raw.template` while the built object reads `templatePath` / `template_path`, so a bare `template_path` target is refused with the no-rung message, and `page` / `tab` / `tabId` are read into the target but are not rungs at all, so a bare sheet reference is refused too; (12) a truthy non-integer accessibility `index` is silently dropped (`Number.isInteger` guard) and the field is never consulted by `matchesAccessibility` anyway; (13) `buildResolved` prefers `disabled` over `enabled` and `visible` over `offscreen` whenever the field is merely present, even when it is `false`; (14) a lone `name` is on neither the accessibility nor the semantic trigger list, so `{ name: 'Save' }` is refused rather than treated as text; (15) the `automationId` rule bypasses the `same()` helper, so `exact` never reaches it and it stays a case-sensitive equality against `''`.",
+    "Some of the above describe donor intent rather than a coding mistake — `{ name: 'Save' }` being a refusal rather than a text search, or `exact` requiring a boolean — but they are recorded in the same list because either way they are behaviour a re-implementation is tempted to 'fix', and fixing them would change a donor verdict. Every one is pinned in the `donor defects` section of `tests/target.test.mjs` (DEFECT 1 .. DEFECT 15)."
+  ],
+  "parity": {
+    "vectorSource": "DS-Hns app/computer-use/target.cjs @ eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b, exercised as the real CommonJS module against the port over a generated input matrix (9 973 comparisons, 0 mismatches: every normalizeTarget / describeTarget / targetKinds input, every resolveTarget world and resolver shape, every match predicate's node/query cross-product, geometry, and every revalidate pair and threshold set).",
+    "vectors": [
+      "TARGET_KINDS is the frozen seven-rung ladder with ranks 1..7 and the donor's labels, and rank/primaryKind are the best (lowest-rank) rung present",
+      "a window is a standalone rung only when no other rung is present; otherwise it is a locator context that does not appear in kinds",
+      "a string target is trimmed, refused when blank, and routed to the selector rung or to semantic text by looksLikeSelector",
+      "an object with no addressing rung is refused with TARGET_INVALID and the donor's exact message and `received` details",
+      "bbox accepts x/y/width/height, left/top and w/h, requires four finite numbers and a positive extent, and refuses in that order",
+      "point accepts point / coordinate / coordinates / a bare x+y pair, the bare pair winning because it is applied last",
+      "window accepts a string title or a structured reference; handle is carried as a string and a non-object window is refused",
+      "the ladder is walked selector -> accessibility -> semantic -> window -> bbox -> visual -> point, and every attempt before the hit is recorded with kind, ok, count and reason",
+      "candidates are tried in order and the wrapper target is tried last",
+      "a resolver that is absent, is not a function, returns nothing, or throws degrades the ladder to the next rung instead of failing it; a thrown error's code, else its message, becomes the attempt reason",
+      "the visual rung is never resolved from world state: without a visual resolver it reports no match",
+      "the point rung resolves inside a containing bbox first and otherwise yields a synthetic 1x1 descriptor labelled `synthetic: true`",
+      "the selector rung matches element.selector, element.id or element.attributes.id; the accessibility pool is world.ax then world.controls; the general pool is world.controls then world.visibleTargets",
+      "matchesAccessibility: substring by default and equality under exact, role accepting role or controlType, controlType accepting only controlType, automationId a case-sensitive equality against '', and undefined/null expectations ignored",
+      "matchesSemantic: the joined name/text/value/placeholder/label text is substring-searched for text, label, placeholder and name, while role is a case-insensitive equality",
+      "matchesWindow: handle and processId are typed equality, className is case-insensitive equality, title is a case-insensitive substring, falsy query fields assert nothing",
+      "containsPoint is inclusive on all four edges and rounds nothing; centerOf rounds .5 up; distance rounds to two decimals",
+      "revalidate: no previous -> unknown, no current -> missing, same identity without geometry -> stable, no geometry -> unknown",
+      "revalidate movement bands: < 3 stable, 3..10 updated, > 10 stale, with the thresholds read from the caller and falling back to TARGET_MOVEMENT when not finite",
+      "revalidate reports a different node as stale before the band comparison when updatePx is exceeded and the refs are absent or unequal",
+      "each verdict's exact reason text, and each refusal's exact message, matches the donor string"
+    ]
+  },
+  "classification": {
+    "PARITY": [
+      "normalizeTarget and the whole accepted-shape grammar",
+      "TARGET_KINDS, targetKinds, rank and primaryKind",
+      "the fixed selector -> accessibility -> semantic -> window -> bbox -> visual -> point ladder",
+      "resolveTarget's attempt log, resolver degradation and candidate ordering",
+      "revalidate's 3 px / 10 px bands, threshold precedence and verdict reasons",
+      "distance, centerOf and containsPoint geometry",
+      "matchesSemantic, matchesAccessibility and matchesWindow",
+      "every TARGET_INVALID / TARGET_NOT_FOUND message and its details"
+    ],
+    "PORT_ADAPTATION": [
+      "CommonJS -> ESM with the donor's twelve exports mirrored by name from index.mjs",
+      "constants.cjs / errors.cjs values declared locally in contracts.mjs instead of imported, because those siblings are being ported concurrently",
+      "index.mjs also re-exports the local ComputerUseError, CODES and TARGET_MOVEMENT so error codes cross the boundary by identity"
+    ],
+    "UTOPIA_EXTENSION": [],
+    "DEFERRED": [
+      "createWorkspaceGuard / planWorkspaceGate (workspace.cjs, node:fs.statSync)",
+      "controllers/file.cjs isProtectedPath (fs.watch-coupled controller)",
+      "drivers/win32.cjs resolveVirtualKey / composeHotkey (koffi, child_process)",
+      "the Win32 / UIA / CDP / screenshot drivers, and the browser, desktop, file, shell and vision controllers",
+      "the donor's world-state, stabilization, stall, recovery, executor, contract, routing and verification layers"
+    ]
+  }
+}

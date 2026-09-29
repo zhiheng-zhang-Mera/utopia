@@ -1,0 +1,124 @@
+{
+  "module": "bounded-run",
+  "cityPath": "city/10-automation/01-computer-use-runtime/bounded-run",
+  "district": "10-automation",
+  "building": "01-computer-use-runtime",
+  "incubationRooms": [
+    "mb-008-bounded-run-lab"
+  ],
+  "mission": {
+    "missionId": "MB-008",
+    "book": "Digital-City/mission-book/MB-008-computer-use.md",
+    "role": "MIGRATION",
+    "cluster": "the closed computer-use state machine, stall threshold and bounded recovery ladder, stabilization signals, per-channel reconnect budget, health snapshot with blocked reasons, and evidence ceilings"
+  },
+  "repository": "zhiheng-zhang-Mera/DS-Hns",
+  "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+  "sourcePaths": [
+    "app/computer-use/stall.cjs",
+    "app/computer-use/state-machine.cjs",
+    "app/computer-use/recovery.cjs",
+    "app/computer-use/stabilization.cjs",
+    "app/computer-use/reconnect.cjs",
+    "app/computer-use/health.cjs",
+    "app/computer-use/resources.cjs"
+  ],
+  "portedFiles": {
+    "app/computer-use/stall.cjs": "stall.mjs",
+    "app/computer-use/state-machine.cjs": "state-machine.mjs",
+    "app/computer-use/recovery.cjs": "recovery.mjs",
+    "app/computer-use/stabilization.cjs": "stabilization.mjs",
+    "app/computer-use/reconnect.cjs": "reconnect.mjs",
+    "app/computer-use/health.cjs": "health.mjs",
+    "app/computer-use/resources.cjs": "resources.mjs"
+  },
+  "adaptation": [
+    "CommonJS -> ESM JavaScript. Every algorithm, threshold, literal message, ladder order, state edge and precedence rule is the donor's; only the module syntax changed.",
+    "Local declaration for the *vocabulary*, import for the *algorithms*. The donor's seven files `require` five siblings — `constants.cjs`, `errors.cjs`, `routing.cjs`, `target.cjs` and (transitively) `contract.cjs`. This room declares, in `contracts.mjs`, exactly the constant values its files read: the closed `CU_STATES` / `CU_TRANSITIONS` / `TERMINAL_STATES` machine (donor `constants.cjs` lines 142-185, edge for edge), `CODES` (including the duplicated aliases `TRANSPORT_LOST === CONTROLLER_UNAVAILABLE` and `MODAL_REQUIRES_USER === MODAL_BLOCKING`), the donor `ComputerUseError` class with `defaultRetryable()` and the `toJSON()` redaction, and `RETRY`, `STALL`, `TIMING`, `TARGET_MOVEMENT`, `SCREENSHOT_LEVELS`, `SCREENSHOT_RETENTION`, `DESTRUCTIVE_MODES`, `CAPABILITY_CONTROLLER`, `ACTION_TYPES` and `ACTION_CAPABILITY`. Nothing was extended; the donor's `constants.cjs` config reader (`readComputerUseConfig`, `resolveComputerUseOptions`, `ROOT`, `node:fs`, `node:path`) is not here because this room takes its limits as an injected `options` argument and owns no filesystem. The `revalidate` function and the routing tables are *not* declared here — they are imported from the rooms that own them (next entry).",
+    "The two *sibling-owned algorithms are not copied*. The donor's `stabilization.cjs` imports `revalidate()` from `./target.cjs`, which the `target-guard` room owns, so `stabilization.mjs` does `import { revalidate } from '../target-guard/target.mjs'` and re-exports that same binding (`index.mjs` forwards it too). The donor's `recovery.cjs` imports `fallbackChannels` and reads the private `CHANNEL_PLANS` from `./routing.cjs`, which the `routing-safety` room owns, so `recovery.mjs` does `import { CHANNEL_PLANS, fallbackChannels } from '../routing-safety/routing.mjs'` and imports the same `CHANNEL_CAPABILITY` / `CHANNEL_CONTROLLER` values. `tests/identity.test.mjs` proves these are the siblings' own bindings by identity, not by value: a `deepEqual` copy would pass a value test and fail that one. Differential check at port time: `alternativeAction()` over 6 912 combinations (36 action types x 8 used channels x 4 target shapes x 6 capability allow-lists) against a literal transcription of the donor computation over the donor's own plan table produced 0 mismatches.",
+    "The transition from the earlier pass: this room originally inlined `revalidate` and the routing tables. The inlined `revalidate` was equivalent to `target-guard`'s, but the inlined routing table was **not**: its `DOM_TYPE` entry was `['dom', 'accessibility', 'gui']` while the donor's `routing.cjs` says `['dom', 'accessibility']`, so an inlined-copy build would have offered a gui fallback the router would never choose. The sibling import removes that divergence, which is what makes it a repair and not a refactor.",
+    "Injected timer, deterministic by default. The donor reads `Date.now()` and `setTimeout` in `stall.cjs`, `state-machine.cjs`, `recovery.cjs`, `stabilization.cjs`, `reconnect.cjs` and `resources.cjs`. This room is pure, so every one of those injection seams keeps its donor name (`options.now`, `options.clock`, `options.sleep`) but the default behind it is a deterministic step clock: `now()` starts at 0 and advances 1 ms per read, and `sleep(ms)` resolves without waiting. The wait, timeout and grace comparisons are unchanged, so the same conditions still end every wait at the same threshold; a caller that needs real time injects its own clock. `health.cjs` needed no invention at all: its donor signature already takes `input.now` as a number, and only its `input.now === undefined` fallback is `Date.now()`.",
+    "`index.mjs` is a barrel with no donor counterpart. The donor's own `index.cjs` is the whole-runtime composition root (executor loop, controllers, isolation boundary) and is Deferred; this file only re-exports the seven ported modules and their 36 donor names, plus the sibling `revalidate`, the `MODULES` namespace map and the two step-clock helpers. It adds no behaviour, no default and no policy.",
+    "The two clock helpers are named for their return shape rather than mirroring a donor export: `createStepClock()` returns the `{now, sleep}` shape the donor's `stabilization.cjs` clock has, and `createStepNow()` returns the bare `() => number` the other five modules take."
+  ],
+  "knownDifferences": [
+    "Declared boundary: the shared *vocabulary* is still declared per-room in four rooms. `bounded-run/contracts.mjs`, `execution-contract/contracts.mjs` + `execution-contract/errors.mjs`, `target-guard/contracts.mjs` and `routing-safety/contracts.mjs` each carry their own copy of the donor's `constants.cjs` / `errors.cjs` bindings, so an importer of two rooms gets equal-but-not-identically-referenced values and nothing in the module graph can detect a future drift. That is a deliberate, recorded decision for this pass: the two *behaviour* copies (`revalidate`, the routing tables) were the high-risk defect and are fixed here, while a constants redeclaration is lower risk and is left alone so the behaviour repair can land on its own. The bindings that still need consolidating, with their owning donor file, are: from `constants.cjs` — `ACTION_TYPES`, `ACTION_CAPABILITY`, `CAPABILITY_CONTROLLER`, `CU_STATES`, `CU_TRANSITIONS`, `TERMINAL_STATES`, `SCREENSHOT_LEVELS`, `DESTRUCTIVE_MODES`, `SCREENSHOT_RETENTION`, `TARGET_MOVEMENT`, `TIMING`, `STALL`, `RETRY`; from `errors.cjs` — `CODES` and `ComputerUseError` (plus `defaultRetryable`, `redactDetails`, `fail`). At port time every one of those was verified value-identical to its sibling: `execution-contract/contracts.mjs`, `execution-contract/errors.mjs`, `target-guard/contracts.mjs` and `routing-safety/contracts.mjs` all agree with this room's `contracts.mjs` on each shared name, `ComputerUseError` is behaviourally identical (same fields, same `defaultRetryable()`, same redacted `toJSON()`), and `bounded-run`'s `CODES` is a strict subset of `execution-contract/errors.mjs`'s `CODES` — the 19 codes it does not declare (`CONTRACT_GOAL_MISSING`, `CONTRACT_LIMIT_EXCEEDED`, `PLAN_INVALID`, `TARGET_INVALID`, `TARGET_NOT_FOUND`, `TARGET_AMBIGUOUS`, `ACTION_UNSUPPORTED`, `ACTION_INVALID`, `FOCUS_MISMATCH`, `STEP_LIMIT_REACHED`, `RUN_TIMEOUT`, `RUN_CANCELLED`, `OBSERVATION_EMPTY`, `VISION_UNAVAILABLE`, `SCREENSHOT_FAILED`, `MUTATION_UNVERIFIED`, `COMMAND_INVALID`, `PROCESS_INVALID`, `RESOURCE_LIMIT`) are ones no file in this room raises or compares against.",
+    "`revalidate` is no longer duplicated: it is `target-guard`'s own function, reached through `stabilization.mjs` and `index.mjs`, and the identity is asserted rather than the value.",
+    "The donor's default wall clock and real `setTimeout` are replaced by the deterministic step clock. A production caller that wants real elapsed time must inject a real clock; the module deliberately never reads one.",
+    "Donor defects preserved on purpose, each pinned by a test: `registerScreenshot()` returns a literal `keep: true` instead of the retention decision's `keep`; `ring.last(0)` returns the whole ring because `slice(-0)` is `slice(0)`; `stallStep()` throws a TypeError on a fractional index (NaN survives the `Number(index) || 0` guard); `enforce()` ranks the count-ceiling eviction order before the loop, so exactly one capture is dropped per over-ceiling registration even when several were ranked; `enforce()` writes `removed = true` onto the live entry it splices out; `buildHealthSnapshot()` writes the literal `'unavailable'` as a capability status rather than a `HEALTH_STATUS` member; `buildHealthSnapshot()` reads `processes.ownedCount` unguarded, so a process block without it yields `undefined`; `decide()` reports no `visualLevel` on the non-retryable branch while both exhausted branches report the ceiling; the alternative rung requires `action.retry` to exist, so an action with no retry block falls straight through to replan even when a convertible channel is available; and `exhaustedError()` writes `attempts` and `code` even when the decision does not carry them.",
+    "`channel recovery` keeps two donor behaviours worth stating: the `reconnect` event is emitted for every outcome but `channel-reattach` only once a controller exists, and a *successful* `recover()` still returns `world: null` — the fresh observation the policy proved the channel with is used as the proof and then dropped, so the caller never receives it.",
+    "`recover()` returns `RECONNECT_EXHAUSTED` for both `EXHAUSTED` and `CONTEXT_INVALID`, as the donor does: the two are the same verdict for the step.",
+    "The donor's `stall.cjs` history window (200), `reconnect.cjs` event window (100) and `resources.cjs` pressure window (50) are unchanged; the stabilizer trace is 200.",
+    "No executor, no composition root, no live controllers: nothing here starts, observes or drives a run. The module decides; it does not act."
+  ],
+  "parity": {
+    "vectorSource": "DS-Hns app/computer-use/{stall,state-machine,recovery,stabilization,reconnect,health,resources}.cjs @ eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+    "vectors": [
+      "the exported surface is exactly the donor's 36 names across the seven files, and each re-export is the same binding the module defines",
+      "all 15 x 15 ordered state pairs agree with CU_TRANSITIONS: 56 legal edges, 154 illegal non-self pairs, 15 no-op self-pairs; the table is compared edge for edge and in order",
+      "a self-transition is a no-op and records nothing; an illegal transition throws STATE_TRANSITION_INVALID with message `illegal transition A -> B` and details {from, to, allowed, reason}; an unknown state throws STATE_INVALID from canTransition, transition and force",
+      "force() bypasses the edge table and is labelled `forced`; an unknown initial state throws STATE_INVALID naming the state; a throwing onTransition listener can never break the run",
+      "a stall fires at the threshold (3) and not before; a meaningful change, or a changed signature once one is known, resets the streak; a null signature neither advances lastSignature nor breaks the streak; the history window is 200",
+      "registerRecovery counts every recovery and `exhausted` turns true at maxRecoveries (2); reset clears the streak and the signature but not the recovery count",
+      "STALL_RECOVERY_LADDER is the donor's eight rungs in order with their exact descriptions, ending in fail_with_context",
+      "the recovery verdicts are the donor's five, VERDICT_BY_STEP has exactly the donor's four keys, and RECOVERY_STEPS is the donor's seven rungs in order",
+      "USER_ACTION_CODES is the donor's nine codes in the donor order, checked before the retry rung and always terminal with reason `<CODE> needs a decision the runtime may not make: <message>`",
+      "the retry rung requires attempt < attemptsAllowed (the action's own retry.maxAttempts, else RETRY.maxAttempts = 2) and escalates the visual level only after the first attempt",
+      "the recovery round budget is checked before every other rung and defaults to attemptsAllowed + 2, with the donor's exact `(n/m rounds)` message",
+      "the alternative rung converts by intent (activate / set-text / focus / select / scroll) through the donor mapType table, prefers the cheapest untried channel, drops dom and accessibility for a visual target, honours allowedCapabilities, sets id `<id>#alt<attempt>`, and caps the alternative's own retry at 1 attempt",
+      "the replan rung reports REPLAN_REQUIRED, is skipped entirely once stallRecoveries reaches maxStallRecoveries, and then the budget-exhausted branch fails terminally with the donor's `(n/m stall recoveries)` message",
+      "the cooldown signals are the donor mapping (TARGET_STALE -> target-moved, UI_UNSTABLE -> ui-changing, WINDOW_MISMATCH -> window-changed, VERIFICATION_FAILED or ACTION_MISSED or a miss -> previous-miss), de-duplicated",
+      "exhaustedError is PLAN_EXHAUSTED with details {attempts, code}, message from the decision reason and retryable false",
+      "the stabilization vocabulary is the donor's eight signals, with all eight hyphenated aliases including `animation` -> animationDetected",
+      "normalizeSignals starts from every signal false, accepts arrays and objects, drops unknown names, and reports only the unknown names that were truthy in object form",
+      "the dynamic cooldown is 80 ms base plus 80 ms per active signal, in the donor order, ceils at 400 (soft) / 500 (hard, only under the escalate flag) and jumps to 800 for a pending navigation",
+      "the settle verdicts are the donor's: reobserve for a stale or missing target, updated for a refreshed coordinate when nothing else is unstable, stable otherwise, and wait_state at the settle ceiling",
+      "the settle revalidation thresholds are the donor's 3 px stable / 10 px update band, and a bounding-box movement alone never blocks the settle",
+      "grace is bounded by graceMaxMs (250), derives its request from the action's stabilization or gracePreferredMs (150), and clamps a minimum above the ceiling",
+      "afterAction ends on `landed`, then the ceiling, then quiet, then the settle budget, and a throwing landed check is treated as false",
+      "the reconnect budget is DEFAULT_MAX_ATTEMPTS (2) per channel per step; a fresh beginStep() resets every channel's budget, and a spent budget answers EXHAUSTED without calling reattach",
+      "the reconnect backoff is min(maxBackoffMs, backoffMs * attempt) and is never spent before a retry; an undefined reattach result counts as attached, a bare false does not, and a throwing reattach is a failed attempt",
+      "a reattached channel proves itself with a fresh observation: null/undefined/false or a throwing observer is context_invalid, and a stillValid that returns false or throws is exhausted",
+      "TRANSPORT_CODES is the donor's four codes and isTransportFailure also classifies raw disconnect/detach/socket/pipe/closed/ECONNRESET/EPIPE/target closed/no such session/not connected messages",
+      "channelOfError prefers the error-named channel or controller over any hint, and channelHintFor reads run.lastRoute.controller before the capability map",
+      "HEALTH_STATUS is the donor's three values and BLOCK_REASONS is the donor's five strings; blocked outranks degraded, and degraded outranks healthy",
+      "each block reason's derivation is the donor's: workspace.ok === false, every allowed capability unusable, resources.atCeiling or processes.atCapacity, safetyAvailable === false, stateIntegrity === false",
+      "CAPABILITY_CONTROLLERS is the donor's ten-entry capability -> controllers map, controllerIdsFor passes an unknown name through as its own controller id, and capabilityIsUsable needs a real controller hit",
+      "capabilityVerdict answers the donor's four cases, including the unclaimed capability (`no controller carries the \"X\" capability`) and the degraded-but-usable note",
+      "classifyRetention answers explicitly requested, debug/audit mode, retention never, failure evidence and the transient diagnostic/capture verdicts, including its undefined-reason case",
+      "the resource ceilings are the donor's DEFAULTS (ringSize 200, maxScreenshots 32, maxEntries 2000, transientTtlMs 60000, maxEvidenceBytes 8 MiB) and TRANSIENT_TTL_MS is 60000",
+      "eviction drops expired transients first, then transients before the oldest retained evidence, and counts each drop; a kept capture is never expired by the TTL",
+      "atCeiling requires a prior drop and either the count ceiling or 90% of the byte ceiling",
+      "the ring keeps the newest `capacity` items, `last(n)` is the donor's slice(-n), clear() empties it, and a nonsense size falls back to the ring's own size"
+    ]
+  },
+  "classification": {
+    "PARITY": [
+      "the closed CU_STATES / CU_TRANSITIONS machine, edge for edge and in order",
+      "the stall threshold, the progress rule and the bounded recovery count",
+      "the eight-rung stall ladder and the seven-rung recovery ladder",
+      "the recovery verdict vocabulary, the user-action rung and the alternative-intent mapping",
+      "the stabilization signal vocabulary, its aliases, the cooldown ladder and the settle/grace verdicts",
+      "the per-channel, per-step reconnect budget, the backoff and the transport-failure classification",
+      "the health status vocabulary, the block reasons and their derivations",
+      "the evidence ceilings, the retention classes and the eviction order"
+    ],
+    "PORT_ADAPTATION": [
+      "CommonJS -> ESM",
+      "constants, error codes and the routing tables declared locally instead of imported from concurrently ported siblings",
+      "revalidate() copied from target.cjs so the stabilizer is independently loadable",
+      "the donor's wall clock and real timer replaced by an injected deterministic step clock",
+      "index.mjs as a pure re-export barrel with the MODULES namespace map"
+    ],
+    "UTOPIA_EXTENSION": [],
+    "DEFERRED": [
+      "app/computer-use/executor.cjs (99 814 B) — the loop that drives all of this",
+      "app/computer-use/index.cjs (31 665 B) — the composition root",
+      "isolateController's real fault boundary (needs live controllers)",
+      "app/computer-use/processes.cjs — outside this mission's boundary",
+      "app/computer-use/ports.cjs — outside this mission's boundary",
+      "app/computer-use/isolation.cjs — outside this mission's boundary",
+      "app/computer-use/autonomy.cjs — outside this mission's boundary"
+    ]
+  }
+}

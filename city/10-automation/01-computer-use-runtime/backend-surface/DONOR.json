@@ -1,0 +1,129 @@
+{
+  "module": "backend-surface",
+  "cityPath": "city/10-automation/01-computer-use-runtime/backend-surface",
+  "district": "10-automation",
+  "building": "01-computer-use-runtime",
+  "incubationRooms": [
+    "mb-008-backend-surface-lab"
+  ],
+  "mission": {
+    "missionId": "MB-008",
+    "book": "Digital-City/mission-book/MB-008-computer-use.md",
+    "role": "MIGRATION",
+    "cluster": "the DOM page readiness/act/verify ladder over an injected surface, the computer-recovery repair planner, the semantic-action validator, the workspace side-effect permission vocabulary, and the UI-surface registry"
+  },
+  "repository": "zhiheng-zhang-Mera/Codex-Boss",
+  "commit": "8df428eaa437a409368401e95194e40266b83080",
+  "sourcePaths": [
+    "src/shared/computer-recovery.ts",
+    "src/shared/action-readiness.ts",
+    "src/shared/ui-surface.ts",
+    "src/shared/ui-surface-ids.ts",
+    "src/shared/semantic.ts",
+    "src/shared/permission.ts",
+    "electron/computer/backends/dom-page.ts",
+    "electron/computer/backends/provider-dom-surface.ts"
+  ],
+  "portedFiles": {
+    "src/shared/computer-recovery.ts": "computer-recovery.mjs",
+    "src/shared/action-readiness.ts": "action-readiness.mjs",
+    "src/shared/ui-surface.ts": "ui-surface.mjs",
+    "src/shared/ui-surface-ids.ts": "ui-surface.mjs",
+    "src/shared/semantic.ts": "semantic.mjs",
+    "src/shared/permission.ts": "permission.mjs",
+    "electron/computer/backends/dom-page.ts": "dom-page.mjs",
+    "electron/computer/backends/provider-dom-surface.ts": "provider-dom-surface.mjs"
+  },
+  "adaptation": [
+    "TypeScript -> plain ESM JavaScript, Node 24, no dependencies, mirroring every donor runtime export by name from `index.mjs`: computer-recovery's nine (COMPUTER_READ_ACTIONS, COMPUTER_MUTATION_ACTIONS, classifyRepairNeed, tierForTarget, geometryTargetValid, buildRepairPlan, grantedComputerActions, verdictForOutcome, planSummary), action-readiness's four (READINESS_GATES, readinessFromProbe, postActionVerified, escalationAfterFailure), ui-surface's thirteen plus ui-surface-ids' UI_SURFACE_IDS, semantic's two (validateSemanticAction, computerIntent), permission's four (EMPTY_MANIFEST, manifestAllows, manifestNarrow, desktopMutationGate), dom-page's three (DOM_TARGET_PREFIX, parseDomTarget, DomPageBackend) and provider-dom-surface's one (providerDomSurface). No name was added to a ported file's public surface, renamed or dropped, and every exported string, array order, threshold and precedence rule is the donor's.",
+    "`ui-surface-ids.ts` is merged into `ui-surface.mjs` rather than ported as a ninth module. The donor's stated reason for the separate file -- letting a host depend on the id vocabulary 'without pulling in the contract table' -- is a build-graph concern that one ESM module with a hoisted UI_SURFACE_IDS const does not have. The 23 ids, their order and the id union are byte-identical, and `index.mjs` re-exports UI_SURFACE_IDS from `ui-surface.mjs`.",
+    "`contracts.mjs` is a new file holding only data and `@typedef`s: the closed vocabularies the ported files test against and the value shapes they exchange. It is not in `portedFiles` because it is not a port of a donor file and adds no behaviour. Its constants are the donor's own inline literals and private module constants promoted to named exports: SEMANTIC_ACTION_NAMES (semantic.ts line 1), SEMANTIC_RESULT_STATUSES and SEMANTIC_BACKEND_KINDS (semantic-runtime.ts lines 5 and 4), DOM_MUTATIONS / DOM_READS (dom-page.ts lines 29-30), PERMISSION_KINDS and DESKTOP_READ_ACTIONS (permission.ts lines 4 and 56), SECURITY_CLASSES (permission.ts line 22). The `@typedef` block names the donor file and line for every shape. `SEMANTIC_ACTION_NAMES` replaces the donor's inline nine-string `includes(...)` literal inside `validateSemanticAction` with a reference to the same nine values in the same order, so the validator's condition and its result are unchanged.",
+    "`semantic-runtime.ts` is NOT ported and is not stubbed: it owns a durable-JSON state file (readJson/writeJson), a cross-call mutation queue and an AbortController plus setTimeout race, so it is fs/clock-coupled and out of this building's purity boundary. `dom-page.ts`'s only edge to it is `import type { SemanticAction, SemanticBackend, SemanticResult }`, which TypeScript erases at runtime; those three shapes (plus `DomPageRef` and `DomPageSurface` from dom-page.ts) are declared as doc-only `@typedef`s in `contracts.mjs`, written from the erased type positions rather than copied from any runtime code. Nothing from the runtime's behaviour is present.",
+    "Injections carried over from the donor, recorded because the brief asks for every injection to be named: (1) `DomPageSurface.evaluate(script, page?)` -- the donor's own injected page surface, production being Electron's `webContents.executeJavaScript`; this port never evaluates a script itself. (2) `providerDomSurface(views)` -- the donor's own injected `views: () => ProviderViews` accessor; `ProviderViews` is a `@typedef` here, not a ported runtime. (3) `buildRepairPlan(need, now = 0, grants)` -- the donor's own `now` parameter and grant set, both defaulted exactly as the donor defaults them. (4) `DomBackendOptions.readinessAttempts` (donor default 2) and `readinessIntervalMs` (donor default 200) -- the donor's own injectable bound and interval for the readiness retry `setTimeout`. No injection was added that the donor does not have.",
+    "Bounded retry timer: the donor's `setTimeout` in `readyOrBlocked` is kept verbatim, including its `attempt + 1 < attempts && interval > 0` guard, so an injected `readinessIntervalMs: 0` skips the timer entirely while the attempt bound stays real. Every test that reaches the retry passes `0`, and the one test that asserts a positive interval really waits uses 5 ms; no test sleeps for the donor's 200 ms default.",
+    "Every module is pure: no filesystem, no network, no clock, no `Math.random`, no `process.env`, no `require`. `computer-recovery` takes `now` as a parameter; `action-readiness` decides from one injected probe sample; `ui-surface` and `permission` are pure functions over caller-supplied values; `dom-page` and `provider-dom-surface` are pure over their injected surfaces and accessors. `provider-dom-surface` builds no `AbortSignal` of its own and `dom-page` accepts the donor's `_signal` parameter without reading it, as the donor does."
+  ],
+  "knownDifferences": [
+    "MANDATORY EXCLUSION 1, recorded as a BOUNDARY DECISION and explicitly NOT as duplicate-avoidance: `src/shared/perception.ts` is NOT ported. Its only consumer in the donor is `electron/computer/perception-loop.ts`, the loop that would turn a frame vocabulary into observations; that loop is deferred as fs/clock-coupled (it drives a capture loop over a clock and the host's page surface), so nothing in this city consumes a perception frame. Porting the vocabulary would land a frame shape with no consumer, which is not a migration of behaviour but the creation of an unconsumed contract. This is a boundary decision, not a de-duplication: before recording it as a decision the tree was searched and `src/shared/perception.ts` is NOT already ported elsewhere in Utopia -- that report was checked and is a false alarm. Nothing was imported from it, copied from it, stubbed or re-implemented.",
+    "MANDATORY EXCLUSION 2, recorded precisely: `createPageRepairExecutor` from `electron/computer/provider-page-repair.ts` is NOT ported, and neither is its `PageRepairOptions` / `PageRepairOutcome` shape. Two separate inventions would be required. (a) An interface: the donor's `executeStep` calls `backend.execute(action, new AbortController().signal)` (provider-page-repair.ts line 46). That AbortSignal is an invented port -- the reference node that drives repair does not supply one -- so the executor would have to declare a cancellation port that the donor's own caller does not have, while every other module in this building takes the signal as the donor's runtime supplies it. (b) A behaviour: every real `DomPageSurface.evaluate` in the donor is Electron's `webContents.executeJavaScript` (provider-dom-surface.ts line 22), so the repair chain's real effects are page mutations that this pure building must not perform; porting the executor would therefore ship not just a port but a DOM-driving behaviour with no real page behind it. Its DOM-tier dependency `DomPageBackend` IS ported (dom-page.mjs), so a caller that needs the chain can compose it; the executor itself and its `COMPUTER_READ_ACTIONS` import are not carried over.",
+    "NOT PORTED, same boundary: `electron/computer/semantic-runtime.ts` (durable-JSON state file, provider mutation queue, AbortController+setTimeout race), `electron/engineering/ui-surface-discovery.ts` and `electron/engineering/world-model.ts` (the discovery half of the UI-surface registry: `node:fs` / `node:os` / `node:path` over a world model), and `electron/security/permission-manifest.ts` / `electron/capability/permission-contract.ts` (host permission plumbing that reads manifests). The pure decision cores they call -- `validateUISurfaceRegistry`, `summarizeUISurfaceRegistry`, `manifestAllows`, `manifestNarrow`, `desktopMutationGate` -- ARE ported, so a registry or manifest produced anywhere is still validated and gated here.",
+    "Coverage statement: `src/shared/semantic.ts` and `src/shared/permission.ts` shipped with NO donor test at all -- `tests/unit/` has no `semantic.test.ts` or `permission.test.ts`, and the donor exercises them only indirectly (`semantic-runtime.ts` calls `validateSemanticAction`; `scripts/permission-surface-report.cjs` and `electron/security/permission-manifest.ts` consume the manifest helpers). `tests/semantic.test.mjs` and `tests/permission.test.mjs` are therefore the FIRST coverage of that behaviour that has ever existed. Every expectation in them is derived from the donor source, quoting the donor line it comes from in the test body, not from the port's output. The same is true of the donor-defect assertions in the other five files, and of the coverage the donor's own tests never reached (every RepairVerdict, the readiness retry bounds, the UI-surface summary fields, the provider-surface messages).",
+    "Donor defects and rough edges preserved verbatim and pinned by tests rather than repaired, because PURE MIGRATION rejects a guard that changes the result for an input the donor accepts. Every item below is asserted in the named test file under a `DEFECT PINNED` title: (1) `verdictForOutcome` returns 'UNCERTAIN' on both non-VERIFIED paths, so its exported 'ACTED' status is unreachable and `observed.acted` is read and discarded. (2) `buildRepairPlan`'s 'computer:read_page not granted' branch is unreachable because `allowed()` returns true for every COMPUTER_READ_ACTIONS member before it consults `grants`. (3) `escalationAfterFailure`'s declared 'FAILED' verdict is unreachable: every input returns one of the other three. (4) `geometryTargetValid` requires a TRUTHY `frameRevisionAt`, so the donor's own `now = 0` default makes every SEND plan UNCERTAIN. (5) `ui-surface.ts`'s UNSAFE_VALUE patterns `/behavior\\s*:/i` and `/binding\\s*:/i` reject those substrings anywhere in a value, including inside a benign literal comment. (6) The §10 token-reference scan examines only tokens written inside `var(...)` and its class stops at `_`, so a bare `--boss-invented-token` is never checked and `var(--boss-accent_muted)` is captured as the declared prefix `--boss-accent`; the refusal's `detail` names the captured text, not the caller's value. (7) `SEEDS` carries no `locked: true` entry, so LOCKED_SURFACE is unreachable from the default table. (8) `manifestAllows` makes `\"src/\"` and `\"src\"` non-equivalent: `\"src\"` matches the path `\"src\"` and its children, `\"src/\"` matches the children and the literal `\"src/\"` but not `\"src\"`. (9) `manifestNarrow` reports only `kind:allow:entry` and never a task `deny` the workspace allows. (10) `desktopMutationGate` returns `{allowed: true}` with no `reason` key, and cannot be satisfied by a prefix entry because an entry without a trailing slash is turned into a `/`-suffixed prefix while the key uses `:`. (11) `dom-page.ts`'s `parseDomTarget` throws on a bad providerId from OUTSIDE `execute()`'s try/catch, so `execute()` REJECTS instead of answering FAILED -- the donor's own test asserts that rejection, and so does this port. (12) `read_page` omits the `?? { ok: false }` guard every other branch has, so a null surface answer reports the generic 'read failed'. (13) `verify_state` treats an absent `expected` AND absent `value` as verified, a free SUCCESS. (14) A JSON scalar in a `dom:` target destructures to all-undefined and is reported as a missing selector rather than as malformed. (15) `provider-dom-surface.ts`'s no-providerId message promises that 'exactly one open provider page' disambiguates, but `viewFor` never counts open pages and throws unconditionally. (16) A `providerId` that was never open is indistinguishable from a closed pane (same message), and a destroyed pane short-circuits before the crash check. (17) `semantic.ts`'s `target` is only checked for being a non-empty string of at most 2000 characters -- no format rule at all. (18) `computerIntent` cannot reach its own Chinese `/^读取 VS Code 状态/` alternative without the donor's exact single ASCII space, and `JSON.parse` failures in the `desktop {…}` branch propagate as SyntaxError instead of becoming `undefined`. (19) `permission.ts` defines `manifestToString` and never calls or exports it: it is kept verbatim and private, so the port drops nothing. (20) `computer-recovery.ts`'s `CU_REPAIR_PHRASES` / `HUMAN_PHRASES` and `ui-surface.ts`'s `SEEDS` / `EXTRA_TOKENS` / `UNSAFE_VALUE` are private in the donor and private here; the public views are the donor's exported functions."
+  ],
+  "parity": {
+    "vectorSource": "Codex-Boss @ 8df428eaa437a409368401e95194e40266b83080, eight source files read in full (18 830 B / 310 lines for ui-surface.ts, 10 499 B for computer-recovery.ts, 9 536 B for dom-page.ts, 4 099 B for action-readiness.ts, 3 211 B for permission.ts, 2 533 B for semantic.ts, 1 258 B for provider-dom-surface.ts, 821 B for ui-surface-ids.ts -- every size matching the brief) and transcribed line by line. No donor runtime comparison was possible: the donor is TypeScript and this building is plain JavaScript with no new dependencies and no TypeScript toolchain, so the vectors below are source-traced expectations, each pinned by the named test in `tests/`. 130 tests, 130 pass, 0 fail, 0 skipped.",
+    "vectors": [
+      "the six CU_REPAIR failure phrases and the eleven HUMAN_REQUIRED phrases match by substring after `toLocaleLowerCase`, and the human gate is checked first so a probe.loginLikely beats a send-failure probe fact",
+      "unknown and empty reasons are NOT_REPAIRABLE: never guessed into a mutation",
+      "tierForTarget maps TEXT/ROLE/ACCESSIBILITY/REGION/ICON/POINT to 0..5 and any other kind to the donor's default 6",
+      "geometryTargetValid passes every non-ICON/POINT kind unconditionally and requires a truthy finite frameRevisionAt plus a boundedRegion for ICON/POINT, so 0 and NaN are rejected and -1 is not",
+      "buildRepairPlan always plans read_page first, then click_control for SEND/DRIFT/STRUCTURE and enter_text for INPUT, a submit step for INPUT only when granted, and verify_state last",
+      "the SEND affordance is an ICON target carrying `frameRevisionAt: now` and a 0x0 boundedRegion, so now = 0 yields UNCERTAIN with the donor's exact reason",
+      "the geometry guard runs before the mutation grant check: a revision-less SEND plan is UNCERTAIN even with no grants",
+      "a plan is DENIED with `computer:click_control not granted for this task/workspace` or `computer:enter_text not granted for this task/workspace`, and the read step is already in `steps` when the denial is returned",
+      "a plan with fewer than three steps is UNCERTAIN, so an INPUT chain without the submit grant is exactly three steps and READY",
+      "grantedComputerActions accepts only anchored, exact `computer:<action>` entries for the six names, trims surrounding whitespace, rejects near misses such as `computer:Submit`, `computer:submit2` and `computer:read_page/extra`, and collapses duplicates",
+      "verdictForOutcome answers VERIFIED only for `postConditionSeen === true` and UNCERTAIN for everything else",
+      "planSummary reports need, verdict, steps and actions, and includes `reason` only when the plan carries a truthy one",
+      "READINESS_GATES is the donor's seven-gate order, and readinessFromProbe returns the failing gates in that order with the caller's facts object by reference",
+      "each gate blocks only on its own explicit failing fact: navigationAccepted === false, a present readyState !== 'complete', found === false, visible === false, enabled === false, stableSamples < 1; ACTION_ALLOWED never blocks and an absent fact is 'unknown implies pass'",
+      "postActionVerified lets `changed` win when present, otherwise requires `text` to include `expected`, and otherwise answers false",
+      "escalationAfterFailure is BOUNDED_RETRY while attempts < maxBoundedRetries, SELECTOR_REFRESH for exactly one more attempt, and ALTERNATE_STRATEGY from then on",
+      "UI_SURFACE_IDS is the donor's 23 ids in the donor's order, and defaultSurfaceContracts returns one contract per id with the donor's category, allowedProperties, defaultTokens and fallback strategy",
+      "UI_TOKEN_GROUPS is the donor's five groups and 31 names in order, UI_SURFACE_EXTRA_TOKENS is the donor's six, and knownToken accepts exactly those 37",
+      "the fallback notes are the donor's strings, and only BORDER, DIVIDER and SCROLLBAR inherit while the other twenty fall back to BUILT_IN_DARK",
+      "defaultSurfaceContracts hands back fresh arrays and a fresh fallback object per contract",
+      "validateSurfaceOverride fails closed in the donor's precedence order UNKNOWN_SURFACE -> LOCKED_SURFACE -> UNKNOWN_PROPERTY -> EMPTY_VALUE -> UNSAFE_VALUE -> UNKNOWN_TOKEN -> ok, lower-casing and trimming the property and reporting the normalised property",
+      "the seven UNSAFE_VALUE patterns are tested in the donor's order and the refusal's detail embeds the donor's `value rejected by §20 (<pattern>): ` prefix and an 80-character value slice",
+      "validateUISurfaceRegistry checks, in the donor's order: every seed id has a contract, ids are unique, every contract allows a property, declares tokens and reads only known tokens, then that unbound is honest in both directions and that no binding is evidence-free",
+      "summarizeUISurfaceRegistry reports the donor's nine fields in the donor's key order, counts bound surfaces and declared tokens, and copies unbound / style_files / component_files rather than aliasing them",
+      "validateSemanticAction accepts the six unconditional action names with a name and target alone, and requires a string `value` for enter_text and a string `expected ?? value` for verify_state and wait_for_state",
+      "validateSemanticAction refuses with the donor's four exact messages: `Invalid semantic action` (missing value, unknown name, non-string or empty or over-2000 target, unknown key), `Invalid semantic value` (non-string or over-100000 value/expected), `Text value required`, `Expected state required`, `Invalid semantic timeout` (non-finite or outside 1..120000)",
+      "computerIntent opens notepad / explorer / vscode in both languages, reads the workspace directory, VS Code status, terminal-log and browser-state forms, validates the `desktop {…}` JSON body, and returns undefined for anything else",
+      "manifestAllows denies on an empty allow list, allows an exact entry, treats a non-slash entry as a directory prefix, lets a deny entry outrank an allow entry, and reads only the requested kind",
+      "manifestNarrow reports `kind:allow:entry` for each task allow entry the workspace does not allow, walking PERMISSION_KINDS in the donor's order",
+      "desktopMutationGate allows read_page / find_control / verify_state / wait_for_state with no manifest at all, denies every other name without an exact `computer:<name>` side-effect allow, and denies with the donor's exact reason string",
+      "DOM_TARGET_PREFIX is 'dom:', parseDomTarget returns providerId/selector/text and throws `Invalid dom target providerId` outside the `[a-zA-Z0-9_-]+` class, and returns undefined for a non-dom or unparsable target",
+      "DomPageBackend.kind is 'dom', supports() accepts a dom: selector for the three mutations and two reads only, and rejects every other action name and every selector-less target",
+      "execute answers UNSUPPORTED with the donor's truncated-target message when no selector is present, and the donor's `DOM backend does not support <name>` for a supported-but-unhandled name",
+      "click_control, enter_text and submit coalesce a null surface answer to `{ ok: false }` and report SUCCESS or FAILED with the surface's reason or the branch's default message, and read_page reports its text as evidence with a 30000-character slice",
+      "verify_state compares `expected ?? value` against the page text and reports `expected state not found: <expected>`, or `{ verified: true }`",
+      "a thrown or rejecting surface is caught and truncated to 300 characters",
+      "the emitted scripts are the donor's byte-for-byte: the readiness probe (querySelector, getBoundingClientRect, getComputedStyle, the four form-element instanceof checks, `el.disabled === true`, the width/height and visibility/display tests, `stableSamples: 1`), the click script, the enter_text script (prototype value setter, input and change events, contentEditable branch, `unsupported-element`), the submit script (querySelector || activeElement, keydown then keyup Enter), and the read and verify scripts",
+      "selectors, values and providerIds are JSON-embedded, so a quote or a brace in a selector or text cannot break out of the evaluated script",
+      "a dom: providerId is forwarded to the surface as `{ providerId }` and a provider-less target calls the surface with no page argument",
+      "preflightReadiness is off by default and applies only to the three mutations; when on, the readiness probe runs first, a still-not-ready page is refused with the donor's last `readiness blocked: <gates>` message and the action never runs, and a ready page proceeds",
+      "the readiness retry honours readinessAttempts with a floor of 1, stops as soon as a probe is ready, treats a null probe answer as 'unknown implies pass', and waits only for a positive interval",
+      "providerDomSurface evaluates the script with one argument on the named view's webContents.executeJavaScript, throws `Provider page is not open: <id>` for a missing or destroyed pane, `Provider page crashed: <id>` for a crashed one, and the donor's disambiguation message for no providerId, and it consults the accessor freshly per call",
+      "DomPageBackend over providerDomSurface composes end to end: the exact read script reaches the named pane and the pane's answer becomes the backend's SUCCESS evidence"
+    ]
+  },
+  "classification": {
+    "PARITY": [
+      "the DOM page readiness/act/verify ladder and its emitted scripts",
+      "the readiness gate chain and the 'unknown implies pass' rule",
+      "the computer-recovery classification, tier ladder, geometry guard, plan order and grant mapping",
+      "the post-condition discipline and the bounded escalation arithmetic",
+      "the semantic-action validation and the goal-text translator",
+      "the permission scope semantics and the desktopMutationGate side-effect vocabulary",
+      "the UI-surface registry, the §10 token vocabulary, the fail-closed override validation and the registry validator/summariser",
+      "the dom: target grammar and the provider pane routing"
+    ],
+    "PORT_ADAPTATION": [
+      "TypeScript -> plain ESM JavaScript with every donor runtime export mirrored by name from index.mjs",
+      "ui-surface-ids.ts merged into ui-surface.mjs (one ESM module has no build-graph reason to split the id vocabulary out)",
+      "contracts.mjs added for the closed vocabularies and the erased `import type` shapes (SemanticAction / SemanticResult / SemanticBackend / DomPageRef / DomPageSurface and the rest), declared as data plus @typedefs with no behaviour",
+      "the donor's private module constants and inline literals promoted to named exports in contracts.mjs, with the same values and order",
+      "the readiness retry's attempt bound and interval are injectable through the donor's own option names, so tests use 0 ms while the bound stays real"
+    ],
+    "UTOPIA_EXTENSION": [],
+    "DEFERRED": [
+      "src/shared/perception.ts (boundary decision: its only consumer, electron/computer/perception-loop.ts, is fs/clock-coupled and deferred, so the frame vocabulary would land with no consumer)",
+      "createPageRepairExecutor and its option/outcome shapes from electron/computer/provider-page-repair.ts (invents an AbortSignal port the reference node does not supply, and a DOM-driving behaviour over Electron's webContents.executeJavaScript)",
+      "electron/computer/semantic-runtime.ts (durable-JSON state file, mutation queue, AbortController + setTimeout race)",
+      "electron/engineering/ui-surface-discovery.ts and electron/engineering/world-model.ts (filesystem discovery over a world model)",
+      "electron/security/permission-manifest.ts and electron/capability/permission-contract.ts (host manifest plumbing)",
+      "electron/computer/perception-loop.ts and every other fs/clock-coupled computer-use host module"
+    ]
+  }
+}

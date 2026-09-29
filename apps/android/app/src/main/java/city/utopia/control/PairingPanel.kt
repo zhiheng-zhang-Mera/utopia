@@ -26,7 +26,7 @@ import kotlinx.coroutines.delay
   if(ticket!=null) api.discover(origin,expected) { result -> if(discoveryFence.accepts(ticket)) {
    result.onSuccess { d -> runCatching { mergeCity(identities,d); identities[d.cityId]=d; mergeCity(cities,d) }.onSuccess { cities=it; seen[d.cityId]=sighted }.onFailure { message=it.message?:"Identity conflict" } }.onFailure { message="City unreachable or descriptor rejected" }
   } }
- },{message=it},{city -> discoveryFence.invalidate(); cities=cities-city; seen.remove(city)}) }
+ },{message=it; if(mode=="ble" && it=="Bluetooth disabled") { discoveryFence.invalidate(); cities=emptyMap(); seen.clear() }},{city -> discoveryFence.invalidate(); cities=cities-city; seen.remove(city)}) }
  fun qr(value:String) { mode="qr"; runCatching { parseQr(value).also { mergeCity(identities,it) } }.onSuccess { log.event("discovery"); exchange(it,"qr") }.onFailure { message="Invalid or expired pairing QR"; log.event("descriptorError") } }
  val scan=rememberLauncherForActivityResult(ScanContract()) { result -> result.contents?.let { qr(it) } ?: run { message="Scan cancelled" } }
  val permission=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results -> if(results.values.all { it }) discovery.ble() else { message="Nearby devices permission denied. Manual connection remains available."; log.event("permissionDenied") } }
@@ -47,3 +47,4 @@ import kotlinx.coroutines.delay
   if(chosen!=null) { Text("Create a pairing session on the City host, then enter its short code. Connect refreshes the current session."); OutlinedTextField(code,{code=it},label={Text("Short pairing code")},visualTransformation=PasswordVisualTransformation(),singleLine=true); Button(onClick={ exchange(chosen!!,mode) },enabled=!busy && code.isNotBlank()) { Text(if(busy) "Pairing…" else "Connect") } }
  }
 }
+

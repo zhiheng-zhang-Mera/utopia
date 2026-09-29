@@ -52,3 +52,5 @@ mDNS advertises `_utopia-city._tcp` with non-secret version, City, and session h
 BLE advertising depends on the host's adapter and driver. The Web diagnostic reports the publisher/capability state and any available reason. Use QR, mDNS, or manual connection when advertising is unavailable. BLE never carries task commands or telemetry.
 
 **LAN DEVELOPMENT ONLY · NOT FOR PUBLIC INTERNET.** This development setup uses a trusted LAN and does not provide public-network account or transport-security infrastructure.
+
+Disk metrics describe the filesystem volume containing the Node process working directory, rather than an aggregate of every host disk.

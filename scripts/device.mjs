@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync,writeFileSync,mkdirSync } from 'node:fs';
-const adb=process.env.ADB||'D:/CodexTemp/gdpr-finalize-android-sdk/platform-tools/adb.exe';
+const adb=process.env.ADB||'adb';
 const cmd=(...args)=>execFileSync(adb,args,{maxBuffer:8*1024*1024});
 mkdirSync('.runtime/evidence',{recursive:true});
 const [action,arg]=process.argv.slice(2);

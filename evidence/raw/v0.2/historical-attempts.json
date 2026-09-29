@@ -1,0 +1,1587 @@
+{
+  "limitations": [
+    "The first mDNS preliminary runs used APK bd3f2b6c56ea8db23547c2b7cc56bf1b3e78c34ddd25813d1c322d2ec4ee9b43 with uncommitted implementation; exact source commit was not bound.",
+    "Manual observer timeout is retained despite the private app log recording authentication and WebSocket ONLINE. Subsequent driver added handling for the OS save-password prompt; causal attribution remains an inference."
+  ],
+  "historical": [
+    {
+      "file": "pre-fix-mdns-runs.json",
+      "sourceSha256": "4584df69efb55d610870ed9b15e9586817a67acb318b879af0a6f159dd246903",
+      "applicability": "Historical or driver attempt; not counted as final candidate passes. Mechanism-specific selected observations, if published separately, retain their original source/APK.",
+      "record": [
+        {
+          "mode": "mdns",
+          "run": 1,
+          "start": "2026-09-29T02:00:19.614Z",
+          "end": "2026-09-29T02:01:21.717Z",
+          "success": true,
+          "errorClass": null,
+          "driver": "ADB UI; no discovery injection"
+        },
+        {
+          "mode": "mdns",
+          "run": 2,
+          "start": "2026-09-29T02:01:21.717Z",
+          "end": "2026-09-29T02:02:24.116Z",
+          "success": true,
+          "errorClass": null,
+          "driver": "ADB UI; no discovery injection"
+        },
+        {
+          "mode": "mdns",
+          "run": 3,
+          "start": "2026-09-29T02:02:24.117Z",
+          "end": "2026-09-29T02:03:27.891Z",
+          "success": true,
+          "errorClass": null,
+          "driver": "ADB UI; no discovery injection"
+        },
+        {
+          "mode": "mdns",
+          "run": 4,
+          "start": "2026-09-29T02:03:27.892Z",
+          "end": "2026-09-29T02:04:30.682Z",
+          "success": true,
+          "errorClass": null,
+          "driver": "ADB UI; no discovery injection"
+        },
+        {
+          "mode": "mdns",
+          "run": 5,
+          "start": "2026-09-29T02:04:30.682Z",
+          "end": "2026-09-29T02:05:33.179Z",
+          "success": true,
+          "errorClass": null,
+          "driver": "ADB UI; no discovery injection"
+        }
+      ]
+    },
+    {
+      "file": "pre-permission-fix-ble-runs.json",
+      "sourceSha256": "9ff732743d261d82421c1acdf3e9296e343059f28a0cf85e1aab2050549c987b",
+      "applicability": "Historical or driver attempt; not counted as final candidate passes. Mechanism-specific selected observations, if published separately, retain their original source/APK.",
+      "record": [
+        {
+          "mode": "ble",
+          "run": 1,
+          "codeSha": "612e123e2fdc861064a612290a7bc6f96edccd27",
+          "apkSha256": "e75c739037fc19d94ecbe685988914aa0f982bf358a490a11f720bbcfca56f09",
+          "start": "2026-09-29T02:06:10.403Z",
+          "end": "2026-09-29T02:07:12.469Z",
+          "success": true,
+          "errorClass": null,
+          "driver": "ADB UI; no discovery injection"
+        },
+        {
+          "mode": "ble",
+          "run": 2,
+          "codeSha": "612e123e2fdc861064a612290a7bc6f96edccd27",
+          "apkSha256": "e75c739037fc19d94ecbe685988914aa0f982bf358a490a11f720bbcfca56f09",
+          "start": "2026-09-29T02:07:12.470Z",
+          "end": "2026-09-29T02:08:15.042Z",
+          "success": true,
+          "errorClass": null,
+          "driver": "ADB UI; no discovery injection"
+        },
+        {
+          "mode": "ble",
+          "run": 3,
+          "codeSha": "612e123e2fdc861064a612290a7bc6f96edccd27",
+          "apkSha256": "e75c739037fc19d94ecbe685988914aa0f982bf358a490a11f720bbcfca56f09",
+          "start": "2026-09-29T02:08:15.042Z",
+          "end": "2026-09-29T02:09:16.926Z",
+          "success": true,
+          "errorClass": null,
+          "driver": "ADB UI; no discovery injection"
+        },
+        {
+          "mode": "ble",
+          "run": 4,
+          "codeSha": "612e123e2fdc861064a612290a7bc6f96edccd27",
+          "apkSha256": "e75c739037fc19d94ecbe685988914aa0f982bf358a490a11f720bbcfca56f09",
+          "start": "2026-09-29T02:09:16.926Z",
+          "end": "2026-09-29T02:10:19.161Z",
+          "success": true,
+          "errorClass": null,
+          "driver": "ADB UI; no discovery injection"
+        },
+        {
+          "mode": "ble",
+          "run": 5,
+          "codeSha": "612e123e2fdc861064a612290a7bc6f96edccd27",
+          "apkSha256": "e75c739037fc19d94ecbe685988914aa0f982bf358a490a11f720bbcfca56f09",
+          "start": "2026-09-29T02:10:19.161Z",
+          "end": "2026-09-29T02:11:22.716Z",
+          "success": true,
+          "errorClass": null,
+          "driver": "ADB UI; no discovery injection"
+        }
+      ]
+    },
+    {
+      "file": "manual-harness-attempt-runs.json",
+      "sourceSha256": "20e0cd7777e17ed605d322a73925442e0951f3b7a74b85edba7478c7065cb18f",
+      "applicability": "Historical or driver attempt; not counted as final candidate passes. Mechanism-specific selected observations, if published separately, retain their original source/APK.",
+      "record": [
+        {
+          "mode": "manual",
+          "scenario": "pairing",
+          "run": 1,
+          "codeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+          "apkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+          "start": "2026-09-29T02:11:36.028Z",
+          "end": "2026-09-29T02:13:06.254Z",
+          "success": false,
+          "errorClass": "Online device timeout",
+          "driver": "ADB UI; no discovery injection"
+        }
+      ]
+    },
+    {
+      "file": "mdns-harness-attempt-runs.json",
+      "sourceSha256": "b053c0e075b99315adf09b942f7c796691e914b7f9dd8e7de8f2752f290d3384",
+      "applicability": "Historical or driver attempt; not counted as final candidate passes. Mechanism-specific selected observations, if published separately, retain their original source/APK.",
+      "record": [
+        {
+          "mode": "mdns",
+          "scenario": "pairing",
+          "run": 1,
+          "codeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+          "apkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+          "start": "2026-09-29T02:13:07.862Z",
+          "end": "2026-09-29T02:13:24.704Z",
+          "success": false,
+          "errorClass": "UI element missing",
+          "driver": "ADB UI; no discovery injection"
+        }
+      ]
+    },
+    {
+      "file": "mdns-scroll-attempt-runs.json",
+      "sourceSha256": "07301b2a6e181ae07a8405a441266b53a097268327878d43551561c4cca321bc",
+      "applicability": "Historical or driver attempt; not counted as final candidate passes. Mechanism-specific selected observations, if published separately, retain their original source/APK.",
+      "record": [
+        {
+          "mode": "mdns",
+          "scenario": "pairing",
+          "run": 1,
+          "codeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+          "apkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+          "start": "2026-09-29T02:19:46.514Z",
+          "end": "2026-09-29T02:20:41.182Z",
+          "success": false,
+          "errorClass": "UI element missing: Connect",
+          "driver": "ADB UI; no discovery injection"
+        }
+      ]
+    },
+    {
+      "file": "pre-radio-fix-discovery-recovery.json",
+      "originalSnapshotReferencesUnresolved": true,
+      "originalSnapshotReferenceNote": "Snapshot references are original private filenames, not links to current published XML. Earlier XML was not preserved before reruns and filenames overlap; no association with newer snapshots is asserted.",
+      "sourceSha256": "0293dd2decdb12c3dea5d5fa8481444d8d543fcaccaf439b50e069da8b736e38",
+      "applicability": "Historical or driver attempt; not counted as final candidate passes. Mechanism-specific selected observations, if published separately, retain their original source/APK.",
+      "record": {
+        "codeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+        "apkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+        "mainCity": "cb60db4a-7203-43d9-afbb-e40916eedd00",
+        "startedAt": "2026-09-29T02:47:50.031Z",
+        "driver": "ADB UI; native discovery; no injected descriptor",
+        "runs": [
+          {
+            "kind": "ble",
+            "run": 1,
+            "startTimestamp": "2026-09-29T02:47:50.033Z",
+            "discoveryTimestamp": "2026-09-29T02:48:35.777Z",
+            "disabledAt": "2026-09-29T02:48:35.777Z",
+            "unavailableObservedAt": "2026-09-29T02:49:09.862Z",
+            "restoreAt": "2026-09-29T02:49:09.863Z",
+            "recoveredAt": "2026-09-29T02:49:32.920Z",
+            "retryCount": 1,
+            "success": true,
+            "errorClass": null,
+            "snapshots": [
+              "ble-discovery-1-before.xml",
+              "ble-discovery-1-unavailable.xml",
+              "ble-discovery-1-recovered.xml"
+            ],
+            "cityIdentityPreserved": true,
+            "endTimestamp": "2026-09-29T02:49:32.923Z"
+          },
+          {
+            "kind": "ble",
+            "run": 2,
+            "startTimestamp": "2026-09-29T02:49:32.923Z",
+            "discoveryTimestamp": "2026-09-29T02:50:19.568Z",
+            "disabledAt": "2026-09-29T02:50:19.568Z",
+            "unavailableObservedAt": "2026-09-29T02:50:48.314Z",
+            "restoreAt": "2026-09-29T02:50:48.314Z",
+            "recoveredAt": "2026-09-29T02:51:11.000Z",
+            "retryCount": 1,
+            "success": true,
+            "errorClass": null,
+            "snapshots": [
+              "ble-discovery-2-before.xml",
+              "ble-discovery-2-unavailable.xml",
+              "ble-discovery-2-recovered.xml"
+            ],
+            "cityIdentityPreserved": true,
+            "endTimestamp": "2026-09-29T02:51:11.002Z"
+          }
+        ],
+        "bluetoothToggleDriver": "svc bluetooth",
+        "bluetoothToggleCommands": [
+          {
+            "action": "disable",
+            "at": "2026-09-29T02:48:46.065Z",
+            "exitStatus": 137,
+            "errorClass": null,
+            "observedState": "0"
+          },
+          {
+            "action": "enable",
+            "at": "2026-09-29T02:49:14.461Z",
+            "exitStatus": 137,
+            "errorClass": null,
+            "observedState": "1"
+          },
+          {
+            "action": "disable",
+            "at": "2026-09-29T02:50:24.238Z",
+            "exitStatus": 137,
+            "errorClass": null,
+            "observedState": "0"
+          },
+          {
+            "action": "enable",
+            "at": "2026-09-29T02:50:52.908Z",
+            "exitStatus": 137,
+            "errorClass": null,
+            "observedState": "1"
+          }
+        ],
+        "finishedAt": "2026-09-29T02:51:11.003Z"
+      }
+    },
+    {
+      "file": "mdns-wrong-code-driver-attempt.json",
+      "sourceSha256": "49f6d5e07aaad486b4b9d81f169a0cef6c18d442c911f83699673eb02a9318d4",
+      "applicability": "Historical or driver attempt; not counted as final candidate passes. Mechanism-specific selected observations, if published separately, retain their original source/APK.",
+      "record": [
+        {
+          "mode": "mdns",
+          "scenario": "wrong-code",
+          "run": 1,
+          "codeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+          "apkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+          "start": "2026-09-29T02:52:29.334Z",
+          "end": "2026-09-29T02:54:05.990Z",
+          "success": false,
+          "errorClass": "UI element missing: Connect",
+          "driver": "ADB UI; no discovery injection"
+        }
+      ]
+    },
+    {
+      "file": "mdns-wrong-code-status-overwrite-runs.json",
+      "diagnosticNote": "Historical driver observation: submitted rejection was followed by discovery status overwriting the displayed error. Preserve the original failure; this record is not a final rejection-UI pass.",
+      "sourceSha256": "4bf76f39159e64b6b42ef9e31c2592139bb337b4d1607be340739f71ad553904",
+      "applicability": "Historical or driver attempt; not counted as final candidate passes. Mechanism-specific selected observations, if published separately, retain their original source/APK.",
+      "record": [
+        {
+          "mode": "mdns",
+          "scenario": "wrong-code",
+          "run": 1,
+          "codeSha": "3d7b8c9647fa13f75bc62829b5c96966dfba6dd2",
+          "apkSha256": "0f2c3091661bf8818cd0995741ce6fea1f8fe00b4a0cf5867e705294dd383b77",
+          "start": "2026-09-29T03:02:08.224Z",
+          "end": "2026-09-29T03:03:47.956Z",
+          "success": false,
+          "errorClass": "Wrong code rejection missing",
+          "driver": "ADB UI; no discovery injection"
+        }
+      ]
+    },
+    {
+      "file": "pre-apk-provenance-telemetry-consistency.json",
+      "installedApkHashMissingInOriginal": true,
+      "provenanceNote": "Original record lacks an installed APK hash. No hash has been assigned retrospectively.",
+      "sourceSha256": "0ee666f44915ccec0b420bd5358123ad30b008303ae5d77bc918024c987274d9",
+      "applicability": "Historical or driver attempt; not counted as final candidate passes. Mechanism-specific selected observations, if published separately, retain their original source/APK.",
+      "record": {
+        "codeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+        "sampledAt": "2026-09-29T02:41:16.664Z",
+        "androidObservedAt": "2026-09-29T02:41:09.815Z",
+        "androidHostTimestampMatched": true,
+        "webHostExactSampleMatched": true,
+        "androidDisplayedMetrics": [
+          "CPU: 35.0%",
+          "Memory: 18.2 GB / 31.8 GB",
+          "Disk: 287.4 GB / 833.9 GB · Free 546.5 GB",
+          "Uptime: 180539 seconds",
+          "Observed: 2026-09-29T02:41:09.815Z"
+        ],
+        "samples": [
+          {
+            "sampleTimestamp": "2026-09-29T02:41:08.940Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:06.807Z",
+              "cpu": {
+                "usagePercent": 19.825993064640045
+              },
+              "memory": {
+                "usedBytes": 19381575680,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592406528,
+                "freeBytes": 586762518528,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180536.734
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:06.807Z",
+              "cpu": {
+                "usagePercent": 19.825993064640045
+              },
+              "memory": {
+                "usedBytes": 19381575680,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592406528,
+                "freeBytes": 586762518528,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180536.734
+            },
+            "webDisplayedMetrics": "CPU\n19.8%\nMemory\n18.1 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:09.193Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:06.807Z",
+              "cpu": {
+                "usagePercent": 19.825993064640045
+              },
+              "memory": {
+                "usedBytes": 19381575680,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592406528,
+                "freeBytes": 586762518528,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180536.734
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:06.807Z",
+              "cpu": {
+                "usagePercent": 19.825993064640045
+              },
+              "memory": {
+                "usedBytes": 19381575680,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592406528,
+                "freeBytes": 586762518528,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180536.734
+            },
+            "webDisplayedMetrics": "CPU\n19.8%\nMemory\n18.1 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:09.456Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:06.807Z",
+              "cpu": {
+                "usagePercent": 19.825993064640045
+              },
+              "memory": {
+                "usedBytes": 19381575680,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592406528,
+                "freeBytes": 586762518528,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180536.734
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:06.807Z",
+              "cpu": {
+                "usagePercent": 19.825993064640045
+              },
+              "memory": {
+                "usedBytes": 19381575680,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592406528,
+                "freeBytes": 586762518528,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180536.734
+            },
+            "webDisplayedMetrics": "CPU\n19.8%\nMemory\n18.1 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:09.708Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:06.807Z",
+              "cpu": {
+                "usagePercent": 19.825993064640045
+              },
+              "memory": {
+                "usedBytes": 19381575680,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592406528,
+                "freeBytes": 586762518528,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180536.734
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:06.807Z",
+              "cpu": {
+                "usagePercent": 19.825993064640045
+              },
+              "memory": {
+                "usedBytes": 19381575680,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592406528,
+                "freeBytes": 586762518528,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180536.734
+            },
+            "webDisplayedMetrics": "CPU\n19.8%\nMemory\n18.1 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:09.971Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:06.807Z",
+              "cpu": {
+                "usagePercent": 19.825993064640045
+              },
+              "memory": {
+                "usedBytes": 19381575680,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592406528,
+                "freeBytes": 586762518528,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180536.734
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:06.807Z",
+              "cpu": {
+                "usagePercent": 19.825993064640045
+              },
+              "memory": {
+                "usedBytes": 19381575680,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592406528,
+                "freeBytes": 586762518528,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180536.734
+            },
+            "webDisplayedMetrics": "CPU\n19.8%\nMemory\n18.1 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:10.221Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:06.807Z",
+              "cpu": {
+                "usagePercent": 19.825993064640045
+              },
+              "memory": {
+                "usedBytes": 19381575680,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592406528,
+                "freeBytes": 586762518528,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180536.734
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:06.807Z",
+              "cpu": {
+                "usagePercent": 19.825993064640045
+              },
+              "memory": {
+                "usedBytes": 19381575680,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592406528,
+                "freeBytes": 586762518528,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180536.734
+            },
+            "webDisplayedMetrics": "CPU\n19.8%\nMemory\n18.1 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:10.486Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:06.807Z",
+              "cpu": {
+                "usagePercent": 19.825993064640045
+              },
+              "memory": {
+                "usedBytes": 19381575680,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592406528,
+                "freeBytes": 586762518528,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180536.734
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:06.807Z",
+              "cpu": {
+                "usagePercent": 19.825993064640045
+              },
+              "memory": {
+                "usedBytes": 19381575680,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592406528,
+                "freeBytes": 586762518528,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180536.734
+            },
+            "webDisplayedMetrics": "CPU\n19.8%\nMemory\n18.1 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:10.736Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:06.807Z",
+              "cpu": {
+                "usagePercent": 19.825993064640045
+              },
+              "memory": {
+                "usedBytes": 19381575680,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592406528,
+                "freeBytes": 586762518528,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180536.734
+            },
+            "webDisplayedMetrics": "CPU\n19.8%\nMemory\n18.1 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:11.000Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:06.807Z",
+              "cpu": {
+                "usagePercent": 19.825993064640045
+              },
+              "memory": {
+                "usedBytes": 19381575680,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592406528,
+                "freeBytes": 586762518528,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180536.734
+            },
+            "webDisplayedMetrics": "CPU\n19.8%\nMemory\n18.1 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:11.265Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:06.807Z",
+              "cpu": {
+                "usagePercent": 19.825993064640045
+              },
+              "memory": {
+                "usedBytes": 19381575680,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592406528,
+                "freeBytes": 586762518528,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180536.734
+            },
+            "webDisplayedMetrics": "CPU\n19.8%\nMemory\n18.1 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:11.529Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:06.807Z",
+              "cpu": {
+                "usagePercent": 19.825993064640045
+              },
+              "memory": {
+                "usedBytes": 19381575680,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592406528,
+                "freeBytes": 586762518528,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180536.734
+            },
+            "webDisplayedMetrics": "CPU\n19.8%\nMemory\n18.1 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:11.780Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:06.807Z",
+              "cpu": {
+                "usagePercent": 19.825993064640045
+              },
+              "memory": {
+                "usedBytes": 19381575680,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592406528,
+                "freeBytes": 586762518528,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180536.734
+            },
+            "webDisplayedMetrics": "CPU\n19.8%\nMemory\n18.1 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:12.030Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:06.807Z",
+              "cpu": {
+                "usagePercent": 19.825993064640045
+              },
+              "memory": {
+                "usedBytes": 19381575680,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592406528,
+                "freeBytes": 586762518528,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180536.734
+            },
+            "webDisplayedMetrics": "CPU\n19.8%\nMemory\n18.1 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:12.295Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "webDisplayedMetrics": "CPU\n35.0%\nMemory\n18.2 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:12.546Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "webDisplayedMetrics": "CPU\n35.0%\nMemory\n18.2 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:12.798Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "webDisplayedMetrics": "CPU\n35.0%\nMemory\n18.2 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:13.048Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "webDisplayedMetrics": "CPU\n35.0%\nMemory\n18.2 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:13.313Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "webDisplayedMetrics": "CPU\n35.0%\nMemory\n18.2 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:13.565Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "webDisplayedMetrics": "CPU\n35.0%\nMemory\n18.2 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:13.835Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "webDisplayedMetrics": "CPU\n35.0%\nMemory\n18.2 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:14.095Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:12.828Z",
+              "cpu": {
+                "usagePercent": 18.529900332225914
+              },
+              "memory": {
+                "usedBytes": 19499593728,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180542.75
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "webDisplayedMetrics": "CPU\n35.0%\nMemory\n18.2 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:14.348Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:12.828Z",
+              "cpu": {
+                "usagePercent": 18.529900332225914
+              },
+              "memory": {
+                "usedBytes": 19499593728,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180542.75
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "webDisplayedMetrics": "CPU\n35.0%\nMemory\n18.2 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:14.601Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:12.828Z",
+              "cpu": {
+                "usagePercent": 18.529900332225914
+              },
+              "memory": {
+                "usedBytes": 19499593728,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180542.75
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "webDisplayedMetrics": "CPU\n35.0%\nMemory\n18.2 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:14.857Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:12.828Z",
+              "cpu": {
+                "usagePercent": 18.529900332225914
+              },
+              "memory": {
+                "usedBytes": 19499593728,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180542.75
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "webDisplayedMetrics": "CPU\n35.0%\nMemory\n18.2 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:15.104Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:12.828Z",
+              "cpu": {
+                "usagePercent": 18.529900332225914
+              },
+              "memory": {
+                "usedBytes": 19499593728,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180542.75
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "webDisplayedMetrics": "CPU\n35.0%\nMemory\n18.2 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:15.355Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:12.828Z",
+              "cpu": {
+                "usagePercent": 18.529900332225914
+              },
+              "memory": {
+                "usedBytes": 19499593728,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180542.75
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "webDisplayedMetrics": "CPU\n35.0%\nMemory\n18.2 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:15.619Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:12.828Z",
+              "cpu": {
+                "usagePercent": 18.529900332225914
+              },
+              "memory": {
+                "usedBytes": 19499593728,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180542.75
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "webDisplayedMetrics": "CPU\n35.0%\nMemory\n18.2 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:15.861Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:12.828Z",
+              "cpu": {
+                "usagePercent": 18.529900332225914
+              },
+              "memory": {
+                "usedBytes": 19499593728,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180542.75
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "webDisplayedMetrics": "CPU\n35.0%\nMemory\n18.2 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:16.115Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:15.838Z",
+              "cpu": {
+                "usagePercent": 16.216551553000535
+              },
+              "memory": {
+                "usedBytes": 19584954368,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180545.765
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:09.815Z",
+              "cpu": {
+                "usagePercent": 35.028306742151315
+              },
+              "memory": {
+                "usedBytes": 19518091264,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180539.75
+            },
+            "webDisplayedMetrics": "CPU\n35.0%\nMemory\n18.2 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 8m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:16.369Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:15.838Z",
+              "cpu": {
+                "usagePercent": 16.216551553000535
+              },
+              "memory": {
+                "usedBytes": 19584954368,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180545.765
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:15.838Z",
+              "cpu": {
+                "usagePercent": 16.216551553000535
+              },
+              "memory": {
+                "usedBytes": 19584954368,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180545.765
+            },
+            "webDisplayedMetrics": "CPU\n16.2%\nMemory\n18.2 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 9m"
+          },
+          {
+            "sampleTimestamp": "2026-09-29T02:41:16.621Z",
+            "host": {
+              "observedAt": "2026-09-29T02:41:15.838Z",
+              "cpu": {
+                "usagePercent": 16.216551553000535
+              },
+              "memory": {
+                "usedBytes": 19584954368,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180545.765
+            },
+            "web": {
+              "observedAt": "2026-09-29T02:41:15.838Z",
+              "cpu": {
+                "usagePercent": 16.216551553000535
+              },
+              "memory": {
+                "usedBytes": 19584954368,
+                "totalBytes": 34101420032
+              },
+              "disk": {
+                "usedBytes": 308592410624,
+                "freeBytes": 586762514432,
+                "totalBytes": 895354925056
+              },
+              "uptimeSeconds": 180545.765
+            },
+            "webDisplayedMetrics": "CPU\n16.2%\nMemory\n18.2 GB / 31.8 GB\nDisk\n287.4 GB / 833.9 GB\nFree 546.5 GB\nUptime\n50h 9m"
+          }
+        ],
+        "limitations": [
+          "Snapshots sampled every250ms; Android values are formatted display observations, not simultaneous atomic capture.",
+          "This single-machine observation does not establish cross-platform precision or performance."
+        ]
+      }
+    },
+    {
+      "file": "pre-apk-provenance-task-regression.json",
+      "installedApkHashMissingInOriginal": true,
+      "provenanceNote": "Original record lacks an installed APK hash. No hash has been assigned retrospectively.",
+      "sourceSha256": "4448917be4d6b4469dc1a4b1a1905f9ff5cbc83d7222b3a88d0861d44559cb99",
+      "applicability": "Historical or driver attempt; not counted as final candidate passes. Mechanism-specific selected observations, if published separately, retain their original source/APK.",
+      "record": {
+        "codeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+        "startedAt": "2026-09-29T02:41:25.366Z",
+        "completedAt": "2026-09-29T02:41:37.440Z",
+        "taskId": "Q-bc0b95ec-2b6a-49b6-9dab-c6f85163b3f4",
+        "state": "COMPLETED",
+        "androidShowsTaskAndCompletion": true,
+        "webShowsTaskAndCompletion": true,
+        "eventTypes": [
+          "COMMAND_ACCEPTED",
+          "TASK_CREATED",
+          "TASK_ASSIGNED",
+          "TASK_STARTED",
+          "TASK_CHECKPOINTED",
+          "TASK_CHECKPOINTED",
+          "TASK_COMPLETED"
+        ],
+        "resultAvailable": true,
+        "checkpointAvailable": true,
+        "scope": "Android UI submitted task; real reference node; Web UI observes same task identity and completion",
+        "artifactSha256": "5ffcf9f73c65b7de24949957036ad38b71ac695d14d66d8ca23acfb0f9faa75a",
+        "androidResultMatches": true,
+        "webResultMatches": true,
+        "success": true
+      }
+    },
+    {
+      "file": "discovery-recovery-driver-attempt.json",
+      "originalSnapshotReferencesUnresolved": true,
+      "originalSnapshotReferenceNote": "Snapshot references are original private filenames, not links to current published XML. Earlier XML was not preserved before reruns and filenames overlap; no association with newer snapshots is asserted.",
+      "sourceSha256": "8a0ed76bdc1c159aadedf25f6834ebb68f9b745ffe6df1466ef463a9a8a57e30",
+      "applicability": "Historical or driver attempt; not counted as final candidate passes. Mechanism-specific selected observations, if published separately, retain their original source/APK.",
+      "record": {
+        "codeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+        "apkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+        "mainCity": "cb60db4a-7203-43d9-afbb-e40916eedd00",
+        "startedAt": "2026-09-29T02:42:17.666Z",
+        "driver": "ADB UI; native discovery; no injected descriptor",
+        "runs": [
+          {
+            "kind": "ble",
+            "run": 1,
+            "startTimestamp": "2026-09-29T02:42:17.667Z",
+            "discoveryTimestamp": null,
+            "disabledAt": null,
+            "unavailableObservedAt": null,
+            "restoreAt": null,
+            "recoveredAt": null,
+            "retryCount": 0,
+            "success": false,
+            "errorClass": null,
+            "snapshots": []
+          }
+        ]
+      }
+    },
+    {
+      "file": "discovery-recovery-mdns-and-ble-attempt.json",
+      "originalSnapshotReferencesUnresolved": true,
+      "originalSnapshotReferenceNote": "Snapshot references are original private filenames, not links to current published XML. Earlier XML was not preserved before reruns and filenames overlap; no association with newer snapshots is asserted.",
+      "sourceSha256": "d38b4eb419e1f8460d95672290ef72b869793c97f8671f83ab9a98ba0610a0bc",
+      "applicability": "Historical or driver attempt; not counted as final candidate passes. Mechanism-specific selected observations, if published separately, retain their original source/APK.",
+      "record": {
+        "codeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+        "apkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+        "mainCity": "cb60db4a-7203-43d9-afbb-e40916eedd00",
+        "startedAt": "2026-09-29T02:44:11.442Z",
+        "driver": "ADB UI; native discovery; no injected descriptor",
+        "runs": [
+          {
+            "kind": "ble",
+            "run": 1,
+            "startTimestamp": "2026-09-29T02:44:11.443Z",
+            "discoveryTimestamp": "2026-09-29T02:44:57.397Z",
+            "disabledAt": "2026-09-29T02:44:57.397Z",
+            "unavailableObservedAt": null,
+            "restoreAt": null,
+            "recoveredAt": null,
+            "retryCount": 0,
+            "success": false,
+            "errorClass": "DRIVER_OR_PLATFORM_ERROR",
+            "snapshots": [
+              "ble-discovery-1-before.xml"
+            ],
+            "endTimestamp": "2026-09-29T02:45:07.756Z"
+          },
+          {
+            "kind": "mdns",
+            "run": 1,
+            "startTimestamp": "2026-09-29T02:45:07.756Z",
+            "discoveryTimestamp": "2026-09-29T02:45:56.589Z",
+            "disabledAt": "2026-09-29T02:45:56.590Z",
+            "unavailableObservedAt": "2026-09-29T02:46:07.344Z",
+            "restoreAt": "2026-09-29T02:46:07.345Z",
+            "recoveredAt": "2026-09-29T02:46:23.463Z",
+            "retryCount": 1,
+            "success": true,
+            "errorClass": null,
+            "snapshots": [
+              "mdns-discovery-1-before.xml",
+              "mdns-discovery-1-unavailable.xml",
+              "mdns-discovery-1-recovered.xml"
+            ],
+            "cityIdentityPreserved": true,
+            "endTimestamp": "2026-09-29T02:46:23.467Z"
+          },
+          {
+            "kind": "mdns",
+            "run": 2,
+            "startTimestamp": "2026-09-29T02:46:23.467Z",
+            "discoveryTimestamp": "2026-09-29T02:47:08.978Z",
+            "disabledAt": "2026-09-29T02:47:08.978Z",
+            "unavailableObservedAt": "2026-09-29T02:47:19.631Z",
+            "restoreAt": "2026-09-29T02:47:19.632Z",
+            "recoveredAt": "2026-09-29T02:47:35.479Z",
+            "retryCount": 1,
+            "success": true,
+            "errorClass": null,
+            "snapshots": [
+              "mdns-discovery-2-before.xml",
+              "mdns-discovery-2-unavailable.xml",
+              "mdns-discovery-2-recovered.xml"
+            ],
+            "cityIdentityPreserved": true,
+            "endTimestamp": "2026-09-29T02:47:35.482Z"
+          }
+        ],
+        "bluetoothToggleDriver": "svc bluetooth",
+        "bluetoothRestoredAfterFailure": true,
+        "finishedAt": "2026-09-29T02:47:40.859Z"
+      }
+    }
+  ]
+}

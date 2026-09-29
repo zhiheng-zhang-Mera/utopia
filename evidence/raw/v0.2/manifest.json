@@ -1,0 +1,417 @@
+{
+  "generatedAt": "2026-09-29T03:15:22.916Z",
+  "files": [
+    {
+      "file": "android-devices.png",
+      "sha256": "b72619960249de29e398a190e291e3f0bac4ab1b7cb15d5e890d042db6666dba"
+    },
+    {
+      "file": "android-errorfix-unit-tests.json",
+      "sha256": "f6c33f31a9b8962a0896e49fb7eeab111bf4763658c978b1ffb59c1507c99c50"
+    },
+    {
+      "file": "android-radiofix-unit-tests.json",
+      "sha256": "da8806e00bc07958daa68ba599d56ac2789341cc91ee15167d8214518624b304"
+    },
+    {
+      "file": "android-telemetry.xml",
+      "sha256": "aa21d8216a17dd411c387cfe9122c1070fc08c511bc9134d20134e9ae0c3173c"
+    },
+    {
+      "file": "android-unit-tests.json",
+      "sha256": "7797a0287072f974e94965d36890649b6f89eb525dc53fe5adfdd56f166187fa"
+    },
+    {
+      "file": "ble-1-events.jsonl",
+      "sha256": "452b854e8ce65d4b8d2ac8d3ef78259b75a3a32ef41f253f4a591689361c8990"
+    },
+    {
+      "file": "ble-2-events.jsonl",
+      "sha256": "f57e9f28f7171226d639a67f62d662dde7865761e4374c0577f8f2e32afa8bf1"
+    },
+    {
+      "file": "ble-3-events.jsonl",
+      "sha256": "1dafa4b17fb137da83596861c54f1cebca06d54e9eecf500767f241acac75196"
+    },
+    {
+      "file": "ble-4-events.jsonl",
+      "sha256": "ecb59ecc909732fa3979e12c47e2102e26c66c8a1c31dbb9c7baa9c4d6b00b66"
+    },
+    {
+      "file": "ble-5-events.jsonl",
+      "sha256": "ce8d756ef6f424c0d5a2ea24c3a8d1c0b81008777a21f3d36567d71e5403c5c1"
+    },
+    {
+      "file": "ble-discovery-1-before.xml",
+      "sha256": "f6532a7e8eb205c0ac83becc3ea8548fcb9881e1db02a07bee22c981081dd648"
+    },
+    {
+      "file": "ble-discovery-1-recovered.xml",
+      "sha256": "f6532a7e8eb205c0ac83becc3ea8548fcb9881e1db02a07bee22c981081dd648"
+    },
+    {
+      "file": "ble-discovery-1-unavailable.xml",
+      "sha256": "1a8aa69f6aa5bbd42a530bb8728e163f3af4f58395c31a161482bbb992a149e0"
+    },
+    {
+      "file": "ble-discovery-2-before.xml",
+      "sha256": "f6532a7e8eb205c0ac83becc3ea8548fcb9881e1db02a07bee22c981081dd648"
+    },
+    {
+      "file": "ble-discovery-2-recovered.xml",
+      "sha256": "f6532a7e8eb205c0ac83becc3ea8548fcb9881e1db02a07bee22c981081dd648"
+    },
+    {
+      "file": "ble-discovery-2-unavailable.xml",
+      "sha256": "1a8aa69f6aa5bbd42a530bb8728e163f3af4f58395c31a161482bbb992a149e0"
+    },
+    {
+      "file": "ble-discovery-recovery.json",
+      "sha256": "eabe3490dd3282c67fe600b8c2dca2cc82b41130e6f6a296e5f27048cce1e914"
+    },
+    {
+      "file": "ble-events.jsonl",
+      "sha256": "7300dbe2ddff9a689156ba689ec2f865cf7ea342985f91c0bb4003f6fca0912a"
+    },
+    {
+      "file": "ble-radiofix-1-events.jsonl",
+      "sha256": "44bf42f5b75a6a9403f411612dcd0f27f9907cbdc8d64c7a79a42d1c2374d43a"
+    },
+    {
+      "file": "ble-radiofix-events.jsonl",
+      "sha256": "44bf42f5b75a6a9403f411612dcd0f27f9907cbdc8d64c7a79a42d1c2374d43a"
+    },
+    {
+      "file": "ble-radiofix-runs.json",
+      "sha256": "b5c300d9e058e49e8c403c142a6cfd82ec74ea7db2bec2dd63dc4a02b018a569"
+    },
+    {
+      "file": "ble-radiofix-trials.json",
+      "sha256": "4b6ec4e5407636f24f5479342df186fe1d0d2c4f6b7a504eb3490ed54e09051f"
+    },
+    {
+      "file": "ble-runs.json",
+      "sha256": "da4f46869fbd4a44d2935d3fbf8e3fb6045a5356ad4090aa70edd719ca1cd01a"
+    },
+    {
+      "file": "ble-trials.json",
+      "sha256": "0125d85cd187e2a0b6a605fb9048e3f45b8454920c4ebf1b9331c1669e8b544a"
+    },
+    {
+      "file": "ci-errorfix-product.json",
+      "sha256": "65570858fefd469673990b87dc10e1e5798246b3a71d16d2b25ee9573aa1b724"
+    },
+    {
+      "file": "ci-product.json",
+      "sha256": "f4f81168076eb4c4089a9cc8170ed3178fb7f9fa4d0c2b349848dca1be53dcd4"
+    },
+    {
+      "file": "ci-radiofix-product.json",
+      "sha256": "01c9038bbb98509464b581f1a61c1488e5c836b7d8b2ae2c720609897793ff3e"
+    },
+    {
+      "file": "delivery-audit.json",
+      "sha256": "30e9cd0ccc1ba08498d5984f0c90fef0ceee81a2f6b29b560c785aa753f7abfe"
+    },
+    {
+      "file": "discovery-recovery.json",
+      "sha256": "73df5a2ce58a0688613f46c6324897864dfdf6cc6c3d2340964365fc57756389"
+    },
+    {
+      "file": "environment.json",
+      "sha256": "f3229101d54e9cbdb591fa084e4e280dd690f17e404c0ee8943b04a19619048a"
+    },
+    {
+      "file": "gateway-1-connection-events.jsonl",
+      "sha256": "e89b99e284aa9bbd62ad742e15b301f9b82dc1f0632d927ca036efa2fcc98fc8"
+    },
+    {
+      "file": "gateway-1-offline.xml",
+      "sha256": "a0c6893c96d7e8a0e9de447cd8554b319e1ab75f352f27a1d7b85cdabd60b6e9"
+    },
+    {
+      "file": "gateway-2-connection-events.jsonl",
+      "sha256": "e8b158b6aed8637f463ca2ffd5d95d0e840ab19d304e1a38f9aa4db7cd69525e"
+    },
+    {
+      "file": "gateway-2-offline.xml",
+      "sha256": "b682ceeef5194410d327e7e9f845efb94b6da8f1fbd5c422c59ae28ecdc6cbdd"
+    },
+    {
+      "file": "gateway-3-connection-events.jsonl",
+      "sha256": "b0ab710f3a1a7eab44e9a836467bdfd9f33c938f2a7a12dab3c25db4209cb748"
+    },
+    {
+      "file": "gateway-3-offline.xml",
+      "sha256": "8ec45580329ceab190ea901e992f9e3de26fefb0ea1066623c561dd9db76cdab"
+    },
+    {
+      "file": "gateway-recovery.json",
+      "sha256": "0efc5a13d0fb9801d11bc4a4e1e225885da62c2362621634d6044f396fc6d3b7"
+    },
+    {
+      "file": "historical-attempts.json",
+      "sha256": "2f6bebe26f412f45395b9de2173de9924c78078b90a52bf3073a3a8216a2c95b"
+    },
+    {
+      "file": "historical-discovery-recovery-driver-attempt.json",
+      "sha256": "35efc09142f8132bc28bea236ebaadcb7910786bdecf6d382b4593fb8fdcd18b"
+    },
+    {
+      "file": "historical-discovery-recovery-mdns-and-ble-attempt.json",
+      "sha256": "2bfe4159a517f6e0c28d70cf62aabb3be079d99931b176381c93acb761788e88"
+    },
+    {
+      "file": "historical-manual-harness-attempt-runs.json",
+      "sha256": "e0927364b2de0430421e76c528928f167b59d2e30d5103f58a893400af2062a9"
+    },
+    {
+      "file": "historical-mdns-harness-attempt-runs.json",
+      "sha256": "8a039417e59febf1cfe4c96ab82263fcd76b384bee402fbd53cda6dd35aa8bf3"
+    },
+    {
+      "file": "historical-mdns-scroll-attempt-runs.json",
+      "sha256": "faea194c9ae0989b67ca91114586f35b24c0677f1453817c5ee67db432287199"
+    },
+    {
+      "file": "historical-mdns-wrong-code-driver-attempt.json",
+      "sha256": "c17fc338c18fa6df9995025a31be09bd7ae8235bbef976a178a2baa8e1e67a63"
+    },
+    {
+      "file": "historical-mdns-wrong-code-status-overwrite-runs.json",
+      "sha256": "9496815b294c8c8398545d12a07cc09289d1dc42af21056bd5c03d331b84f792"
+    },
+    {
+      "file": "historical-pre-apk-provenance-task-regression.json",
+      "sha256": "6b6c86db5c5c1794bfd6f5eb2b55654f696efc0caef1376fb7c23f657ce3ae0c"
+    },
+    {
+      "file": "historical-pre-apk-provenance-telemetry-consistency.json",
+      "sha256": "bd3f41f0f432d5cf925a3c97ab84404e24cc87a17044fbc03f479551d77eb66f"
+    },
+    {
+      "file": "historical-pre-fix-mdns-runs.json",
+      "sha256": "3290190f0eb7e5a689e69c8cac3c16e130332ef6608bc4f95d4df2dcfd2b5ced"
+    },
+    {
+      "file": "historical-pre-permission-fix-ble-runs.json",
+      "sha256": "fff9d83dc81ab5fafebb0c522ae386971ef012f70f3c9363aa3b9c41770f719b"
+    },
+    {
+      "file": "historical-pre-radio-fix-discovery-recovery.json",
+      "sha256": "d0fe3462f986715d6922020a087a0c7e607089938fc4847e06d732ba3d04a10f"
+    },
+    {
+      "file": "manual-1-events.jsonl",
+      "sha256": "0fe7438ac08c9ce5b9bd41bdde2792d31cf0713b51528ec70b34030fa3805f99"
+    },
+    {
+      "file": "manual-2-events.jsonl",
+      "sha256": "40bc4ea61208696d80ee0019763a233f8c5ee5c5f91ea0f1f920bfe024cddb1d"
+    },
+    {
+      "file": "manual-3-events.jsonl",
+      "sha256": "e0e63d499d58cdba121b730157ddf8952500dbd9bf85ff1d1f383adfdd14ffd1"
+    },
+    {
+      "file": "manual-4-events.jsonl",
+      "sha256": "b3ae746817a861777d3160ec99486c45bfa90479637c88c4dc546d8bd5c3eb8f"
+    },
+    {
+      "file": "manual-5-events.jsonl",
+      "sha256": "513c6a4aab4558169bcc8a174138dba7a2a410f225e42f5498198af671ba614f"
+    },
+    {
+      "file": "manual-events.jsonl",
+      "sha256": "4917968c2aacfb2ebfaebfdaf3aa2cf504f58d3e0f88edaeab50870aa26c19d5"
+    },
+    {
+      "file": "manual-runs.json",
+      "sha256": "d1e21e35488d1cd2b069ceae108ee5f4e5867dcf89309ef52520d5761fbf6277"
+    },
+    {
+      "file": "manual-trials.json",
+      "sha256": "ab21e244c3bad7c6b3fdb69b0e0474489656718a1c09f38b7960998de67fc246"
+    },
+    {
+      "file": "mdns-1-events.jsonl",
+      "sha256": "27b9f01af5b8b7957679e4b17d8ae017e0326befdc4d242f96a8a0114a91c353"
+    },
+    {
+      "file": "mdns-2-events.jsonl",
+      "sha256": "e1dc50b321f79f0582e3ab6d8a9d40410e615e02a58f9a7cf2bf32fad4a126cb"
+    },
+    {
+      "file": "mdns-3-events.jsonl",
+      "sha256": "81856efb0bdaecb0b544b306b2adaecf58395ffd005e5bd0cdfe5a5e373dc37e"
+    },
+    {
+      "file": "mdns-4-events.jsonl",
+      "sha256": "073bfb9b9d9c75f81e73c5eb418f1293d1c9ffcb17ded701bffd507c08ed879e"
+    },
+    {
+      "file": "mdns-5-events.jsonl",
+      "sha256": "bf4bcf2e15fa251a57888d60beb2361fd4033f1299f7fc141301a53cac38721d"
+    },
+    {
+      "file": "mdns-discovery-1-before.xml",
+      "sha256": "db04d0ad7deec85c77bf64a80a615945c86251d3e912b967ff4b2653762ea425"
+    },
+    {
+      "file": "mdns-discovery-1-recovered.xml",
+      "sha256": "db04d0ad7deec85c77bf64a80a615945c86251d3e912b967ff4b2653762ea425"
+    },
+    {
+      "file": "mdns-discovery-1-unavailable.xml",
+      "sha256": "9ffacb86fe4136e2e4ad77a43e5cea4e8166abe46afe7d91bbbedbbc7a8b8175"
+    },
+    {
+      "file": "mdns-discovery-2-before.xml",
+      "sha256": "db04d0ad7deec85c77bf64a80a615945c86251d3e912b967ff4b2653762ea425"
+    },
+    {
+      "file": "mdns-discovery-2-recovered.xml",
+      "sha256": "3008e812cf68b772c84358d323f7da5e3c5a76c9e7b5db260116b01a100e3df4"
+    },
+    {
+      "file": "mdns-discovery-2-unavailable.xml",
+      "sha256": "9ffacb86fe4136e2e4ad77a43e5cea4e8166abe46afe7d91bbbedbbc7a8b8175"
+    },
+    {
+      "file": "mdns-discovery-recovery.json",
+      "sha256": "63ecef606e4ead2fe6967a13ecda1f8786229486179a0f44f398a2105545aba1"
+    },
+    {
+      "file": "mdns-events.jsonl",
+      "sha256": "65d579a5cc10a42c5e4b4ae5b1250a0581f443cba70fc8ebdabbf88c85a7f3c2"
+    },
+    {
+      "file": "mdns-runs.json",
+      "sha256": "f5be668ed61730d48caaeb91f7b3d65f79a667b5ee921607386fbe3f6b5d94ab"
+    },
+    {
+      "file": "mdns-trials.json",
+      "sha256": "cbcf7890c98b09b018458ef0b6c4e95ef5a861af943b08a379f907ccbda9d173"
+    },
+    {
+      "file": "mdns-wrong-code-1-events.jsonl",
+      "sha256": "7970011daf5a91fb98dc07ff1868863be52bb3b29995d1b8833c835180cfd4af"
+    },
+    {
+      "file": "mdns-wrong-code-2-events.jsonl",
+      "sha256": "af54ad017a7f9a5bb639af5c6384dfc3b916dfe58e4c6e439b71f61f1a6a40f1"
+    },
+    {
+      "file": "mdns-wrong-code-events.jsonl",
+      "sha256": "abe035eb9076c2cb8c4e091b972cc70886bfabc6895b94ec404761cf72a11783"
+    },
+    {
+      "file": "mdns-wrong-code-runs.json",
+      "sha256": "74f8826bd8f3f5c98a3c4f11421f5d5a6e58ce79e94ae09cc7946d9de4ce3937"
+    },
+    {
+      "file": "mdns-wrong-code-trials.json",
+      "sha256": "40c40de827dad2107c3c7e837d5e48fc07095aef64ebd7640d95ad074abf4aa6"
+    },
+    {
+      "file": "node-1-connection-events.jsonl",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "file": "node-1-offline.xml",
+      "sha256": "642f65533a0ed923da7abaa7f3afa2b7594798c0f3d8b566656778d68e0a5f89"
+    },
+    {
+      "file": "node-2-connection-events.jsonl",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "file": "node-2-offline.xml",
+      "sha256": "6fd9f14f0f3f149cb61a18ad58a15b2155ede8cfc3a666024e051f26c083c01f"
+    },
+    {
+      "file": "node-3-connection-events.jsonl",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "file": "node-3-offline.xml",
+      "sha256": "5567b492d4349a328eb1e87b61bd5240a48f65b07ae4aaceb12331ecc28fc49c"
+    },
+    {
+      "file": "node-recovery.json",
+      "sha256": "172a5bb898c60cd36302e20d5809b0057786a3cbd9a640d5e33ce77876df0a08"
+    },
+    {
+      "file": "pairing-api-failures.json",
+      "sha256": "86256297a2a9d3829ed1dc6787c1d0df2453a548e6e540fe19179438d13956cd"
+    },
+    {
+      "file": "qr-1-events.jsonl",
+      "sha256": "05bb53bd0931ead9c687ddf3d5f40b263bb2750fc4ee9d93d40103e669430327"
+    },
+    {
+      "file": "qr-events.jsonl",
+      "sha256": "05bb53bd0931ead9c687ddf3d5f40b263bb2750fc4ee9d93d40103e669430327"
+    },
+    {
+      "file": "qr-runs.json",
+      "sha256": "2d529f44aa5811f6ea611bcd6b6805db80bfafe7439f61d9db08afe5c839bd59"
+    },
+    {
+      "file": "qr-trials.json",
+      "sha256": "e88787815372f382ac13de1179c2460ea4c60962025a4b09ad78372823e58070"
+    },
+    {
+      "file": "recovery-outage-audit.json",
+      "sha256": "1379610424e14f1acede03a22b199c1f60afdd57b3402ed7591e993518efa6ea"
+    },
+    {
+      "file": "resource-pilot.json",
+      "sha256": "af3d91178776162b57e8b78885e9bcb16b0d4c763a30285d9ed759ed66d96062"
+    },
+    {
+      "file": "stack-resource-pilot.json",
+      "sha256": "bcce2e94d2144714f6c5b0f5da5162c00d6c1da20e81e382bb9409778c6f5fdd"
+    },
+    {
+      "file": "task-regression.json",
+      "sha256": "4911f5508fdb14bc86dccabb5b56ed5e8a4d865d9670e7cada609e2e2e2b8656"
+    },
+    {
+      "file": "telemetry-consistency.json",
+      "sha256": "252c368659cbd70897ee8f0bced4479b3f955b2257fd85dba3cf20bd87a71596"
+    },
+    {
+      "file": "web-devices.png",
+      "sha256": "c9579ba72c7c04daa56ca158fdc46722b1202cfc57ea4d06b7b9c770b2de5b04"
+    },
+    {
+      "file": "wifi-1-connection-events.jsonl",
+      "sha256": "fd7fd9a1c7869ec7538c7f3f1df5688b087933419db36207f03140187d5a54b4"
+    },
+    {
+      "file": "wifi-1-offline.xml",
+      "sha256": "4e736083e612d9f7616aff9726e2a239a58fc9c2d587b4abb2257f95cef3b668"
+    },
+    {
+      "file": "wifi-2-connection-events.jsonl",
+      "sha256": "fea992bd74795b80bc88248b7b854613056850fa99f0f4fc809a6f58e0f1a1a3"
+    },
+    {
+      "file": "wifi-2-offline.xml",
+      "sha256": "352032610c33ce3ec553befd29610628552b92377208566d1bf6ca3ff5c82e9b"
+    },
+    {
+      "file": "wifi-3-connection-events.jsonl",
+      "sha256": "b33728d76a91dc8d2dc351e3b01d8531b9123ad3edb6e3bc080a7fce6ce18736"
+    },
+    {
+      "file": "wifi-3-offline.xml",
+      "sha256": "95ad6f729d59336901be639ee1ae2c06d7dfaa66c467ceaaa7cf6d21e8b7550b"
+    },
+    {
+      "file": "wifi-recovery.json",
+      "sha256": "2ee01b6b02c6c53fe59b0e811922409865e91e6c9ef235f3955a85c98b7eb3b8"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{"trialId":"8e61cf67-66d9-4d65-8e0b-6b5ea0f98cf1","mode":"manual","event":"start","timestamp":"2026-09-29T02:15:43.290718Z","userActions":0,"retryCount":0}
+{"trialId":"8e61cf67-66d9-4d65-8e0b-6b5ea0f98cf1","mode":"manual","event":"action","timestamp":"2026-09-29T02:16:07.875489Z","userActions":1,"retryCount":0}
+{"trialId":"8e61cf67-66d9-4d65-8e0b-6b5ea0f98cf1","mode":"manual","event":"discovery","timestamp":"2026-09-29T02:16:07.876314Z","userActions":1,"retryCount":0}
+{"trialId":"8e61cf67-66d9-4d65-8e0b-6b5ea0f98cf1","mode":"manual","event":"pairingSubmitted","timestamp":"2026-09-29T02:16:07.876733Z","userActions":1,"retryCount":0}
+{"trialId":"8e61cf67-66d9-4d65-8e0b-6b5ea0f98cf1","mode":"manual","event":"connection_RECONNECTING","timestamp":"2026-09-29T02:16:07.924218Z","userActions":1,"retryCount":0}
+{"trialId":"8e61cf67-66d9-4d65-8e0b-6b5ea0f98cf1","mode":"manual","event":"authenticated","timestamp":"2026-09-29T02:16:07.979704Z","userActions":1,"retryCount":0}
+{"trialId":"8e61cf67-66d9-4d65-8e0b-6b5ea0f98cf1","mode":"manual","event":"snapshotLoaded","timestamp":"2026-09-29T02:16:07.981777Z","userActions":1,"retryCount":0}
+{"trialId":"8e61cf67-66d9-4d65-8e0b-6b5ea0f98cf1","mode":"manual","event":"connection_ONLINE","timestamp":"2026-09-29T02:16:08.068515Z","userActions":1,"retryCount":0}
+{"trialId":"8e61cf67-66d9-4d65-8e0b-6b5ea0f98cf1","mode":"manual","event":"websocketOnline","timestamp":"2026-09-29T02:16:08.069902Z","userActions":1,"retryCount":0}

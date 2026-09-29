@@ -52,3 +52,5 @@ mDNS 发布 `_utopia-city._tcp`，仅携带非秘密的版本、City 和会话�
 BLE 广播能力取决于主机适配器与驱动。Web 诊断显示发布器/能力状态及可用的原因说明。广播不可用时，可使用二维码、mDNS 或手工连接。BLE 不传输任务命令或遥测。
 
 **LAN DEVELOPMENT ONLY · NOT FOR PUBLIC INTERNET。** 此开发配置面向可信局域网，不提供公网账户或传输安全基础设施。
+
+磁盘指标对应 Node 进程工作目录所在的文件系统卷，不是所有主机磁盘的汇总。

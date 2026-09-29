@@ -18,16 +18,17 @@
 
 ## 顺序与所有权
 
-- [ ] 契约/Gateway：总控补 descriptor/parser 测试、持久化城市身份、单次 session、限速、发现生命周期与遥测校验，保留 V0 测试。
-- [ ] Windows：适配器子任务实现真实采样、WinRT BLE 发布/检测、注册/心跳集成及测试，不改 Gateway/UI。
-- [ ] Android：Android 子任务仅修改 apps/android；Device Center、四入口引导、ZXing 摄像扫码/scheme、NsdManager/BLE 权限、exchange、清除配对、不含秘密的轻量 pilot 记录，完成单元测试和构建。
-- [ ] Web：Web 子任务仅修改 apps/web 和独立 Web 测试；Devices/详情及认证 QR/code/status 配对页，不截取有效配对材料。
+- [x] 契约/Gateway：总控补 descriptor/parser 测试、持久化城市身份、单次 session、限速、发现生命周期与遥测校验，保留 V0 测试。
+- [x] Windows：适配器子任务实现真实采样、WinRT BLE 发布/检测、注册/心跳集成及测试，不改 Gateway/UI。
+- [x] Android：Android 子任务仅修改 apps/android；Device Center、四入口引导、ZXing 摄像扫码/scheme、NsdManager/BLE 权限、exchange、清除配对、不含秘密的轻量 pilot 记录，完成单元测试和构建。
+- [x] Web：Web 子任务仅修改 apps/web 和独立 Web 测试；Devices/详情及认证 QR/code/status 配对页，不截取有效配对材料。
 - [ ] 集成：总控负责安装实机，检查遥测与所有可运行 bootstrap；QR 必须实际摄像扫描，不用 descriptor 注入替代；实测 BLE 硬件限制。
 - [ ] Pilot：每种可用方式五次 clean pairing；Wi-Fi/Gateway/Node 恢复各三次；过期/错 code/旧 QR 各两次；mDNS stale 两次；支持时 BLE toggle 两次。产品优先，时间戳数据作为副产品；缺失观察保留 null/NOT_RUN。
 - [ ] 交付：脱敏 hash manifest、候选 PILOT claim 台账、双语文档、最终分支 SHA、CI、精确 APK 与 release。所有门禁有证据后才接受；仅 BLE 硬件受阻可使用指定条件接受状态。
 
 评审重点：单次 session 竞态、短码暴力猜测、端点身份冲突、过期遥测/实时显示、权限及摄像生命周期、QR/UI 树/日志误录秘密。子任务不提交、不操作实机，由总控集成并负责验收。
 
-STATUS: IN_PROGRESS
+STATUS: NOT_ACCEPTED
 PAIR_STATUS: SYNCHRONIZED
 
+实现与已观测的实机结果见[验收检查点](../../evidence/zh-CN/ACCEPTANCE_V0_2.md)。未勾选的集成、Pilot、交付项包含真实摄像头 QR 门禁与正式验收发布，不能由构建成功或其他配对方式通过推定完成。

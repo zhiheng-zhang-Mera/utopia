@@ -1,0 +1,19 @@
+{
+  "sourceFile": "mdns-wrong-code-driver-attempt.json",
+  "sourceSha256": "49f6d5e07aaad486b4b9d81f169a0cef6c18d442c911f83699673eb02a9318d4",
+  "applicability": "Historical or driver evidence, not final candidate passes",
+  "record": [
+    {
+      "mode": "mdns",
+      "scenario": "wrong-code",
+      "run": 1,
+      "codeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+      "apkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+      "start": "2026-09-29T02:52:29.334Z",
+      "end": "2026-09-29T02:54:05.990Z",
+      "success": false,
+      "errorClass": "UI element missing: Connect",
+      "driver": "ADB UI; no discovery injection"
+    }
+  ]
+}

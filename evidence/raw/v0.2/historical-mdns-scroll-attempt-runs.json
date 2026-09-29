@@ -1,0 +1,19 @@
+{
+  "sourceFile": "mdns-scroll-attempt-runs.json",
+  "sourceSha256": "07301b2a6e181ae07a8405a441266b53a097268327878d43551561c4cca321bc",
+  "applicability": "Historical or driver evidence, not final candidate passes",
+  "record": [
+    {
+      "mode": "mdns",
+      "scenario": "pairing",
+      "run": 1,
+      "codeSha": "cb50fdd6ba5f23c16167672f32853485701772fb",
+      "apkSha256": "3152625605bfde912d508e47c4f555dc4f7902e25ba32c33551ead17768be6db",
+      "start": "2026-09-29T02:19:46.514Z",
+      "end": "2026-09-29T02:20:41.182Z",
+      "success": false,
+      "errorClass": "UI element missing: Connect",
+      "driver": "ADB UI; no discovery injection"
+    }
+  ]
+}

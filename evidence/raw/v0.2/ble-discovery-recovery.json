@@ -1,0 +1,86 @@
+{
+  "codeSha": "3d7b8c9647fa13f75bc62829b5c96966dfba6dd2",
+  "apkSha256": "0f2c3091661bf8818cd0995741ce6fea1f8fe00b4a0cf5867e705294dd383b77",
+  "mainCity": "cb60db4a-7203-43d9-afbb-e40916eedd00",
+  "startedAt": "2026-09-29T02:56:38.510Z",
+  "driver": "ADB UI; native discovery; no injected descriptor",
+  "runs": [
+    {
+      "kind": "ble",
+      "run": 1,
+      "startTimestamp": "2026-09-29T02:56:38.512Z",
+      "discoveryTimestamp": "2026-09-29T02:57:24.020Z",
+      "disabledAt": "2026-09-29T02:57:24.021Z",
+      "unavailableObservedAt": "2026-09-29T02:57:58.406Z",
+      "restoreAt": "2026-09-29T02:57:58.407Z",
+      "recoveredAt": "2026-09-29T02:58:28.706Z",
+      "retryCount": 1,
+      "success": true,
+      "errorClass": null,
+      "snapshots": [
+        "ble-discovery-1-before.xml",
+        "ble-discovery-1-unavailable.xml",
+        "ble-discovery-1-recovered.xml"
+      ],
+      "enabledRetryPromptObserved": true,
+      "cityIdentityPreserved": true,
+      "endTimestamp": "2026-09-29T02:58:28.710Z"
+    },
+    {
+      "kind": "ble",
+      "run": 2,
+      "startTimestamp": "2026-09-29T02:58:28.710Z",
+      "discoveryTimestamp": "2026-09-29T02:59:14.271Z",
+      "disabledAt": "2026-09-29T02:59:14.272Z",
+      "unavailableObservedAt": "2026-09-29T02:59:43.010Z",
+      "restoreAt": "2026-09-29T02:59:43.011Z",
+      "recoveredAt": "2026-09-29T03:00:13.058Z",
+      "retryCount": 1,
+      "success": true,
+      "errorClass": null,
+      "snapshots": [
+        "ble-discovery-2-before.xml",
+        "ble-discovery-2-unavailable.xml",
+        "ble-discovery-2-recovered.xml"
+      ],
+      "enabledRetryPromptObserved": true,
+      "cityIdentityPreserved": true,
+      "endTimestamp": "2026-09-29T03:00:13.060Z"
+    }
+  ],
+  "bluetoothToggleDriver": "svc bluetooth",
+  "bluetoothToggleCommands": [
+    {
+      "action": "disable",
+      "at": "2026-09-29T02:57:34.298Z",
+      "exitStatus": 137,
+      "errorClass": null,
+      "observedState": "0"
+    },
+    {
+      "action": "enable",
+      "at": "2026-09-29T02:58:03.063Z",
+      "exitStatus": 137,
+      "errorClass": null,
+      "observedState": "1"
+    },
+    {
+      "action": "disable",
+      "at": "2026-09-29T02:59:18.969Z",
+      "exitStatus": 137,
+      "errorClass": null,
+      "observedState": "0"
+    },
+    {
+      "action": "enable",
+      "at": "2026-09-29T02:59:47.709Z",
+      "exitStatus": 137,
+      "errorClass": null,
+      "observedState": "1"
+    }
+  ],
+  "finishedAt": "2026-09-29T03:00:13.060Z",
+  "sourceFile": "discovery-recovery.json",
+  "sourceSha256": "42e70dc584a0bcd1ef8ce4263b0cd074d558e5806b70fbff3f6354992767ed49",
+  "selection": "Only ble rows from this source; source SHA and installed APK hash retained unchanged."
+}

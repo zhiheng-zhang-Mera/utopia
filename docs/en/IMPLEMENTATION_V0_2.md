@@ -18,16 +18,17 @@ All existing API versions stay zero. Authentication and version headers unchange
 
 ## Sequence and ownership
 
-- [ ] Contract/Gateway: root adds descriptor/parser tests, persistent city identity, single-use sessions, throttling, discovery lifecycle and validated telemetry. Keep V0 tests.
-- [ ] Windows: adapter worker adds real telemetry sampler and native WinRT BLE publisher/detection; register/heartbeat integration and tests. No gateway/UI edits.
-- [ ] Android: Android worker owns apps/android only; Device Center, onboarding four routes, ZXing camera scan + scheme handling, NsdManager/BLE permissions, exchange, clear pairing, bounded pilot instrumentation without secrets. Focused unit tests and build.
-- [ ] Web: Web worker owns apps/web and new Web-specific test only; Devices/detail and authenticated pairing QR/code/status page. Never store screenshots of active pairing material.
+- [x] Contract/Gateway: root adds descriptor/parser tests, persistent city identity, single-use sessions, throttling, discovery lifecycle and validated telemetry. Keep V0 tests.
+- [x] Windows: adapter worker adds real telemetry sampler and native WinRT BLE publisher/detection; register/heartbeat integration and tests. No gateway/UI edits.
+- [x] Android: Android worker owns apps/android only; Device Center, onboarding four routes, ZXing camera scan + scheme handling, NsdManager/BLE permissions, exchange, clear pairing, bounded pilot instrumentation without secrets. Focused unit tests and build.
+- [x] Web: Web worker owns apps/web and new Web-specific test only; Devices/detail and authenticated pairing QR/code/status page. Never store screenshots of active pairing material.
 - [ ] Integration: root installs on physical device, checks telemetry and all achievable real bootstrap paths. QR scan requires an actual camera view, not descriptor injection. BLE hardware limitation must be measured.
 - [ ] Pilots: five clean pairing trials per available mode; Wi-Fi/gateway/node recovery three each; expiry/wrong code/old QR two each; mDNS stale two; BLE toggle two when supported. Product first, collect timestamped evidence as side effect. Missing observations stay null/NOT_RUN.
 - [ ] Delivery: sanitized hash manifests, candidate PILOT claim ledger, bilingual docs, final branch SHA, CI, exact APK, release. Accepted only if every gate is proven; BLE-only hardware block may use the specified conditional status.
 
 Review focus: one-time session races; brute-force short codes; endpoint identity conflicts; stale telemetry/live display; permission and camera lifecycle; accidental secret capture in QR/UI trees/logs. Parallel workers do not commit or operate the physical device; root integrates and owns acceptance.
 
-STATUS: IN_PROGRESS
+STATUS: NOT_ACCEPTED
 PAIR_STATUS: SYNCHRONIZED
 
+The implementation and available pilot results are recorded in [the acceptance checkpoint](../../evidence/en/ACCEPTANCE_V0_2.md). Unchecked integration/pilot/delivery items include the remaining real-camera QR gates and accepted release; they must not be inferred from successful builds or other pairing routes.

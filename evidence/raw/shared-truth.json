@@ -1,0 +1,41 @@
+{
+  "taskId": "Q-74be4775-1d81-46c2-8de1-3b43593cebb7",
+  "state": "COMPLETED",
+  "result": {
+    "bytes": 65,
+    "sha256": "25b63368c214dab2c75a4a475b89bc0f368dd700603d14a06e4275eeace31f31",
+    "cleaned": true
+  },
+  "eventSequence": [
+    {
+      "seq": 23,
+      "type": "COMMAND_ACCEPTED"
+    },
+    {
+      "seq": 24,
+      "type": "TASK_CREATED"
+    },
+    {
+      "seq": 25,
+      "type": "TASK_ASSIGNED"
+    },
+    {
+      "seq": 26,
+      "type": "TASK_STARTED"
+    },
+    {
+      "seq": 27,
+      "type": "TASK_CHECKPOINTED"
+    },
+    {
+      "seq": 28,
+      "type": "TASK_CHECKPOINTED"
+    },
+    {
+      "seq": 29,
+      "type": "TASK_COMPLETED"
+    }
+  ],
+  "androidUiMatch": true,
+  "webUiMatch": true
+}

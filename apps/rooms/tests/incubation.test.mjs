@@ -160,12 +160,15 @@ test('a promoted room leaves the active catalog but stays known to Git history',
   // is being proved and retires it once the readers are promoted
   const d7b = ALL_ROOMS.find((room) => room.id === 'document-readers-lab');
   assert.ok(d7b, 'the D7b room is known to the pack');
+  assert.equal(d7b.lifecycle, 'PROMOTED');
   assert.equal(d7b.targetCityPath, 'city/09-planning-knowledge/02-document-intake/document-readers');
   assert.deepEqual(d7b.donorSourcePaths, [
     'electron/ingestion/docx-reader.ts',
     'electron/ingestion/xlsx-reader.ts',
     'electron/ingestion/pdf-reader.ts',
   ]);
+  assert.ok(!ROOMS.some((room) => room.id === d7b.id), 'it serves no live surface either');
+  assert.ok(!incubatingRooms().some((room) => room.id === d7b.id), 'a promoted room is never still being proved');
 });
 
 test('promotion records are validated and rejected when malformed', async (t) => {
@@ -300,6 +303,12 @@ test('hub exposes lifecycle metadata and the promotion record set', async (t) =>
   assert.equal(d7a.donor.commit, '8df428eaa437a409368401e95194e40266b83080');
   assert.equal(d7a.targetCityPath, 'city/09-planning-knowledge/02-document-intake/ingestion-core');
   assert.notEqual(d7a.acceptedRoomCommit, d7a.promotedAtCommit, 'the accepted room commit is not the promotion commit');
+
+  const d7b = promotions.payload.promotions.find((record) => record.roomId === 'document-readers-lab');
+  assert.ok(d7b, 'the D7b promotion is recorded');
+  assert.equal(d7b.donor.commit, '8df428eaa437a409368401e95194e40266b83080');
+  assert.equal(d7b.targetCityPath, 'city/09-planning-knowledge/02-document-intake/document-readers');
+  assert.notEqual(d7b.acceptedRoomCommit, d7b.promotedAtCommit, 'the accepted room commit is not the promotion commit');
 
   const health = await hub.api('GET', '/health');
   assert.equal(health.payload.rooms.length, catalog.payload.rooms.length, 'health and the catalog agree on the room set');

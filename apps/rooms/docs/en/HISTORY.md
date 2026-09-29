@@ -26,6 +26,7 @@ ancestor of `promotedAtCommit`. Verifier: `node scripts/verify-promotion-history
 | `skill-discovery-lab` (D5) | `b4dff81503128ae0d2ad163732171eb6dd887f4b` | `48494263d75532eaaba3490bc6c4223d5ff44ead` | `city/02-engineering/02-worker-gateway/skill-intake` |
 | `theme-package-lab` (D6) | `95d958ddacc6071fc6c2b0ee4c2be8b132c9dd4d` | `5d1abecdc38ace5f5cf02aafbf097026d3427eec` | `city/11-entertainment/01-entertainment-centre/theme-engine` |
 | `yaml-intake-lab` (D7a) | `b6d7733c927288c8c1246d097d509cc9caeb5fa4` | `e068d58ee890f17e1b87efb9f5d5af461d2a784b` | `city/09-planning-knowledge/02-document-intake/ingestion-core` |
+| `document-readers-lab` (D7b) | `e9a4c2370544028749c5cd0c2d492389ee53d7b5` | `6a95bf4502f1e07a8036e319146e608f2a8db943` | `city/09-planning-knowledge/02-document-intake/document-readers` |
 
 > **D1 note:** the commit that first wrote
 > `city/02-engineering/02-worker-gateway/skill-intake` was rewritten during a
@@ -37,6 +38,66 @@ ancestor of `promotedAtCommit`. Verifier: `node scripts/verify-promotion-history
 > **Never pre-guess a commit's own SHA.** A record is only filled in after the
 > target commit exists, and it is checked against local Git history by
 > `scripts/verify-promotion-history.mjs`.
+
+---
+
+## D7b · document-readers-lab → city/09-planning-knowledge/02-document-intake/document-readers
+
+| Item | Value |
+| --- | --- |
+| Donor repository | `zhiheng-zhang-Mera/Codex-Boss` |
+| Donor SHA | `8df428eaa437a409368401e95194e40266b83080` |
+| Donor source files | `electron/ingestion/docx-reader.ts`, `xlsx-reader.ts`, `pdf-reader.ts`, `tests/fixtures/workbook-fixtures.ts` |
+| Incubator room | `apps/rooms/rooms/document-readers-lab/` (removed from the live tree) |
+| Accepted incubator commit | `e9a4c2370544028749c5cd0c2d492389ee53d7b5` |
+| Promotion commit | `6a95bf4502f1e07a8036e319146e608f2a8db943` |
+| Final city path | `city/09-planning-knowledge/02-document-intake/document-readers` |
+| Lifecycle | `PROMOTED` (during wave 2) |
+| New module | yes: the readers are their own module in the same building, so the ingestion core keeps owning text and structured intake |
+| Engines | fflate 0.8.3, mammoth 1.12.2, pdfjs-dist 6.3.289 (the pdfjs legacy build), all quarantined in the module's `engines.mjs` |
+
+### Adaptation
+
+- the three engines are named only in `engines.mjs`, are loaded lazily, and are
+  reached by every consumer through that one seam; a missing install is
+  `ENGINE_UNAVAILABLE` (an installation problem), which is a different answer from a
+  broken document;
+- XLSX: the donor's static fflate import became `await loadFflate()`, so
+  `readArchiveEntries` is async; the byte-level guards run before the engine load, so
+  wrong input fails closed without depending on engine availability; the donor's
+  `decodeUtf8` maps to the ingestion core's `decodeText`, whose encoding warnings are
+  forwarded rather than dropped;
+- DOCX: the donor's converter seams are kept exactly, so the heading/list mapping and
+  the paragraph budgets are provable with the engine and without it;
+- PDF: the seam loads the legacy build (no worker, no DOM), and nothing had to be
+  dropped from the donor's `getDocument` options;
+- the donor's test-only fixture logic became product code in `samples.mjs`: a real
+  OOXML package and a real PDF are assembled in memory, so neither the tests nor a
+  product surface need a committed binary fixture;
+- error codes are namespaced per reader, so a caller branches on a code instead of
+  parsing a message.
+
+### Known differences
+
+- nothing is persisted: the readers take bytes and return sections, and the module
+  never writes a file;
+- `ENCRYPTED_*` codes are preserved from the donor but no engine path raises them
+  here (fflate 0.8.x ignores the ZIP encryption flag, and there is no password
+  handling to exercise);
+- no OCR and no page rendering: PDF extraction is text only;
+- the DOCX adapter emits paragraphs, not a full OOXML document model.
+
+### Parity tests
+
+Coverage: XLSX shared strings, sheet name/part, used range and markdown-table output;
+a formula with no cached value warning and never being computed; archive byte, entry,
+per-entry, total-size, sheet, row and column limits failing closed; DOCX paragraph
+splitting, heading levels (including Chinese headings) and list mapping, its paragraph
+and character budgets, both injectable converter seams and the real engine; PDF %PDF
+preflight, per-page text and document info, its byte/page/character limits, and a
+truncated document failing closed; determinism for identical bytes in all three; and
+the quarantine (each reader imports only the engine seam, the ingestion core and
+`node:` builtins).
 
 ---
 

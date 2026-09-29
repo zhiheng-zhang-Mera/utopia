@@ -22,10 +22,48 @@ promotedAtCommit   = 第一个正式 city module 已落位的 commit（可达、
 | `skill-discovery-lab` (D5) | `b4dff81503128ae0d2ad163732171eb6dd887f4b` | `48494263d75532eaaba3490bc6c4223d5ff44ead` | `city/02-engineering/02-worker-gateway/skill-intake` |
 | `theme-package-lab` (D6) | `95d958ddacc6071fc6c2b0ee4c2be8b132c9dd4d` | `5d1abecdc38ace5f5cf02aafbf097026d3427eec` | `city/11-entertainment/01-entertainment-centre/theme-engine` |
 | `yaml-intake-lab` (D7a) | `b6d7733c927288c8c1246d097d509cc9caeb5fa4` | `e068d58ee890f17e1b87efb9f5d5af461d2a784b` | `city/09-planning-knowledge/02-document-intake/ingestion-core` |
+| `document-readers-lab` (D7b) | `e9a4c2370544028749c5cd0c2d492389ee53d7b5` | `6a95bf4502f1e07a8036e319146e608f2a8db943` | `city/09-planning-knowledge/02-document-intake/document-readers` |
 
 > **D1 说明：** 最初写入 `city/02-engineering/02-worker-gateway/skill-intake` 的那次提交在 Wave 1 期间的一次历史整理中被改写，已不可达；本记录因此指向当前历史中**第一个包含该 module 且可达**的提交 `1402872`。Wave 1 曾预填的旧值（形如 `6b29e84…`）是提交 amend 之前的 SHA，已作废。
 >
 > **禁止预猜当前 commit 自己的 SHA**：记录只能在目标提交已经存在之后回填，并由 `scripts/verify-promotion-history.mjs` 用本地 Git 历史核验。
+
+---
+
+## D7b · document-readers-lab → city/09-planning-knowledge/02-document-intake/document-readers
+
+| 项 | 值 |
+| --- | --- |
+| Donor 仓库 | `zhiheng-zhang-Mera/Codex-Boss` |
+| Donor SHA | `8df428eaa437a409368401e95194e40266b83080` |
+| Donor 源文件 | `electron/ingestion/docx-reader.ts`、`xlsx-reader.ts`、`pdf-reader.ts`、`tests/fixtures/workbook-fixtures.ts` |
+| 孵化房间 | `apps/rooms/rooms/document-readers-lab/`（已从活跃树移除） |
+| 孵化验收 commit | `e9a4c2370544028749c5cd0c2d492389ee53d7b5` |
+| 晋升 commit | `6a95bf4502f1e07a8036e319146e608f2a8db943` |
+| 最终城市路径 | `city/09-planning-knowledge/02-document-intake/document-readers` |
+| Lifecycle | `PROMOTED`（Wave 2 期间） |
+| 新 module | 是：读取器成为同一 Building 内的独立 module，ingestion core 继续只负责文本与结构化接入 |
+| 引擎 | fflate 0.8.3、mammoth 1.12.2、pdfjs-dist 6.3.289（legacy build），全部隔离在该 module 的 `engines.mjs` |
+
+### 适配说明
+
+- 三个引擎只在 `engines.mjs` 中被点名、按需延迟加载，所有消费者都经由这一个 seam；缺少安装上报为 `ENGINE_UNAVAILABLE`（安装问题），与"文档损坏"是不同的答案；
+- XLSX：donor 的静态 fflate import 改为 `await loadFflate()`，因此 `readArchiveEntries` 变为异步；字节级守卫在引擎加载之前执行，明显错误的输入不依赖引擎可用性即可 fail closed；donor 的 `decodeUtf8` 映射到 ingestion core 的 `decodeText`，编码告警被转发而不是丢弃；
+- DOCX：donor 的可注入 converter seam 原样保留，因此标题/列表映射与段落预算既能用真实引擎证明，也能不依赖引擎证明；
+- PDF：seam 加载的是 legacy build（无 worker、无 DOM），donor 的 `getDocument` 选项一个都不需要删；
+- donor 仅用于测试的 fixture 逻辑成为产品代码 `samples.mjs`：真实 OOXML 包与真实 PDF 都在内存中组装，因此测试与产品面都不需要提交二进制 fixture；
+- 错误码按读取器加命名空间，调用方按 code 分支而不是解析 message。
+
+### 已知差异
+
+- 不持久化：读取器只接收字节、返回 sections，本 module 从不写文件；
+- `ENCRYPTED_*` 码沿用 donor，但这里没有引擎路径会触发（fflate 0.8.x 忽略 ZIP 加密标志，且没有密码处理可被测）；
+- 不做 OCR、不做页面渲染：PDF 只抽取文本；
+- DOCX 适配器输出段落，而不是完整 OOXML 文档模型。
+
+### 平价测试
+
+覆盖：XLSX 共享字符串、sheet 名与 part、used range 与 markdown 表格输出；无缓存值的公式只告警、绝不被计算；archive 字节/条目/单条目/总解压/sheet/行/列上限一律 fail closed；DOCX 段落切分、标题层级（含中文标题）与列表映射、段落与字符预算、两个可注入 converter seam 与真实引擎；PDF %PDF 预检、逐页文本与文档信息、字节/页/字符上限，以及截断文档 fail closed；三者对相同字节的确定性；以及隔离本身（每个读取器只 import 引擎 seam、ingestion core 与 `node:` 内建）。
 
 ---
 

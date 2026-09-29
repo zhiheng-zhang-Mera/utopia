@@ -4,18 +4,19 @@ import {readFileSync} from 'node:fs';
 import {registry} from '../services/capability-bridge/registry.mjs';
 import {invokeAdapter} from '../services/capability-bridge/adapters.mjs';
 const load=()=>JSON.parse(readFileSync('city/CITY_IMPLEMENTATION_MANIFEST.json'));
+const district=(m,id)=>m.districts.find(d=>d.id===id);
 const documentBuilding=m=>m.districts.find(d=>d.id==='09-planning-knowledge').buildings.find(b=>b.id==='02-document-intake');
 const intake=m=>registry(m).find(c=>c.capabilityId==='planning.document.intake');
-// The fixtures below must not depend on which district happens to sort first or
-// third in the manifest census: every City Mission that declares a new district
-// would otherwise break them. They use the last district and census-relative
-// counts instead.
+// The fixtures below address districts by id and keep their counts relative to the
+// current census: every City Mission that declares a new district or building would
+// otherwise break them, as several already did.
 const unbridged=m=>registry(m).filter(c=>c.inputKind==='unavailable');
 test('qualified identities keep duplicate names independent and cannot replace missing dependencies',()=>{
  const m=load();const baseline=unbridged(m).length;
- m.districts.at(-1).buildings.push({id:'other-building',modules:[{id:'document-readers',lifecycle:'PROMOTED'}]});
+ m.districts.find(d=>d.id==='02-engineering').buildings.push({id:'other-building',modules:[{id:'document-readers',lifecycle:'PROMOTED'}]});
  const c=intake(m);assert.equal(c.moduleRefs.length,2);assert.deepEqual(c.moduleRefs[1],{districtId:'09-planning-knowledge',buildingId:'02-document-intake',moduleId:'document-readers'});
- const other=unbridged(m);assert.equal(other.length,baseline+1);assert.equal(other.at(-1).bridgeState,'BRIDGE_PENDING');
+ const other=registry(m).filter(c=>c.inputKind==='unavailable'&&c.capabilityId==='city.02-engineering/other-building/document-readers');assert.equal(other.length,1);assert.equal(other[0].bridgeState,'BRIDGE_PENDING');
+ assert.equal(unbridged(m).length,baseline+1,'a duplicate module name in another building adds exactly one capability, not zero');
  documentBuilding(m).modules.pop();assert.equal(intake(m).bridgeState,'DEGRADED');
 });
 test('registry restricts mixed module lifecycle and exposes every dependency lifecycle',()=>{
@@ -27,11 +28,16 @@ test('registry restricts mixed module lifecycle and exposes every dependency lif
 });
 test('unbridged duplicate module names receive different qualified capability IDs',()=>{
  const m=load();
- const buildingCount=m.districts.at(-1).buildings.length;
- for(const b of m.districts.at(-1).buildings)b.modules.push({id:'parser',lifecycle:'PROMOTED'});
+ // 09-planning-knowledge has two buildings, so "a duplicate module name in a
+ // second building" is genuinely exercised. Pointing this fixture at the LAST
+ // district silently reduced it to a one-element set, which made the uniqueness
+ // assertion below unable to fail — the exact weakening this repair undoes.
+ const buildings=district(m,'09-planning-knowledge').buildings.length;
+ assert.equal(buildings,2,'the fixture needs a district with two buildings for this property to be real');
+ for(const b of district(m,'09-planning-knowledge').buildings)b.modules.push({id:'parser',lifecycle:'PROMOTED'});
  const added=unbridged(m).filter(c=>c.capabilityId.endsWith('/parser'));
- assert.equal(added.length,buildingCount);
- assert.equal(new Set(added.map(c=>c.capabilityId)).size,buildingCount,'a duplicate module name in a second building must not reuse the first qualified identity');
+ assert.equal(added.length,buildings);
+ assert.equal(new Set(added.map(c=>c.capabilityId)).size,buildings,'a duplicate module name in a second building must not reuse the first qualified identity');
 });
 test('Theme advertises implemented generate and build operations and refuses validate',async()=>{
  assert.deepEqual(registry().find(c=>c.capabilityId==='presentation.theme.lab').operations,[{operationId:'generate'},{operationId:'build'}]);

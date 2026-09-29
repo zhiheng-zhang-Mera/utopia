@@ -1,0 +1,39 @@
+{
+  "room": "theme-builder-lab",
+  "stage": "DONOR_PARITY_PROVED",
+  "repository": "zhiheng-zhang-Mera/DS-Hns",
+  "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+  "sourcePaths": [
+    "app/extensions/mega/theme/builder.js",
+    "app/extensions/mega/theme/designer.js",
+    "app/extensions/mega/theme/assets/planner.js",
+    "app/extensions/mega/theme/assets/generator.js",
+    "app/extensions/mega/theme/assets/processor.js",
+    "app/extensions/mega/theme/assets/validator.js",
+    "app/extensions/mega/theme/assets/fallback.js"
+  ],
+  "reusedCityPath": "city/11-entertainment/01-entertainment-centre/theme-engine",
+  "audit": "docs/en/D9_DONOR_CLOSURE_AUDIT.md",
+  "parity": [
+    "Four frozen donor intent/token/slot vectors",
+    "Four asset request and safe surface vectors",
+    "Three original PNG SHA-256 and alpha/bounds vectors"
+  ],
+  "adaptations": [
+    "ESM and existing Utopia vocabulary",
+    "Fixed metadata for deterministic intent/package",
+    "Caller-confined atomic output with no installation"
+  ],
+  "extensions": [
+    "Critical-region subtraction",
+    "Pixel-invalid model retry and fallback",
+    "Hard asset and package budgets",
+    "No legacy resurrection of disabled assets"
+  ],
+  "deferred": [
+    "Real model API",
+    "Global theme apply",
+    "Registry lifecycle recovery",
+    "External renderer integration"
+  ]
+}

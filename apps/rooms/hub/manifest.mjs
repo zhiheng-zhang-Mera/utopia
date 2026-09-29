@@ -167,6 +167,14 @@ const LOCAL_ROOMS = [
  */
 const INCUBATOR_ROOMS = [
   {
+    id:'theme-builder-lab',number:'D9',label:'Theme Builder Lab',zh:'主题构建实验室',
+    summary:'Offline prompt, observed plan, sandbox package, preview and pixel validation.',
+    dataFile:null,initialData:null,tags:['theme','donor'],lifecycle:'INCUBATING',
+    targetCityPath:'city/11-entertainment/01-entertainment-centre/theme-engine',
+    donorRepository:'zhiheng-zhang-Mera/DS-Hns',donorCommit:'eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b',
+    donorSourcePaths:['builder.js','designer.js','assets/planner.js','assets/generator.js','assets/processor.js','assets/validator.js','assets/fallback.js'].map(p=>'app/extensions/mega/theme/'+p),
+  },
+  {
     id: 'evidence-engine-lab',
     number: 'D8',
     label: 'Evidence Engine Lab',

@@ -4,6 +4,7 @@ import {invokeAdapter} from '../services/capability-bridge/adapters.mjs';
 import {registry} from '../services/capability-bridge/registry.mjs';
 import {digest} from '../contracts/capability-bridge-v1/protocol.mjs';
 import {buildSample} from '../city/09-planning-knowledge/02-document-intake/document-readers/samples.mjs';
+import {buildTar} from '../city/02-engineering/02-worker-gateway/skill-intake/tests/fixtures.mjs';
 const run=(id,op,input)=>invokeAdapter(id,op,input);
 test('document bytes flow through real readers and into temporary knowledge',async()=>{
  for(const ext of ['txt','json','yaml','docx','xlsx','pdf']){
@@ -31,4 +32,5 @@ test('malformed and oversized inputs have explicit refusals',async()=>{
  await assert.rejects(run('planning.document.intake','read',{fileName:'bad.json',base64:Buffer.from('{').toString('base64')}));
  await assert.rejects(run('planning.document.intake','read',{fileName:'large.txt',base64:Buffer.alloc(1024*1024+1).toString('base64')}),{code:'INPUT_TOO_LARGE'});
  await assert.rejects(run('engineering.skill.inspect','inspect',{ref:'owner/repo@main/../../escape'}),{code:'INVALID_REFERENCE'});
+ await assert.rejects(run('engineering.skill.inspect','archive',{base64:buildTar([{path:'../../escape',data:Buffer.from('x')},{path:'safe.txt',data:Buffer.from('safe')}]).toString('base64')}),{code:'UNSAFE_ARCHIVE'});
 });

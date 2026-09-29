@@ -167,6 +167,21 @@ const LOCAL_ROOMS = [
  */
 const INCUBATOR_ROOMS = [
   {
+    id: 'document-intake-lab',
+    number: 'D4',
+    label: 'Document Intake Lab',
+    zh: '文档接入实验室',
+    summary: 'Incubating Codex-Boss document intake: encoding detection and text/markdown/JSON/CSV/TSV/XML sections with input limits.',
+    dataFile: null,
+    initialData: null,
+    tags: ['incubator', 'donor'],
+    lifecycle: 'INCUBATING',
+    targetCityPath: 'city/09-planning-knowledge/02-document-intake/ingestion-core',
+    donorRepository: 'zhiheng-zhang-Mera/Codex-Boss',
+    donorCommit: '8df428eaa437a409368401e95194e40266b83080',
+    donorSourcePaths: ['electron/ingestion/xml-text.ts', 'electron/ingestion/text-parsers.ts'],
+  },
+  {
     id: 'knowledge-core-lab',
     number: 'D3',
     label: 'Knowledge Core Lab',

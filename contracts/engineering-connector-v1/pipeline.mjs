@@ -29,11 +29,19 @@ export function registerAdapter(adapter) {
 }
 
 function guardStage(adapter, stage, input) {
+  // The failure detail must be built null-safely. `adapter.adapter_ref` inside the catch block
+  // threw on a nullish entry, and that second throw escaped this handler entirely - so one `null`
+  // in the adapters array stopped the whole pipeline, which is the opposite of the isolation this
+  // function exists to provide. (`runAdapterPipeline` already used `adapter?.adapter_ref` at its own
+  // call site; the handler did not.)
+  const ref = isPlainObject(adapter) && isText(adapter.adapter_ref)
+    ? adapter.adapter_ref
+    : (adapter === null ? 'null' : adapter === undefined ? 'undefined' : `invalid:${typeof adapter}`);
   try {
     const value = adapter[stage](input);
     return { ok: true, value };
   } catch (error) {
-    return { ok: false, code: STAGE_FAILURE_CODES[stage], detail: `${adapter.adapter_ref}: ${error?.code ?? error?.name ?? 'ERROR'}: ${String(error?.message ?? error).slice(0, 160)}` };
+    return { ok: false, code: STAGE_FAILURE_CODES[stage], detail: `${ref}: ${error?.code ?? error?.name ?? 'ERROR'}: ${String(error?.message ?? error).slice(0, 160)}` };
   }
 }
 
@@ -99,12 +107,42 @@ export function runAdapterPipeline({ adapters = [], observation = {}, policy = n
 
   // UNIFY: the standardizer must produce a canonical manifest; provenance is added here so the
   // adapter cannot forge which adapter was selected or which runtime kind won.
-  const manifest = clone(standardized.value);
+  // The copy itself must be guarded: `structuredClone` raises DataCloneError on a function- or
+  // symbol-valued property, and it sat outside every guard, so one adapter's non-data output made
+  // `runAdapterPipeline` — and therefore `loadConnectors` — throw, and the healthy connectors never
+  // loaded. A copy that cannot be taken is that adapter's failure, not a fatal error.
+  let manifest;
+  try {
+    manifest = clone(standardized.value);
+  } catch (error) {
+    failures.push({
+      stage: 'UNIFY',
+      adapter_ref: winner.adapter.adapter_ref,
+      code: 'ADAPTER_INVALID_OUTPUT',
+      detail: `${winner.adapter.adapter_ref}: standardized output is not data that can be copied (${error?.name ?? 'ERROR'})`,
+    });
+    return Object.freeze({ unified: [], failures: Object.freeze(failures.map(Object.freeze)), selected: winner.adapter.adapter_ref, stages: Object.freeze(PIPELINE_STAGES), noAdapterSelected: false });
+  }
   if (isPlainObject(manifest)) {
+    // The adapter does not get to say which runtime kind won. Provenance is written here from the
+    // registration, exactly as `selected_adapter_ref` is; taking `manifest.runtime_kind` let a
+    // connector declare one runtime kind and standardize a manifest claiming another with no
+    // failure recorded — forged provenance of precisely the field the comment above promised was
+    // unforgeable, and one a later placement or safety decision would read.
+    const claimedKind = manifest.runtime_kind ?? null;
+    if (claimedKind !== null && claimedKind !== winner.adapter.runtime_kind) {
+      failures.push({
+        stage: 'UNIFY',
+        adapter_ref: winner.adapter.adapter_ref,
+        code: 'ADAPTER_RUNTIME_KIND_MISMATCH',
+        detail: `${winner.adapter.adapter_ref} is registered as ${winner.adapter.runtime_kind} but standardized a manifest claiming ${claimedKind}; the declared kind is authoritative`,
+      });
+    }
+    manifest.runtime_kind = winner.adapter.runtime_kind;
     manifest.provenance = {
       detection_evidence: winner.evidence,
       selected_adapter_ref: winner.adapter.adapter_ref,
-      runtime_kind: manifest.runtime_kind ?? winner.adapter.runtime_kind,
+      runtime_kind: winner.adapter.runtime_kind,
     };
   }
   try {

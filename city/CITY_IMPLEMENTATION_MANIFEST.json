@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "name": "Utopia City Implementation",
-  "description": "Actual implementation layer of the Utopia Digital City. The Digital-City repository stays the map/planning reference; this tree owns the running modules. Only districts that really exist are listed. A module may be strengthened by several incubation rooms over time, so it records incubationRooms[] rather than a single roomId.",
+  "description": "Actual implementation layer of the Utopia Digital City. The Digital-City repository stays the map/planning reference; this tree owns the running modules. Only districts that really exist are listed. A module may be strengthened by several incubation rooms over time, so it records incubationRooms[] rather than a single roomId. Two incubation identities are recognised: a Room Pack incubator room (apps/rooms/rooms/<id>, recorded in apps/rooms/promotions/<id>.json) and a mission-book migration incubator, whose id has the form mb-<MISSION_ID>-<module>-lab and which MUST be accompanied by a module.mission block naming the mission and the cluster it migrated. The second form exists because Digital-City/mission-book is a separate, Owner-defined control plane: it lands code directly under city/ on a mission/<MISSION_ID>-<slug> branch, accepted by a second host, instead of incubating a live Room first.",
   "lifecycles": [
     "PLANNED",
     "INCUBATING",
@@ -11,10 +11,229 @@
   ],
   "districts": [
     {
+      "id": "00-foundation",
+      "kind": "infrastructure",
+      "zh": "城市地基",
+      "en": "City Foundation",
+      "buildings": [
+        {
+          "id": "01-city-core",
+          "zh": "城市核心",
+          "en": "City Core — Runtime Trust & Orchestration Kernel",
+          "modules": [
+            {
+              "id": "root-authority",
+              "zh": "根权限内核",
+              "en": "Root Authority",
+              "path": "city/00-foundation/01-city-core/root-authority",
+              "lifecycle": "PROMOTED",
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/Codex-Boss",
+                "commit": "8df428eaa437a409368401e95194e40266b83080",
+                "sourcePaths": [
+                  "src/shared/root-authority/contracts.ts",
+                  "src/shared/root-authority/protected-surface.ts",
+                  "electron/root-authority/protected-surface-guard.ts"
+                ]
+              },
+              "incubationRooms": [
+                "mb-001-root-authority-lab"
+              ],
+              "mission": {
+                "missionId": "MB-001",
+                "cluster": "A — owner sovereignty / root authority / root trust and protected-surface contracts"
+              }
+            },
+            {
+              "id": "task-lifecycle",
+              "zh": "任务生命周期",
+              "en": "Task Lifecycle",
+              "path": "city/00-foundation/01-city-core/task-lifecycle",
+              "lifecycle": "PROMOTED",
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/Codex-Boss",
+                "commit": "8df428eaa437a409368401e95194e40266b83080",
+                "sourcePaths": [
+                  "src/shared/candidate-gate.ts"
+                ]
+              },
+              "incubationRooms": [
+                "mb-001-task-lifecycle-lab"
+              ],
+              "mission": {
+                "missionId": "MB-001",
+                "cluster": "B — global task identity / lifecycle / durable state"
+              }
+            },
+            {
+              "id": "fleet-routing",
+              "zh": "节点路由",
+              "en": "Fleet Routing",
+              "path": "city/00-foundation/01-city-core/fleet-routing",
+              "lifecycle": "PROMOTED",
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/Codex-Boss",
+                "commit": "8df428eaa437a409368401e95194e40266b83080",
+                "sourcePaths": [
+                  "src/shared/fleet.ts",
+                  "src/shared/capability-router.ts",
+                  "src/shared/node-capabilities.ts",
+                  "src/shared/adaptive-routing.ts"
+                ]
+              },
+              "incubationRooms": [
+                "mb-001-fleet-routing-lab"
+              ],
+              "mission": {
+                "missionId": "MB-001",
+                "cluster": "C — cross-domain orchestration/routing and city-scope runtime coordination"
+              }
+            },
+            {
+              "id": "audit-ledger",
+              "zh": "审计账本",
+              "en": "Audit Ledger",
+              "path": "city/00-foundation/01-city-core/audit-ledger",
+              "lifecycle": "PROMOTED",
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/Codex-Boss",
+                "commit": "8df428eaa437a409368401e95194e40266b83080",
+                "sourcePaths": [
+                  "src/shared/decision-ledger.ts",
+                  "src/shared/candidate-gate.ts"
+                ]
+              },
+              "incubationRooms": [
+                "mb-001-audit-ledger-lab"
+              ],
+              "mission": {
+                "missionId": "MB-001",
+                "cluster": "D — continuation/recovery and durable audit primitives"
+              }
+            }
+          ]
+        },
+        {
+          "id": "03-capability-fabric",
+          "zh": "城市服务网",
+          "en": "Capability Fabric",
+          "modules": [
+            {
+              "id": "capability-fabric",
+              "zh": "能力注册发现层",
+              "en": "Capability Registry & Discovery",
+              "path": "city/00-foundation/03-capability-fabric/capability-fabric",
+              "lifecycle": "PROMOTED",
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/DS-Hns",
+                "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+                "sourcePaths": [
+                  "app/core/capability-registry/index.cjs",
+                  "app/core/plugin-manager/index.cjs",
+                  "app/core/health-supervisor/index.cjs",
+                  "app/core/contracts/capability.cjs",
+                  "app/core/lockfile/index.cjs"
+                ]
+              },
+              "incubationRooms": [
+                "capability-fabric-lab"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "05-control-centre",
+          "zh": "城市控制中心",
+          "en": "City Control Centre",
+          "kind": "domain",
+          "modules": [
+            {
+              "id": "theme-engine",
+              "zh": "主题引擎",
+              "en": "Theme Engine",
+              "path": "city/00-foundation/05-control-centre/theme-engine",
+              "lifecycle": "PROMOTED",
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/DS-Hns",
+                "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+                "sourcePaths": [
+                  "app/extensions/mega/theme/color.js",
+                  "app/extensions/mega/theme/png.js",
+                  "app/extensions/mega/theme/contract.js",
+                  "app/extensions/mega/theme/surface.js",
+                  "app/extensions/mega/theme/validator.js",
+                  "app/extensions/mega/theme/asset-factory.js",
+                  "app/extensions/mega/theme/builder.js",
+                  "app/extensions/mega/theme/designer.js",
+                  "app/extensions/mega/theme/assets/planner.js",
+                  "app/extensions/mega/theme/assets/generator.js",
+                  "app/extensions/mega/theme/assets/processor.js",
+                  "app/extensions/mega/theme/assets/validator.js",
+                  "app/extensions/mega/theme/assets/fallback.js"
+                ]
+              },
+              "incubationRooms": [
+                "theme-engine-lab",
+                "theme-package-lab",
+                "theme-builder-lab"
+              ],
+              "relocatedFrom": "city/11-entertainment/01-entertainment-centre/theme-engine",
+              "relocatedByMission": "MB-009"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "id": "02-engineering",
       "zh": "工务区",
       "en": "Engineering Works District",
       "buildings": [
+        {
+          "id": "01-project-foreman",
+          "zh": "项目工头",
+          "en": "Project Foreman",
+          "modules": [
+            {
+              "id": "project-foreman",
+              "zh": "工程任务编排器",
+              "en": "Engineering Task Orchestrator",
+              "path": "city/02-engineering/01-project-foreman/project-foreman",
+              "lifecycle": "PROMOTED",
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/DS-Hns",
+                "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+                "sourcePaths": [
+                  "app/engineering/plan.cjs",
+                  "app/engineering/discovery.cjs",
+                  "app/engineering/adapters/index.cjs",
+                  "app/engineering/failure.cjs",
+                  "app/engineering/episode.cjs",
+                  "app/engineering/autonomy.cjs",
+                  "app/engineering/checkpoint.cjs",
+                  "app/engineering/recovery-schema.cjs",
+                  "app/engineering/recovery-store.cjs",
+                  "app/engineering/locking.cjs",
+                  "app/engineering/mutation.cjs",
+                  "app/engineering/repository.cjs",
+                  "app/engineering/process-identity.cjs",
+                  "app/engineering/process.cjs",
+                  "app/engineering/context.cjs",
+                  "app/engineering/scheduler.cjs",
+                  "app/engineering/git.cjs",
+                  "app/engineering/cross-volume-cleanup.cjs",
+                  "app/engineering/verifier.cjs",
+                  "app/engineering/result.cjs",
+                  "app/engineering/supervisor.cjs",
+                  "app/engineering/index.cjs"
+                ]
+              },
+              "incubationRooms": [
+                "project-foreman-lab"
+              ]
+            }
+          ]
+        },
         {
           "id": "02-worker-gateway",
           "zh": "施工队接入站",
@@ -40,6 +259,141 @@
                 "skill-intake-lab",
                 "skill-discovery-lab"
               ]
+            }
+          ]
+        },
+        {
+          "id": "03-host-health-station",
+          "zh": "主机保健站",
+          "en": "Host Health Station",
+          "modules": [
+            {
+              "id": "host-health-station",
+              "zh": "运行健康调度服务",
+              "en": "Runtime Health Scheduling",
+              "path": "city/02-engineering/03-host-health-station/host-health-station",
+              "lifecycle": "PROMOTED",
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/dsh-health-scheduler",
+                "commit": "985e2b7389330db4b32ea2946e3657746c64b47b",
+                "sourcePaths": [
+                  "src/core/bands.ts",
+                  "src/core/pressure.ts",
+                  "src/core/rolling.ts",
+                  "src/core/trend.ts",
+                  "src/core/normalize.ts",
+                  "src/core/policy.ts",
+                  "src/core/maintenance.ts",
+                  "src/core/safe-point.ts",
+                  "src/core/config.ts",
+                  "src/core/presets.ts",
+                  "src/core/scheduler.ts",
+                  "src/providers/registry.ts",
+                  "src/audit/decision-log.ts",
+                  "src/types/metrics.ts"
+                ]
+              },
+              "incubationRooms": [
+                "host-health-lab"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "04-restart-recovery-station",
+          "zh": "重启恢复站",
+          "en": "Restart Recovery Station",
+          "modules": [
+            {
+              "id": "restart-protocol",
+              "zh": "重启协议",
+              "en": "Restart Protocol",
+              "path": "city/02-engineering/04-restart-recovery-station/restart-protocol",
+              "lifecycle": "PROMOTED",
+              "capabilityProvider": false,
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/dsh-restart",
+                "commit": "e20fb6cc43e27cedf6303471e5b8ee18e1383ecd",
+                "sourcePaths": [
+                  "src/shared/protocol.ts",
+                  "src/shared/types.ts",
+                  "src/plugin/request-validator.ts"
+                ]
+              },
+              "incubationRooms": [
+                "mb-006-restart-protocol-lab"
+              ],
+              "mission": {
+                "missionId": "MB-006",
+                "cluster": "the shared restart wire protocol and request admission: shape and policy validation order, refusal codes, request normalisation and fingerprinting, and the protocol/config vocabularies"
+              }
+            },
+            {
+              "id": "restart-lock",
+              "zh": "重启锁",
+              "en": "Restart Lock",
+              "path": "city/02-engineering/04-restart-recovery-station/restart-lock",
+              "lifecycle": "PROMOTED",
+              "capabilityProvider": false,
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/dsh-restart",
+                "commit": "e20fb6cc43e27cedf6303471e5b8ee18e1383ecd",
+                "sourcePaths": [
+                  "src/plugin/restart-lock.ts"
+                ]
+              },
+              "incubationRooms": [
+                "mb-006-restart-lock-lab"
+              ],
+              "mission": {
+                "missionId": "MB-006",
+                "cluster": "the exclusive restart lock: declared transition edges, holder rules, bounded transition history and forced release"
+              }
+            },
+            {
+              "id": "checkpoint-gate",
+              "zh": "检查点闸门",
+              "en": "Checkpoint Gate",
+              "path": "city/02-engineering/04-restart-recovery-station/checkpoint-gate",
+              "lifecycle": "PROMOTED",
+              "capabilityProvider": false,
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/dsh-restart",
+                "commit": "e20fb6cc43e27cedf6303471e5b8ee18e1383ecd",
+                "sourcePaths": [
+                  "src/plugin/checkpoint-gate.ts"
+                ]
+              },
+              "incubationRooms": [
+                "mb-006-checkpoint-gate-lab"
+              ],
+              "mission": {
+                "missionId": "MB-006",
+                "cluster": "the checkpoint seam and its bounded fail-closed gate: an unbound port means cannot-verify, and a required checkpoint that fails aborts the restart"
+              }
+            },
+            {
+              "id": "restart-ticket",
+              "zh": "重启凭据",
+              "en": "Restart Ticket",
+              "path": "city/02-engineering/04-restart-recovery-station/restart-ticket",
+              "lifecycle": "PROMOTED",
+              "capabilityProvider": false,
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/dsh-restart",
+                "commit": "e20fb6cc43e27cedf6303471e5b8ee18e1383ecd",
+                "sourcePaths": [
+                  "src/plugin/ticket-store.ts",
+                  "src/plugin/atomic.ts"
+                ]
+              },
+              "incubationRooms": [
+                "mb-006-restart-ticket-lab"
+              ],
+              "mission": {
+                "missionId": "MB-006",
+                "cluster": "the versioned checksummed restart ticket: canonical checksum, construction, the expiry/pid/schema/checksum verification ladder, and the supervisor ledger shape"
+              }
             }
           ]
         }
@@ -269,51 +623,6 @@
               },
               "incubationRooms": [
                 "document-readers-lab"
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "11-entertainment",
-      "zh": "娱乐区",
-      "en": "Entertainment District",
-      "buildings": [
-        {
-          "id": "01-entertainment-centre",
-          "zh": "娱乐中心",
-          "en": "Entertainment Centre",
-          "modules": [
-            {
-              "id": "theme-engine",
-              "zh": "主题引擎",
-              "en": "Theme Engine",
-              "path": "city/11-entertainment/01-entertainment-centre/theme-engine",
-              "lifecycle": "PROMOTED",
-              "donor": {
-                "repository": "zhiheng-zhang-Mera/DS-Hns",
-                "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
-                "sourcePaths": [
-                  "app/extensions/mega/theme/color.js",
-                  "app/extensions/mega/theme/png.js",
-                  "app/extensions/mega/theme/contract.js",
-                  "app/extensions/mega/theme/surface.js",
-                  "app/extensions/mega/theme/validator.js",
-                  "app/extensions/mega/theme/asset-factory.js",
-                  "app/extensions/mega/theme/builder.js",
-                  "app/extensions/mega/theme/designer.js",
-                  "app/extensions/mega/theme/assets/planner.js",
-                  "app/extensions/mega/theme/assets/generator.js",
-                  "app/extensions/mega/theme/assets/processor.js",
-                  "app/extensions/mega/theme/assets/validator.js",
-                  "app/extensions/mega/theme/assets/fallback.js"
-                ]
-              },
-              "incubationRooms": [
-                "theme-engine-lab",
-                "theme-package-lab",
-                "theme-builder-lab"
               ]
             }
           ]

@@ -1,0 +1,198 @@
+{
+  "module": "project-foreman",
+  "mission": "MB-004",
+  "cityPath": "city/02-engineering/01-project-foreman/project-foreman",
+  "district": "02-engineering",
+  "building": "01-project-foreman",
+  "incubationRooms": [
+    "project-foreman-lab"
+  ],
+  "cityOwner": "02/01 Project Foreman — Engineering Task Orchestrator",
+  "mode": "MIGRATION_ONLY",
+  "union": "engineering-runtime-union (Hns primary implementation + Boss engineering closed loop)",
+  "donors": [
+    {
+      "repository": "zhiheng-zhang-Mera/DS-Hns",
+      "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+      "role": "primary implementation: plan/DAG-ordering, discovery, failure classification, recovery/checkpoint, isolation, verification, result gate",
+      "sourcePaths": [
+        "app/engineering/adapters/index.cjs",
+        "app/engineering/autonomy.cjs",
+        "app/engineering/checkpoint.cjs",
+        "app/engineering/context.cjs",
+        "app/engineering/cross-volume-cleanup.cjs",
+        "app/engineering/discovery.cjs",
+        "app/engineering/episode.cjs",
+        "app/engineering/failure.cjs",
+        "app/engineering/git.cjs",
+        "app/engineering/index.cjs",
+        "app/engineering/locking.cjs",
+        "app/engineering/mutation.cjs",
+        "app/engineering/plan.cjs",
+        "app/engineering/process-identity.cjs",
+        "app/engineering/process.cjs",
+        "app/engineering/recovery-schema.cjs",
+        "app/engineering/recovery-store.cjs",
+        "app/engineering/repository.cjs",
+        "app/engineering/result.cjs",
+        "app/engineering/scheduler.cjs",
+        "app/engineering/supervisor.cjs",
+        "app/engineering/verifier.cjs"
+      ]
+    },
+    {
+      "repository": "zhiheng-zhang-Mera/Codex-Boss",
+      "commit": "8df428eaa437a409368401e95194e40266b83080",
+      "role": "union additions: the §33 recovery ladder with per-class budgets, and the CI-repair parse/classify/plan loop",
+      "sourcePaths": [
+        "src/shared/recovery.ts",
+        "src/shared/ci-repair.ts",
+        "src/shared/correction.ts"
+      ]
+    }
+  ],
+  "portedFiles": {
+    "app/engineering/adapters/index.cjs": ["adapters.mjs"],
+    "app/engineering/autonomy.cjs": ["autonomy.mjs"],
+    "app/engineering/checkpoint.cjs": ["checkpoint.mjs"],
+    "app/engineering/context.cjs": ["context.mjs"],
+    "app/engineering/cross-volume-cleanup.cjs": ["cross-volume-cleanup.mjs"],
+    "app/engineering/discovery.cjs": ["discovery.mjs"],
+    "app/engineering/episode.cjs": ["episode.mjs"],
+    "app/engineering/failure.cjs": ["failure.mjs"],
+    "app/engineering/git.cjs": ["git.mjs"],
+    "app/engineering/index.cjs": ["index.mjs"],
+    "app/engineering/locking.cjs": ["locking.mjs"],
+    "app/engineering/mutation.cjs": ["mutation.mjs"],
+    "app/engineering/plan.cjs": ["plan.mjs"],
+    "app/engineering/process-identity.cjs": ["process-identity.mjs"],
+    "app/engineering/process.cjs": ["process.mjs"],
+    "app/engineering/recovery-schema.cjs": ["recovery-schema.mjs"],
+    "app/engineering/recovery-store.cjs": ["recovery-store.mjs"],
+    "app/engineering/repository.cjs": ["repository.mjs"],
+    "app/engineering/result.cjs": ["result.mjs"],
+    "app/engineering/scheduler.cjs": ["scheduler.mjs"],
+    "app/engineering/supervisor.cjs": ["supervisor.mjs"],
+    "app/engineering/verifier.cjs": ["verifier.mjs"],
+    "src/shared/recovery.ts": ["failure-recovery.mjs"],
+    "src/shared/ci-repair.ts": ["ci-repair.mjs"],
+    "src/shared/correction.ts": ["correction.mjs"]
+  },
+  "adaptation": [
+    "CommonJS and TypeScript -> plain ESM .mjs with JSDoc. No TypeScript, no build step, no npm dependency; `node:` built-ins and relative .mjs specifiers only.",
+    "The union is kept as a union, not a winner. `failure.mjs` is the DS-Hns vocabulary (16 lower-case classes, a class-to-action policy, and repair memory that refuses a blind retry); `failure-recovery.mjs` is the Boss vocabulary (13 upper-case classes, an evidence-driven ladder with per-class budgets, Owner escalation and the HNS fallback rule). Neither imports, re-exports nor translates the other, and both module headers spell out the overlap (`workspace`/`WORKSPACE`, `TEST` vs `unit-test`+`integration-test`, `BUILD` vs `syntax`+`type`+`compile`).",
+    "`discovery.mjs` publishes `OPERATIONS` and `CONFIDENCE` as its own frozen constants and loads `adapters.mjs` lazily, rather than importing it eagerly. Reason: `plan.mjs` needs the closed operation vocabulary to validate a step, so a module that only wants the vocabulary must not be unimportable when no adapter set is present. The list is the donor's own, and a test asserts it equals `adapters.mjs`'s export.",
+    "`process.mjs` does NOT port DS-Hns `app/computer-use/{processes,errors}.cjs`, which are Computer-Use-domain and out of this Mission's scope. The donor's supervisor already accepts an injected registry, so `createProcessSupervisor` keeps that seam and falls back to a minimal local registry implementing exactly the surface the supervisor consumes — the shape demonstrated by the donor's own test helper `tests/helpers/engineering-scripted.cjs`: `snapshot()` returning `{ownedCount, owned, ceiling, atCapacity, finished, hungSuspected}`, plus `release()` and `ownedCount`.",
+    "`checkpoint.mjs` and `recovery-store.mjs` use `import.meta.dirname` where the donor used `__dirname` for their default roots. Same 'root relative to the module' semantics; `engines.node` is >=24 so the property exists. The donor's own defaults are only reachable when no `root`/`dir` is given.",
+    "`failure-recovery.mjs` exports `RECOVERY_RULES` and `VERIFICATION_GATES`, which the donor kept module-private (the gate names were a type-only import from `./execution-planner`). Reason: the budget table is the thing the Mission asks to be reviewable, and the donor's own test file imports it. Freezing preserves the donor's `Readonly`. Contents are verbatim; a normalised diff of the 12 `CLASS_RULES` pattern lines against the donor shows zero differences.",
+    "`repository.mjs` additionally carries a default export mirroring the donor's `module.exports` object, because donor `checkpoint.cjs` consumed it as `const repository = require('./repository.cjs')`. The named exports are what the ported `checkpoint.mjs` uses.",
+    "No OS seam was invented where the donor had none. `repository.cjs` and `process-identity.cjs` shell out with a hard `spawnSync('git'|'powershell.exe', ...)`; that is preserved as-is and stated in the module headers. `process-identity.cjs`'s injectable `probeProcessOwner({getProcessIdentity})` seam exists in the donor and is preserved verbatim."
+  ],
+  "knownDifferences": [
+    "ONE deliberate behaviour change, and it is the only one: Boss `planRecovery` crashes with a `TypeError` on an unknown failure class (`RECOVERY_RULES[cls]` is undefined and the next line dereferences `.inapplicable`; the donor has no refusal for this). It now throws a named Error: `§33.2: \"<class>\" is not a recovery failure class (expected one of ...)`. Every donor-class behaviour is unchanged. Recorded here because a Verifier should treat it as the one place where this port is deliberately stricter than its donor.",
+    "The requirements-driven Execution DAG (`Codex-Boss src/shared/execution-planner.ts`) is NOT ported. Its `planExecution` consumes a Boss `RequirementsGraph` for which this tree has no producer, so porting it would mean inventing behaviour, which MODE=MIGRATION_ONLY forbids. It is recorded as DEFERRED rather than faked, and `index.mjs` deliberately does not re-export it.",
+    "The Boss acceptance-hub family (`acceptance*.ts`, `final-acceptance.ts`, `review.ts`, `verification.ts`, `git-checkpoint.ts`, `fleet.ts`, `repo-world-model.ts`) is NOT ported. Those modules persist through Boss host stores or consume Boss requirement/evidence contracts this tree does not have, and the four `THEME_*` surfaces are Entertainment-domain. Recorded as DEFERRED with their reasons.",
+    "`guardian.ts`, `root-authority/*`, `tenx/*`, `node-capabilities` and `capability-graph` are NOT ported: City-wide authority/priority and Capability/Node global truth are explicitly forbidden by this Mission.",
+    "DS-Hns `app/sub-worker/**` (worker worktree isolation, `FileOwnershipRegistry`, `filterConflicts`, `mergeFileChanges`, path permissions) is NOT ported. It is the worker-pool mechanism behind 02/02 Worker Gateway (MB-003), not the Foreman's own file-ownership guarantee, which IS ported via `mutation.mjs`'s protected-baseline plus root-confinement `mayWrite` and `locking.mjs`'s single-writer workspace lock.",
+    "`app/engineering-host.cjs` is NOT ported: it is the Electron shell wiring, not the engineering runtime."
+  ],
+  "parity": {
+    "vectorSource": "DS-Hns @ eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b and Codex-Boss @ 8df428eaa437a409368401e95194e40266b83080",
+    "donorTestsCopied": {
+      "tests/donor/engineering-plan.test.mjs": "32 tests, bodies/titles/assertions byte-identical, import specifiers rewritten",
+      "tests/donor/engineering-checkpoint.test.mjs": "26 tests",
+      "tests/donor/engineering-recovery-schema.test.mjs": "7 tests",
+      "tests/donor/engineering-process-identity.test.mjs": "4 tests",
+      "tests/donor/engineering-recovery-journal.test.mjs": "3 tests",
+      "tests/donor/engineering-wiring-lock.test.mjs": "1 test, extracted verbatim from the donor's engineering-wiring.test.js",
+      "tests/donor/engineering-scenarios-autonomy.test.mjs": "2 tests",
+      "tests/donor-boss/recovery-model.test.mjs": "22 tests from Codex-Boss tests/unit/recovery-model.test.ts, via a node:test shim so the donor assertions stay byte-identical"
+    },
+    "vectors": [
+      "the plan type vocabulary is closed and a step outside it is refused",
+      "a repair must show the failure before anything is patched: the fix template begins with reproduce",
+      "a bounded plan drops further steps and records the bound in reasons rather than silently truncating",
+      "no step may outlive the episode deadline it was clamped to",
+      "the cursor only moves forward and refuses a step that is not the current one",
+      "a step's expects falls back to the exit code and says so when the condition is unusable",
+      "expects.failurePresent inverts success: a reproduce step that exits 0 has shown nothing",
+      "the failover order is timeout flag, then typed code, then the ordered pattern table, then unknown",
+      "the failure signature ignores timestamps, paths, hashes and bare numbers, so the same failure stays the same failure",
+      "the repair tracker refuses a blind retry and refuses a hypothesis that already failed",
+      "resume is a re-check, not a leap of faith: HEAD drift restarts, a moved workspace refuses, an unchanged world resumes",
+      "a checkpoint is whole or absent: a half-written temporary file is never read and a corrupt one never hides a good one",
+      "the recovery index refuses a checkpoint outside its directory and refuses to regress to an older sequence",
+      "automatic recovery attempts are bounded and the fourth blocks the episode",
+      "a live lock is never stolen and a writer that lost the lock cannot release it",
+      "an episode may not overwrite the file the user had uncommitted before it started",
+      "the plan digest gate refuses a plan edited after checkpointing",
+      "the completion gate has named refusals and a check that cannot be performed is a refusal, not a pass",
+      "a killed, timed-out or signalled process is never a success",
+      "verification evidence older than the last change is not fresh evidence",
+      "a project declaring Cargo.toml and package.json is a Rust project, not a Node project",
+      "every adapter reports its exact detection score and evidence for its own ecosystem",
+      "the §33 recovery ladder budgets are consumed per class and end at a Hard Blocker",
+      "a CI failure is classified and repaired for real, and a failed read is never a pass"
+    ]
+  },
+  "classification": {
+    "PARITY": [
+      "closed plan step vocabulary and template ordering",
+      "reproduce-before-patch correctness property",
+      "bounded plan with recorded drops and deadline clamping",
+      "forward-only cursor and refusal to advance a non-current step",
+      "failure classification order and the stable failure signature",
+      "blind-retry and repeated-hypothesis refusal",
+      "resume re-check with refuse/restart/resume verdicts",
+      "atomic checkpoint write, retention bound and corruption tolerance",
+      "workspace lock semantics and protected-baseline file ownership",
+      "verification freshness gate and the never-a-success predicates",
+      "completion-gate refusal reasons",
+      "adapter detection scores and specificity order",
+      "episode phase vocabulary and the autonomy budgets"
+    ],
+    "PORT_ADAPTATION": [
+      "CommonJS/TypeScript -> ESM with JSDoc",
+      "lazy adapter loading behind the closed operation vocabulary",
+      "the process registry supplied by the caller instead of the Computer-Use domain",
+      "import.meta.dirname for module-relative default roots",
+      "RECOVERY_RULES and VERIFICATION_GATES exported so the budget table is reviewable"
+    ],
+    "UTOPIA_EXTENSION": [
+      "index.mjs re-exports both halves of the union side by side",
+      "one named refusal for an unknown §33 failure class where the donor crashed",
+      "the differential parity harnesses that compare the port against the frozen donor"
+    ],
+    "DEFERRED": [
+      "Codex-Boss requirements-driven Execution DAG (needs a RequirementsGraph producer that does not exist here)",
+      "Boss acceptance-hub family and final-acceptance checklist (Boss host stores and requirement contracts)",
+      "Boss three-layer review and adversarial probes (needs the requirements/evidence contracts)",
+      "Boss repo/world model and capability probe",
+      "Boss git-checkpoint and guardGitHubWrite (git-authority semantics)",
+      "Boss fleet dropout reassignment (no fleet consumer in this tree)",
+      "DS-Hns app/sub-worker worker-pool isolation (owned by 02/02 Worker Gateway, MB-003)"
+    ]
+  },
+  "donorBugsFound": [
+    "adapters/index.cjs header promises an `inferred: true` flag that `command()` never sets; inference is only labelled through CONFIDENCE.INFERRED. Doc/code mismatch, reproduced as-is.",
+    "packageManagerOf() answers 'npm' merely because package.json exists, so nodeAdapter emits `npm ci` with confidence `declared` and evidence 'lockfile for npm' for a project with no lockfile — `npm ci` refuses to run without package-lock.json, and the evidence string is false. Reproduced as-is and pinned by a test.",
+    "FINAL_REASONS is exported but read nowhere in app/engineering; a report with result 'REFUSED' plus any progress still continues. Reproduced as-is.",
+    "javaAdapter.detect reports evidence 'build.gradle' even when the actual file is build.gradle.kts. Reproduced as-is.",
+    "Boss planRecovery has no guard for an unknown failure class (see knownDifferences — this one is the single deliberate divergence).",
+    "locking.cjs's comment says 'A live lock is never stolen, however old it is', but its `stale` is `!alive || age > staleAfterMs`, so a lock held by a live process past DEFAULT_STALE_AFTER_MS is reclaimable. Kept byte-for-byte; the port's suite documents both readings.",
+    "verifyResume composes reason strings, so a working-tree change surfaces as the doubled 'the working tree changed: the working tree changed'. Cosmetic; reproduced exactly.",
+    "checkpoint.cjs's default root resolves to the repository root, so its default checkpoint directory lands under the repository. Unreachable unless no root/dir is given; recorded so a host wiring a default does so deliberately."
+  ],
+  "verification": {
+    "moduleTestFiles": [
+      "tests/plan-parity.test.mjs",
+      "tests/recovery.test.mjs",
+      "tests/adapters-autonomy.test.mjs",
+      "tests/verification.test.mjs",
+      "tests/failure-recovery.test.mjs",
+      "tests/supervisor.test.mjs"
+    ],
+    "runner": "node --test via `node city/test-all.mjs`",
+    "citySuite": "515 tests, 514 pass, 1 skipped (host-dependent symlink case), 0 fail"
+  }
+}

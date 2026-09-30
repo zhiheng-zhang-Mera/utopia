@@ -29,11 +29,24 @@ import {
  * Every module the manifest declares, in declaration order.
  *
  * This is a census, not an aspiration: each entry must have real code in the tree. The
- * wave-1 modules are followed by the MB-007 Research Institute modules, which were migrated
- * by the Digital-City mission-book control plane rather than incubated in the Room Pack.
+ * wave-1 modules are followed by the mission-book migrations — MB-001, MB-002, MB-003, MB-004,
+ * MB-005, MB-006, MB-007 and MB-009 — which the Digital-City control plane landed directly
+ * rather than incubating a Room Pack module first.
  */
-const WAVE1 = [
+const EXPECTED_MODULES = [
+  'city/00-foundation/01-city-core/root-authority',
+  'city/00-foundation/01-city-core/task-lifecycle',
+  'city/00-foundation/01-city-core/fleet-routing',
+  'city/00-foundation/01-city-core/audit-ledger',
+  'city/00-foundation/03-capability-fabric/capability-fabric',
+  'city/00-foundation/05-control-centre/theme-engine',
+  'city/02-engineering/01-project-foreman/project-foreman',
   'city/02-engineering/02-worker-gateway/skill-intake',
+  'city/02-engineering/03-host-health-station/host-health-station',
+  'city/02-engineering/04-restart-recovery-station/restart-protocol',
+  'city/02-engineering/04-restart-recovery-station/restart-lock',
+  'city/02-engineering/04-restart-recovery-station/checkpoint-gate',
+  'city/02-engineering/04-restart-recovery-station/restart-ticket',
   'city/06-research/01-research-institute/evidence-engine',
   'city/06-research/01-research-institute/research-protocol',
   'city/06-research/01-research-institute/research-provenance',
@@ -43,7 +56,6 @@ const WAVE1 = [
   'city/09-planning-knowledge/01-knowledge-service/knowledge-core',
   'city/09-planning-knowledge/02-document-intake/ingestion-core',
   'city/09-planning-knowledge/02-document-intake/document-readers',
-  'city/11-entertainment/01-entertainment-centre/theme-engine',
 ];
 
 test('the real manifest describes exactly the districts and modules that exist', async () => {
@@ -52,15 +64,15 @@ test('the real manifest describes exactly the districts and modules that exist',
   assert.equal(manifest.schemaVersion, 2);
   assert.deepEqual(
     manifest.districts.map((district) => district.id),
-    ['02-engineering', '06-research', '09-planning-knowledge', '11-entertainment'],
-    'only the districts that actually exist are declared',
+    ['00-foundation', '02-engineering', '06-research', '09-planning-knowledge'],
+    'only the districts that actually exist are declared, in manifest order; 00-foundation owns the theme engine after the MB-009 relocation, and 11-entertainment is no longer declared because it holds no module',
   );
   for (const district of manifest.districts) {
     assert.ok(district.zh.length > 0 && district.en.length > 0, `${district.id} has bilingual names`);
   }
 
   const modules = flattenModules(manifest);
-  assert.deepEqual(modules.map((entry) => entry.module.path), WAVE1);
+  assert.deepEqual(modules.map((entry) => entry.module.path), EXPECTED_MODULES);
   for (const entry of modules) {
     const { module } = entry;
     assert.ok(CITY_LIFECYCLES.includes(module.lifecycle), `${module.id} lifecycle is valid`);
@@ -115,13 +127,14 @@ test('the manifest and the city tree agree on what exists', async () => {
  * Two incubation identities are recognised by this tree, and they must never blur:
  *
  *   - a Room Pack incubator room, recorded as `apps/rooms/promotions/<id>.json`;
- *   - a mission-book migration incubator, whose id is `mb-<MISSION_ID>-<module>-lab` and
- *     which must ALSO carry a `mission` block.
+ *   - a mission-book migration incubator, whose id is `mb-<MISSION_ID>-<module>-lab`
+ *     and which must ALSO carry a `mission` block.
  *
  * Digital-City/mission-book is a separate Owner-defined control plane: it lands code
  * directly under city/ on a mission branch, accepted by a second host, instead of
  * incubating a live Room first. Recording that honestly is the point of this test —
- * without it a mission migration could claim a room that never existed.
+ * without it, a mission migration could claim a room that never existed and the
+ * provenance would be unverifiable.
  */
 test('mission-book incubators are named and provenanced, and Room Pack incubators are not disguised', async () => {
   const manifest = await loadManifest();
@@ -139,18 +152,22 @@ test('mission-book incubators are named and provenanced, and Room Pack incubator
     }
     assert.equal(missionRooms.length, rooms.length, `${module.id} must not mix a mission incubator with a Room Pack room`);
     assert.ok(module.mission && typeof module.mission.missionId === 'string', `${module.id} names its mission`);
-    assert.match(module.mission.missionId, /^MB-[0-9]{3}$/, `${module.id} mission id looks like MB-xxx`);
+    assert.match(
+      module.mission.missionId,
+      /^MB-[0-9]{3}$/,
+      `${module.id} mission id looks like MB-xxx`,
+    );
     const prefix = module.mission.missionId.toLowerCase();
     for (const room of missionRooms) {
       assert.match(room, /^mb-[0-9]{3}-[a-z0-9-]+-lab$/, `${module.id} mission incubator room id shape`);
       assert.ok(room.startsWith(`${prefix}-`), `${module.id} room ${room} must start with its mission id ${prefix}`);
       assert.ok(room.includes(module.id), `${module.id} room ${room} must name the module it incubated`);
     }
-    assert.ok(typeof module.mission.cluster === 'string' && module.mission.cluster.length > 0, `${module.id} names its cluster`);
+    assert.ok(typeof module.mission.cluster === 'string' && module.mission.cluster.length > 0, `${module.id} names its mission cluster`);
   }
 
-  // The on-disk provenance must agree with the manifest, so the manifest cannot claim an
-  // incubation the module's own DONOR.json does not record.
+  // The on-disk provenance must agree with the manifest, so the manifest cannot
+  // claim an incubation the module's own DONOR.json does not record.
   for (const { module } of missionModules) {
     const donorPath = join(CITY_ROOT, module.path.replace(/^city\//, ''), 'DONOR.json');
     const donor = JSON.parse(await readFile(donorPath, 'utf8'));
@@ -215,8 +232,21 @@ test('the manifest rejects malformed hierarchy, paths and lifecycles', async () 
       return next;
     }],
     ['one incubation room claimed by two modules', () => {
+      // The first district is 00-foundation, which is not the district that
+      // owns skill-intake-lab, so the shared room is read from the first
+      // module's own declaration rather than hard-coded. The rule under test is
+      // cross-module exclusivity, not which room happens to come first.
       const next = clone();
-      next.districts[1].buildings[0].modules[0].incubationRooms = ['skill-intake-lab'];
+      // Addressed by id, not by index: adding a district must not silently turn
+      // this case into "a module claims its own room", which is legal and would
+      // not throw. The shared room is taken from the first module's own
+      // declaration rather than hard-coded, so the case survives a rename.
+      const claimed = next.districts[0].buildings[0].modules[0].incubationRooms[0];
+      const other = next.districts
+        .find((district) => district.id === '06-research')
+        .buildings.find((building) => building.id === '01-research-institute')
+        .modules.find((module) => module.id === 'evidence-engine');
+      other.incubationRooms = [claimed];
       return next;
     }],
     ['an empty incubation room entry', () => {

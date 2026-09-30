@@ -1,0 +1,119 @@
+{
+  "module": "restart-ticket",
+  "cityPath": "city/02-engineering/04-restart-recovery-station/restart-ticket",
+  "district": "02-engineering",
+  "building": "04-restart-recovery-station",
+  "incubationRooms": [
+    "mb-006-restart-ticket-lab"
+  ],
+  "mission": {
+    "missionId": "MB-006",
+    "book": "Digital-City/mission-book/MB-006-restart-recovery.md",
+    "role": "MIGRATION",
+    "cluster": "the versioned checksummed restart ticket: canonical checksum, construction, the expiry/pid/schema/checksum verification ladder, and the supervisor ledger shape"
+  },
+  "repository": "zhiheng-zhang-Mera/dsh-restart",
+  "commit": "e20fb6cc43e27cedf6303471e5b8ee18e1383ecd",
+  "sourcePaths": [
+    "src/plugin/ticket-store.ts",
+    "src/plugin/atomic.ts"
+  ],
+  "portedFiles": {
+    "src/plugin/ticket-store.ts": [
+      "contracts.mjs",
+      "ticket.mjs"
+    ],
+    "src/plugin/atomic.ts": "ticket.mjs"
+  },
+  "adaptation": [
+    "TypeScript -> plain ESM JavaScript (Node 24, no build step). The donor's interfaces (RestartTicket, SupervisorLedger, TicketDraft, TicketVerification, TicketRejection) became data shapes, constants and copy-on-construct factories in contracts.mjs; the algorithms are unchanged.",
+    "canonicalJson is NOT copied. ticket.mjs imports it from ../restart-protocol/canonical-json.mjs, the sibling port of the donor's src/shared/protocol.ts, so the function that defines a checksum has one home in the city exactly as it had one home in the donor. The donor's dependency direction (src/plugin/ticket-store.ts -> src/shared/protocol.ts) is mirrored by the cross-module import. index.mjs re-exports the same binding, so this module's public surface is unchanged. Two copies would be a correctness hazard: if they ever drifted, a ticket built by one module would stop verifying in the other, silently.",
+    "TICKET_SCHEMA_VERSION (donor: src/shared/protocol.ts) is declared in contracts.mjs, because the ticket schema version belongs to the ticket contract.",
+    "The shape lists are data: TICKET_FIELDS, TICKET_DRAFT_FIELDS (plus the optional ttlFromMs the donor declares and never reads), TICKET_VERIFICATION_FIELDS and LEDGER_FIELDS describe the documents; none of them filters what the verifier accepts.",
+    "emptyLedger() lives in contracts.mjs and is re-exported by ticket.mjs, so the ledger shape has one home and index.mjs has one export site.",
+    "The sha256 helper from atomic.ts is ported unchanged, including its `sha256:<hex>` spelling; node:crypto and the sibling canonical form are the module's only imports.",
+    "ticketFromDocument is the copy-on-construct factory: it validates the document's checksum and copies the document's own fields, adding, dropping and reordering nothing."
+  ],
+  "knownDifferences": [
+    "No filesystem at all. TicketStore, writeTicket, readTicket, clearTicket, hasTicket, writeHeartbeat, readHeartbeat, heartbeatAgeMs, readLedger and writeLedger are NOT ported: they are file I/O and process liveness around the ticket document, not the document, and this module is required to hold no fs.",
+    "writeFileAtomic, writeJsonAtomic and readJson are NOT ported: the atomic write (sibling temp file + fsync + rename) and the JSON read belong to a storage layer this module does not have. The atomicity contract they implement is recorded here so it is not lost: a writer of a ticket must write to a sibling temp file, fsync it so the bytes are durable, then rename it over the target, so that a crash leaves either the old document or the new one and never a mixture. That is why a reader must be able to prove a document is whole, which is exactly what ticketChecksum and the verification ladder do. ATOMICITY_CONTRACT in ticket.mjs carries the same statement next to the code it constrains.",
+    "mtimeMs and sizeBytes are NOT ported: they exist for heartbeat staleness and file inspection, and this module reads no files. Heartbeat staleness (heartbeatAgeMs and its preference for the heartbeat's own timestamp over the file mtime) is therefore not represented here.",
+    "No clock and no environment: the donor's injectable `now` defaulting to Date.now() is not carried over, because nowMs is already a parameter of buildTicket and verifyTicket. This module contains no Date.now(), no Math.random() and no process.env.",
+    "No ticket deletion, no consumption, no store paths and no heartbeat shape: SupervisorHeartbeat and TicketStorePaths are out of scope, as is the store's 'delete a ticket that does not verify' policy (the refusal half is ported; the consequence is the store's, not the document's).",
+    "readLedger's field-by-field repair (a missing uncleanStarts becomes [], a missing safeMode becomes false, and so on) is not ported: the donor repaired a ledger where it read one, and this module has no read site.",
+    "No caller in this checkout: nothing under city/ imports this module yet; it is the migration unit for MB-006."
+  ],
+  "verdictParity": {
+    "statement": "No verdict differs from the donor. verifyTicket is the donor's ladder line for line: six rungs, the same order, the same rejection codes and the same detail strings, and no seventh rung exists.",
+    "rungs": [
+      "candidate === null || candidate === undefined -> missing, 'no ticket file'",
+      "typeof candidate !== 'object' -> malformed, 'ticket is not an object'",
+      "candidate.schemaVersion !== TICKET_SCHEMA_VERSION -> schema_version, 'ticket schemaVersion <v> is not 1'",
+      "typeof checksum !== 'string' || checksum !== ticketChecksum(rest) -> checksum, 'ticket checksum does not match its contents'",
+      "!Number.isFinite(Date.parse(candidate.expiresAt)) || expiresAt <= nowMs -> expired, 'ticket expired at <expiresAt>'",
+      "expectedPid !== undefined && candidate.pid !== expectedPid -> wrong_pid, 'ticket targets pid <pid>, not <expectedPid>'",
+      "otherwise -> { valid: true, ticket: candidate, rejection: null, detail: 'ticket verified' }"
+    ],
+    "inputsReachingTheDonorsOwnRungs": [
+      "an array reaches rung 3 and is refused as schema_version (arrays pass typeof === 'object')",
+      "a function reaches rung 2 and is refused as malformed (typeof fn === 'function')",
+      "a document with an extra field and a checksum covering it verifies: rung 4 hashes every field received",
+      "a document missing a field, with the checksum recomputed over what remains, reaches the expiry or pid rung",
+      "a mistyped pid ('4242') reaches wrong_pid; a mistyped expiresAt reaches expired",
+      "any non-1 schemaVersion, including '1', null or NaN, reaches schema_version"
+    ],
+    "buildTicket": "No guard is added: the two `new Date(...).toISOString()` calls are the donor's own, and they throw `RangeError: Invalid time value` for exactly the inputs the donor's throw for (non-finite nowMs, non-finite ttlMs, and an out-of-range nowMs + ttlMs). No draft the donor builds is refused, and no draft the donor refuses is built."
+  },
+  "parity": {
+    "vectorSource": "dsh-restart src/plugin/ticket-store.ts, src/plugin/atomic.ts and src/shared/protocol.ts (canonicalJson) @ e20fb6cc43e27cedf6303471e5b8ee18e1383ecd",
+    "vectors": [
+      "a built ticket round-trips through verifyTicket as valid, and through a JSON parse/stringify round-trip",
+      "the checksum is reproducible and independent of key insertion order: the same fields inserted forwards and reversed produce the same sha256:<hex>",
+      "sha256 is sha256:<64 lowercase hex>, and the empty string hashes to e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "pinned digest sha256:c12d61303692fea8b4ab0f238efd78bbdb6554d6c154a2e587c5f07739185762 for the ticket built at 2026-05-01T00:00:00.000Z with ttlMs 60000, pid 4242, checkpointId ckpt-0001 (71 characters, 64 hex digits)",
+      "the pinned digest is 71 characters (64 hex digits) and equals the checksum recomputed from the canonical form",
+      "rejection missing ('no ticket file') for null and undefined",
+      "rejection malformed ('ticket is not an object') for every primitive, BigInt and function",
+      "arrays reach schema_version, because typeof [] === 'object'",
+      "rejection schema_version for 2, 0, 3, '1', null, undefined, false, true, {}, NaN and 1n, each with the donor's detail string",
+      "rejection checksum for each of the eleven other fields missing, for each of ten tampered fields, for a substituted digest and for a truncated digest",
+      "an extra field with a checksum that covers it verifies; the same field with the original checksum is a checksum failure",
+      "rejection expired at the boundary (expiresAt <= nowMs is expired; one millisecond earlier is valid), for an unparsable expiresAt and for a numeric expiresAt",
+      "rejection wrong_pid only when expectedPid is supplied, and never when it is undefined; a checksummed '4242' pid still mismatches 4242",
+      "the ladder stops at the first rung: a broken checksum plus a wrong pid is checksum; a wrong schema version plus a broken checksum is schema_version; an expiry plus a wrong pid is expired",
+      "every non-valid verdict from a wide candidate set is one of the six donor codes, and no seventh code can be produced",
+      "buildTicket throws RangeError for NaN, Infinity, undefined, string and out-of-range instants, and builds ttlMs 0, negative ttlMs and the maximum instant identically to the donor",
+      "emptyLedger's six fields and values, with a fresh uncleanStarts array per call"
+    ]
+  },
+  "classification": {
+    "PARITY": [
+      "ticketChecksum: sha256 of the canonical JSON of every field except checksum, with the sha256:<hex> spelling",
+      "buildTicket: schema version, createdAt = nowMs, expiresAt = nowMs + ttlMs, both ISO-8601, checksum over everything else, and no guard beyond the donor's own date construction",
+      "verifyTicket: the donor's six rungs, order, rejection codes and detail strings",
+      "emptyLedger's six fields and their values",
+      "the TicketRejection vocabulary (missing, schema_version, malformed, checksum, expired, wrong_pid)",
+      "TICKET_SCHEMA_VERSION = 1",
+      "canonicalJson imported from the single sibling port rather than duplicated"
+    ],
+    "PORT_ADAPTATION": [
+      "TypeScript interfaces to data shapes, constants and copy-on-construct factories",
+      "the canonical form imported from ../restart-protocol/canonical-json.mjs, mirroring the donor's ticket-store -> shared/protocol direction",
+      "the ledger shape and emptyLedger re-exported through contracts.mjs so index.mjs has one export site",
+      "ticketFromDocument copies a parsed document's own fields instead of rebuilding a fixed twelve-field literal"
+    ],
+    "UTOPIA_EXTENSION": [],
+    "NOT_PORTED": [
+      "TicketStore and all of its fs methods (writeTicket, readTicket, clearTicket, hasTicket, write/readHeartbeat, heartbeatAgeMs, read/writeLedger)",
+      "writeFileAtomic, writeJsonAtomic, readJson, mtimeMs, sizeBytes (the atomicity contract is recorded in knownDifferences and ATOMICITY_CONTRACT instead)",
+      "the injectable now() clock and the default Date.now()",
+      "SupervisorHeartbeat and TicketStorePaths",
+      "readLedger's repair of a malformed ledger"
+    ],
+    "DEFERRED": [
+      "the storage layer that would call buildTicket and verifyTicket",
+      "an incubator room for mb-006-restart-ticket-lab",
+      "the supervisor's consume/delete policy for a ticket that does not verify"
+    ]
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "module": "restart-lock",
+  "cityPath": "city/02-engineering/04-restart-recovery-station/restart-lock",
+  "district": "02-engineering",
+  "building": "04-restart-recovery-station",
+  "incubationRooms": [
+    "mb-006-restart-lock-lab"
+  ],
+  "mission": {
+    "missionId": "MB-006",
+    "book": "Digital-City/mission-book/MB-006-restart-recovery.md",
+    "role": "MIGRATION",
+    "cluster": "the exclusive restart lock: declared transition edges, holder rules, bounded transition history and forced release"
+  },
+  "repository": "zhiheng-zhang-Mera/dsh-restart",
+  "commit": "e20fb6cc43e27cedf6303471e5b8ee18e1383ecd",
+  "sourcePaths": [
+    "src/plugin/restart-lock.ts"
+  ],
+  "portedFiles": {
+    "src/plugin/restart-lock.ts": "restart-lock.mjs (with contracts.mjs carrying TRANSITIONS, REQUEST_STATE and the TransitionRefusal shape; the RestartLockState and RestartRequestState vocabularies come from the sibling restart-protocol module)"
+  },
+  "adaptation": [
+    "TypeScript -> plain ESM JavaScript, Node 24, no new dependencies. The donor class becomes a factory-built object; the state machine, the holder rules, the bounded history and the forced release are carried over edge for edge.",
+    "The donor's single shared contract layer is preserved as a single source. `restart-lock.ts` imports `RestartLockState` and `RestartRequestState` from `../shared/protocol.js`; that shared layer is the sibling `restart-protocol` module in this same building, and `contracts.mjs` imports both vocabularies from `../restart-protocol/contracts.mjs` and re-exports them unchanged. The dependency direction is the donor's own (`plugin/* -> shared/*`), expressed as a cross-module import within the building, so there is exactly one declaration of each vocabulary and the lock cannot drift from the protocol it is part of.",
+    "`TRANSITIONS`, `REQUEST_STATE` and `TransitionRefusal` stay local, because the donor declares them in `restart-lock.ts` itself and nowhere else.",
+    "The donor declared `TRANSITIONS` at module scope and typed it as `Readonly<Record<RestartLockState, readonly RestartLockState[]>>`; that type constraint is what now enforces itself at runtime: every state name and every request state name passes through a validating copy-on-construct factory, and every table is a frozen lookup.",
+    "The donor's `TransitionRefusal` interface is exported as `transitionRefusal()`, a frozen copy-on-construct shape. `illegalTransition()` reproduces the donor's exact detail string, including `none` when a state has no declared successor, and `holderRequiredRefusal()` reproduces the exact holder refusal.",
+    "`release(reason)` validates its reason before it touches the lock, so a refused release leaves the state machine exactly where it was; the donor stamped the forced entry before it could be interrupted.",
+    "Every clock read goes through the injected `now`. The donor defaulted to `Date.now()`; this port never calls it and defaults to a fixed clock pinned at epoch 0 (`createFixedClock()`), so a lock built without an explicit `now` is deterministic until one is supplied.",
+    "`release` takes `reason`; the donor took `reason: string` and only returned it. The port builds the returned record through the contract factory, so the shape is validated and frozen.",
+    "Internal `record()` helper: appends one validated entry, then drops the oldest until `maxHistory` holds, restating the donor's `push` + `shift` bound in one place.",
+    "The donor's `RestartLock` class is exported as both `restartLock()` (factory) and `RestartLock` (alias), so the migration name survives without a class."
+  ],
+  "knownDifferences": [
+    "No `Date.now` anywhere: `now` is injected and defaults to a fixed clock at epoch 0. The donor's `constructor(options: { now?: () => number } = {})` default was `() => Date.now()`; that default was deliberately not carried over, so `heldForMs()` is exact and tests are deterministic.",
+    "The donor's `get transitions()` returned a shallow copy of the history; this port copies the array and every record is a frozen shape, so a recorded transition cannot be rewritten after the fact. A caller that only reads the copy sees exactly the donor's array.",
+    "The donor performed no argument validation (TypeScript erased it). This port validates at the boundary: an unknown state name is a `TypeError` from the vocabulary gate, a non-integer `maxHistory` is a `TypeError`, and a non-function `now` is a `TypeError`. A known state that is simply not an allowed edge is still a returned refusal, never a throw, exactly as the donor returned it.",
+    "The donor `transition(to, holder)` had no JavaScript guard for a missing target; its `allowed.includes(to)` refusal could not have been built anyway, because a `TransitionRefusal` with no `to` is not the declared shape. This port refuses the missing target at the vocabulary gate with a `TypeError` and leaves the state untouched.",
+    "TypeScript interfaces (`TransitionRefusal`) and the compiled `readonly`/`private` modifiers have no JavaScript equivalent; they are replaced by frozen objects and closure state. No behaviour that depends on them was ported because the donor had none.",
+    "This module no longer declares the two vocabularies locally: they are imported from the sibling `restart-protocol` module, which is the port of `src/shared/protocol.ts`. The rest of that protocol (requests, tickets, supervisor, storage) remains out of scope here, as are `restart-executor`, `restart-supervisor` and every other donor module that consumed this lock.",
+    "Nothing in this module schedules, executes or observes a restart: it owns the invariant and the declared state machine, and it reports refusals instead of repairing them. The donor's crash reconciliation, ticket writing, shutdown port and audit log are not here.",
+    "`snapshot()`, `maxHistory` and the `createFixedClock()` helper are additions for porting and for the incubator surface; they read state the donor already tracked and change no rule."
+  ],
+  "parity": {
+    "vectorSource": "dsh-restart src/plugin/restart-lock.ts and src/shared/protocol.ts @ e20fb6cc43e27cedf6303471e5b8ee18e1383ecd",
+    "vectors": [
+      "the vocabulary is exactly IDLE, REQUESTED, CHECKPOINTING, SHUTTING_DOWN, RELAUNCHING, VERIFYING, and the request vocabulary is exactly rejected, queued, checkpointing, shutting_down, relaunching, verifying, completed, failed, cancelled",
+      "the declared edges are exactly IDLE:[REQUESTED], REQUESTED:[CHECKPOINTING, SHUTTING_DOWN, IDLE], CHECKPOINTING:[SHUTTING_DOWN, IDLE], SHUTTING_DOWN:[RELAUNCHING, IDLE], RELAUNCHING:[VERIFYING, IDLE], VERIFYING:[IDLE], and every declared edge is accepted",
+      "no undeclared edge is accepted: all 36 (from, to) pairs are walked and exactly the eleven declared edges move the lock",
+      "the refusal detail is exactly `illegal restart lock transition <from> -> <to>; allowed: <comma list or 'none'>` for a sample of illegal edges from every state",
+      "entering REQUESTED requires a non-empty holder, and the refusal is exactly `entering REQUESTED requires a request id`",
+      "the holder is set only on IDLE -> REQUESTED and cleared on -> IDLE, so a holder supplied to any other edge is ignored",
+      "heldForMs() is Math.max(0, now - enteredAtMs), is 0 on entry and never negative when the clock stands still or goes backwards",
+      "requestState maps IDLE:completed, REQUESTED:queued, CHECKPOINTING:checkpointing, SHUTTING_DOWN:shutting_down, RELAUNCHING:relaunching, VERIFYING:verifying",
+      "an accepted edge appends {from, to, atMs} with the injected clock reading",
+      "an illegal transition returns the refusal, changes no state, clears no holder and records no history entry",
+      "history is bounded by maxHistory (default 50) and drops the oldest record first; maxHistory 0 keeps nothing and maxHistory 1 keeps the newest",
+      "release(reason) returns null when already IDLE and otherwise forces IDLE, clears the holder and returns {from, reason} from every non-idle state",
+      "transitions returns a copy, so mutating the returned array does not touch the lock",
+      "every clock read goes through the injected now and the module contains no Date.now",
+      "the two vocabularies this module uses are the sibling shared layer's own frozen exports, so the vocabulary can be read from one source in the building and cannot drift"
+    ]
+  },
+  "classification": {
+    "PARITY": [
+      "the declared transition edges and both vocabularies",
+      "the refusal detail strings and the holder refusal",
+      "holder set/clear rules, heldForMs and requestState",
+      "bounded history with oldest-dropped-first",
+      "release from every non-idle state and the already-idle null"
+    ],
+    "PORT_ADAPTATION": [
+      "TypeScript class -> factory-built object with closure state",
+      "interfaces -> frozen copy-on-construct factories that validate at the boundary",
+      "the shared contract layer kept as one source: the vocabularies are imported from the sibling restart-protocol module, the donor's plugin -> shared direction",
+      "injected clock with a fixed-epoch default instead of Date.now",
+      "frozen, validated transition records and snapshot"
+    ],
+    "UTOPIA_EXTENSION": [
+      "createFixedClock() deterministic default clock",
+      "snapshot() frozen observable picture of state, holder, enteredAtMs and history",
+      "maxHistory exposed as a read-only bound"
+    ],
+    "DEFERRED": [
+      "restart execution and ticket writing",
+      "supervisor coordination and crash reconciliation",
+      "shutdown port and audit persistence",
+      "the rest of the dsh-restart protocol (requests, status, cooldowns, crash loop)"
+    ]
+  }
+}

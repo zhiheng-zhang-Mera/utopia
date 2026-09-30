@@ -1,0 +1,144 @@
+{
+  "module": "restart-protocol",
+  "cityPath": "city/02-engineering/04-restart-recovery-station/restart-protocol",
+  "district": "02-engineering",
+  "building": "04-restart-recovery-station",
+  "incubationRooms": [
+    "mb-006-restart-protocol-lab"
+  ],
+  "mission": {
+    "missionId": "MB-006",
+    "book": "Digital-City/mission-book/MB-006-restart-recovery.md",
+    "role": "MIGRATION",
+    "cluster": "the shared restart wire protocol and request admission: shape and policy validation order, refusal codes, request normalisation and fingerprinting, and the protocol/config vocabularies"
+  },
+  "donorLimitations": {
+    "note": "MB-006 requires the donor's known limitations to be recorded verbatim and NOT repaired in passing ('已知两项 donor limitation 必须原样记录，不得在迁移中顺手修好'). These are the donor's own words at e20fb6cc43e27cedf6303471e5b8ee18e1383ecd. None of the code that would exhibit them was migrated, so nothing here is a claim about the ported modules; they are recorded so a later mission does not silently close a donor gap and call it a migration.",
+    "items": [
+      {
+        "id": "WAITING_FOR_EXIT_HAS_NO_DEADLINE",
+        "donorSource": "docs/failure-modes.md:106-109",
+        "verbatim": "There is **no timeout** on `WAITING_FOR_EXIT`, and **no \"dirty restart\" record** is written anywhere.",
+        "supporting": "docs/acceptance.zh.md:111 — 「截止时间尚未实现」：`WAITING_FOR_EXIT` 没有超时，`allowForceTerminate` 从未被读取。 README.md:244 — the supervisor's `WAITING_FOR_EXIT` state has no deadline, so a hung shutdown is waited on indefinitely.",
+        "status": "NOT_MIGRATED_AND_NOT_FIXED"
+      },
+      {
+        "id": "ALLOW_FORCE_TERMINATE_NEVER_CONSULTED",
+        "donorSource": "README.md:272",
+        "verbatim": "`safety.allowForceTerminate` | boolean | `false` | declared, validated, **never consulted** by this release",
+        "supporting": "docs/failure-modes.md:108 — `safety.allowForceTerminate` is read, but only after `WAITING_FOR_EXIT` exceeds `safety.shutdownTimeoutMs`, and it still needs a bound `ProcessTerminator`. The shipped `bin/supervisor.mjs` binds one only when that setting is on, so the default supervisor cannot terminate anything.",
+        "status": "NOT_MIGRATED_AND_NOT_FIXED"
+      }
+    ],
+    "additionalDonorGapsObserved": [
+      {
+        "id": "SUPERVISOR_STATE_STOPPED_NEVER_ASSIGNED",
+        "donorSource": "docs/architecture.md:193",
+        "verbatim": "`STOPPED` | declared in the `SupervisorState` union | **never assigned by any code path**",
+        "status": "VOCABULARY_MIGRATED_AS_DECLARED; the state is present in SUPERVISOR_STATES because the donor declares it, and no code path in this port assigns it either."
+      },
+      {
+        "id": "CROSS_RESTART_COOLDOWN_NOT_ENFORCED",
+        "donorSource": "docs/acceptance.md:111",
+        "verbatim": "cooldown state is in-memory, so a fresh process starts with `remainingMs: 0`. The cross-restart bound is therefore **not** enforced",
+        "status": "NOT_MIGRATED_AND_NOT_FIXED"
+      }
+    ]
+  },
+  "repository": "zhiheng-zhang-Mera/dsh-restart",
+  "commit": "e20fb6cc43e27cedf6303471e5b8ee18e1383ecd",
+  "sourcePaths": [
+    "src/shared/protocol.ts",
+    "src/shared/types.ts",
+    "src/plugin/request-validator.ts"
+  ],
+  "portedFiles": {
+    "src/shared/protocol.ts": [
+      "contracts.mjs",
+      "canonical-json.mjs"
+    ],
+    "src/shared/types.ts": [
+      "contracts.mjs"
+    ],
+    "src/plugin/request-validator.ts": [
+      "request-validator.mjs"
+    ]
+  },
+  "adaptation": [
+    "TypeScript to plain ESM JavaScript (Node 24, no dependencies, no build step). The donor's interfaces do not exist at runtime, so each one becomes frozen exported vocabulary plus a copy-on-construct factory and a strict validator: restartRequest, restartResponse, restartStatus, restartActiveRequest, cooldownState, crashLoopState, supervisorPresence, restartAttemptRecord, restartTicket, supervisorHeartbeat, supervisorLedger, modeConfig, safetyConfig, supervisorConfig, storageConfig, restartConfig, restartConfigOverrides, normalizedRequest, validationResult, checkpointOutcome, validatorContext and the three port shapes.",
+    "A factory never repairs invalid input into valid input: it validates the declared shape and returns a frozen copy of exactly the declared fields, so a stray caller property cannot perturb a canonical checksum. The donor's normalisation stays where the donor put it - trimming, priority ?? 'normal', createdAt ?? new Date(0).toISOString() and acknowledgeSystemReboot === true are in validateShape, the single admission gate, and nowhere else.",
+    "canonicalJson moved out of protocol.ts into canonical-json.mjs with its behaviour untouched: same JSON.stringify(value) ?? 'null' fallback, same element-wise array recursion, same dropping of undefined object values, same a < b comparator, same {\"key\":<canonical>} emission with no whitespace.",
+    "The four bounds were module-private consts in the donor; they are exported here as MAX_ID_LENGTH, MAX_SOURCE_LENGTH, MAX_REASON_CODE_LENGTH and MAX_SUMMARY_LENGTH so a test can assert each one at its limit and one past it. The values are unchanged: 128 / 64 / 64 / 500.",
+    "ValidatorContext is carried as a value shape in contracts.mjs (the donor declares it in request-validator.ts) so the worldly facts that keep validateRequest pure - nowMs, lock, cooldowns, duplicate, crash loop, supervisor presence, checkpoint-port availability - are themselves validated and injected rather than read.",
+    "The three port interfaces are carried as documented data: checkpointPort, shutdownPort and systemShutdownPort validate a binding's stable id and the callables the contract names. Nothing here calls a port; an unbound checkpoint port still means \"cannot verify\", which the ladder turns into CHECKPOINT_FAILED.",
+    "Numeric strictness where the donor's type was only `number`: every numeric field must be finite, and fields the donor documents as counts, pids, sequence numbers or schema versions must additionally be non-negative integers.",
+    "index.mjs is a barrel export site and adds nothing of its own; every name it exposes is re-exported unchanged from contracts.mjs, canonical-json.mjs or request-validator.mjs."
+  ],
+  "knownDifferences": [
+    "No restart execution: the restart lock, ticket store, ticket checksum, atomic writes, audit log, checkpoint gate, restart manager, health-scheduler bridge and the supervisor (heartbeat, PID watch, relaunch, crash-loop breaker) are all out of scope. This module validates and describes; it never restarts, exits, signals or writes.",
+    "No configuration resolver and no default configuration. The donor's src/shared/config.ts is not ported, so no defaults are applied and no base config is exported: restartConfigOverrides only validates an overrides document as data, and merging it onto a base configuration is the caller's job.",
+    "No filesystem, network, clock, environment or randomness inside logic. The one instant constructed is the donor's new Date(0).toISOString() epoch default, which is a constant, not a clock reading; every other instant arrives as a string or in ValidatorContext.",
+    "The ticket checksum itself (sha256:<hex> over the ticket's canonical JSON without the checksum field) belongs to the donor's ticket store and is not ported. canonicalJson is ported because that checksum depends on it; restartTicket carries a checksum verbatim and never recomputes or repairs one.",
+    "Shapes for supervisor-side documents (supervisorHeartbeat, supervisorLedger, crashLoopState, supervisorPresence) are carried as contracts only. Nothing in this module produces or consumes them.",
+    "Refusal codes that belong to execution rather than admission (CHECKPOINT_REQUIRED, SHUTDOWN_TIMEOUT, SHUTDOWN_PORT_UNAVAILABLE) stay in the SELF_REASON_CODES vocabulary, exactly as the donor documents them, but are not raised by the ported ladder."
+  ],
+  "parity": {
+    "vectorSource": "dsh-restart src/shared/protocol.ts, src/shared/types.ts and src/plugin/request-validator.ts @ e20fb6cc43e27cedf6303471e5b8ee18e1383ecd, including the donor's own vectors from tests/validation.test.js",
+    "vectors": [
+      "canonicalJson sorts keys by UTF-16 code unit, so uppercase precedes lowercase and '10' precedes '9', and two insertion orders give one string",
+      "canonicalJson drops undefined object values, renders an undefined array element as null, and keeps array order while canonicalising elements",
+      "canonicalJson recurses through nested objects and arrays, emits no whitespace and JSON-quotes every key",
+      "canonicalJson passes non-objects through JSON.stringify with the 'null' fallback, so canonicalJson(undefined) is 'null' and non-finite numbers become null",
+      "a pinned canonical form and pinned sha256 digest (492bdcfa2d5101ee02cd45fa356580390888689d0ecf3ecd3e8406066499e379) for one fixed ticket-like document, stable under key reordering and broken by a one-field tamper",
+      "a complete request is accepted and normalized: trimmed fields, priority 'normal', acknowledgeSystemReboot false, createdAt 1970-01-01T00:00:00.000Z",
+      "a non-object is refused with the donor's 'request must be an object, received <typeof>' detail for null, undefined, string and number, and an array is refused by the first field check, not by an invented array rule",
+      "each string field is required, blank and non-string: '<field> must be a non-empty string'",
+      "unknown mode, non-boolean checkpointRequired, unknown priority, non-string createdAt and non-boolean acknowledgeSystemReboot are each refused with their exact detail string",
+      "the four bounds 128 / 64 / 64 / 500 are accepted at their limit and refused one past it with '<field> exceeds <max> characters', measured after trimming",
+      "control characters (\\u0000, \\u0007, \\u001f, \\u007f, \\n, \\t, \\r) are refused with '<field> contains control characters', and the bound is checked before the control scan",
+      "surrounding whitespace, including a leading tab or newline, is trimmed before the bound and control scans, so it is never content and never a refusal",
+      "every refusal code with its exact detail: INVALID_REQUEST, DISABLED, UNKNOWN_SOURCE, MODE_NOT_ALLOWED, SYSTEM_REBOOT_NOT_PERMITTED (configuration and request acknowledgement), CRASH_LOOP, DUPLICATE_REQUEST_ID, RESTART_IN_FLIGHT, COOLDOWN_ACTIVE, CHECKPOINT_FAILED, SUPERVISOR_ABSENT",
+      "the ladder's precedence, proven pair by pair: shape beats DISABLED, DISABLED beats UNKNOWN_SOURCE, UNKNOWN_SOURCE beats the priority check, the priority check beats MODE_NOT_ALLOWED, MODE_NOT_ALLOWED beats SYSTEM_REBOOT_NOT_PERMITTED, SYSTEM_REBOOT_NOT_PERMITTED beats CRASH_LOOP, CRASH_LOOP beats DUPLICATE_REQUEST_ID, DUPLICATE_REQUEST_ID beats RESTART_IN_FLIGHT, RESTART_IN_FLIGHT beats COOLDOWN_ACTIVE, COOLDOWN_ACTIVE beats CHECKPOINT_FAILED, CHECKPOINT_FAILED beats SUPERVISOR_ABSENT",
+      "DUPLICATE_REQUEST_ID is raised only while safety.duplicateSuppression is true; with it off the repeat is admitted",
+      "CHECKPOINT_FAILED requires safety.checkpointRequired; an unbound checkpoint port alone is not a refusal",
+      "SUPERVISOR_ABSENT requires safety.allowRestartWithoutSupervisor to be false",
+      "COOLDOWN_ACTIVE reports Math.ceil(remaining ms / 1000) seconds and Math.round(minIntervalMs / 1000) seconds, reads the deadline of the request's own mode, and is not raised when the deadline equals now (the comparison is strictly '>')",
+      "requestFingerprint is canonical JSON over exactly requestId, source, mode, reasonCode, checkpointRequired and priority: a pinned string and sha256 (68d02508a6bec322914108e33b980df121625c6233521182d663fdfa894f77ed), stable across key order, different for a different request, and unchanged by reasonSummary, createdAt or acknowledgeSystemReboot",
+      "the vocabularies are frozen data: PROTOCOL_VERSION 1, TICKET_SCHEMA_VERSION 1, two modes, four priorities, the known reason codes, and the 14 self reason codes that document every code the ladder can raise",
+      "a contract factory refuses invalid input instead of repairing it: unknown mode, missing priority, blank text, a missing ModeConfig bound and a non-boolean flag all throw, and the epoch default exists only in validateShape",
+      "a contract factory copies and freezes: the result is frozen, mutating the input afterwards does not change it, nested arrays and sub-documents are frozen, and a stray caller property is not carried",
+      "the three seams are separate ports: a checkpoint port needs prepareForRestart and acknowledgeResume, a shutdown port needs requestShutdown, a system port needs requestSystemRestart, and neither shutdown shape satisfies the other"
+    ]
+  },
+  "classification": {
+    "PARITY": [
+      "PROTOCOL_VERSION, TICKET_SCHEMA_VERSION, the mode / priority / reason-code / request-state / lock-state / supervisor-state vocabularies and SELF_REASON_CODES",
+      "the request, response, status, active-request, cooldown, crash-loop, supervisor-presence, attempt-record, ticket, heartbeat and ledger shapes",
+      "the configuration surface: ModeConfig, SafetyConfig, SupervisorConfig, StorageConfig, RestartConfig and RestartConfigOverrides",
+      "canonicalJson, in full, including its comparator and its undefined and null handling",
+      "validateShape field order, bounds, trimming and control-character rule",
+      "validateRequest's policy ladder, precedence, refusal codes and detail strings",
+      "refuse and the six-field requestFingerprint",
+      "the checkpoint, shutdown and system-shutdown port contracts"
+    ],
+    "PORT_ADAPTATION": [
+      "TypeScript interfaces become frozen vocabularies plus copy-on-construct factories and strict validators",
+      "the four MAX_* bounds are exported instead of private (values unchanged)",
+      "canonicalJson lives in its own file rather than inside protocol.ts",
+      "ValidatorContext is carried as a validated value shape so the ladder stays pure and injectable",
+      "ports are documented data that validate their id and callables rather than runtime interfaces",
+      "a factory copy is frozen and carries exactly the declared fields, dropping strays",
+      "counts, pids, sequence numbers and schema versions must be non-negative integers, not merely finite numbers"
+    ],
+    "UTOPIA_EXTENSION": [],
+    "DEFERRED": [
+      "restart execution: restart lock and restart manager",
+      "durable state: ticket store, ticket checksum, atomic writes, audit log",
+      "checkpoint gate and the harness checkpoint/resume handshake",
+      "supervisor: heartbeat, PID watch, relaunch, crash-loop breaker, safe mode",
+      "configuration resolver and default configuration",
+      "health-scheduler bridge and the Windows-only system reboot helper",
+      "process exit, signalling and launch of any kind"
+    ]
+  }
+}

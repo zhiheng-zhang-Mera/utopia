@@ -11,7 +11,7 @@ const blobs=[...paths,...reused].map(file=>{
  return{file,role:paths.includes(file)?'NEW_D9':'REUSE_PROMOTED',gitBlob:crypto.createHash('sha1').update(`blob ${data.length}\0`).update(data).digest('hex'),sha256:crypto.createHash('sha256').update(data).digest('hex'),requires:[...data.toString().matchAll(/require\('([^']+)'\)/g)].map(m=>m[1])};
 });
 for(const row of blobs)for(const dep of row.requires){if(dep.startsWith('node:'))continue;const file=path.posix.normalize(path.posix.join(path.posix.dirname(row.file),dep+'.js'));if(![...paths,...reused].includes(file))throw Error('closure escaped: '+file);}
-const expected=JSON.parse(fs.readFileSync('city/11-entertainment/01-entertainment-centre/theme-engine/tests/fixtures/d9-donor-oracle.json','utf8'));
+const expected=JSON.parse(fs.readFileSync('city/00-foundation/05-control-centre/theme-engine/tests/fixtures/d9-donor-oracle.json','utf8'));
 for(const blob of blobs){if(expected.blobs.find(item=>item.file===blob.file)?.gitBlob!==blob.gitBlob)throw Error('Pinned donor blob mismatch: '+blob.file);}
 const require=createRequire(path.join(root,'oracle.cjs'));
 const designer=require('./designer.js'),planner=require('./assets/planner.js'),fallback=require('./assets/fallback.js'),png=require('./png.js'),processor=require('./assets/processor.js'),validator=require('./assets/validator.js');

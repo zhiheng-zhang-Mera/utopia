@@ -18,19 +18,21 @@ wish list: a module is only written as `ACTIVE` / `PROMOTED` once it was incubat
 inside the Room Pack, accepted locally and formally promoted. `DEFERRED` work is
 never written as `ACTIVE`.
 
-Two incubation identities are recognised, and they must never blur:
+Three incubation identities are recognised, and they must never blur:
 
 | Identity | Recorded as | What it means |
 | --- | --- | --- |
 | Room Pack incubator | `apps/rooms/promotions/<room>.json` | a live room under `apps/rooms/rooms/<room>/` was accepted locally, then promoted |
-| mission-book migration incubator | a `mission` block on the module, plus `Digital-City/mission-book/reports/<MISSION_ID>/` | `Digital-City/mission-book` is a separate, Owner-defined control plane: it lands code directly under `city/` on a `mission/<MISSION_ID>-<slug>` branch, and a second, different host verifies it before merge |
+| mission-book migration incubator | a `mission` block on the module, a `DONOR.json`, plus `Digital-City/mission-book/reports/<MISSION_ID>/` | `Digital-City/mission-book` is a separate, Owner-defined control plane: it lands code directly under `city/` on a `mission/<MISSION_ID>-<slug>` branch, and a second, different host verifies it before merge |
+| mission-book programme-task incubator | a `mission` block on the module, a `PROVENANCE.json`, plus `Digital-City/mission-book/reports/<TASK_ID>/` | the same control plane's asynchronous `BA-`/`RF-`/`GAI-`/`EM-` task pool; new Owner-defined construction with no donor, landed on a `<programme>/<TASK_ID>-<slug>` branch and verified by a different host |
 
-A mission-derived incubator id has the form `mb-<mission>-<module>-lab`.
+A mission-derived incubator id has the form `mb-<task>-<module>-lab`.
 `city/tests/manifest.test.mjs` refuses a module that claims one without a matching
 `mission` block, and refuses a module whose manifest entry disagrees with its own
-`DONOR.json`. The two identities may not be mixed inside one module: a mission
-migration is not a Room Pack promotion, and saying otherwise would make the room
-promotion records unverifiable.
+provenance file — `DONOR.json` for a migration, `PROVENANCE.json` for a programme task.
+The identities may not be mixed inside one module: a mission-book task is not a Room Pack
+promotion, and saying otherwise would make the room promotion records unverifiable. See §4
+for why a programme task must record `donor: null` rather than a donor.
 
 ---
 
@@ -75,6 +77,8 @@ city/
 │   │   ├── task-lifecycle/
 │   │   ├── fleet-routing/
 │   │   └── audit-ledger/
+│   ├── 02-city-node-network/
+│   │   └── device-identity/
 │   └── 03-capability-fabric/
 │       └── capability-fabric/
 ├── 02-engineering/
@@ -156,13 +160,25 @@ Each incubator still keeps its own `apps/rooms/promotions/<room>.json` record, a
 
 A mission-incubated module adds three more enforced rules:
 
-- every `incubationRooms` entry must use the mission form `mb-<mission>-<module>-lab`,
+- every `incubationRooms` entry must use the mission form `mb-<task>-<module>-lab`,
   and a mission incubator may not be mixed with a Room Pack room inside one module;
-- the module must carry a `mission` block naming the mission and the cluster it
-  migrated;
-- the manifest entry must agree with the module's own `DONOR.json` on the module id,
-  the city path, the incubator list, the donor repository, the donor commit, the
-  mission id and the cluster.
+- the module must carry a `mission` block naming the task and the cluster it covers;
+- the manifest entry must agree with an on-disk provenance file on the module id, the
+  city path, the incubator list, the task id and the cluster.
+
+That third rule resolves differently for the two mission-book task forms, because they are
+not the same kind of work:
+
+| Mission-book task form | Example id | Provenance file | Donor |
+| --- | --- | --- | --- |
+| Migration mission | `MB-001` | `DONOR.json` | pinned repository + commit, and the manifest must agree on both |
+| Programme task (`BA` / `RF` / `GAI` / `EM`) | `RF-001` | `PROVENANCE.json` | **none** — new Owner-defined construction, recorded as `donor: null` |
+
+A programme task carries no donor because there is nothing to port. Writing a `DONOR.json`
+for it would have to invent a commit, which is exactly the fabrication the migration rule
+exists to prevent, so the manifest requires `donor: null` and a `PROVENANCE.json` that
+states what the module is, which published City map building it occupies and which seams it
+deliberately does not cross.
 
 ### Why a mission incubation is not a faked promotion
 
@@ -327,3 +343,46 @@ runtime node task state names, event names, payload shapes and the Android contr
 unchanged. `services/capability-bridge/bridge.mjs` therefore decides per-capability
 degradation through the migrated `provider-resilience` breaker, with Utopia's policy (one
 failure threshold, two provider-technical error codes) supplied as data.
+
+## 9. RF-001 Device Identity — the first programme-task incubator
+
+`Digital-City/mission-book` was later restructured from a single migration queue into four
+asynchronous programmes — Butler Assistant (`BA-`), Remote Fabric (`RF-`), General AI
+Gateway (`GAI-`) and Engineering Manager (`EM-`) — scheduled by
+`CROSS_PROGRAMME_EXECUTION_CONTRACT.md`. Those tasks land code under `city/` exactly the way
+the migration missions did, but they are **new construction**: there is no donor, so there is
+nothing to pin and no `DONOR.json` to write. That is the third incubation identity described
+in §4.
+
+RF-001 added a new building, `00-foundation/02-city-node-network`, which the published City
+map already reserved as *City Node Network — Device Node Fabric* with "node/device principal
+identity below Owner/Root authority" in its declared ownership. It holds one module:
+
+| Module | Provenance | What it provides |
+| --- | --- | --- |
+| `device-identity` | new construction (`PROVENANCE.json`, `donor: null`) | versioned `DeviceIdentity`/`device_id` and installation records, first-install enrollment, reinstall/rebind, key rotation, rename, retirement, cloned-credential detection and quarantine, and the non-authoritative MAC/metadata rule |
+
+The module's incubation room is `mb-rf-001-device-identity-lab`, its lifecycle is
+`PROMOTED` (code lives in this tree; the branch is not yet merged), and it declares no
+capability: it is identity infrastructure, so it stays out of the capability registry the
+same way `01-city-core` does.
+
+### Why this is not a Room Pack promotion
+
+No Room ever incubated `device-identity`. Naming a `device-identity-lab` Room Pack room
+would have required an `apps/rooms/promotions/<room>.json` record for a room that never
+ran, which is the false provenance §4 refuses. The programme-task form exists so the honest
+statement — "a mission-book programme task landed this, and here is its
+`PROVENANCE.json`" — is expressible.
+
+### The freeze, and programme-task consumption
+
+§5 freezes the product surfaces. RF-001 is a component task, so it wires no consumer: the
+natural seam is `services/dev-gateway` node registration, which today stores
+`{id, devicePrincipalId, displayName, metadata.platform, agentVersion, capabilities, online,
+lastHeartbeatAt}` with `devicePrincipalId === id` and no key material, no separation of
+logical device from installation and no clone detection. `migrateDeviceIdentity` accepts
+exactly that row shape so the upgrade path is real and tested, but this branch changes no
+runtime behaviour. The unresolved seam is recorded in the module's `PROVENANCE.json` and is
+deferred to the Remote Fabric merge workbook, as
+`CROSS_PROGRAMME_EXECUTION_CONTRACT.md` §5 requires — deferral is not success.

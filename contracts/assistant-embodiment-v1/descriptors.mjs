@@ -36,16 +36,68 @@ export const isIsoInstant = value => typeof value === 'string' && /^\d{4}-\d{2}-
 /** Keys that would mean Butler is keeping its own physical-device identity namespace. */
 export const COMPETING_IDENTITY_FIELDS = Object.freeze([
   'butler_device_id', 'butlerDeviceId', 'local_device_id', 'localDeviceId',
-  'device_key', 'device_private_key', 'device_trust_state', 'device_trust',
+  'device_key', 'device_private_key', 'device_key_ref', 'device_identity_key',
+  'device_trust_state', 'device_trust',
+  'local_device_identity', 'butler_device_identity',
 ]);
+
+/**
+ * Reserved prototype keys. A `__proto__` own key is worse than invalid: assigning it rewrites an
+ * object's prototype instead of adding a key, so `Object.keys` — and therefore this validator —
+ * cannot see the result.
+ */
+export const RESERVED_KEY_PATTERN = /^(?:__proto__|prototype|constructor)$/;
+
+/**
+ * Normalise a field name to one comparable form.
+ *
+ * The competing-identity vocabulary is written in two spellings per concept (`butler_device_id`
+ * and `butlerDeviceId`), which is exactly the kind of hand-maintained list that goes stale:
+ * `deviceKey`, `deviceTrustState`, `DEVICE_KEY`, `localDeviceIdentity` and
+ * `butler_device_identity` all named the same concepts and all passed. Comparing normalised
+ * names makes the guard about the concept rather than about which spellings somebody remembered.
+ */
+export function normalizeFieldName(key) {
+  return String(key)
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/[^A-Za-z0-9]+/g, '_')
+    .toLowerCase()
+    .replace(/^_+|_+$/g, '');
+}
+
+const COMPETING_IDENTITY_NORMALISED = new Set(COMPETING_IDENTITY_FIELDS.map(normalizeFieldName));
+
+/**
+ * The systematic rule behind the explicit list: a Butler/locality qualifier plus a device, and
+ * one of the nouns that only an identity authority may own. An enumeration alone is what failed —
+ * `butlerDeviceKey` was missed because nobody had written that spelling down — so the guard is a
+ * pattern over the *concept*.
+ *
+ * `device_identity_ref` deliberately does not match: `identity_ref` is not in the noun set, and
+ * that is the one legitimate field, because Butler may reference Remote Fabric's identity.
+ */
+const COMPETING_IDENTITY_PATTERN = /^(?:(?:butler|local)_device_(?:id|identity|key|private_key|public_key|trust|trust_state)|device_(?:key|private_key|public_key|identity_key|trust|trust_state))$/;
 
 export function findCompetingIdentityFields(value, path = 'descriptor', found = []) {
   if (Array.isArray(value)) { value.forEach((item, index) => findCompetingIdentityFields(item, `${path}[${index}]`, found)); return found; }
   if (!isPlainObject(value)) return found;
   for (const [key, child] of Object.entries(value)) {
     const childPath = `${path}.${key}`;
-    if (COMPETING_IDENTITY_FIELDS.includes(key)) found.push(childPath);
+    const normalised = normalizeFieldName(key);
+    if (COMPETING_IDENTITY_NORMALISED.has(normalised) || COMPETING_IDENTITY_PATTERN.test(normalised)) found.push(childPath);
     findCompetingIdentityFields(child, childPath, found);
+  }
+  return found;
+}
+
+/** Every reserved prototype key, at every depth. `JSON.parse` can produce an own `__proto__`. */
+export function findReservedKeyPaths(value, path = 'descriptor', found = []) {
+  if (Array.isArray(value)) { value.forEach((item, index) => findReservedKeyPaths(item, `${path}[${index}]`, found)); return found; }
+  if (!isPlainObject(value)) return found;
+  for (const [key, child] of Object.entries(value)) {
+    const childPath = `${path}.${key}`;
+    if (RESERVED_KEY_PATTERN.test(key)) found.push(childPath);
+    findReservedKeyPaths(child, childPath, found);
   }
   return found;
 }
@@ -83,7 +135,13 @@ const isSubset = (value, allowed) => Array.isArray(value) && value.every(entry =
 export function validateEmbodimentDescriptor(descriptor) {
   const errors = [];
   if (!isPlainObject(descriptor)) return { ok: false, errors: ['descriptor must be an object'] };
-  for (const key of Object.keys(descriptor)) if (!(key in EMBODIMENT_DESCRIPTOR_SPEC)) errors.push(`descriptor.${key} is not part of the embodiment contract`);
+  for (const key of Object.keys(descriptor)) {
+    if (RESERVED_KEY_PATTERN.test(key)) { errors.push(`descriptor.${key} is a reserved prototype key and is never part of the embodiment contract`); continue; }
+    // Own-key lookup: `key in SPEC` walks the prototype chain, so `toString`, `valueOf`,
+    // `hasOwnProperty`, `constructor`, `isPrototypeOf`, `propertyIsEnumerable` and
+    // `toLocaleString` were all accepted as declared descriptor fields.
+    if (!Object.hasOwn(EMBODIMENT_DESCRIPTOR_SPEC, key)) errors.push(`descriptor.${key} is not part of the embodiment contract`);
+  }
   for (const [key, rule] of Object.entries(EMBODIMENT_DESCRIPTOR_SPEC)) {
     const present = Object.hasOwn(descriptor, key);
     if (!present) { if (rule.required) errors.push(`descriptor.${key} is required`); continue; }
@@ -117,6 +175,7 @@ export function validateEmbodimentDescriptor(descriptor) {
     }
   }
   for (const found of findCompetingIdentityFields(descriptor)) errors.push(`${found} would make Butler mint a competing physical-device identity`);
+  for (const found of findReservedKeyPaths(descriptor)) errors.push(`${found} is a reserved prototype key and is never part of the embodiment contract`);
   return { ok: errors.length === 0, errors: [...new Set(errors)] };
 }
 

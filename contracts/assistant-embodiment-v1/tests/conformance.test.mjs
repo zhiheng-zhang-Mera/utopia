@@ -163,7 +163,8 @@ test('foreground A->B switches cleanly and releases the outgoing local context',
   registry.setLocalState('embodiment-mech-phone', { kind: 'UI_TRANSIENT', value: { screen: 'butler-home' } });
   registry.setLocalState('embodiment-mech-phone', { kind: 'SENSORY_CONTEXT', value: { ambient: 'quiet' } });
   assert.deepEqual(Object.keys(registry.getLocalState('embodiment-mech-phone')).sort(), ['SENSORY_CONTEXT', 'UI_TRANSIENT']);
-  const switched = registry.switchForeground('embodiment-mech-phone', { assistantRef: 'assistant-companion', expectedForegroundRef: 'assistant-butler' });
+  const butlerBinding = registry.getForeground('embodiment-mech-phone');
+  const switched = registry.switchForeground('embodiment-mech-phone', { assistantRef: 'assistant-companion', expectedForegroundRef: butlerBinding.binding_ref });
   assert.equal(switched.switched, true);
   assert.equal(switched.released_local_state_for, 'assistant-butler');
   assert.equal(switched.is_task_ownership, false);
@@ -179,9 +180,14 @@ test('a stale foreground view cannot take the device over', () => {
   registry.registerEmbodiment(phoneDescriptor());
   for (const assistant of ['assistant-butler', 'assistant-companion', 'assistant-secretary']) registry.attachAssistant(assistant, 'embodiment-mech-phone');
   registry.bindForeground('embodiment-mech-phone', { assistantRef: 'assistant-butler' });
-  registry.switchForeground('embodiment-mech-phone', { assistantRef: 'assistant-companion', expectedForegroundRef: 'assistant-butler' });
-  // a caller that still believes butler holds the device must not silently win
-  expectCode(() => registry.switchForeground('embodiment-mech-phone', { assistantRef: 'assistant-secretary', expectedForegroundRef: 'assistant-butler' }), 'FOREGROUND_MISMATCH');
+  const butlerBinding = registry.getForeground('embodiment-mech-phone');
+  registry.switchForeground('embodiment-mech-phone', { assistantRef: 'assistant-companion', expectedForegroundRef: butlerBinding.binding_ref });
+  // a caller that still believes butler holds the device must not silently win. The token is the
+  // binding reference: comparing the assistant instead was the wrong token, because a device that
+  // went A -> B -> A would have accepted a stale A-held belief.
+  expectCode(() => registry.switchForeground('embodiment-mech-phone', { assistantRef: 'assistant-secretary', expectedForegroundRef: butlerBinding.binding_ref }), 'FOREGROUND_MISMATCH');
+  // and an assistant name is not a binding reference, so it is refused rather than silently accepted
+  expectCode(() => registry.switchForeground('embodiment-mech-phone', { assistantRef: 'assistant-secretary', expectedForegroundRef: 'assistant-companion' }), 'FOREGROUND_MISMATCH');
   assert.equal(registry.getForeground('embodiment-mech-phone').assistant_ref, 'assistant-companion');
   // switching to the assistant that already holds it is a no-op, not a new epoch
   const idempotent = registry.switchForeground('embodiment-mech-phone', { assistantRef: 'assistant-companion' });
@@ -286,8 +292,24 @@ test('a reconnecting device is refused when its local belief disagrees with auth
   const binding = registry.getForeground('embodiment-mech-phone');
   const restored = restoreEmbodimentRegistry(registry.snapshot(), { clock: () => TS });
 
-  // the device reconnects believing it still holds butler: authority agrees
-  const agreed = restored.registry.revalidateEmbodiment('embodiment-mech-phone', { assistantRef: 'assistant-butler', localBindingRef: binding.binding_ref });
+  // The device reconnects still believing it holds butler, holding a reference minted before the
+  // restore. Authority does not recognise it: the belief is stale and the device's local context is
+  // cleared, which is what this recovery contract promises ("every device must revalidate before it
+  // may act, so a restarted host never continues from its own stale local assumptions").
+  //
+  // Before the repair this returned AUTHORITATIVE_AGREEMENT: the binding reference was a counter
+  // that restarted at 1 on restore, so the pre-restart string was re-issued for the post-restart
+  // binding and the comparison matched by coincidence rather than because the session was the same.
+  const preRestart = restored.registry.revalidateEmbodiment('embodiment-mech-phone', { assistantRef: 'assistant-butler', localBindingRef: binding.binding_ref });
+  assert.equal(preRestart.ok, false);
+  assert.equal(preRestart.reason, 'STALE_LOCAL_BINDING');
+  assert.equal(preRestart.authoritative_binding.assistant_ref, 'assistant-butler');
+  assert.notEqual(binding.binding_ref, preRestart.authoritative_binding.binding_ref, 'a pre-restart reference must not be re-issued after a restart');
+
+  // Agreement is still reachable, and now it means what it says: the device presents the binding
+  // authority actually restored, not one that merely looks the same.
+  const authoritativeRef = restored.registry.getForeground('embodiment-mech-phone').binding_ref;
+  const agreed = restored.registry.revalidateEmbodiment('embodiment-mech-phone', { assistantRef: 'assistant-butler', localBindingRef: authoritativeRef });
   assert.equal(agreed.ok, true);
   assert.equal(agreed.reason, 'AUTHORITATIVE_AGREEMENT');
 
@@ -337,4 +359,202 @@ test('duplicate device identity and unknown embodiments are refused', () => {
   assert.equal(new EmbodimentError('X', 'y').status, 409);
   assert.equal(error.detail.includes('capabilities'), true);
   assert.equal(EMBODIMENT_CONTRACT_VERSION, 1);
+});
+
+/* ---------------------------------------------------------------------------
+ * CORRECTION (host Alien, BA-003 Correction stage) — adversarial regressions.
+ *
+ * Every assertion below failed before the repair, and two of them are the same
+ * mistake this repository has now made four times: a guard that compared raw key
+ * spellings, so a forbidden concept passed by being written differently.
+ * --------------------------------------------------------------------------- */
+
+test('undeclared keys inherited from Object.prototype are refused, and a prototype key never is a descriptor field', () => {
+  const clean = pcDescriptor();
+  assert.equal(validateEmbodimentDescriptor(clean).ok, true, 'the control descriptor is accepted');
+  // `key in SPEC` walks the prototype chain, so every one of these was a declared field.
+  for (const key of ['toString', 'valueOf', 'hasOwnProperty', 'constructor', 'isPrototypeOf', 'propertyIsEnumerable', 'toLocaleString']) {
+    const result = validateEmbodimentDescriptor({ ...clean, [key]: 'SMUGGLED' });
+    assert.equal(result.ok, false, `${key} must not be accepted as a descriptor field`);
+    assert.ok(result.errors.some((error) => error.includes(key)), JSON.stringify(result.errors));
+  }
+  // A `__proto__` own key arrives as data — `JSON.parse` is how — and is refused as such.
+  const rawOwnProto = JSON.parse(JSON.stringify(clean).replace('{', '{"__proto__":{"isAdmin":true},'));
+  assert.equal(validateEmbodimentDescriptor(rawOwnProto).ok, false);
+  assert.ok(validateEmbodimentDescriptor(rawOwnProto).errors.some((error) => error.includes('__proto__')));
+  // The registry refuses the same descriptor, so validation cannot be bypassed by going through it.
+  const { registry } = zoneOf();
+  expectCode(() => registry.registerEmbodiment({ ...clean, toString: 'SMUGGLED' }), 'INVALID_EMBODIMENT_DESCRIPTOR');
+});
+
+test('a competing physical-device identity is refused in every spelling', () => {
+  // The old list held two hand-written spellings per concept, so the guard was only as good as
+  // somebody's memory: `deviceKey`, `deviceTrustState`, `DEVICE_KEY`, `localDeviceIdentity`,
+  // `butlerDeviceKey`, `butler_device_identity` and `device_identity_key` all passed.
+  const spellings = ['butler_device_id', 'butlerDeviceId', 'local_device_id', 'localDeviceId',
+    'device_key', 'deviceKey', 'DEVICE_KEY', 'device_private_key', 'device_private_key'.replace('private', 'Private'),
+    'device_key_ref', 'device_identity_key', 'device_trust_state', 'deviceTrustState', 'device_trust',
+    'local_device_identity', 'localDeviceIdentity', 'butler_device_identity', 'butlerDeviceIdentity', 'butlerDeviceKey'];
+  for (const key of spellings) {
+    assert.equal(findCompetingIdentityFields({ [key]: 'x' }).length, 1, `${key} must be recognised as a competing identity field`);
+    assert.equal(validateEmbodimentDescriptor({ ...pcDescriptor(), [key]: 'x' }).ok, false, `${key} must be refused on a descriptor`);
+  }
+  // Nested occurrences count too: an identity does not have to be at the top level to compete.
+  assert.equal(findCompetingIdentityFields({ a: { b: { deviceKey: 'x' } } }).length, 1);
+  // A misspelled field name is still refused, so the guard above is not what is doing the work here.
+  assert.equal(validateEmbodimentDescriptor({ ...pcDescriptor(), uiSurfaces: ['CHAT'] }).ok, false);
+  // The one legitimate field still passes, because Butler may *reference* Remote Fabric identity.
+  assert.deepEqual(findCompetingIdentityFields(deviceIdentityReference({ device_id: PC_DEVICE })), []);
+  assert.equal(validateEmbodimentDescriptor(pcDescriptor()).ok, true);
+});
+
+test('a foreground binding reference is never re-issued across a restart', () => {
+  const { registry } = zoneOf();
+  registry.registerEmbodiment(pcDescriptor());
+  registry.registerEmbodiment(phoneDescriptor());
+  registry.attachAssistant('assistant-butler', 'embodiment-mech-pc');
+  registry.attachAssistant('assistant-butler', 'embodiment-mech-phone');
+  const pcBinding = registry.bindForeground('embodiment-mech-pc', { assistantRef: 'assistant-butler' });
+  const phoneBinding = registry.bindForeground('embodiment-mech-phone', { assistantRef: 'assistant-butler' });
+  assert.notEqual(pcBinding.binding_ref, phoneBinding.binding_ref, 'two devices never share one binding reference');
+
+  const restored = restoreEmbodimentRegistry(registry.snapshot(), { clock: () => TS });
+  const restoredPc = restored.registry.getForeground('embodiment-mech-pc');
+  const restoredPhone = restored.registry.getForeground('embodiment-mech-phone');
+  assert.notEqual(restoredPc.binding_ref, restoredPhone.binding_ref);
+  // The reference is epoch-scoped, so a pre-restart string cannot be re-issued for a binding the
+  // session never held. Before the repair the counter restarted at 1 and the string `foreground-1`
+  // was handed out again, which is what let a stale belief be reported as agreement.
+  assert.notEqual(restoredPc.binding_ref, pcBinding.binding_ref);
+  assert.notEqual(restoredPhone.binding_ref, phoneBinding.binding_ref);
+
+  // A pre-restart belief is therefore stale, not "in agreement".
+  const preRestart = restored.registry.revalidateEmbodiment('embodiment-mech-pc', {
+    assistantRef: 'assistant-butler', localBindingRef: pcBinding.binding_ref,
+  });
+  assert.equal(preRestart.ok, false);
+  assert.equal(preRestart.reason, 'STALE_LOCAL_BINDING');
+
+  // And the restored reference does agree, because it names the binding authority actually holds.
+  const current = restored.registry.revalidateEmbodiment('embodiment-mech-pc', {
+    assistantRef: 'assistant-butler', localBindingRef: restoredPc.binding_ref,
+  });
+  assert.equal(current.ok, true);
+  assert.equal(current.reason, 'AUTHORITATIVE_AGREEMENT');
+
+  // A second restart keeps moving forward, so references never cycle back to an older epoch.
+  const twice = restoreEmbodimentRegistry(restored.registry.snapshot(), { clock: () => TS });
+  assert.notEqual(twice.registry.getForeground('embodiment-mech-pc').binding_ref, restoredPc.binding_ref);
+  assert.equal(restoreEmbodimentRegistry(twice.registry.snapshot(), { clock: () => TS }).registry.getForeground('embodiment-mech-pc') !== null, true);
+});
+
+test('a physical device cannot be claimed twice, including by refreshing an unidentified embodiment', () => {
+  const { registry } = zoneOf();
+  registry.registerEmbodiment(pcDescriptor());
+  // An embodiment that has no Remote Fabric identity yet: the descriptor is honest about it.
+  const unidentified = phoneDescriptor({ deviceIdentityRef: null });
+  assert.equal(unidentified.identity_source, 'UNAVAILABLE');
+  registry.registerEmbodiment(unidentified);
+  assert.equal(registry.listEmbodiments().length, 2);
+
+  // Refreshing it onto a device another embodiment already holds must be refused. The uniqueness
+  // check used to live below the refresh branch, so this path was accepted: one physical device
+  // modelled twice, both taking a foreground assistant, and the invariant still said `ok`.
+  expectCode(
+    () => registry.registerEmbodiment(phoneDescriptor({ deviceIdentityRef: deviceIdentityReference({ device_id: PC_DEVICE }) })),
+    'DUPLICATE_DEVICE_IDENTITY',
+  );
+  assert.equal(registry.getDescriptor('embodiment-mech-phone').identity_source, 'UNAVAILABLE', 'the refused refresh changed nothing');
+});
+
+test('the single-foreground invariant is derived from physical device identity', () => {
+  const { registry } = zoneOf();
+  registry.registerEmbodiment(pcDescriptor());
+  registry.registerEmbodiment(phoneDescriptor());
+  registry.attachAssistant('assistant-butler', 'embodiment-mech-pc');
+  registry.attachAssistant('assistant-butler', 'embodiment-mech-phone');
+  registry.bindForeground('embodiment-mech-pc', { assistantRef: 'assistant-butler' });
+  registry.bindForeground('embodiment-mech-phone', { assistantRef: 'assistant-butler' });
+
+  // The count is the number of distinct *physical devices* holding a foreground assistant, computed
+  // the same way the invariant computes it. Keying the check by `embodiment_ref` made it unable to
+  // fail: one entry per map key can never exceed one, so it certified an invariant it never tested.
+  const held = registry.listEmbodiments().filter((descriptor) => registry.getForeground(descriptor.embodiment_ref));
+  const expectedDevices = new Set(held.map((descriptor) => descriptor.device_identity_ref?.device_id ?? `embodiment:${descriptor.embodiment_ref}`)).size;
+  assert.equal(expectedDevices, 2);
+  assert.deepEqual(registry.assertSingleForegroundPerDevice(), { devices: expectedDevices, ok: true });
+
+  // An unidentified embodiment is keyed by itself rather than collapsed onto another device, so it
+  // cannot silently share a device key with an identified one.
+  registry.registerEmbodiment(descriptorFor({
+    embodimentRef: 'embodiment-mech-tablet', kind: 'TABLET', displayName: 'Mech tablet',
+    capabilities: ['DISPLAY'], sensors: [], uiSurfaces: ['CHAT'], actions: ['DISPLAY'],
+    deviceIdentityRef: null, registeredAt: EARLIER,
+  }));
+  registry.attachAssistant('assistant-butler', 'embodiment-mech-tablet');
+  registry.bindForeground('embodiment-mech-tablet', { assistantRef: 'assistant-butler' });
+  assert.deepEqual(registry.assertSingleForegroundPerDevice(), { devices: 3, ok: true });
+});
+
+test('a restored binding keeps its recovery provenance on every later read', () => {
+  const { registry } = zoneOf();
+  registry.registerEmbodiment(pcDescriptor());
+  registry.attachAssistant('assistant-butler', 'embodiment-mech-pc');
+  const live = registry.bindForeground('embodiment-mech-pc', { assistantRef: 'assistant-butler' });
+  assert.equal(live.source, 'LIVE_SESSION');
+  assert.equal(registry.getForeground('embodiment-mech-pc').source, 'LIVE_SESSION');
+
+  const restored = restoreEmbodimentRegistry(registry.snapshot(), { clock: () => TS });
+  // Provenance is written on the write path, so a later read cannot report a restored binding as a
+  // live session. Before the repair only `restored_foreground` said so, and the very next
+  // `getForeground`/`snapshot` said LIVE_SESSION.
+  assert.equal(restored.registry.getForeground('embodiment-mech-pc').source, 'RESTORED_FROM_AUTHORITY');
+  assert.equal(restored.registry.snapshot().foreground[0].source, 'RESTORED_FROM_AUTHORITY');
+  assert.deepEqual(restored.restored_foreground.map((entry) => entry.source), ['RESTORED_FROM_AUTHORITY']);
+  assert.deepEqual(BINDING_SOURCES, ['LIVE_SESSION', 'RESTORED_FROM_AUTHORITY']);
+});
+
+test('the foreground compare-and-set token is the binding reference, not the assistant', () => {
+  const { registry } = zoneOf();
+  registry.registerEmbodiment(pcDescriptor());
+  for (const assistant of ['assistant-butler', 'assistant-companion']) registry.attachAssistant(assistant, 'embodiment-mech-pc');
+  const first = registry.bindForeground('embodiment-mech-pc', { assistantRef: 'assistant-butler' });
+  // The binding reference is accepted as the CAS token.
+  const second = registry.switchForeground('embodiment-mech-pc', { assistantRef: 'assistant-companion', expectedForegroundRef: first.binding_ref });
+  assert.equal(second.switched, true);
+  // An assistant name is not a binding reference, so it is refused rather than silently working.
+  expectCode(
+    () => registry.switchForeground('embodiment-mech-pc', { assistantRef: 'assistant-butler', expectedForegroundRef: 'assistant-companion' }),
+    'FOREGROUND_MISMATCH',
+  );
+  assert.equal(registry.getForeground('embodiment-mech-pc').assistant_ref, 'assistant-companion', 'the refused switch changed nothing');
+  // A round trip back to the same assistant still changes the binding, which is why the assistant
+  // was the wrong token: a stale A-held view would have matched after A -> B -> A.
+  const third = registry.switchForeground('embodiment-mech-pc', { assistantRef: 'assistant-butler', expectedForegroundRef: second.binding_ref });
+  assert.notEqual(third.binding_ref, first.binding_ref);
+  expectCode(
+    () => registry.switchForeground('embodiment-mech-pc', { assistantRef: 'assistant-companion', expectedForegroundRef: first.binding_ref }),
+    'FOREGROUND_MISMATCH',
+  );
+});
+
+test('re-attaching with a different session is a session change, not an idempotent repeat', () => {
+  const { registry } = zoneOf();
+  registry.registerEmbodiment(pcDescriptor());
+  const first = registry.attachAssistant('assistant-butler', 'embodiment-mech-pc', { sessionRef: 'session:1' });
+  assert.equal(first.session_ref, 'session:1');
+  assert.equal(first.idempotent, false);
+  // The same session again is a repeat.
+  assert.equal(registry.attachAssistant('assistant-butler', 'embodiment-mech-pc', { sessionRef: 'session:1' }).idempotent, true);
+  // A different session replaces the stale one instead of being reported as a repeat while the old
+  // session stays recorded as current.
+  const changed = registry.attachAssistant('assistant-butler', 'embodiment-mech-pc', { sessionRef: 'session:2' });
+  assert.equal(changed.idempotent, false);
+  assert.equal(changed.session_updated, true);
+  assert.equal(changed.session_ref, 'session:2');
+  assert.equal(registry.listAssistantsForDevice('embodiment-mech-pc').length, 1, 'a session change is still one attachment');
+  // A session reference becomes durable authority state, so it is typed.
+  for (const bad of [{ object: true }, 42, ['session'], true]) {
+    expectCode(() => registry.attachAssistant('assistant-butler', 'embodiment-mech-pc', { sessionRef: bad }), 'INVALID_SESSION_REF');
+  }
 });

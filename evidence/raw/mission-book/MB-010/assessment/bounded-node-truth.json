@@ -1,0 +1,93 @@
+{
+  "missionId": "MB-010",
+  "phase": "assessment",
+  "steps": [
+    {
+      "name": "NF-03 runtime endpoint metadata",
+      "ok": true,
+      "detail": {
+        "scheme": "http",
+        "host": "127.0.0.1",
+        "port": 58093
+      }
+    },
+    {
+      "name": "NF-01 registration + membership identity",
+      "ok": true,
+      "detail": {
+        "id": "mb010-probe-node",
+        "devicePrincipalId": "mb010-probe-node",
+        "displayName": "MB-010 probe node",
+        "agentVersion": "0.2.0",
+        "metadata": {
+          "platform": "win32"
+        }
+      }
+    },
+    {
+      "name": "NF-05 capability-host advertisement",
+      "ok": true,
+      "detail": [
+        "task.execute.safe",
+        "filesystem.temp"
+      ]
+    },
+    {
+      "name": "NF-04 hardware/resource telemetry measured",
+      "ok": true,
+      "detail": {
+        "observedAt": "2026-09-30T05:45:23.367Z",
+        "cpu": {
+          "usagePercent": 9.073186804135036
+        },
+        "memory": {
+          "usedBytes": 17044938752,
+          "totalBytes": 34066345984
+        },
+        "disk": {
+          "usedBytes": 404453236736,
+          "freeBytes": 296560709632,
+          "totalBytes": 701013946368
+        },
+        "uptimeSeconds": 664451.125
+      }
+    },
+    {
+      "name": "NF-04 first sample honestly reports no CPU delta instead of fabricating one",
+      "ok": true,
+      "detail": {
+        "observedAt": "2026-09-30T05:45:20.355Z",
+        "cpu": {
+          "usagePercent": null
+        }
+      }
+    },
+    {
+      "name": "NF-02 heartbeat/liveness (online)",
+      "ok": true,
+      "detail": {
+        "online": true,
+        "lastHeartbeatAt": "2026-09-30T05:45:25.074Z"
+      }
+    },
+    {
+      "name": "NF-02 offline truth after heartbeat stops",
+      "ok": true,
+      "detail": {
+        "online": false,
+        "lastHeartbeatAt": "2026-09-30T05:45:25.603Z",
+        "observedAt": "2026-09-30T05:45:23.367Z"
+      }
+    },
+    {
+      "name": "NF-02 dropout is recorded as a real event",
+      "ok": true,
+      "detail": {
+        "type": "NODE_OFFLINE",
+        "seq": 3
+      }
+    }
+  ],
+  "outcome": "PASS",
+  "finishedAt": "2026-09-30T05:45:29.137Z"
+}

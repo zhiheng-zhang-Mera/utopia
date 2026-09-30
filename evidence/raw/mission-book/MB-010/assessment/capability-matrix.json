@@ -1,0 +1,147 @@
+{
+  "missionId": "MB-010",
+  "phase": "assessment",
+  "hostId": "Mech",
+  "donorBaseline": "zhiheng-zhang-Mera/Codex-Boss@8df428eaa437a409368401e95194e40266b83080",
+  "utopiaBaseline": "zhiheng-zhang-Mera/utopia@756c7d760c605e33ba386e87605e078fe24b82ca",
+  "result": "NO_VALUE",
+  "plannedCapabilityCount": 5,
+  "coverageCounts": { "NONE": 0, "PARTIAL": 0, "EQUIVALENT": 4, "SUPERIOR": 1 },
+  "decisionCounts": { "MIGRATE": 0, "PARTIAL": 0, "ABANDON": 5 },
+  "reasonCodeCounts": {
+    "DUPLICATE_EQUIVALENT": 3,
+    "UTOPIA_SUPERIOR": 1,
+    "OBSOLETE_DONOR": 1,
+    "NO_REAL_CONSUMER": 1,
+    "NO_INDEPENDENT_VALUE": 1
+  },
+  "capabilities": [
+    {
+      "id": "NF-01",
+      "name": "node principal / registration / membership identity truth",
+      "donorAnchors": [
+        "src/shared/tenx/node.ts#NodeIdentity",
+        "electron/tenx/node-identity-registry.ts#TenxNodeRegistry",
+        "electron/node/node-capability-registry.ts"
+      ],
+      "utopiaAnchors": [
+        "services/dev-gateway/server.mjs#POST /api/v0/node/register",
+        "services/dev-gateway/store.mjs#table nodes",
+        "agents/reference-node/agent.mjs#register",
+        "city/00-foundation/01-city-core/fleet-routing/fleet.mjs#FleetMemberRecord",
+        "apps/web/app.js#nodeRows"
+      ],
+      "coverage": "EQUIVALENT",
+      "decision": "ABANDON",
+      "reasonCode": "DUPLICATE_EQUIVALENT",
+      "runtimeCheck": "NF-01 registration + membership identity PASS"
+    },
+    {
+      "id": "NF-02",
+      "name": "heartbeat / liveness / offline truth",
+      "donorAnchors": [
+        "src/shared/tenx/node.ts#heartbeat,rederiveState",
+        "src/shared/fleet.ts#nodeStateFor,detectDropouts",
+        "electron/tenx/login-health.ts"
+      ],
+      "utopiaAnchors": [
+        "services/dev-gateway/server.mjs#POST /api/v0/node/heartbeat",
+        "services/dev-gateway/server.mjs#heartbeat sweeper + NODE_OFFLINE",
+        "services/dev-gateway/server.mjs#claimNodeFor -> acceptsWork",
+        "city/00-foundation/01-city-core/fleet-routing/fleet.mjs#fleetNodeStateFor,handleNodeDropout",
+        "apps/web/app.js#nodeState,fresh"
+      ],
+      "coverage": "EQUIVALENT",
+      "decision": "ABANDON",
+      "reasonCode": "DUPLICATE_EQUIVALENT",
+      "runtimeCheck": "NF-02 online PASS; offline after heartbeat stops PASS; NODE_OFFLINE event PASS"
+    },
+    {
+      "id": "NF-03",
+      "name": "runtime endpoint metadata / node endpoint truth",
+      "donorAnchors": [
+        "src/shared/tenx/network.ts#NodeNetworkReport,ProviderMatrixRow",
+        "electron/tenx/network-registry.ts#TenxNetworkRegistry",
+        "electron/tenx/provider-matrix.ts",
+        "electron/tenx/host-adapter.ts"
+      ],
+      "utopiaAnchors": [
+        "services/dev-gateway/pairing.mjs#descriptor",
+        "services/dev-gateway/discovery.mjs#mDNS+BLE",
+        "platform/windows/ble.mjs",
+        "apps/web/app.js#cityUrl"
+      ],
+      "coverage": "EQUIVALENT",
+      "decision": "ABANDON",
+      "reasonCode": "OBSOLETE_DONOR",
+      "runtimeCheck": "NF-03 runtime endpoint metadata PASS",
+      "note": "Utopia owns node/city ENDPOINT truth (descriptor endpoint + mDNS/BLE discovery + pairing). The donor's remaining route/proxy/provider-reachability matrix has no Utopia counterpart because the concern itself (a desktop app choosing between direct/system/user/regional/provider proxy routes to reach AI providers) does not exist in Utopia's single-city, agent-polls-out architecture."
+    },
+    {
+      "id": "NF-04",
+      "name": "hardware / resource telemetry used as node truth",
+      "donorAnchors": [
+        "electron/runtime-intelligence/node-profiler.ts",
+        "src/shared/runtime-intelligence/node-profile.ts",
+        "electron/runtime-intelligence/node-telemetry-log.ts",
+        "src/shared/node-capabilities.ts#NodeProbeData,capabilityVerdicts"
+      ],
+      "utopiaAnchors": [
+        "agents/reference-node/telemetry.mjs",
+        "platform/windows/telemetry.mjs",
+        "contracts/pairing-v1/descriptor.mjs#validateTelemetry",
+        "apps/web/app.js#metrics",
+        "city/02-engineering/03-host-health-station/host-health-station",
+        "city/00-foundation/01-city-core/fleet-routing/capability-routing.mjs#capabilityVerdicts"
+      ],
+      "coverage": "SUPERIOR",
+      "decision": "ABANDON",
+      "reasonCode": "UTOPIA_SUPERIOR",
+      "runtimeCheck": "NF-04 telemetry measured PASS; first sample honest null PASS"
+    },
+    {
+      "id": "NF-05",
+      "name": "capability-host advertisement / capability-to-node hosting truth",
+      "donorAnchors": [
+        "src/shared/tenx/node.ts#NodeCapabilityFlags,NodeCapabilityAdvertisement",
+        "src/shared/fleet.ts#FleetMemberRecord.capabilityInventory",
+        "electron/node/node-capability-registry.ts"
+      ],
+      "utopiaAnchors": [
+        "services/dev-gateway/server.mjs#REQUIRED_TASK_CAPABILITIES,claimNodeFor,acceptsWork",
+        "city/00-foundation/01-city-core/fleet-routing/capability-routing.mjs#eligibleCandidates",
+        "city/00-foundation/03-capability-fabric/capability-fabric/registry.mjs",
+        "services/capability-bridge/registry.mjs"
+      ],
+      "coverage": "EQUIVALENT",
+      "decision": "ABANDON",
+      "reasonCode": "DUPLICATE_EQUIVALENT,NO_REAL_CONSUMER,NO_INDEPENDENT_VALUE",
+      "runtimeCheck": "NF-05 capability-host advertisement PASS"
+    }
+  ],
+  "donorLifecycleFinding": {
+    "claim": "The donor's TenX node/network registry family is production-dead at the frozen baseline.",
+    "evidence": [
+      "git grep TenxNodeRegistry @8df428e -> definition + a type-only field in electron/tenx/observability.ts + tests; no production construction site.",
+      "git grep TenxNetworkRegistry @8df428e -> same shape.",
+      "git grep TenxObservability @8df428e -> only tests/unit/tenx-phase-10r.test.ts consumes it.",
+      "git grep 'tenx/' @8df428e -- electron/main.ts electron/bootstrap/ electron/host/ -> no matches.",
+      "config/capabilities/node.yaml @8df428e declares the node capability with modules: [], bootModules: [], surface: [].",
+      "docs/city/OWNER_CONTINUOUS_CONSTRUCTION_LEDGER.md CC-076 records the retirement of production-dead host-status/tenx modules."
+    ],
+    "liveDonorPaths": [
+      "electron/node/node-capability-registry.ts is constructed in electron/main.ts",
+      "electron/node/node-inspector.ts#inspectDevice is used by electron/bootstrap/host-status-ipc.ts and electron/host/doctor.ts",
+      "src/shared/node-capabilities.ts#capabilityVerdicts/nodeStateFor is the logic under both"
+    ],
+    "conclusion": "The donor behaviours that are LIVE are exactly the ones already migrated by MB-001 into city/00-foundation/01-city-core/fleet-routing; the un-migrated remainder is test-only forward code with no product surface."
+  },
+  "runtimeEvidence": {
+    "boundedChain": "8/8 PASS - see bounded-node-truth.json",
+    "existingSuites": {
+      "city fleet-routing": "28/28 pass, 0 fail",
+      "root tests/gateway.test.mjs + tests/telemetry.test.mjs + tests/web-v02.test.mjs": "11/11 pass, 0 fail"
+    }
+  },
+  "utopiaChurn": { "filesChanged": 0, "implementationCodeWritten": 0 }
+}

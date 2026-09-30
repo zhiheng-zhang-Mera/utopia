@@ -31,7 +31,28 @@ export class WebChannelError extends Error {
 }
 
 const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+/**
+ * A persisted state must carry its fields as own properties on a bare object. Reading them through the
+ * prototype chain meant an object whose only own key was the version restored successfully, and a class
+ * instance passed as persisted state.
+ */
+const isBareObject = value => isPlainObject(value) && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
 const isText = value => typeof value === 'string' && value.trim().length > 0;
+/** A reference is a reference: raw bytes, whitespace or an unbounded blob are not an account handle. */
+const REFERENCE_PATTERN = /^[A-Za-z0-9][A-Za-z0-9:._/-]{0,127}$/;
+/** Recognisable credential shapes, so an account handle cannot be raw credential material. */
+const SECRET_VALUE_PATTERNS = Object.freeze([
+  /gh[pousr]_[A-Za-z0-9]{16,}/,
+  /github_pat_[A-Za-z0-9_]{20,}/,
+  /xox[abpros]-[A-Za-z0-9-]{10,}/,
+  /AKIA[0-9A-Z]{16}/,
+  /sk-[A-Za-z0-9]{20,}/,
+  /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/,
+  /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
+]);
+const isReference = value => typeof value === 'string'
+  && REFERENCE_PATTERN.test(value)
+  && !SECRET_VALUE_PATTERNS.some(pattern => pattern.test(value));
 const clone = value => (value === undefined ? undefined : structuredClone(value));
 const isIsoInstantShape = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
 /** Shape is not enough: an impossible instant parses to NaN, and a NaN comparison is always false. */
@@ -72,7 +93,7 @@ export function findForbiddenPersistedFields(value, path = 'state', found = [], 
   seen.add(value);
   for (const key of Reflect.ownKeys(value)) {
     const childPath = `${path}.${String(key)}`;
-    if (typeof key === 'string' && FORBIDDEN_PERSISTED_FIELDS.includes(key)) found.push(childPath);
+    if (typeof key === 'string' && FORBIDDEN_PERSISTED_FIELDS.includes(key.toLowerCase())) found.push(childPath);
     findForbiddenPersistedFields(value[key], childPath, found, seen);
   }
   return found;
@@ -156,6 +177,8 @@ export function createWebChannel({ adapter, handleStore, clock = () => null } = 
     /** Open a session against a persistent profile handle; raw browser state never enters this module. */
     open({ providerRef, accountRef = null, profileHandleRef, at = clock() } = {}) {
       if (!isText(providerRef) || !isText(profileHandleRef)) throw new WebChannelError('INVALID_WEB_REQUEST', 'providerRef and profileHandleRef are required');
+      // An unvalidated account_ref round-tripped raw cookie bytes through persist/restore unnoticed.
+      if (accountRef !== null && accountRef !== undefined && !isReference(accountRef)) throw new WebChannelError('INVALID_WEB_REQUEST', 'accountRef must be a reference, not raw credential material');
       // The handle is resolved through the neutral store; the value stays there.
       const resolved = handleStore.resolveHandle(profileHandleRef);
       if (!resolved || !isText(resolved.handle_ref)) throw new WebChannelError('PROFILE_HANDLE_UNRESOLVED', String(profileHandleRef));
@@ -230,11 +253,12 @@ export function createWebChannel({ adapter, handleStore, clock = () => null } = 
     complete(executionRef, { at = clock() } = {}) {
       const execution = requireExecution(executionRef);
       if (execution.state !== 'RUNNING') throw new WebChannelError('EXECUTION_ALREADY_FINISHED', `${executionRef} is ${execution.state}`);
+      // The owning session is read *before* the state is committed: reporting SUCCEEDED while silently
+      // dropping the thread (because the session was closed) is a success without evidence.
+      const session = sessions.get(execution.session_ref);
+      if (!session) throw new WebChannelError('UNKNOWN_SESSION', `${execution.session_ref} is closed; ${executionRef} cannot be completed against it`);
       execution.state = 'SUCCEEDED';
-      if (execution.conversation_ref) {
-        const session = sessions.get(execution.session_ref);
-        if (session && !session.conversation_refs.includes(execution.conversation_ref)) session.conversation_refs.push(execution.conversation_ref);
-      }
+      if (execution.conversation_ref && !session.conversation_refs.includes(execution.conversation_ref)) session.conversation_refs.push(execution.conversation_ref);
       return this.observe(executionRef);
     },
 
@@ -274,7 +298,7 @@ export function createWebChannel({ adapter, handleStore, clock = () => null } = 
 
     /** Restore after an allowed restart: a handle that still resolves restores; one that does not, re-auths. */
     restore(persisted) {
-      if (!isPlainObject(persisted) || !isText(persisted.profile_handle_ref)) throw new WebChannelError('INVALID_WEB_REQUEST', 'a persisted web channel state is required');
+      if (!isBareObject(persisted) || !isText(persisted.profile_handle_ref)) throw new WebChannelError('INVALID_WEB_REQUEST', 'a persisted web channel state must be a plain own-property object');
       // A persisted state from another schema version is not this module's state.
       if (persisted.web_channel_version !== WEB_CHANNEL_VERSION) throw new WebChannelError('INVALID_WEB_REQUEST', `persisted web_channel_version must be ${WEB_CHANNEL_VERSION}`);
       const forbidden = findForbiddenPersistedFields(persisted);

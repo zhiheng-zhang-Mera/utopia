@@ -250,3 +250,35 @@ test('a persisted instant must be a real instant', () => {
   assert.equal(instantOk('2026-09-30T12:00:00Z'), true);
   assert.equal(harness().channel.restore({ web_channel_version: 1, session_ref: 's-8', profile_handle_ref: 'handle-missing', conversation_refs: [] }).state, 'AUTH_REQUIRED');
 });
+test('a persisted state must be a bare own-property object, and accountRef a reference', () => {
+  const { channel } = harness();
+  const inherited = Object.assign(Object.create({ profile_handle_ref: 'handle-A', session_ref: 's-inherited' }), { web_channel_version: 1 });
+  expectCode(() => channel.restore(inherited), 'INVALID_WEB_REQUEST');
+  class Persisted { constructor() { Object.assign(this, { web_channel_version: 1, session_ref: 's-class', profile_handle_ref: 'handle-A' }); } }
+  expectCode(() => channel.restore(new Persisted()), 'INVALID_WEB_REQUEST');
+  assert.equal(harness().channel.restore(Object.assign(Object.create(null), { web_channel_version: 1, session_ref: 's-null', profile_handle_ref: 'handle-A' })).restored, true);
+  // accountRef may be null or a reference, never raw credential material
+  expectCode(() => harness().channel.open({ providerRef: 'provider-alpha', profileHandleRef: 'handle-A', accountRef: 'ghp_0123456789abcdefghijklmnopqrstuvwxyz' }), 'INVALID_WEB_REQUEST');
+  expectCode(() => harness().channel.open({ providerRef: 'provider-alpha', profileHandleRef: 'handle-A', accountRef: 'a b c' }), 'INVALID_WEB_REQUEST');
+  assert.equal(harness().channel.open({ providerRef: 'provider-alpha', profileHandleRef: 'handle-A', accountRef: 'account-1' }).account_ref, 'account-1');
+  assert.equal(harness().channel.open({ providerRef: 'provider-alpha', profileHandleRef: 'handle-A' }).account_ref, null);
+});
+
+test('a completion whose session is gone is refused, and case-variant raw state is still raw state', () => {
+  const { channel } = harness();
+  const live = channel.open({ providerRef: 'provider-alpha', profileHandleRef: 'handle-A' });
+  channel.execute(live.session_ref, { request: { request_ref: 'req-1' } });
+  channel.close(live.session_ref);
+  expectCode(() => channel.complete('web-execution-1'), 'UNKNOWN_SESSION');
+  assert.equal(channel.observe('web-execution-1').state, 'RUNNING', 'the execution was not marked successful');
+  // neighbours: a live session still completes and records the thread
+  const other = harness();
+  const s = other.channel.open({ providerRef: 'provider-alpha', profileHandleRef: 'handle-A' });
+  other.channel.execute(s.session_ref, { request: { request_ref: 'req-2' } });
+  assert.equal(other.channel.complete('web-execution-1').state, 'SUCCEEDED');
+  assert.deepEqual([...other.channel.conversations(s.session_ref).map(entry => entry.conversation_ref)], ['conversation-1']);
+  // case variants of a raw-state name are the same raw state
+  assert.deepEqual([...scanForbidden({ Cookies: 'raw' })], ['state.Cookies']);
+  expectCode(() => harness().channel.restore({ web_channel_version: 1, session_ref: 's-case', profile_handle_ref: 'handle-A', Cookies: 'raw' }), 'RAW_COOKIE_IN_CITY_STATE');
+  assert.deepEqual([...scanForbidden({ profile_handle_ref: 'h', conversation_refs: [] })], []);
+});

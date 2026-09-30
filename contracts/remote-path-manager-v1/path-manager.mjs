@@ -62,21 +62,34 @@ const freeze = value => {
   for (const child of Object.values(value)) freeze(child);
   return Object.freeze(value);
 };
-export const isIsoInstant = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+const isIsoInstantShape = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+/** Shape is not enough: an impossible instant parses to NaN, and a NaN comparison is always false. */
+export const isIsoInstant = value => {
+  if (!isIsoInstantShape(value)) return false;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) && new Date(parsed).toISOString().slice(0, 19) === value.slice(0, 19);
+};
 
 const SECRET_KEY_SHAPE = /(secret|token|password|api_?key|private_?key|session_key|key_material|^key$)/i;
 
 /** Recursive scan used to prove path metadata stays bounded and secret-free. */
-export function findSecretFields(value, path = 'record', found = []) {
+export function findSecretFields(value, path = 'record', found = [], seen = new WeakSet()) {
   if (Array.isArray(value)) {
-    value.forEach((item, index) => findSecretFields(item, `${path}[${index}]`, found));
+    if (seen.has(value)) return found;
+    seen.add(value);
+    value.forEach((item, index) => findSecretFields(item, `${path}[${index}]`, found, seen));
     return found;
   }
   if (!isPlainObject(value)) return found;
-  for (const [key, child] of Object.entries(value)) {
-    const childPath = `${path}.${key}`;
-    if (SECRET_KEY_SHAPE.test(key) && !/_ref$/.test(key)) found.push(childPath);
-    findSecretFields(child, childPath, found);
+  if (seen.has(value)) return found;
+  seen.add(value);
+  // Own keys of any enumerability: a non-enumerable own session_key was invisible to the scan. The walk
+  // covers caller data, so it is cycle-safe rather than a stack overflow.
+  for (const key of Reflect.ownKeys(value)) {
+    const child = value[key];
+    const childPath = `${path}.${String(key)}`;
+    if (typeof key === 'string' && SECRET_KEY_SHAPE.test(key) && !/_ref$/.test(key)) found.push(childPath);
+    findSecretFields(child, childPath, found, seen);
   }
   return found;
 }
@@ -98,6 +111,16 @@ export function createPathManager({ adapters = {}, clock = () => new Date().toIS
   for (const transport_class of config.preference) {
     if (!TRANSPORT_CLASSES.includes(transport_class)) throw new PathManagerError('INVALID_ADAPTER', `unknown transport class ${transport_class} in the preference list`);
   }
+  // "Paths are chosen in a fixed preference order" is stated in the header and the workbook asks that
+  // selection "prefers usable direct routes and falls back to relay honestly". A policy could reorder the
+  // list so RELAY came first and was adopted while a direct path was available, so the list must be a
+  // subsequence of the canonical order: a policy may drop classes, never promote a worse one.
+  let cursor = 0;
+  for (const transport_class of config.preference) {
+    const index = PATH_PREFERENCE.indexOf(transport_class);
+    if (index < cursor) throw new PathManagerError('INVALID_ADAPTER', 'the preference list may only narrow the canonical order ' + PATH_PREFERENCE.join(' > '));
+    cursor = index + 1;
+  }
 
   const sessions = new Map();
   const sessionsByPeer = new Map();
@@ -109,6 +132,12 @@ export function createPathManager({ adapters = {}, clock = () => new Date().toIS
     const produced = clock();
     if (!isIsoInstant(produced)) throw new PathManagerError('INVALID_CLOCK', 'clock() must return an ISO-8601 UTC instant');
     return produced;
+  };
+
+  /** A caller-supplied instant is validated wherever it enters: any path used to accept any string. */
+  const requireInstant = (value, field) => {
+    if (!isIsoInstant(value)) throw new PathManagerError('INVALID_REQUEST', `${field} must be an ISO-8601 UTC instant`);
+    return value;
   };
 
   const note = (event, at, detail = {}) => {
@@ -162,8 +191,8 @@ export function createPathManager({ adapters = {}, clock = () => new Date().toIS
     relay: path.transport_class === 'RELAY',
     relay_mode: path.transport_class === 'RELAY' ? RELAY_MODE : null,
     relay_plaintext_access: false,
-    authenticated: true,
-    encrypted: true,
+    authenticated: path.authenticated === true,
+    encrypted: path.encrypted === true,
     latency_ms: path.latency_ms,
     quality: path.quality,
     opened_at: path.opened_at,
@@ -215,6 +244,10 @@ export function createPathManager({ adapters = {}, clock = () => new Date().toIS
     const path = {
       path_ref: raw.path_ref,
       transport_class,
+      // Recorded as measured. The descriptor used to hardcode authenticated: true / encrypted: true, so a
+      // policy that waived the requirement produced a plaintext path still described as protected.
+      authenticated: raw.authenticated === true,
+      encrypted: raw.encrypted === true,
       transport_ref: raw.transport_ref ?? null,
       latency_ms: Number.isFinite(raw.latency_ms) ? raw.latency_ms : null,
       quality: isText(raw.quality) ? raw.quality : 'UNKNOWN',
@@ -245,7 +278,7 @@ export function createPathManager({ adapters = {}, clock = () => new Date().toIS
       if (!isText(peer?.device_id)) throw new PathManagerError('INVALID_PEER', 'a peer needs a device_id');
       if (!['NONE', 'EXCLUSIVE'].includes(session_intent)) throw new PathManagerError('INVALID_REQUEST', 'session_intent must be NONE or EXCLUSIVE');
       if (session_intent === 'EXCLUSIVE' && !isText(exclusive_action_key)) throw new PathManagerError('ACTION_KEY_REQUIRED', 'an exclusive session needs an action key so a failover retry cannot duplicate a side effect');
-      const at = when ?? now();
+      const at = requireInstant(when ?? now(), 'at');
 
       const existing = sessionsByPeer.get(peer.device_id) ?? null;
       if (existing !== null) {
@@ -313,7 +346,7 @@ export function createPathManager({ adapters = {}, clock = () => new Date().toIS
     migrate({ session_ref, reason = 'PATH_LOST', at: when } = {}) {
       const session = sessions.get(session_ref);
       if (!session) throw new PathManagerError('UNKNOWN_SESSION', `no session ${String(session_ref)}`);
-      const at = when ?? now();
+      const at = requireInstant(when ?? now(), 'at');
       const previous = session.path;
       const attempted = [];
       for (const transport_class of config.preference) {
@@ -365,7 +398,7 @@ export function createPathManager({ adapters = {}, clock = () => new Date().toIS
       if (session.exclusive_action_key !== null && !isText(action_key)) {
         throw new PathManagerError('ACTION_KEY_REQUIRED', 'an exclusive session requires the action key on every side-effecting command');
       }
-      const at = when ?? now();
+      const at = requireInstant(when ?? now(), 'at');
       const duplicate = session.commands.find(entry => entry.command_ref === command_ref && entry.action_key === action_key);
       if (duplicate) {
         return freeze({
@@ -381,13 +414,33 @@ export function createPathManager({ adapters = {}, clock = () => new Date().toIS
           at,
         });
       }
-      const result = session.path.adapter.send({
+      let result;
+      try {
+        result = session.path.adapter.send({
         path_ref: session.path.path_ref,
         envelope: clone(envelope),
         command_ref,
         action_key,
-        relay_plaintext_access: session.path.transport_class === 'RELAY' ? false : null,
-      });
+          relay_plaintext_access: session.path.transport_class === 'RELAY' ? false : null,
+        });
+      } catch (error) {
+        // A transport fault is data, not an escape: the caller gets a typed result and no command is
+        // recorded, so a retry with the same command_ref is still the first attempt.
+        note('SEND_FAILED', at, { session_ref, command_ref, code: String(error?.code ?? 'ADAPTER_FAILED') });
+        return freeze({
+          sent: false,
+          duplicate: false,
+          fault: freeze({ code: String(error?.code ?? 'ADAPTER_FAILED'), detail: String(error?.message ?? error) }),
+          command_ref,
+          action_key,
+          session_ref,
+          path_ref: session.path.path_ref,
+          transport_class: session.path.transport_class,
+          adapter_called: true,
+          side_effect_repeated: false,
+          at,
+        });
+      }
       session.commands.push({ command_ref, action_key, at });
       return freeze({
         sent: true,
@@ -411,7 +464,7 @@ export function createPathManager({ adapters = {}, clock = () => new Date().toIS
     onPathLost({ path_ref, at: when } = {}) {
       const path = paths.get(path_ref);
       if (!path) throw new PathManagerError('UNKNOWN_PATH', `no path ${String(path_ref)}`);
-      const at = when ?? now();
+      const at = requireInstant(when ?? now(), 'at');
       const session = [...sessions.values()].find(entry => entry.path.path_ref === path_ref) ?? null;
       paths.delete(path_ref);
       if (session) session.path_lost = true;
@@ -432,7 +485,7 @@ export function createPathManager({ adapters = {}, clock = () => new Date().toIS
     close({ session_ref, at: when } = {}) {
       const session = sessions.get(session_ref);
       if (!session) throw new PathManagerError('UNKNOWN_SESSION', `no session ${String(session_ref)}`);
-      const at = when ?? now();
+      const at = requireInstant(when ?? now(), 'at');
       if (session.path.adapter && typeof session.path.adapter.close === 'function') {
         try { session.path.adapter.close({ path_ref: session.path.path_ref }); } catch { /* already gone */ }
       }

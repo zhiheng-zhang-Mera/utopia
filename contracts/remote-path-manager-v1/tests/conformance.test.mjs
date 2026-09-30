@@ -1,4 +1,4 @@
-// Conformance tests for RF-006 â€” secure transport path manager + relay fallback.
+// Conformance tests for RF-006 â€?secure transport path manager + relay fallback.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -303,4 +303,92 @@ test('path metadata is bounded, secret-free and frozen', () => {
   assert.equal(other.sessions().length, 0, 'managers share no state');
   assert.equal(manager.policy().policy_ref, 'policy:rf-path-default');
   assert.equal(manager.transportPort().methods.includes('connect'), true);
+});
+
+/* --------------------------------- 8. regressions (Correction, host Alien) */
+
+import { createPathManager as makePaths } from '../index.mjs';
+import { isIsoInstant as instantOk, findSecretFields as scanSecrets } from '../path-manager.mjs';
+
+const T0R = '2026-09-30T12:00:00.000Z';
+const peerR = () => ({ device_id: 'dev-peer', installation_id: 'ins-1' });
+const trustR = () => ({ device_id: 'dev-peer', trust_state: 'TRUSTED' });
+const adapterR = (over = {}) => ({
+  probe: () => ({ available: true, latency_ms: 5 }),
+  connect: ({ peer }) => ({ path_ref: 'path:' + peer.device_id, authenticated: true, encrypted: true, latency_ms: 5, quality: 'GOOD' }),
+  send: () => ({ ok: true }),
+  close: () => ({ closed: true }),
+  ...over,
+});
+const pathsR = (over = {}, policy = {}) => makePaths({
+  adapters: { LAN_DIRECT: adapterR(over.LAN_DIRECT), INTERNET_DIRECT: adapterR(), NAT_TRAVERSAL: adapterR(), RELAY: adapterR(over.RELAY) },
+  clock: () => T0R, policy,
+});
+const expectCodeR = (fn, code) => { try { fn(); } catch (error) { assert.equal(error.code, code, 'expected ' + code + ', got ' + error.code); return error; } assert.fail('expected the call to fail with ' + code); };
+
+test('a caller-supplied instant is validated on every path', () => {
+  const m = pathsR();
+  const session = m.connect({ peer: peerR(), trust: trustR(), at: T0R });
+  for (const bad of ['nonsense', '2026-13-45T99:99:99Z', '2026-01-32T00:00:00Z']) {
+    expectCodeR(() => pathsR().connect({ peer: peerR(), trust: trustR(), at: bad }), 'INVALID_REQUEST');
+    expectCodeR(() => m.send({ session_ref: session.session_ref, envelope: {}, command_ref: 'c-' + bad, at: bad }), 'INVALID_REQUEST');
+  }
+  // neighbours: real instants are accepted, and the shape-only hole is closed
+  assert.equal(m.send({ session_ref: session.session_ref, envelope: {}, command_ref: 'c1', at: T0R }).at, T0R);
+  assert.equal(instantOk('2026-13-45T99:99:99Z'), false);
+  assert.equal(instantOk(T0R), true);
+});
+
+test('the preference list may narrow the canonical order but never promote relay', () => {
+  expectCodeR(() => pathsR({}, { preference: ['RELAY', 'LAN_DIRECT'] }), 'INVALID_ADAPTER');
+  expectCodeR(() => pathsR({}, { preference: ['NAT_TRAVERSAL', 'LAN_DIRECT'] }), 'INVALID_ADAPTER');
+  // neighbours: a narrower subsequence is allowed, and direct is still preferred
+  const narrower = pathsR({}, { preference: ['LAN_DIRECT', 'RELAY'] });
+  const chosen = narrower.connect({ peer: peerR(), trust: trustR(), at: T0R });
+  assert.equal(chosen.path.transport_class, 'LAN_DIRECT');
+  assert.equal(chosen.selection_reason, 'PREFERRED_DIRECT');
+  const relayOnly = pathsR({}, { preference: ['RELAY'] }).connect({ peer: peerR(), trust: trustR(), at: T0R });
+  assert.equal(relayOnly.relay_used, true);
+  assert.equal(relayOnly.selection_reason, 'RELAY_FALLBACK');
+});
+
+test('a path descriptor reports what the adapter measured', () => {
+  const plaintext = { connect: ({ peer }) => ({ path_ref: 'path:plain', authenticated: false, encrypted: false }) };
+  // the default policy refuses it (with no other class available to fall through to)
+  expectCodeR(() => pathsR({ LAN_DIRECT: plaintext }, { preference: ['LAN_DIRECT'] }).connect({ peer: peerR(), trust: trustR(), at: T0R }), 'NO_USABLE_PATH');
+  // and a policy that waives the requirement gets a descriptor that tells the truth
+  const waived = pathsR({ LAN_DIRECT: plaintext }, { require_authenticated_encryption: false }).connect({ peer: peerR(), trust: trustR(), at: T0R });
+  assert.equal(waived.path.authenticated, false);
+  assert.equal(waived.path.encrypted, false);
+  // neighbours: a real protected path still reports true
+  const protectedPath = pathsR().connect({ peer: peerR(), trust: trustR(), at: T0R });
+  assert.equal(protectedPath.path.authenticated, true);
+  assert.equal(protectedPath.path.encrypted, true);
+});
+
+test('a transport fault during send is typed and records no command', () => {
+  const m = pathsR({ LAN_DIRECT: { send: () => { throw Object.assign(new Error('wire broke'), { code: 'ADAPTER_FAULT' }); } } });
+  const session = m.connect({ peer: peerR(), trust: trustR(), at: T0R });
+  const failed = m.send({ session_ref: session.session_ref, envelope: {}, command_ref: 'c1', at: T0R });
+  assert.equal(failed.sent, false);
+  assert.equal(failed.fault.code, 'ADAPTER_FAULT');
+  assert.equal(failed.adapter_called, true);
+  assert.equal(failed.side_effect_repeated, false);
+  // neighbours: because nothing was recorded, the same command is still the first attempt when it works
+  const healthy = pathsR();
+  const live = healthy.connect({ peer: peerR(), trust: trustR(), at: T0R });
+  assert.equal(healthy.send({ session_ref: live.session_ref, envelope: {}, command_ref: 'c1', at: T0R }).sent, true);
+  assert.equal(healthy.send({ session_ref: live.session_ref, envelope: {}, command_ref: 'c1', at: T0R }).duplicate, true);
+});
+
+test('the secret scan sees hidden own keys and survives a cycle', () => {
+  const hidden = { note: 'ok' };
+  Object.defineProperty(hidden, 'session_key', { value: 'RAW', enumerable: false, configurable: true, writable: true });
+  assert.deepEqual([...scanSecrets(hidden)], ['record.session_key']);
+  const loop = [];
+  loop.push(loop);
+  assert.equal(Array.isArray(scanSecrets({ a: loop })), true, 'a cyclic record is scanned, not a stack overflow');
+  // neighbours: ordinary records are unaffected
+  assert.deepEqual([...scanSecrets({ note: 'ok' })], []);
+  assert.deepEqual([...scanSecrets({ session_key_ref: 'handle:1' })], [], 'a reference is not key material');
 });

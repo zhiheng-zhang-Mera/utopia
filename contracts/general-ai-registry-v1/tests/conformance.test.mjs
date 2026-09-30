@@ -299,3 +299,84 @@ test('raw credential bytes are refused in a declared text field, not only under 
   assert.deepEqual(findRawSecretValues({ display_name: 'Synthetic Alpha', source: { ref: 'probe-1' } }), []);
   assert.equal(validateProviderDescriptor(providerRecord()).ok, true);
 });
+
+test('one reference cannot name two records, and a parent binding cannot be re-pointed', () => {
+  const registry = freshRegistry();
+  registry.upsertProvider(providerRecord({ provider_ref: 'p1' }));
+  registry.upsertProvider(providerRecord({ provider_ref: 'p2' }));
+  registry.upsertModel(modelRecord({ model_ref: 'm1', provider_ref: 'p1' }));
+  // Uniqueness used to be checked in one direction only, so a reference could name a provider and a
+  // model at the same time, and a provider could be admitted under a taken account/model reference.
+  expectCode(() => registry.upsertProvider(providerRecord({ provider_ref: 'm1' })), 'IDENTITY_COLLISION');
+  expectCode(() => registry.upsertModel(modelRecord({ model_ref: 'p1', provider_ref: 'p1' })), 'IDENTITY_COLLISION');
+  registry.upsertAccount(accountRecord({ account_ref: 'a1', provider_ref: 'p1' }));
+  expectCode(() => registry.upsertProvider(providerRecord({ provider_ref: 'a1' })), 'IDENTITY_COLLISION');
+  expectCode(() => registry.upsertModel(modelRecord({ model_ref: 'a1', provider_ref: 'p1' })), 'IDENTITY_COLLISION');
+  // The update path is guarded too: silently re-pointing an account at another provider used to
+  // succeed and also removed it from the original provider's listing. The model path always refused
+  // this, which is the asymmetry that made the account path a defect rather than a design choice.
+  expectCode(() => registry.upsertAccount(accountRecord({ account_ref: 'a1', provider_ref: 'p2' })), 'IDENTITY_COLLISION');
+  expectCode(() => registry.upsertModel(modelRecord({ model_ref: 'm1', provider_ref: 'p2' })), 'IDENTITY_COLLISION');
+  // Re-registering the same identity under the same parent stays a legitimate idempotent update.
+  assert.equal(registry.upsertProvider(providerRecord({ provider_ref: 'p1', display_name: 'Renamed' })).updated, true);
+  assert.equal(registry.getAccount('a1').record.provider_ref, 'p1');
+  assert.deepEqual(registry.listAccounts({ providerRef: 'p1' }).map((record) => record.account_ref), ['a1']);
+});
+
+test('a handle reference is content-addressed and epoch-scoped', () => {
+  const a = createDeterministicHandleStoreDouble({ epoch: 1 });
+  const b = createDeterministicHandleStoreDouble({ epoch: 1 });
+  const first = a.putHandle({ kind: 'API_CREDENTIAL', value: 'secret-of-session-A' });
+  const second = b.putHandle({ kind: 'API_CREDENTIAL', value: 'secret-of-session-B' });
+  // A counter restarting at 0 handed `handle:API_CREDENTIAL:1` to two different secrets, and a
+  // canonical account record persists that reference — so after recovery it resolved elsewhere.
+  assert.notEqual(first.handle_ref, second.handle_ref, 'two different secrets must not share a handle reference');
+  assert.equal(a.resolveHandle(first.handle_ref).value, 'secret-of-session-A');
+  // The same value in the same epoch is the same reference (content-addressed, so retries are safe).
+  assert.equal(a.putHandle({ kind: 'API_CREDENTIAL', value: 'secret-of-session-A' }).handle_ref, first.handle_ref);
+  // A reference minted in another epoch must not resolve here.
+  const nextEpoch = createDeterministicHandleStoreDouble({ epoch: 2 });
+  expectCode(() => nextEpoch.resolveHandle(first.handle_ref), 'HANDLE_STORE_REQUIRED');
+  // An unknown reference is reported rather than silently treated as "nothing to revoke".
+  assert.deepEqual(a.revokeHandle('handle:nope:1:00000000'), { handle_ref: 'handle:nope:1:00000000', revoked: false, code: 'UNKNOWN_HANDLE' });
+});
+
+test('a stale or unavailable channel is not advertised as supported', () => {
+  const stale = freshRegistry(T0 + TTL + 1);
+  stale.upsertProvider(providerRecord({ provider_ref: 'stale-p', channels: [{ channel: 'API', readiness: 'READY' }] }));
+  // `supported` was `channel === 'WEB' || channel === 'API'` in the stale branch — a tautology that
+  // could not be false, so the listing API named as the routing query surface advertised a stale
+  // declaration while the capability path for the same record correctly said UNKNOWN.
+  assert.deepEqual(stale.listProviders({ channel: 'API' }), []);
+  const readiness = stale.readiness({ subject: 'PROVIDER', ref: 'stale-p', channel: 'API' });
+  assert.equal(readiness.supported, false);
+  assert.equal(readiness.freshness, 'STALE');
+  // UNAVAILABLE is not "supported" either, while AUTH_REQUIRED still is: the channel exists, it
+  // merely needs a credential.
+  const fresh = freshRegistry();
+  fresh.upsertProvider(providerRecord({ provider_ref: 'p-u', channels: [{ channel: 'API', readiness: 'UNAVAILABLE' }] }));
+  assert.equal(fresh.readiness({ subject: 'PROVIDER', ref: 'p-u', channel: 'API' }).supported, false);
+  const authOnly = freshRegistry();
+  authOnly.upsertProvider(providerRecord({ provider_ref: 'p-a', channels: [{ channel: 'API', readiness: 'AUTH_REQUIRED' }] }));
+  assert.equal(authOnly.readiness({ subject: 'PROVIDER', ref: 'p-a', channel: 'API' }).supported, true);
+  assert.deepEqual(authOnly.listProviders({ channel: 'API' }).map((record) => record.provider_ref), ['p-a']);
+});
+
+test('a missing subject reports its own absence code, and a future observation is not fresh', () => {
+  const registry = freshRegistry();
+  // freshness() hard-coded UNKNOWN_PROVIDER whatever the subject was.
+  assert.equal(registry.freshness({ subject: 'MODEL', ref: 'nope' }).code, 'UNKNOWN_MODEL');
+  assert.equal(registry.freshness({ subject: 'ACCOUNT', ref: 'nope' }).code, 'UNKNOWN_ACCOUNT');
+  assert.equal(registry.freshness({ subject: 'PROVIDER', ref: 'nope' }).code, 'UNKNOWN_PROVIDER');
+  // A record claiming an observation in the future is not evidence of anything. The bound used to be
+  // one-sided, so this read FRESH in 2026 and still FRESH in 2089.
+  const future = { ...providerRecord(), observed_at: '2099-01-01T00:00:00.000Z', ttl_ms: 1 };
+  assert.equal(freshnessOf(future, T0), 'STALE');
+  assert.equal(channelReadiness({ ...future, channels: [{ channel: 'API', readiness: 'READY' }] }, 'API', T0).supported, false);
+  // A stored readiness outside the enum is re-validated rather than echoed back as supported.
+  const offEnum = { ...providerRecord(), channels: [{ channel: 'API', readiness: 'TOTALLY_READY' }] };
+  assert.equal(channelReadiness(offEnum, 'API', T0).readiness, 'UNKNOWN');
+  assert.equal(channelReadiness(offEnum, 'API', T0).supported, false);
+  // The published "no hard-coded identities" count is derived, not asserted.
+  assert.equal(registry.snapshot().hard_coded_identities, 0);
+});

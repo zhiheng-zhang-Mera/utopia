@@ -262,6 +262,10 @@ const isFresh = (record, nowMs) => {
   if (typeof nowMs !== 'number' || !Number.isFinite(nowMs)) return false;
   const observed = Date.parse(record.observed_at);
   if (!Number.isFinite(observed)) return false;
+  // Two-sided: a record claiming an observation in the future is not evidence of anything. The bound
+  // used to be one-sided, so `observed_at = 2099, ttl_ms = 1` read FRESH in 2026 and still FRESH in
+  // 2089 — an impossible observation trusted as current, which is what this module forbids.
+  if (nowMs < observed) return false;
   return nowMs - observed <= record.ttl_ms;
 };
 
@@ -282,11 +286,28 @@ export function capabilityOf(record, fact, nowMs) {
   return { fact, level: SUPPORT_LEVELS.includes(level) ? level : 'UNKNOWN', freshness: 'FRESH' };
 }
 
-/** Channel readiness. WEB and API are answered independently, so they can differ. */
+/**
+ * Readiness values that do **not** mean the channel is usable. AUTH_REQUIRED is deliberately absent:
+ * the channel is supported, it merely needs a credential.
+ */
+export const UNSUPPORTED_READINESS = Object.freeze(['UNAVAILABLE', 'UNKNOWN']);
+
+/**
+ * Channel readiness. WEB and API are answered independently, so they can differ.
+ *
+ * `supported` used to be `channel === 'WEB' || channel === 'API'` in the stale branch — a tautology,
+ * because `channel` was already validated into CHANNELS above and the missing-entry case had already
+ * returned. It could not be false, so a *stale* channel declaration was advertised as supported
+ * through the very listing API this report names as the GAI-003/004/005 routing query surface, while
+ * the capability path for the same record correctly collapsed to UNKNOWN. `supported` is now computed
+ * from freshness and readiness, and the stored readiness is re-validated rather than echoed.
+ */
 export function channelReadiness(record, channel, nowMs) {
   if (!CHANNELS.includes(channel)) throw new RegistryError('INVALID_REGISTRY_RECORD', `${channel} is not a channel`);
   const entry = Array.isArray(record?.channels) ? record.channels.find(candidate => candidate.channel === channel) : null;
   if (!entry) return { channel, readiness: 'UNKNOWN', supported: false, freshness: freshnessOf(record, nowMs) };
-  if (freshnessOf(record, nowMs) !== 'FRESH') return { channel, readiness: 'UNKNOWN', supported: channel === 'WEB' || channel === 'API', freshness: freshnessOf(record, nowMs) };
-  return { channel, readiness: entry.readiness, supported: true, freshness: 'FRESH' };
+  const freshness = freshnessOf(record, nowMs);
+  if (freshness !== 'FRESH') return { channel, readiness: 'UNKNOWN', supported: false, freshness };
+  const readiness = CHANNEL_READINESS.includes(entry.readiness) ? entry.readiness : 'UNKNOWN';
+  return { channel, readiness, supported: !UNSUPPORTED_READINESS.includes(readiness), freshness: 'FRESH' };
 }

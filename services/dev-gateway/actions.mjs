@@ -34,8 +34,13 @@ export const ACTION_STATUSES = [
   'UNAVAILABLE',
 ];
 
-/** Routes, exhaustive. BOSS/HNS are deliberately absent in this phase. */
-export const ACTION_ROUTES = ['ROOM', 'CAPABILITY', 'CITY_TASK'];
+/**
+ * Routes, exhaustive. `BOSS`/`HNS` are deliberately absent: a historical product name is not a
+ * user-level route. `GENERAL_AI` is reserved by GAI-001 as the general-AI route; no executor is
+ * attached to it in this phase, so it answers with a typed UNAVAILABLE rather than being
+ * mistaken for a City task.
+ */
+export const ACTION_ROUTES = ['ROOM', 'CAPABILITY', 'CITY_TASK', 'GENERAL_AI'];
 
 const ROOM_HUB_ERROR_CODES = new Set(['ROOM_HUB_UNREACHABLE', 'ROOM_HUB_TIMEOUT', 'ROOM_NOT_FOUND']);
 
@@ -503,6 +508,22 @@ export function createActions({ store, rooms, bridge, cityTasks, host = 'utopia-
     });
   }
 
+  /**
+   * The GENERAL_AI route is reserved but has no executor in this phase. It must not fall through
+   * to the City-task branch (that would represent a general-AI request as a City task) and it
+   * must not report success: the honest answer is a typed UNAVAILABLE.
+   */
+  function runGeneralAi(action) {
+    return persist(withHistory({
+      ...action,
+      error: {
+        code: 'GENERAL_AI_NOT_ATTACHED',
+        message: 'the GENERAL_AI route is reserved; no general-AI executor is attached to this gateway yet',
+      },
+      progress: 0,
+    }, 'UNAVAILABLE', 'GENERAL_AI route reserved; execution is not implemented in this phase'));
+  }
+
   /** Create (or replay) one Action. This is the only entry point. */
   async function create(request) {
     const idempotencyKey = typeof request?.idempotencyKey === 'string' && request.idempotencyKey.length <= 200 ? request.idempotencyKey : null;
@@ -537,7 +558,11 @@ export function createActions({ store, rooms, bridge, cityTasks, host = 'utopia-
         ? { kind: 'ROOM', id: target, roomId: target, operationId: operation }
         : route === 'CAPABILITY'
           ? { kind: 'CAPABILITY', id: target, capabilityId: target, operationId: operation }
-          : { kind: 'CITY_TASK', id: 'city.task', taskId: null, operationId: operation },
+          : route === 'GENERAL_AI'
+            // Typed provider/model/account/conversation references; all null until a channel
+            // (GAI-002+) resolves them. Never a City task.
+            ? { kind: 'GENERAL_AI', id: target, providerRef: null, modelRef: null, accountRef: null, conversationId: null, operationId: operation }
+            : { kind: 'CITY_TASK', id: 'city.task', taskId: null, operationId: operation },
       target: { id: target, label: labelFor(route, target, operation), operation },
       status: 'QUEUED',
       progress: 0,
@@ -562,12 +587,14 @@ export function createActions({ store, rooms, bridge, cityTasks, host = 'utopia-
     action = persist(withHistory(action, 'RUNNING', 'executing'));
     if (route === 'ROOM') return { action: await runRoom({ target, operation, input: request.input ?? {} }, action), replayed: false };
     if (route === 'CAPABILITY') return { action: await runCapability({ target, operation, input: request.input ?? {} }, action), replayed: false };
+    if (route === 'GENERAL_AI') return { action: runGeneralAi(action), replayed: false };
     return { action: runCityTask({ operation, input: request.input ?? {} }, action), replayed: false };
   }
 
   function labelFor(route, target, operation) {
     if (route === 'ROOM') return ROOM_OPERATIONS[operation]?.label ?? target;
     if (route === 'CAPABILITY') return CAPABILITY_OPERATIONS[target]?.[operation]?.label ?? target;
+    if (route === 'GENERAL_AI') return `General AI ${target}${operation ? `:${operation}` : ''}`;
     return `City task — ${operation}`;
   }
 

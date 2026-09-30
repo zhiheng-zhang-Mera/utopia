@@ -1,4 +1,4 @@
-// Conformance tests for GAI-005 â€” deterministic + JEV triage routing.
+// Conformance tests for GAI-005 â€?deterministic + JEV triage routing.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -79,7 +79,7 @@ test('JEV recommends, gateway policy decides, and both are independently auditab
   assert.equal(decision.permission_granted, false);
   assert.equal(decision.jev_is_canonical_truth, false);
 
-  // A gateway policy may override the recommendation â€” and the recommendation is still recorded.
+  // A gateway policy may override the recommendation â€?and the recommendation is still recorded.
   const overridden = routerWith({
     jev: jevPort({ intent: 'COMMAND', confidence: 0.9, preferred_channel: 'GENERAL_AI' }).port,
     policy: { policy_ref: 'policy:manual-only', decide: () => ({ route: 'MANUAL_PICKER', reason: 'USER_PREFERS_MANUAL' }) },
@@ -206,7 +206,7 @@ test('engineering intent routes to the Engineering programme, never to General A
   assert.equal(engineering.routed.length, 1);
   assert.equal(decision.action_executed, false);
 
-  // Without the Engineering port the same intent is a typed, deferred seam â€” not a silent General AI run.
+  // Without the Engineering port the same intent is a typed, deferred seam â€?not a silent General AI run.
   const deferred = routerWith({ jev: jevPort({ intent: 'ENGINEERING', confidence: 0.95 }).port }).route({ text: 'refactor the runtime' });
   assert.equal(deferred.chosen.route, 'ENGINEERING');
   assert.equal(deferred.engineering_deferred, true);
@@ -259,4 +259,65 @@ test('the router is strict, frozen and free of ambient state', () => {
   assert.equal(disabled.jev_attempted, false, 'policy can disable triage entirely');
   assert.equal(disabled.jev_fallback_reason, 'JEV_UNAVAILABLE');
   assert.equal(third.hasJev(), true, 'the port is configured but not consulted');
+});
+
+/* --------------------------------- 7. regressions (Correction, host Alien) */
+
+import { createTriageRouter as makeRouter } from '../index.mjs';
+const expectCodeR = (fn, code) => { try { fn(); } catch (error) { assert.equal(error.code, code, 'expected ' + code + ', got ' + error.code); return error; } assert.fail('expected the call to fail with ' + code); };
+
+const T0R = '2026-09-30T12:00:00.000Z';
+const jevR = output => ({ classify: () => output });
+const routerR = (over = {}) => makeRouter({ clock: () => T0R, ...over });
+
+test('a classification that carries an execution is refused however it is hidden', () => {
+  // a non-enumerable own execution field used to pass the scan
+  const hidden = { intent: 'QUESTION', confidence: 0.9 };
+  Object.defineProperty(hidden, 'execute', { value: 'rm -rf /', enumerable: false, configurable: true, writable: true });
+  assert.deepEqual([...findExecutionFields(hidden)], ['jev.execute']);
+  assert.equal(normalizeJevOutput(hidden).execution_fields.includes('jev.execute'), true);
+  const decision = routerR({ jev: jevR(hidden) }).route({ text: 'do something ambiguous' });
+  assert.equal(decision.jev_used, false);
+  assert.equal(decision.jev_fallback_reason, 'JEV_MAY_NOT_EXECUTE');
+  assert.equal(decision.action_executed, false);
+  assert.equal(decision.permission_granted, false);
+  // neighbours: an honest classification is still used, and an enumerable execution is still refused
+  assert.equal(routerR({ jev: jevR({ intent: 'QUESTION', confidence: 0.9 }) }).route({ text: 'ambiguous' }).jev_used, true);
+  assert.equal(routerR({ jev: jevR({ intent: 'QUESTION', confidence: 0.9, execute: 'rm' }) }).route({ text: 'ambiguous' }).jev_fallback_reason, 'JEV_MAY_NOT_EXECUTE');
+  // a cyclic classification is a fallback, not a crash
+  const loop = [];
+  loop.push(loop);
+  assert.equal(routerR({ jev: jevR({ intent: 'QUESTION', confidence: 0.9, extra: loop }) }).route({ text: 'ambiguous' }).jev_used, true);
+});
+
+test('policy values are validated, so a route cannot be invented or a gate removed', () => {
+  // an unvalidated ambiguous channel used to become the chosen route, including a privileged one
+  expectCodeR(() => makeRouter({ clock: () => T0R, policy: { ambiguous_channel: 'TELEPATHY' } }), 'UNKNOWN_CHANNEL');
+  // a *canonical* channel is policy's prerogative: the module validates the value, not the choice
+  assert.equal(routerR({ policy: { ambiguous_channel: 'GENERAL_AI' } }).route({ text: 'nothing matches this' }).chosen.route, 'GENERAL_AI');
+  // a non-numeric min_confidence used to make the confidence gate disappear
+  for (const bad of [null, -1, 2, 'high']) {
+    expectCodeR(() => makeRouter({ clock: () => T0R, policy: { min_confidence: bad } }), 'INVALID_POLICY');
+  }
+  expectCodeR(() => makeRouter({ clock: () => T0R, policy: { confirmation_risks: 'DESTRUCTIVE' } }), 'INVALID_POLICY');
+  expectCodeR(() => makeRouter({ clock: () => T0R, policy: { jev_enabled: 'yes' } }), 'INVALID_POLICY');
+  // neighbours: the default policy still works, and an honest custom policy still applies
+  assert.equal(routerR().route({ text: 'nothing matches this' }).chosen.route, 'MANUAL_PICKER');
+  assert.equal(routerR({ policy: { min_confidence: 0.9 } }).route({ text: 'x' }).chosen.route, 'MANUAL_PICKER');
+  assert.equal(routerR({ policy: { ambiguous_channel: 'CONFIRMATION_REQUIRED' } }).route({ text: 'nothing matches' }).chosen.route, 'CONFIRMATION_REQUIRED');
+});
+
+test('command records are strict and instants are real', () => {
+  for (const name of Object.getOwnPropertyNames(Object.prototype)) {
+    const cmd = Object.defineProperty({ command_ref: 'status', handler_ref: 'h-1' }, name, { value: 'X', enumerable: true, configurable: true, writable: true });
+    expectCodeR(() => makeRouter({ clock: () => T0R, deterministicCommands: [cmd] }), 'INVALID_POLICY');
+  }
+  expectCodeR(() => makeRouter({ clock: () => T0R, deterministicCommands: [{ command_ref: 's', handler_ref: 'h', transport: 'RF' }] }), 'INVALID_POLICY');
+  expectCodeR(() => routerR().route({ text: 'x', at: '2026-13-45T99:99:99Z' }), 'INVALID_REQUEST');
+  // neighbours: a clean command is still deterministic-first and a real instant is still accepted
+  const det = routerR({ deterministicCommands: [{ command_ref: 'status', handler_ref: 'h-1' }], jev: jevR({ intent: 'ENGINEERING', complexity: 'COMPLEX', confidence: 0.99 }) });
+  const routed = det.route({ text: 'status now', at: T0R });
+  assert.equal(routed.chosen.route, 'DETERMINISTIC');
+  assert.equal(routed.jev_attempted, false);
+  assert.equal(routerR().route({ text: 'x', at: T0R }).at, T0R);
 });

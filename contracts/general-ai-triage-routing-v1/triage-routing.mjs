@@ -52,7 +52,13 @@ const freeze = value => {
   for (const child of Object.values(value)) freeze(child);
   return Object.freeze(value);
 };
-export const isIsoInstant = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+const isIsoInstantShape = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+/** Shape is not enough: an impossible instant parses to NaN, and a NaN comparison is always false. */
+export const isIsoInstant = value => {
+  if (!isIsoInstantShape(value)) return false;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) && new Date(parsed).toISOString().slice(0, 19) === value.slice(0, 19);
+};
 
 /** Fields that would turn a classification into an execution or an authority transfer. */
 export const EXECUTION_FIELDS = Object.freeze([
@@ -62,16 +68,26 @@ export const EXECUTION_FIELDS = Object.freeze([
   'task_ref', 'lease_ref', 'side_effects', 'apply', 'commit', 'dispatch',
 ]);
 
-export function findExecutionFields(value, path = 'jev', found = []) {
+/**
+ * A classifier may not hand back an execution or an authority transfer. Object.entries sees only
+ * enumerable own keys, so a non-enumerable own `execute` field slipped through and the output was
+ * accepted as a clean classification; Reflect.ownKeys sees every own key. The walk covers data the
+ * port returned, so it is cycle-safe.
+ */
+export function findExecutionFields(value, path = 'jev', found = [], seen = new WeakSet()) {
   if (Array.isArray(value)) {
-    value.forEach((item, index) => findExecutionFields(item, `${path}[${index}]`, found));
+    if (seen.has(value)) return found;
+    seen.add(value);
+    value.forEach((item, index) => findExecutionFields(item, `${path}[${index}]`, found, seen));
     return found;
   }
   if (!isPlainObject(value)) return found;
-  for (const [key, child] of Object.entries(value)) {
-    const childPath = `${path}.${key}`;
-    if (EXECUTION_FIELDS.includes(key.toLowerCase())) found.push(childPath);
-    findExecutionFields(child, childPath, found);
+  if (seen.has(value)) return found;
+  seen.add(value);
+  for (const key of Reflect.ownKeys(value)) {
+    const childPath = `${path}.${String(key)}`;
+    if (typeof key === 'string' && EXECUTION_FIELDS.includes(key.toLowerCase())) found.push(childPath);
+    findExecutionFields(value[key], childPath, found, seen);
   }
   return found;
 }
@@ -177,12 +193,28 @@ export function createTriageRouter({
     decide: isPlainObject(policy) && typeof policy.decide === 'function' ? policy.decide : null,
   };
   if (!Array.isArray(deterministicCommands)) throw new TriageError('INVALID_POLICY', 'deterministicCommands must be an array');
+  // Policy is the configured authority, so its *values* still have to be real: an unvalidated
+  // ambiguous_channel became the chosen route (including a privileged one), and a non-numeric
+  // min_confidence made the confidence gate disappear entirely.
+  if (!CHANNELS.includes(config.ambiguous_channel)) throw new TriageError('UNKNOWN_CHANNEL', 'policy.ambiguous_channel must be one of ' + CHANNELS.join(', '));
+  if (typeof config.min_confidence !== 'number' || !Number.isFinite(config.min_confidence) || config.min_confidence < 0 || config.min_confidence > 1) {
+    throw new TriageError('INVALID_POLICY', 'policy.min_confidence must be a number between 0 and 1');
+  }
+  for (const key of ['engineering_intents', 'engineering_complexities', 'confirmation_risks', 'confirmation_intents', 'general_ai_intents']) {
+    if (!Array.isArray(config[key])) throw new TriageError('INVALID_POLICY', `policy.${key} must be an array`);
+  }
+  if (config.jev_enabled !== true && config.jev_enabled !== false) throw new TriageError('INVALID_POLICY', 'policy.jev_enabled must be a boolean');
   const commands = new Map();
   for (const entry of deterministicCommands) {
     if (!isPlainObject(entry) || !isText(entry.command_ref) || !isText(entry.handler_ref)) {
       throw new TriageError('DETERMINISTIC_HANDLER_REQUIRED', 'each deterministic command needs a command_ref and a handler_ref');
     }
-    for (const key of Object.keys(entry)) if (!(key in DETERMINISTIC_SPEC)) throw new TriageError('INVALID_POLICY', `deterministic command field ${key} is not part of the canonical contract`);
+    // Only own keys of the spec are canonical: `key in SPEC` walked the prototype chain, so a field
+    // named constructor/toString passed as part of the contract.
+    for (const key of Reflect.ownKeys(entry)) if (!Object.hasOwn(DETERMINISTIC_SPEC, key)) throw new TriageError('INVALID_POLICY', `deterministic command field ${String(key)} is not part of the canonical contract`);
+    // Two rules sharing one command_ref silently overwrote each other in the Map, so the stored rule
+    // was whichever came last in the array.
+    if (commands.has(entry.command_ref)) throw new TriageError('INVALID_POLICY', `duplicate deterministic command_ref ${entry.command_ref}`);
     commands.set(entry.command_ref, freeze({ command_ref: entry.command_ref, handler_ref: entry.handler_ref, description: entry.description ?? null }));
   }
   const jevPort = isPlainObject(jev) && typeof jev.classify === 'function' ? jev : null;
@@ -317,12 +349,24 @@ export function createTriageRouter({
             note: 'complex engineering intent must be executed by the Engineering programme; General AI does not execute it',
           });
         } else {
-          engineering = freeze(clone(engineeringPort.route({
-            text,
-            recommendation: clone(recommendation),
-            context: clone(context),
-            request_ref,
-          })) ?? { routed: true });
+          // A port that returned nothing used to be reported as { routed: true }: success without
+          // evidence. The result must be a record, and a port failure is a typed refusal rather than
+          // whatever the port happened to throw.
+          let routed = null;
+          try {
+            routed = engineeringPort.route({
+              text,
+              recommendation: clone(recommendation),
+              context: clone(context),
+              request_ref,
+            });
+          } catch (error) {
+            throw new TriageError('ENGINEERING_ROUTE_DEFERRED', `the engineering route port failed: ${String(error?.code ?? error?.message ?? error)}`);
+          }
+          if (!isPlainObject(routed)) {
+            throw new TriageError('ENGINEERING_ROUTE_DEFERRED', 'the engineering route port returned no result');
+          }
+          engineering = freeze(clone(routed));
         }
       } else if (chosen_channel === 'GENERAL_AI') {
         // The router only reports the channel; admission (consent + budget) belongs to the channel itself.

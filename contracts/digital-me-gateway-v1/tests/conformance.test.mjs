@@ -1,4 +1,4 @@
-﻿// BA-005 conformance suite — Digital-Me context gateway.
+// BA-005 conformance suite �?Digital-Me context gateway.
 //
 // Acceptance: different assistants receive different authorized scopes from the same Digital-Me; a denied
 // scope returns a typed refusal with no partial leakage; assistant profile/relationship changes never
@@ -12,7 +12,8 @@ import assert from 'node:assert/strict';
 import {
  AUDIENCES, AUDIENCE_VISIBILITY, DIGITAL_ME_GATEWAY_CONTRACT, DIGITAL_ME_PORT, DigitalMeError,
  FORBIDDEN_CANONICAL_FIELDS, MEMORY_SCOPES, QUERY_PURPOSES, createDigitalMeGateway,
- createDigitalMePortDouble, findForbiddenCanonicalFields, rebuildDeviceEphemeralContext, validateRecord
+ createDigitalMePortDouble, findForbiddenCanonicalFields, isIsoInstant, recordDepthExceeded,
+ rebuildDeviceEphemeralContext, validateRecord
 } from '../index.mjs';
 
 const T0 = Date.parse('2026-09-30T12:00:00.000Z');
@@ -208,3 +209,195 @@ test('every projection carries provenance, and the surface is strict', () => {
   assert.deepEqual([...MEMORY_SCOPES], ['USER_GLOBAL_CANONICAL', 'ASSISTANT_PRIVATE', 'PROJECT_TASK', 'AUDIENCE_CHANNEL', 'DEVICE_EPHEMERAL']);
   assert.deepEqual([...QUERY_PURPOSES].length, 4);
 });
+
+/* --------------------------------- 9. regressions (Correction, host Alien) */
+
+// Every refusal is paired with the legitimate neighbour that must still pass.
+
+test('record fields named after Object.prototype members are refused', () => {
+  for (const name of Object.getOwnPropertyNames(Object.prototype)) {
+    const probe = Object.defineProperty({ ...record() }, name, { value: 'SMUGGLED', enumerable: true, configurable: true, writable: true });
+    assert.equal(validateRecord(probe).ok, false, `record.${name} must not be canonical`);
+  }
+  const hidden = { ...record() };
+  Object.defineProperty(hidden, 'transport', { value: 'RF', enumerable: false, configurable: true, writable: true });
+  assert.equal(validateRecord(hidden).ok, false, 'a non-enumerable own field must be refused too');
+  // neighbour: an ordinary unknown field is still refused, and a clean record is still valid
+  assert.equal(validateRecord({ ...record(), transport: 'RF' }).ok, false);
+  assert.equal(validateRecord(record()).ok, true);
+  assert.equal({}.SMUGGLED, undefined, 'no prototype pollution');
+});
+
+test('a replayed or future-dated record is never served as current', () => {
+  const year = 365 * 24 * 3600 * 1000;
+  const future = gatewayAt(T0);
+  future.port.__mutate('record-1', { observed_at: ISO(T0 + 10 * year), ttl_ms: 1 });
+  const served = future.gateway.query({ assistantRef: 'assistant-butler', purpose: 'ANSWER_USER', audience: 'OWNER_PRIVATE', scopes: ['USER_GLOBAL_CANONICAL'] });
+  assert.equal(served.projection.facts.length, 0, 'a record dated ten years ahead is not current evidence');
+  assert.deepEqual([...served.projection.stale], ['fact-time-format']);
+  // the ttl cannot claim permanence either: an unbounded ttl is refused rather than served
+  assert.equal(validateRecord(record({ ttl_ms: Number.MAX_SAFE_INTEGER })).ok, false);
+  const eternal = gatewayAt(T0);
+  eternal.port.__mutate('record-1', { ttl_ms: Number.MAX_SAFE_INTEGER });
+  expectCode(() => eternal.gateway.query({ assistantRef: 'assistant-butler', purpose: 'ANSWER_USER', audience: 'OWNER_PRIVATE', scopes: ['USER_GLOBAL_CANONICAL'] }), 'INVALID_RECORD');
+  // neighbours: ordinary skew is tolerated, and honest in-window records are still served
+  const skewed = gatewayAt(T0 - 60_000);
+  assert.equal(skewed.gateway.query({ assistantRef: 'assistant-butler', purpose: 'ANSWER_USER', audience: 'OWNER_PRIVATE', scopes: ['USER_GLOBAL_CANONICAL'] }).projection.facts.length, 1);
+  assert.equal(gatewayAt(T0).gateway.query({ assistantRef: 'assistant-butler', purpose: 'ANSWER_USER', audience: 'OWNER_PRIVATE', scopes: ['USER_GLOBAL_CANONICAL'] }).projection.facts.length, 1);
+  assert.equal(validateRecord(record({ ttl_ms: 1000 })).ok, true);
+});
+
+test('a policy grant is read from the policy itself, never from the prototype chain', () => {
+  for (const name of ['toString', 'valueOf', 'constructor', '__proto__', 'hasOwnProperty']) {
+    const { gateway } = gatewayAt(T0);
+    const verdict = gateway.query({ assistantRef: name, purpose: 'ANSWER_USER', audience: 'OWNER_PRIVATE', scopes: ['USER_GLOBAL_CANONICAL'] });
+    assert.equal(verdict.granted, false, `${name} is not a known assistant`);
+    assert.equal(verdict.code, 'UNKNOWN_ASSISTANT');
+  }
+  // an inherited grant must not confer access on an assistant that does not own one
+  const inheritedPolicy = { policy_ref: 'policy-inherited', assistants: Object.assign(Object.create({ 'assistant-evil': { scopes: ALL, purposes: ['ANSWER_USER'], audiences: AUDIENCES, allow_values: true } }), policy.assistants) };
+  const port = createDigitalMePortDouble({ records: records(), values: {} });
+  const inherited = createDigitalMeGateway({ port, policy: inheritedPolicy, clock: () => T0 });
+  assert.equal(inherited.query({ assistantRef: 'assistant-evil', purpose: 'ANSWER_USER', audience: 'OWNER_PRIVATE', scopes: ['USER_GLOBAL_CANONICAL'] }).code, 'UNKNOWN_ASSISTANT');
+  // a malformed grant is a typed refusal rather than an untyped crash
+  const malformed = createDigitalMeGateway({ port, policy: { assistants: { 'assistant-broken': { scopes: 'all' } } }, clock: () => T0 });
+  assert.equal(malformed.query({ assistantRef: 'assistant-broken', purpose: 'ANSWER_USER', audience: 'OWNER_PRIVATE', scopes: ['USER_GLOBAL_CANONICAL'] }).code, 'UNKNOWN_ASSISTANT');
+  // neighbours: real assistants still receive their authorized projection
+  assert.equal(gatewayAt(T0).gateway.query({ assistantRef: 'assistant-butler', purpose: 'ANSWER_USER', audience: 'OWNER_PRIVATE', scopes: ['USER_GLOBAL_CANONICAL'] }).granted, true);
+  assert.equal(gatewayAt(T0).gateway.query({ assistantRef: 'assistant-stranger', purpose: 'ANSWER_USER', audience: 'OWNER_PRIVATE', scopes: ['USER_GLOBAL_CANONICAL'] }).code, 'UNKNOWN_ASSISTANT');
+});
+
+test('a SENSITIVE record is not released like an ordinary one', () => {
+  const sensitive = gatewayAt(T0);
+  sensitive.port.__mutate('record-1', { sensitivity: 'SENSITIVE' });
+  const verdict = sensitive.gateway.query({ assistantRef: 'assistant-butler', purpose: 'ANSWER_USER', audience: 'OWNER_PRIVATE', scopes: ['USER_GLOBAL_CANONICAL'] });
+  assert.equal(verdict.projection.facts.length, 0);
+  assert.deepEqual([...verdict.projection.withheld], [{ fact_ref: 'fact-time-format', reason: 'SENSITIVITY_NOT_PERMITTED' }]);
+  assert.equal(verdict.granted, true, 'the query is still granted; only the record is withheld');
+  // explicitly authorized sensitive data is still released, and NORMAL data is unaffected
+  const authorized = gatewayAt(T0);
+  authorized.port.__mutate('record-1', { sensitivity: 'SENSITIVE', disclosure_authorized: true });
+  assert.equal(authorized.gateway.query({ assistantRef: 'assistant-butler', purpose: 'ANSWER_USER', audience: 'OWNER_PRIVATE', scopes: ['USER_GLOBAL_CANONICAL'] }).projection.facts.length, 1);
+  assert.equal(gatewayAt(T0).gateway.query({ assistantRef: 'assistant-butler', purpose: 'ANSWER_USER', audience: 'OWNER_PRIVATE', scopes: ['USER_GLOBAL_CANONICAL'] }).projection.facts.length, 1);
+});
+
+test('a cyclic or over-deep record is a typed refusal, not a stack overflow', () => {
+  const loop = [];
+  loop.push(loop);
+  const cyclic = { ...record() };
+  cyclic.extra = loop;
+  assert.equal(validateRecord(cyclic).ok, false);
+  let deep = 'leaf';
+  for (let index = 0; index < 200; index += 1) deep = { next: deep };
+  const nested = { ...record(), extra: deep };
+  assert.equal(recordDepthExceeded(nested), true);
+  assert.equal(validateRecord(nested).ok, false);
+  // neighbours: a shallow record is still valid, and the forbidden-field scan still works
+  assert.equal(recordDepthExceeded(record()), false);
+  assert.deepEqual([...findForbiddenCanonicalFields({ a: { persona: 'x' } }, '')], ['.a.persona']);
+  assert.equal(validateRecord(record()).ok, true);
+});
+
+test('a calendar-impossible instant is refused, not merely shape-checked', () => {
+  assert.equal(isIsoInstant('2026-13-45T99:99:99Z'), false);
+  assert.equal(isIsoInstant('2026-02-30T00:00:00.000Z'), false);
+  assert.equal(validateRecord(record({ observed_at: '2026-13-45T99:99:99Z' })).ok, false);
+  // neighbours: both accepted spellings of a real instant still pass
+  assert.equal(isIsoInstant('2026-09-30T12:00:00Z'), true);
+  assert.equal(isIsoInstant('2026-09-30T12:00:00.000Z'), true);
+  assert.equal(validateRecord(record({ observed_at: '2026-09-30T12:00:00Z' })).ok, true);
+});
+
+test('a record must be a bare own-property object', () => {
+  // the same forbidden field that is refused as an own key was accepted through a prototype
+  const inherited = Object.assign(Object.create({ persona: 'companion' }), record());
+  assert.equal(validateRecord(inherited).ok, false, 'an inherited payload is not a canonical record');
+  class RecordLike { constructor() { Object.assign(this, record()); } }
+  assert.equal(validateRecord(new RecordLike()).ok, false, 'a class instance is not a canonical record');
+  // neighbours: a plain record and a null-prototype record are both canonical
+  assert.equal(validateRecord(record()).ok, true);
+  assert.equal(validateRecord(Object.assign(Object.create(null), record())).ok, true);
+  assert.deepEqual([...findForbiddenCanonicalFields(record())], []);
+});
+
+test('assistant-private memory belongs to the assistant that owns it', () => {
+  const owned = gatewayAt(T0);
+  owned.port.__mutate('record-2', { owner_assistant_ref: 'assistant-butler' });
+  const mine = owned.gateway.query({ assistantRef: 'assistant-butler', purpose: 'ANSWER_USER', audience: 'OWNER_PRIVATE', scopes: ['ASSISTANT_PRIVATE'] });
+  assert.equal(mine.projection.facts.length, 1);
+  // the rival holds the same scope grant but not the fact
+  const rival = createDigitalMeGateway({ port: owned.port, policy: { policy_ref: 'policy-1', assistants: { 'assistant-rival': { scopes: ['ASSISTANT_PRIVATE'], purposes: ['ANSWER_USER'], audiences: AUDIENCES, allow_values: true } } }, clock: () => T0 });
+  const theirs = rival.query({ assistantRef: 'assistant-rival', purpose: 'ANSWER_USER', audience: 'OWNER_PRIVATE', scopes: ['ASSISTANT_PRIVATE'] });
+  assert.equal(theirs.projection.facts.length, 0, 'another assistant may not read owned private memory');
+  assert.deepEqual([...theirs.projection.withheld], [{ fact_ref: 'fact-private-note', reason: 'NOT_THE_OWNER' }]);
+  // neighbours: an unowned private record is still readable by a granted assistant (the optional field
+  // is what the Development fixtures predate), and the owner still sees their own
+  assert.equal(gatewayAt(T0).gateway.query({ assistantRef: 'assistant-butler', purpose: 'ANSWER_USER', audience: 'OWNER_PRIVATE', scopes: ['ASSISTANT_PRIVATE'] }).projection.facts.length, 1);
+});
+
+test('the port hands out copies, and refuses two records under one id', () => {
+  const { port } = gatewayAt(T0);
+  const withObject = createDigitalMePortDouble({ records: records(), values: { 'value-obj': { nested: 1 } } });
+  const first = withObject.resolveValue('value-obj');
+  first.value.mutated = 'by-the-caller';
+  assert.equal(withObject.resolveValue('value-obj').value.mutated, undefined, 'a caller may not rewrite canonical values');
+  const readRecords = port.listRecords({});
+  readRecords[0].fact_ref = 'rewritten';
+  assert.equal(port.listRecords({})[0].fact_ref, 'fact-time-format');
+  // a duplicate id used to collapse silently
+  expectCode(() => createDigitalMePortDouble({ records: [record(), record()] }), 'INVALID_RECORD');
+  // neighbours: distinct ids are fine and reads still work
+  assert.equal(createDigitalMePortDouble({ records: [record(), record({ record_id: 'record-2' })] }).listRecords({}).length, 2);
+  assert.equal(port.resolveValue('value-1').value_ref, 'value-1');
+});
+
+test('a malformed record refuses the whole query before anything is assembled', () => {
+  const { port } = gatewayAt(T0);
+  port.__mutate('record-2', { ttl_ms: 'not-a-number' });
+  const gateway = createDigitalMeGateway({ port, policy, clock: () => T0 });
+  const error = expectCode(() => gateway.query({ assistantRef: 'assistant-butler', purpose: 'ANSWER_USER', audience: 'OWNER_PRIVATE', scopes: ['USER_GLOBAL_CANONICAL', 'ASSISTANT_PRIVATE'] }), 'INVALID_RECORD');
+  assert.equal(error.detail.includes('ttl_ms'), true);
+  // nothing was resolved out of the port for the request: the refusal happens before assembly
+  assert.equal(port.__reads.some(entry => entry.op === 'resolveValue'), false);
+  // neighbours: without the malformed record the same query succeeds
+  const clean = gatewayAt(T0).gateway.query({ assistantRef: 'assistant-butler', purpose: 'ANSWER_USER', audience: 'OWNER_PRIVATE', scopes: ['USER_GLOBAL_CANONICAL'] });
+  assert.equal(clean.projection.facts.length, 1);
+});
+
+test('the gateway does not read authority from a live policy object', () => {
+  const livePolicy = { policy_ref: 'policy-1', assistants: { 'assistant-butler': { scopes: ['USER_GLOBAL_CANONICAL'], purposes: ['ANSWER_USER'], audiences: ['OWNER_PRIVATE'], allow_values: false } } };
+  const port = createDigitalMePortDouble({ records: records(), values: {} });
+  const gateway = createDigitalMeGateway({ port, policy: livePolicy, clock: () => T0 });
+  assert.equal(gateway.query({ assistantRef: 'assistant-butler', purpose: 'ANSWER_USER', audience: 'OWNER_PRIVATE', scopes: ['USER_GLOBAL_CANONICAL'] }).granted, true);
+  // widening the caller's object after construction must not widen the gateway's authority
+  livePolicy.assistants['assistant-butler'].scopes.push('ASSISTANT_PRIVATE');
+  livePolicy.assistants['assistant-intruder'] = { scopes: ALL, purposes: ['ANSWER_USER'], audiences: AUDIENCES, allow_values: true };
+  assert.equal(gateway.query({ assistantRef: 'assistant-butler', purpose: 'ANSWER_USER', audience: 'OWNER_PRIVATE', scopes: ['ASSISTANT_PRIVATE'] }).code, 'SCOPE_DENIED');
+  assert.equal(gateway.query({ assistantRef: 'assistant-intruder', purpose: 'ANSWER_USER', audience: 'OWNER_PRIVATE', scopes: ['USER_GLOBAL_CANONICAL'] }).code, 'UNKNOWN_ASSISTANT');
+  assert.equal(gateway.policyRef(), 'policy-1');
+});
+
+test('values are released only for an explicit includeValues boolean', () => {
+  for (const flag of ['false', 1, {}, [], 'yes']) {
+    const { gateway } = gatewayAt(T0);
+    const verdict = gateway.query({ assistantRef: 'assistant-butler', purpose: 'ANSWER_USER', audience: 'OWNER_PRIVATE', scopes: ['USER_GLOBAL_CANONICAL'], includeValues: flag });
+    assert.equal(verdict.projection.facts[0].value, null, `includeValues=${JSON.stringify(flag)} must not release values`);
+  }
+  // neighbours: the explicit boolean still releases, and a grant is still required
+  assert.equal(gatewayAt(T0).gateway.query({ assistantRef: 'assistant-butler', purpose: 'ANSWER_USER', audience: 'OWNER_PRIVATE', scopes: ['USER_GLOBAL_CANONICAL'], includeValues: true }).projection.facts[0].value, 'value-for-value-1');
+  const ungranted = createDigitalMeGateway({ port: createDigitalMePortDouble({ records: records(), values: { 'value-1': 'v' } }), policy: { assistants: { 'assistant-butler': { scopes: ['USER_GLOBAL_CANONICAL'], purposes: ['ANSWER_USER'], audiences: ['OWNER_PRIVATE'], allow_values: false } } }, clock: () => T0 });
+  assert.equal(ungranted.query({ assistantRef: 'assistant-butler', purpose: 'ANSWER_USER', audience: 'OWNER_PRIVATE', scopes: ['USER_GLOBAL_CANONICAL'], includeValues: true }).projection.facts[0].value, null);
+});
+
+test('device-ephemeral context cannot smuggle durable or sensitive facts', () => {
+  expectCode(() => rebuildDeviceEphemeralContext({ deviceRef: 'device-phone', entries: [{ scope: 'ASSISTANT_PRIVATE' }] }), 'INVALID_QUERY');
+  expectCode(() => rebuildDeviceEphemeralContext({ deviceRef: 'device-phone', entries: [{ sensitivity: 'SENSITIVE' }] }), 'INVALID_QUERY');
+  expectCode(() => rebuildDeviceEphemeralContext({ deviceRef: 'device-phone', entries: ['not-an-entry'] }), 'INVALID_QUERY');
+  // neighbours: ordinary entries are accepted, copied and frozen at every level
+  const rebuilt = rebuildDeviceEphemeralContext({ deviceRef: 'device-phone', entries: [{ note: 'scratch', meta: { depth: 1 } }] });
+  assert.equal(rebuilt.entries[0].note, 'scratch');
+  assert.equal(Object.isFrozen(rebuilt.entries[0].meta), true, 'nested state is frozen, not shared');
+  assert.throws(() => { rebuilt.entries[0].meta.depth = 2; }, TypeError);
+  assert.equal(rebuilt.merged_into_durable_memory, false);
+});
+

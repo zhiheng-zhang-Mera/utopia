@@ -1,0 +1,262 @@
+{
+  "schemaVersion": 1,
+  "episodeId": "MB-008:6ae0bbd46e425c9f",
+  "missionId": "MB-008",
+  "status": "VERIFIED",
+  "participants": {
+    "migrationHost": "Alien",
+    "verificationHost": "Mech"
+  },
+  "sourceRefs": [
+    "zhiheng-zhang-Mera/DS-Hns@eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+    "zhiheng-zhang-Mera/Codex-Boss@8df428eaa437a409368401e95194e40266b83080",
+    "zhiheng-zhang-Mera/utopia@mission/MB-008-computer-use"
+  ],
+  "target": {
+    "branchFinalSha": "437be8bcfd9da77ac4c45be6e35d2929a66379dc",
+    "targetRefs": [
+      "zhiheng-zhang-Mera/utopia@c7ef3cd1c6be0155332d03afc3607dfdbf49c205",
+      "zhiheng-zhang-Mera/utopia@mission/MB-008-computer-use",
+      "zhiheng-zhang-Mera/utopia@77b774cf34df99334d5d9e61b994ff3aa2a15fc8",
+      "zhiheng-zhang-Mera/utopia@65418f2493cb283ae144c43f33df7fbe931d3734",
+      "zhiheng-zhang-Mera/utopia@0e1d97ebec2524b612642aa23fc793f4a4781a45"
+    ]
+  },
+  "inboxDigestSha256": "dc65f523d04fc70519ef709367586fe5c42525e674076908bf59f9ec38757e8c",
+  "timeline": [
+    {
+      "eventId": "MB-008:4ba425de0933dc87",
+      "role": "MIGRATION",
+      "hostId": "Alien",
+      "eventType": "MISSION_CLAIMED",
+      "outcome": "INFO",
+      "timestamp": "2026-09-29T13:55:55.601Z",
+      "summary": "Host Alien claimed the MB-008 migration stage. Digital-City claim commit f827756053c456e0e6e682c3ab20d9c98e14c50c pushed to City main. MB-007 is BLOCKED_OWNER_DECISION and MB-008 declares no dependency, so MB-008 is the lowest-sequence claimable migration. Alien has already migrated MB-001, MB-003 and MB-006 to COMPLETE and ported MB-007 to a blocked consumption gate; MB-002/004/005 are held or completed by Mech. Branch mission/MB-008-computer-use created from utopia main c7ef3cd1c6be0155332d03afc3607dfdbf49c205.",
+      "evidence": [
+        "D:/Digital-City/mission-book/MB-008-computer-use.md"
+      ]
+    },
+    {
+      "eventId": "MB-008:ef9cf276cbb63010",
+      "role": "MIGRATION",
+      "hostId": "Alien",
+      "eventType": "ATTEMPT_STARTED",
+      "outcome": "INFO",
+      "timestamp": "2026-09-29T13:55:58.099Z",
+      "summary": "Reconnaissance started. Target is a NEW building and NEW district: city/10-automation/01-computer-use-runtime. Two donors: Codex-Boss @ 8df428e for DOM/UIA/structured-app/VSCode/vision backend routing and the workspace side-effect permission gate, and DS-Hns @ eeb57ca for the goal/success/capability/safety/limit/plan execution contract and the browser/desktop/file/shell/vision controllers. The consumption question is being answered FIRST this time, because MB-007 was blocked on it: the donor's workspace side-effect permission gate and target/command guards are the most likely candidates to own an EXISTING Utopia refusal equivalently.",
+      "evidence": []
+    },
+    {
+      "eventId": "MB-008:69a6b819de80de0b",
+      "role": "MIGRATION",
+      "hostId": "Alien",
+      "eventType": "CHANGE_APPLIED",
+      "outcome": "INFO",
+      "timestamp": "2026-09-29T14:36:32.559Z",
+      "summary": "Landed six modules in a NEW district and building, city/10-automation/01-computer-use-runtime: execution-contract (DS-Hns constants/errors/action/criteria/contract, 84 tests), target-guard (target.cjs, 64), routing-safety (routing/safety/modal/evidence, 125), world-verification (world-state/verification/miss/observer/progress, 97), bounded-run (stall/state-machine/recovery/stabilization/reconnect/health/resources, 164), backend-surface (Codex-Boss computer-recovery/action-readiness/ui-surface/semantic/permission/dom-page/provider-dom-surface, 130). 664 module tests. Registered the new district and building in the manifest with capabilityProvider:false on all six, extended the census, and added the mission-provenance contract. Donor defects were preserved verbatim and pinned (20 in backend-surface, 14 in execution-contract, 14 in target-guard, 17 in routing-safety, 10 in world-verification, 11 in bounded-run).",
+      "evidence": [
+        "city/10-automation/01-computer-use-runtime"
+      ]
+    },
+    {
+      "eventId": "MB-008:7189d8757b9c40de",
+      "role": "MIGRATION",
+      "hostId": "Alien",
+      "eventType": "TEST_PASS",
+      "outcome": "PASS",
+      "timestamp": "2026-09-29T14:36:34.959Z",
+      "summary": "Full CI-equivalent suite green: pnpm test 58/58, apps/rooms tests 67/67, city/test-all.mjs 789/789, verify-promotion-history.mjs 10 records verified, check:docs SYNCHRONIZED. Module tests: execution-contract 84, target-guard 64, routing-safety 125, world-verification 97, bounded-run 164, backend-surface 130 (664). Independent parity evidence: target-guard differentially executed the real donor module over 9973 comparisons with 0 mismatches; execution-contract ran 10801 randomized differential cases with zero differences; backend-surface reports 130 tests with 14 defect-pinning titles, and states honestly that its 43 vectors are source-traced rather than executed because the donor is TypeScript.",
+      "evidence": [
+        "city/10-automation/01-computer-use-runtime"
+      ]
+    },
+    {
+      "eventId": "MB-008:5a72b750eb33a552",
+      "role": "MIGRATION",
+      "hostId": "Alien",
+      "eventType": "RUNTIME_FAIL",
+      "outcome": "BLOCKED",
+      "timestamp": "2026-09-29T14:37:22.881Z",
+      "summary": "The gate 'at least one real product consumption, reusing an existing Utopia consumption surface' is UNMET, recorded rather than claimed. A read-only survey MEASURED each candidate seam by executing the donor modules against the live Utopia expressions and returned NO VERDICT-IDENTICAL SEAM: the workspace side-effect gate differs on 3 of 4 inputs from the bridge OUTPUT_PATH_FORBIDDEN check; the target/command guards differ on 6 of 9 from the INVALID_REFERENCE traversal check; the focus/foreground/destructive gates would replace an EMPTY seam, since no platform/windows or reference-node file has any focus, foreground, dialog or destructiveness concept; and postcondition/progress/recovery cannot replace node/report, whose state vocabulary intersects the donor's only on COMPLETED/FAILED and which performs no postcondition verification at all. Adding a capability would be a new product surface, forbidden by MB-008 and rule 14.",
+      "evidence": [
+        "services/capability-bridge/adapters.mjs",
+        "services/dev-gateway/server.mjs"
+      ]
+    },
+    {
+      "eventId": "MB-008:fe4650b1af0044de",
+      "role": "VERIFICATION",
+      "hostId": "Mech",
+      "eventType": "OWNER_INTERVENTION",
+      "outcome": "INFO",
+      "timestamp": "2026-09-30T02:06:25.111Z",
+      "summary": "Owner intervention before the verification chain: response-9-29 R7 accepts this Mission's product-consumption boundary as NO_VERDICT_IDENTICAL_SEAM and declares the migration complete, authorising the README 7.2 bounded chain; response-9-30 R7 interprets the two-host bounded-action clause. Per R7 this exemption does not make Computer Use a complete product runtime, so this verification covers only the declared boundary.",
+      "evidence": [
+        "Digital-City/mission-book/response-9-29.md#R7"
+      ]
+    },
+    {
+      "eventId": "MB-008:7208d35e54fae3cf",
+      "role": "VERIFICATION",
+      "hostId": "Mech",
+      "eventType": "ATTEMPT_STARTED",
+      "outcome": "INFO",
+      "timestamp": "2026-09-30T02:06:32.597Z",
+      "summary": "Verification host Mech begins the MB-008 evidence chain against the reconciled branch head 77b774cf34df99334d5d9e61b994ff3aa2a15fc8, which merges main before any gate runs. Reconciled CI 36655586918 is green (gateway-web and android). Value reassessment returned ROUTE_B_CONTINUE: main has no city/10-automation district and nothing elsewhere covers the migrated safety or contract surface.",
+      "evidence": []
+    },
+    {
+      "eventId": "MB-008:67f53cc8da24edda",
+      "role": "VERIFICATION",
+      "hostId": "Mech",
+      "eventType": "VERIFIER_FINDING",
+      "outcome": "BLOCKED",
+      "timestamp": "2026-09-30T02:06:55.274Z",
+      "summary": "Independent review finding, written before the Migration Report was opened. The branch was 48 commits behind main and touches the shared control plane, so main was merged first per README section 6; three conflicts resolved as union or superset, none weakening a mechanism: the registry took main's version because it already carries BOTH the building-aware kind filter and the module-level capabilityProvider filter; the manifest was resolved by parsing each side as a whole document from git stages 2 and 3 and unioning districts by id, main winning collisions; the census was regenerated from the merged manifest in declaration order. 11-entertainment was dropped rather than resurrected, verified through the promotion records relocatedTo field so the relocated theme engine never has two owners. Value reassessment is ROUTE_B_CONTINUE: main declares no city/10-automation and nothing covers createSafetyGuard, classifyRisk or target-guard. The deferred runtime plane REMAINS DEFERRED.",
+      "evidence": []
+    },
+    {
+      "eventId": "MB-008:1ce4bdb9cbe65fda",
+      "role": "VERIFICATION",
+      "hostId": "Mech",
+      "eventType": "TEST_PASS",
+      "outcome": "PASS",
+      "timestamp": "2026-09-30T02:07:02.561Z",
+      "summary": "Local gates on the reconciled tree 77b774c: city 1698/1699 with 0 failures, apps/rooms 69/69, census test 7/7. The census gate caught a first resolution that had sorted the module list alphabetically instead of in manifest declaration order; the list was then regenerated from the merged manifest.",
+      "evidence": []
+    },
+    {
+      "eventId": "MB-008:1cd9ff19bf0c3d6e",
+      "role": "VERIFICATION",
+      "hostId": "Mech",
+      "eventType": "CI_RESULT",
+      "outcome": "PASS",
+      "timestamp": "2026-09-30T02:07:03.769Z",
+      "summary": "Hosted required CI green for the reconciled MB-008 branch head 77b774cf34df99334d5d9e61b994ff3aa2a15fc8: V0.2 checks run 36655586918 completed success, both jobs success (gateway-web and android).",
+      "evidence": [
+        "https://github.com/zhiheng-zhang-Mera/utopia/actions/runs/36655586918"
+      ]
+    },
+    {
+      "eventId": "MB-008:bbf126eae72598ed",
+      "role": "VERIFICATION",
+      "hostId": "Mech",
+      "eventType": "RUNTIME_PASS",
+      "outcome": "PASS",
+      "timestamp": "2026-09-30T03:06:59.242Z",
+      "summary": "Bounded real Computer-Use chain passed, decided by the migrated runtime. Happy path: FILE_WRITE normalizes, validates, classifies high risk, the guard allows, a real bounded write lands inside the evidence workspace, before/after world digests differ, postcondition success kind file. Refusal: the migrated guard refuses FILE_DELETE under mode forbidden with kinds DELETE, throwing ComputerUseError DESTRUCTIVE_FORBIDDEN with the donor reason; zero mutations issued and the target artifact byte-identical. Genuine miss: the target was really deleted, the same real facts.fileExists function then reported it absent and the donor postcondition returned failure kind file, no mocked facts. Recovery: donor recovery decided retry/RETRYABLE with the previous-miss signal, donor stabilization settled stable then landed, target recreated, postcondition re-verified success. The deferred runtime plane (real desktop, browser, UI automation) remains deferred.",
+      "evidence": [
+        ".runtime/evidence/mission-book/MB-008/run-2/CHAIN-STATE.md",
+        ".runtime/evidence/mission-book/MB-008/run-2/bounded-computer-use-chain.log",
+        ".runtime/evidence/mission-book/MB-008/run-2/gates.txt",
+        ".runtime/evidence/mission-book/MB-008/run-2/bounded-computer-use-chain.mjs"
+      ]
+    },
+    {
+      "eventId": "MB-008:06f57c0602aa5553",
+      "role": "VERIFICATION",
+      "hostId": "Mech",
+      "eventType": "CI_RESULT",
+      "outcome": "PASS",
+      "timestamp": "2026-09-30T03:11:07.172Z",
+      "summary": "Final verification CI is green after the bounded runtime evidence; gateway-web and android passed. V0.2 checks run 36662962981 on commit 0e1d97e completed success with both jobs success. The same five gates pass locally on this tree: pnpm test 73/73, node city/test-all.mjs 1698/1699 with 0 failures and 1 skipped, node --test apps/rooms/tests 69/69, verify-promotion-history 10 records verified, check:docs SYNCHRONIZED.",
+      "evidence": [
+        "https://github.com/zhiheng-zhang-Mera/utopia/actions/runs/36662962981"
+      ]
+    },
+    {
+      "eventId": "MB-008:fd0225d163afa3d2",
+      "role": "VERIFICATION",
+      "hostId": "Mech",
+      "eventType": "VERIFICATION_COMPLETE",
+      "outcome": "PASS",
+      "timestamp": "2026-09-30T03:11:35.704Z",
+      "summary": "MB-008 verification complete after an independent review written before the Migration Report. Reconciled with main first; the control plane merged as union or superset. Real bounded action: execution-contract normalizes and validates a FILE_WRITE, routing-safety classifies it high risk and allows it, the write stays in the evidence workspace, before/after world digests differ, postcondition success kind file. Refusal: the migrated guard refuses FILE_DELETE under mode forbidden, throwing ComputerUseError DESTRUCTIVE_FORBIDDEN with no side effect. Genuine miss and recovery: the target was really deleted, the same real facts.fileExists function reported it absent, the donor postcondition returned failure kind file, donor recovery decided retry/RETRYABLE and stabilization landed, then the postcondition re-verified to success, no mocked facts. Green CI 36662962981 plus five local gates. NOT established: the deferred runtime plane stays deferred; this is not a complete product runtime.",
+      "evidence": [
+        "Digital-City/mission-book/reports/MB-008/VERIFICATION_REPORT.md"
+      ]
+    }
+  ],
+  "failures": [
+    {
+      "eventId": "MB-008:5a72b750eb33a552",
+      "role": "MIGRATION",
+      "hostId": "Alien",
+      "eventType": "RUNTIME_FAIL",
+      "outcome": "BLOCKED",
+      "timestamp": "2026-09-29T14:37:22.881Z",
+      "summary": "The gate 'at least one real product consumption, reusing an existing Utopia consumption surface' is UNMET, recorded rather than claimed. A read-only survey MEASURED each candidate seam by executing the donor modules against the live Utopia expressions and returned NO VERDICT-IDENTICAL SEAM: the workspace side-effect gate differs on 3 of 4 inputs from the bridge OUTPUT_PATH_FORBIDDEN check; the target/command guards differ on 6 of 9 from the INVALID_REFERENCE traversal check; the focus/foreground/destructive gates would replace an EMPTY seam, since no platform/windows or reference-node file has any focus, foreground, dialog or destructiveness concept; and postcondition/progress/recovery cannot replace node/report, whose state vocabulary intersects the donor's only on COMPLETED/FAILED and which performs no postcondition verification at all. Adding a capability would be a new product surface, forbidden by MB-008 and rule 14.",
+      "evidence": [
+        "services/capability-bridge/adapters.mjs",
+        "services/dev-gateway/server.mjs"
+      ]
+    },
+    {
+      "eventId": "MB-008:67f53cc8da24edda",
+      "role": "VERIFICATION",
+      "hostId": "Mech",
+      "eventType": "VERIFIER_FINDING",
+      "outcome": "BLOCKED",
+      "timestamp": "2026-09-30T02:06:55.274Z",
+      "summary": "Independent review finding, written before the Migration Report was opened. The branch was 48 commits behind main and touches the shared control plane, so main was merged first per README section 6; three conflicts resolved as union or superset, none weakening a mechanism: the registry took main's version because it already carries BOTH the building-aware kind filter and the module-level capabilityProvider filter; the manifest was resolved by parsing each side as a whole document from git stages 2 and 3 and unioning districts by id, main winning collisions; the census was regenerated from the merged manifest in declaration order. 11-entertainment was dropped rather than resurrected, verified through the promotion records relocatedTo field so the relocated theme engine never has two owners. Value reassessment is ROUTE_B_CONTINUE: main declares no city/10-automation and nothing covers createSafetyGuard, classifyRisk or target-guard. The deferred runtime plane REMAINS DEFERRED.",
+      "evidence": []
+    }
+  ],
+  "rejectedApproaches": [],
+  "repairs": [],
+  "verifierFindings": [
+    {
+      "eventId": "MB-008:67f53cc8da24edda",
+      "role": "VERIFICATION",
+      "hostId": "Mech",
+      "eventType": "VERIFIER_FINDING",
+      "outcome": "BLOCKED",
+      "timestamp": "2026-09-30T02:06:55.274Z",
+      "summary": "Independent review finding, written before the Migration Report was opened. The branch was 48 commits behind main and touches the shared control plane, so main was merged first per README section 6; three conflicts resolved as union or superset, none weakening a mechanism: the registry took main's version because it already carries BOTH the building-aware kind filter and the module-level capabilityProvider filter; the manifest was resolved by parsing each side as a whole document from git stages 2 and 3 and unioning districts by id, main winning collisions; the census was regenerated from the merged manifest in declaration order. 11-entertainment was dropped rather than resurrected, verified through the promotion records relocatedTo field so the relocated theme engine never has two owners. Value reassessment is ROUTE_B_CONTINUE: main declares no city/10-automation and nothing covers createSafetyGuard, classifyRisk or target-guard. The deferred runtime plane REMAINS DEFERRED.",
+      "evidence": []
+    }
+  ],
+  "acceptedApproach": {
+    "summary": "MB-008 verification complete after an independent review written before the Migration Report. Reconciled with main first; the control plane merged as union or superset. Real bounded action: execution-contract normalizes and validates a FILE_WRITE, routing-safety classifies it high risk and allows it, the write stays in the evidence workspace, before/after world digests differ, postcondition success kind file. Refusal: the migrated guard refuses FILE_DELETE under mode forbidden, throwing ComputerUseError DESTRUCTIVE_FORBIDDEN with no side effect. Genuine miss and recovery: the target was really deleted, the same real facts.fileExists function reported it absent, the donor postcondition returned failure kind file, donor recovery decided retry/RETRYABLE and stabilization landed, then the postcondition re-verified to success, no mocked facts. Green CI 36662962981 plus five local gates. NOT established: the deferred runtime plane stays deferred; this is not a complete product runtime.",
+    "eventId": "MB-008:fd0225d163afa3d2"
+  },
+  "metrics": {
+    "eventCount": 13,
+    "attempts": 2,
+    "testPasses": 2,
+    "testFailures": 0,
+    "runtimePasses": 1,
+    "runtimeFailures": 1,
+    "repairs": 0,
+    "verifierFindings": 1,
+    "ownerInterventions": 1
+  },
+  "evidence": [
+    "D:/Digital-City/mission-book/MB-008-computer-use.md",
+    "city/10-automation/01-computer-use-runtime",
+    "services/capability-bridge/adapters.mjs",
+    "services/dev-gateway/server.mjs",
+    "Digital-City/mission-book/response-9-29.md#R7",
+    "https://github.com/zhiheng-zhang-Mera/utopia/actions/runs/36655586918",
+    ".runtime/evidence/mission-book/MB-008/run-2/CHAIN-STATE.md",
+    ".runtime/evidence/mission-book/MB-008/run-2/bounded-computer-use-chain.log",
+    ".runtime/evidence/mission-book/MB-008/run-2/gates.txt",
+    ".runtime/evidence/mission-book/MB-008/run-2/bounded-computer-use-chain.mjs",
+    "https://github.com/zhiheng-zhang-Mera/utopia/actions/runs/36662962981",
+    "Digital-City/mission-book/reports/MB-008/VERIFICATION_REPORT.md"
+  ],
+  "ci": {
+    "run": "36662962981",
+    "outcome": "PASS"
+  },
+  "migrationAcceptance": {
+    "mode": "OWNER_OVERRIDE",
+    "ownerRuling": "Digital-City/mission-book/response-9-29.md#R7",
+    "migrationBlockerEventId": "MB-008:5a72b750eb33a552",
+    "ownerInterventionEventId": "MB-008:fe4650b1af0044de"
+  },
+  "learning": {
+    "eligible": true,
+    "authority": "EXPERIENCE_ONLY"
+  }
+}

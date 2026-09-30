@@ -11,7 +11,7 @@ import {
  ASSISTANT_CORE_CONTRACT, ASSISTANT_CORE_VERSION, ASSISTANT_PROFILE_PORT, AssistantCoreError,
  AUDIENCE_VISIBILITY, DISCLOSURE_AUDIENCES, DURABLE_KINDS, MEMORY_SCOPES, TRANSIENT_ONLY_KINDS,
  assertProfileReference, createAssistantCore, createDeterministicProfilePort,
- findForbiddenCoreStateFields, probeProfilePortConformance, restoreAssistantCore
+ findForbiddenCoreStateFields, probeProfilePortConformance, restoreAssistantCore, validateCoreSnapshot
 } from '../index.mjs';
 
 const TS = '2026-09-30T12:00:00.000Z';
@@ -308,4 +308,122 @@ test('core contract flags state the one-identity-many-projections invariant', ()
  promoteFact(core, mech, { statement: 'one' });
  assert.equal(core.readDurable('butler-a', { sinceSequence: 1 }).length, 0);
  assert.equal(core.readDurable('butler-a', { sinceSequence: 0 }).length, 1);
+});
+
+// ---------------------------------------------------------------------------
+// CORRECTION (host Alien, BA-002 Correction stage) — adversarial regressions.
+//
+// Every assertion below failed before the repair. Three of them are the same
+// lesson in different places: a guard that compares raw key spellings, an identity
+// minted from a counter that restarts, and a recovery path that skipped the guards
+// the live path enforces.
+// ---------------------------------------------------------------------------
+
+const promoteRaw = (core, embodiment, payload, idempotencyKey) => core.promote(embodiment.embodimentRef, {
+ kind: 'FACT', payload, scope: 'ASSISTANT_PRIVATE', audience: 'OWNER_PRIVATE',
+ expectedRevision: core.assistantStatus(embodiment.assistantId).coreRevision,
+ idempotencyKey, at: TS
+});
+
+test('authority and user-identity state cannot be promoted under a different spelling', () => {
+ // The forbidden list is written in each concept's original spelling, so raw
+ // comparison accepted every other spelling of the same concept.
+ const camel = ['executionLease', 'capabilityGrants', 'actionKey', 'userSelfModel', 'assistantProfile', 'DIGITAL_ME'];
+ for (const key of camel) {
+  assert.equal(findForbiddenCoreStateFields({ [key]: { x: 1 } }).length, 1, `${key} must be caught`);
+ }
+ const core = newCore();
+ core.createAssistant('butler-a');
+ const emb = core.connectEmbodiment('butler-a', { deviceId: 'dev-1' });
+ expectCode(() => promoteRaw(core, emb, { executionLease: { holder: 'x' } }, 'spell-1'), 'PROMOTION_AUTHORITY_FORBIDDEN');
+ expectCode(() => promoteRaw(core, emb, { actionKey: 'a' }, 'spell-2'), 'PROMOTION_AUTHORITY_FORBIDDEN');
+ // A reference form is still allowed, and an ordinary payload is unaffected.
+ assert.deepEqual(findForbiddenCoreStateFields({ grant_ref: 'g:1', note: 'ordinary' }), []);
+ assert.equal(promoteRaw(core, emb, { grant_ref: 'g:1', note: 'ordinary' }, 'spell-3').replayed, false);
+});
+
+test('a raw secret cannot be promoted under a plural or camelCase spelling', () => {
+ for (const key of ['credentials', 'secrets', 'tokens', 'apiKeys', 'api_keys', 'privateKeys', 'accessTokens']) {
+  assert.equal(findForbiddenCoreStateFields({ [key]: 'RAW' }).length, 1, `${key} must be caught`);
+ }
+ for (const key of ['credential_ref', 'api_key_handle', 'access_token_id']) {
+  assert.deepEqual(findForbiddenCoreStateFields({ [key]: 'handle:abc' }), [], `${key} is a permitted reference`);
+ }
+});
+
+test('an embodiment reference from a previous epoch never names a live embodiment', () => {
+ const core = newCore();
+ core.createAssistant('butler-a');
+ const first = core.connectEmbodiment('butler-a', { deviceId: 'dev-OLD' });
+ const snapshot = core.snapshot();
+
+ // Restart: the previous session's handle must be *unknown*, not re-usable.
+ const restored = restoreAssistantCore(snapshot, {
+  clock: () => LATER,
+  profilePort: createDeterministicProfilePort({ profiles: { 'butler-b': { profile_ref: 'profile-b', profile_revision: 1 } } })
+ });
+ restored.createAssistant('butler-b');
+ const second = restored.connectEmbodiment('butler-b', { deviceId: 'dev-NEW' });
+ assert.notEqual(first.embodimentRef, second.embodimentRef, 'a stale ref must not collide with a fresh one');
+ assert.deepEqual(restored.attestEmbodiment(first.embodimentRef), { valid: false, reason: 'UNKNOWN_EMBODIMENT' });
+ expectCode(() => restored.promote(first.embodimentRef, {
+  kind: 'FACT', payload: { note: 'written by the previous session' }, expectedRevision: 1, idempotencyKey: 'stale-1'
+ }), 'EMBODIMENT_NOT_CONNECTED');
+ // The fresh embodiment is unaffected.
+ assert.equal(restored.attestEmbodiment(second.embodimentRef).valid, true);
+});
+
+test('a tampered snapshot cannot install authority, a secret, an unpromotable scope or an unknown audience as truth', () => {
+ const { core, alien } = bootstrap();
+ promoteFact(core, alien, { statement: 'genuine' });
+ const snapshot = () => JSON.parse(JSON.stringify(core.snapshot()));
+
+ const authority = snapshot();
+ authority.assistants[0].records[0].payload = { executionLease: { holder: 'attacker' } };
+ expectCode(() => restoreAssistantCore(authority, { clock: () => LATER }), 'INCOMPATIBLE_CORE_SNAPSHOT');
+
+ const secret = snapshot();
+ secret.assistants[0].records[0].payload = { credentials: { password: 'RAW' } };
+ expectCode(() => restoreAssistantCore(secret, { clock: () => LATER }), 'INCOMPATIBLE_CORE_SNAPSHOT');
+
+ // A re-labelled audience is the one tamper this validator CANNOT see, and the
+ // test says so rather than pretending otherwise: PUBLIC_CHANNEL is itself a valid
+ // disclosure audience, so a record re-labelled from OWNER_PRIVATE to
+ // PUBLIC_CHANNEL is structurally identical to one legitimately promoted as public.
+ // Detecting it needs an integrity digest over each record, which this contract
+ // does not carry. Recorded as a known boundary (see the Correction report) instead
+ // of being silently absorbed by a guard that only looks like it covers the case.
+ const relabelled = snapshot();
+ relabelled.assistants[0].records[0].audience = 'PUBLIC_CHANNEL';
+ assert.equal(validateCoreSnapshot(relabelled).ok, true, 'audience re-labelling is undetectable without a record digest');
+ // An audience that is not a disclosure audience at all IS refused.
+ const badAudience = snapshot();
+ badAudience.assistants[0].records[0].audience = 'EVERYONE';
+ expectCode(() => restoreAssistantCore(badAudience, { clock: () => LATER }), 'INCOMPATIBLE_CORE_SNAPSHOT');
+
+ const ephemeral = snapshot();
+ ephemeral.assistants[0].records[0].scope = 'DEVICE_EPHEMERAL';
+ expectCode(() => restoreAssistantCore(ephemeral, { clock: () => LATER }), 'INCOMPATIBLE_CORE_SNAPSHOT');
+
+ const badKind = snapshot();
+ badKind.assistants[0].records[0].kind = 'SCRATCH_REASONING';
+ expectCode(() => restoreAssistantCore(badKind, { clock: () => LATER }), 'INCOMPATIBLE_CORE_SNAPSHOT');
+
+ // The untampered snapshot still restores, so the guard is not refusing recovery.
+ const restored = restoreAssistantCore(snapshot(), { clock: () => LATER });
+ assert.equal(restored.readDurable('butler-a').length, 1, 'a genuine snapshot still recovers');
+});
+
+test('a retry carrying a different payload is refused, not silently replayed', () => {
+ const core = newCore();
+ core.createAssistant('butler-a');
+ const emb = core.connectEmbodiment('butler-a', { deviceId: 'dev-1' });
+ // `{a: undefined}` and `{a: null}` used to share one fingerprint, so the second
+ // payload was reported as a replay of the first and silently discarded.
+ promoteRaw(core, emb, { a: undefined }, 'fp-1');
+ expectCode(() => promoteRaw(core, emb, { a: null }, 'fp-1'), 'IDEMPOTENCY_KEY_REUSE');
+ // A genuine retry of the same logical payload still replays.
+ const replay = promoteRaw(core, emb, { a: undefined }, 'fp-1');
+ assert.equal(replay.replayed, true);
+ assert.equal(replay.record.record_id, 'butler-a:record:1');
 });

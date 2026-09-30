@@ -39,7 +39,45 @@ export const FORBIDDEN_CORE_STATE_FIELDS = Object.freeze([
  'capability_grants', 'action_key', 'policy'
 ]);
 export const SECRET_FIELD_PATTERN = /(?:^|[._-])(token|secret|password|cookie|api[-_]?key|private[-_]?key|credential|access[-_]?token)(?:$|[._-])/i;
-const REFERENCE_SUFFIX = /(?:_ref|_refs|_handle|_id)$/i;
+const REFERENCE_SUFFIX = /(?:_ref|_refs|_handle|_handles|_id)$/i;
+
+/**
+ * Normalise a field name to one comparable form.
+ *
+ * The forbidden-state list is written in the spelling each concept was first
+ * declared with (`digital_me`, `execution_lease`, `action_key`), so comparing raw
+ * keys meant every other spelling of the same concept was accepted: `executionLease`,
+ * `capabilityGrants`, `actionKey`, `userSelfModel`, `DIGITAL_ME`. Splitting camelCase
+ * into words, collapsing every non-alphanumeric run to one `_` and lowercasing makes
+ * the guard about the name's meaning rather than its exact spelling.
+ */
+export function normalizeFieldName(key) {
+ return String(key)
+  .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+  .replace(/[^A-Za-z0-9]+/g, '_')
+  .toLowerCase()
+  .replace(/^_+|_+$/g, '');
+}
+
+const FORBIDDEN_CORE_STATE_NORMALISED = new Set(FORBIDDEN_CORE_STATE_FIELDS.map(normalizeFieldName));
+
+/** True when a field name denotes a raw secret, allowing a plural spelling. */
+export function isSecretFieldName(key) {
+ const normalised = normalizeFieldName(key);
+ // A reference form is explicitly allowed, so it is exempt before the plural
+ // tolerance is applied: `token_ref` stays a reference, `tokens` does not.
+ if (REFERENCE_SUFFIX.test(`_${normalised}`)) return false;
+ if (SECRET_FIELD_PATTERN.test(normalised)) return true;
+ const singular = normalised.replace(/s$/, '');
+ return singular !== normalised && SECRET_FIELD_PATTERN.test(singular);
+}
+
+/** Classify a field name, or answer `null` when the name is allowed. */
+export function forbiddenCoreStateReason(key) {
+ if (FORBIDDEN_CORE_STATE_NORMALISED.has(normalizeFieldName(key))) return 'authority-or-user-identity';
+ if (isSecretFieldName(key)) return 'raw-secret';
+ return null;
+}
 
 export class AssistantCoreError extends Error {
  constructor(code, detail) {
@@ -56,17 +94,24 @@ const clone = value => (value === undefined ? undefined : structuredClone(value)
 const isText = value => typeof value === 'string' && value.trim().length > 0;
 // Order-independent fingerprint, so a retried promotion with the same logical
 // payload replays instead of failing on key ordering.
+//
+// An `undefined`-valued key is dropped rather than emitted as `null`: emitting it
+// made `{a: undefined}` and `{a: null}` share one fingerprint, so a retry carrying a
+// genuinely different payload was accepted as a replay of the first and the caller's
+// second payload was silently discarded.
 const stableStringify = value => Array.isArray(value)
  ? '[' + value.map(stableStringify).join(',') + ']'
- : (isPlainObject(value) ? '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + stableStringify(value[key])).join(',') + '}' : JSON.stringify(value ?? null));
+ : (isPlainObject(value)
+  ? '{' + Object.keys(value).filter(key => value[key] !== undefined).sort().map(key => JSON.stringify(key) + ':' + stableStringify(value[key])).join(',') + '}'
+  : JSON.stringify(value ?? null));
 
 export function findForbiddenCoreStateFields(value, path = 'payload', found = []) {
  if (Array.isArray(value)) { value.forEach((item, index) => findForbiddenCoreStateFields(item, `${path}[${index}]`, found)); return found; }
  if (!isPlainObject(value)) return found;
  for (const [key, child] of Object.entries(value)) {
   const childPath = `${path}.${key}`;
-  if (FORBIDDEN_CORE_STATE_FIELDS.includes(key)) found.push({ path: childPath, reason: 'authority-or-user-identity' });
-  else if (SECRET_FIELD_PATTERN.test(key) && !REFERENCE_SUFFIX.test(key)) found.push({ path: childPath, reason: 'raw-secret' });
+  const reason = forbiddenCoreStateReason(key);
+  if (reason) found.push({ path: childPath, reason });
   findForbiddenCoreStateFields(child, childPath, found);
  }
  return found;
@@ -105,7 +150,40 @@ export function validateCoreSnapshot(snapshot) {
   if (!Number.isSafeInteger(snapshot.core_epoch) || snapshot.core_epoch < 1) errors.push('snapshot.core_epoch must be a positive integer');
   if (!Array.isArray(snapshot.assistants)) errors.push('snapshot.assistants must be an array');
   else for (const entry of snapshot.assistants) {
-   if (!isPlainObject(entry) || !isText(entry.assistant_id) || !Array.isArray(entry.records) || !Array.isArray(entry.events) || !Number.isSafeInteger(entry.core_revision)) errors.push('snapshot.assistants[] entries must carry assistant_id, records, events and core_revision');
+   if (!isPlainObject(entry) || !isText(entry.assistant_id) || !Array.isArray(entry.records) || !Array.isArray(entry.events) || !Number.isSafeInteger(entry.core_revision)) {
+    errors.push('snapshot.assistants[] entries must carry assistant_id, records, events and core_revision');
+    continue;
+   }
+   // A snapshot IS durable state, so it must satisfy the same guards a live
+   // promotion satisfies. Validating only the outer shape made recovery a way
+   // around every promotion guard: a tampered snapshot could carry an authority
+   // field, a raw secret, or an owner-private record re-labelled as public, and
+   // `restoreAssistantCore` would install it as authoritative truth.
+   if (!isPlainObject(entry.profile_ref)) {
+    errors.push(`snapshot ${entry.assistant_id}.profile_ref must be an object`);
+   } else {
+    try { assertProfileReference(entry.profile_ref, `snapshot ${entry.assistant_id}.profile_ref`); }
+    catch (error) { errors.push(`${error.code}: ${error.detail}`); }
+   }
+   for (const record of entry.records) {
+    if (!isPlainObject(record)) { errors.push(`snapshot ${entry.assistant_id} holds a record that is not an object`); continue; }
+    if (!isText(record.record_id)) { errors.push(`snapshot ${entry.assistant_id} holds a record without a record_id`); continue; }
+    if (!DURABLE_KINDS.includes(record.kind)) errors.push(`snapshot record ${record.record_id} kind ${JSON.stringify(record.kind)} is not a durable kind`);
+    if (record.scope === 'DEVICE_EPHEMERAL') errors.push(`snapshot record ${record.record_id} claims the unpromotable DEVICE_EPHEMERAL scope`);
+    else if (!MEMORY_SCOPES.includes(record.scope)) errors.push(`snapshot record ${record.record_id} scope ${JSON.stringify(record.scope)} is not a memory scope`);
+    if (!DISCLOSURE_AUDIENCES.includes(record.audience)) errors.push(`snapshot record ${record.record_id} audience ${JSON.stringify(record.audience)} is not a disclosure audience`);
+    if (!isPlainObject(record.payload)) {
+     errors.push(`snapshot record ${record.record_id} payload must be an object`);
+    } else {
+     const found = findForbiddenCoreStateFields(record.payload, 'payload');
+     if (found.length) errors.push(`snapshot record ${record.record_id} ${found.map(hit => `${hit.path} (${hit.reason})`).slice(0, 3).join('; ')}`);
+    }
+   }
+   for (const event of entry.events) {
+    if (!isPlainObject(event) || !Number.isSafeInteger(event.sequence) || !isText(event.event_type)) {
+     errors.push(`snapshot ${entry.assistant_id} holds a malformed causal event`);
+    }
+   }
   }
  }
  return { ok: errors.length === 0, errors };
@@ -198,7 +276,14 @@ export function createAssistantCore({ clock = () => null, profilePort = createDe
    requireAssistant(assistantId);
    if (!isText(deviceId)) throw new AssistantCoreError('INVALID_DEVICE_ID', String(deviceId));
    embodimentCounter += 1;
-   const embodimentRef = `emb-${embodimentCounter}`;
+   // The reference carries the core epoch. A bare counter restarts at 1 after
+   // recovery, so a previous session's `emb-1` would name a *different* embodiment
+   // in the restarted core: `attestEmbodiment` would then report the stale handle as
+   // valid for another assistant and device, and the stale device could promote with
+   // `promoted_by.device_id` pointing at a device that never wrote the record. The
+   // epoch in the ref is what makes the previous session's handles genuinely unknown
+   // (EMBODIMENT_NOT_CONNECTED), which is what recovery is documented to do.
+   const embodimentRef = `emb-e${epoch}-${embodimentCounter}`;
    const handle = { embodimentRef, assistantId, deviceId, sessionRef: sessionRef ?? null, coreEpoch: epoch, connectedAt: connectedAt ?? null };
    embodiments.set(embodimentRef, handle);
    return clone(handle);

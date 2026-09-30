@@ -628,6 +628,176 @@
           ]
         }
       ]
+    },
+    {
+      "id": "10-automation",
+      "zh": "自动化区",
+      "en": "Automation District",
+      "buildings": [
+        {
+          "id": "01-computer-use-runtime",
+          "zh": "通用计算机使用运行时",
+          "en": "Computer Use Runtime",
+          "modules": [
+            {
+              "id": "execution-contract",
+              "zh": "执行契约",
+              "en": "Execution Contract",
+              "path": "city/10-automation/01-computer-use-runtime/execution-contract",
+              "lifecycle": "PROMOTED",
+              "capabilityProvider": false,
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/DS-Hns",
+                "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+                "sourcePaths": [
+                  "app/computer-use/constants.cjs",
+                  "app/computer-use/errors.cjs",
+                  "app/computer-use/action.cjs",
+                  "app/computer-use/criteria.cjs",
+                  "app/computer-use/contract.cjs"
+                ]
+              },
+              "incubationRooms": [
+                "mb-008-execution-contract-lab"
+              ],
+              "mission": {
+                "missionId": "MB-008",
+                "cluster": "the Hns computer-use goal/success/capability/destructive-mode/limit/plan execution contract and its typed failure codes"
+              }
+            },
+            {
+              "id": "target-guard",
+              "zh": "目标判定",
+              "en": "Target Guard",
+              "path": "city/10-automation/01-computer-use-runtime/target-guard",
+              "lifecycle": "PROMOTED",
+              "capabilityProvider": false,
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/DS-Hns",
+                "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+                "sourcePaths": [
+                  "app/computer-use/target.cjs"
+                ]
+              },
+              "incubationRooms": [
+                "mb-008-target-guard-lab"
+              ],
+              "mission": {
+                "missionId": "MB-008",
+                "cluster": "the Hns computer-use target model: normalization, the fixed resolution ladder, revalidation thresholds and geometric/semantic/accessibility/window matching"
+              }
+            },
+            {
+              "id": "routing-safety",
+              "zh": "通道路由与安全",
+              "en": "Routing & Safety",
+              "path": "city/10-automation/01-computer-use-runtime/routing-safety",
+              "lifecycle": "PROMOTED",
+              "capabilityProvider": false,
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/DS-Hns",
+                "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+                "sourcePaths": [
+                  "app/computer-use/routing.cjs",
+                  "app/computer-use/safety.cjs",
+                  "app/computer-use/modal.cjs",
+                  "app/computer-use/evidence.cjs"
+                ]
+              },
+              "incubationRooms": [
+                "mb-008-routing-safety-lab"
+              ],
+              "mission": {
+                "missionId": "MB-008",
+                "cluster": "channel routing with reason and ordered alternatives, destructive-action and focus/foreground/modal safety gates, secret redaction, and evidence risk grading"
+              }
+            },
+            {
+              "id": "world-verification",
+              "zh": "世界状态与验证",
+              "en": "World Verification",
+              "path": "city/10-automation/01-computer-use-runtime/world-verification",
+              "lifecycle": "PROMOTED",
+              "capabilityProvider": false,
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/DS-Hns",
+                "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+                "sourcePaths": [
+                  "app/computer-use/world-state.cjs",
+                  "app/computer-use/verification.cjs",
+                  "app/computer-use/miss.cjs",
+                  "app/computer-use/observer.cjs",
+                  "app/computer-use/progress.cjs"
+                ]
+              },
+              "incubationRooms": [
+                "mb-008-world-verification-lab"
+              ],
+              "mission": {
+                "missionId": "MB-008",
+                "cluster": "world-state construction, meaningful-change versus evidence-digest separation, postcondition verification with success/failure/unknown, miss signals, and progress that counts only verified effects"
+              }
+            },
+            {
+              "id": "bounded-run",
+              "zh": "有界执行",
+              "en": "Bounded Run",
+              "path": "city/10-automation/01-computer-use-runtime/bounded-run",
+              "lifecycle": "PROMOTED",
+              "capabilityProvider": false,
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/DS-Hns",
+                "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+                "sourcePaths": [
+                  "app/computer-use/stall.cjs",
+                  "app/computer-use/state-machine.cjs",
+                  "app/computer-use/recovery.cjs",
+                  "app/computer-use/stabilization.cjs",
+                  "app/computer-use/reconnect.cjs",
+                  "app/computer-use/health.cjs",
+                  "app/computer-use/resources.cjs"
+                ]
+              },
+              "incubationRooms": [
+                "mb-008-bounded-run-lab"
+              ],
+              "mission": {
+                "missionId": "MB-008",
+                "cluster": "the closed computer-use state machine, stall threshold and bounded recovery ladder, stabilization signals, per-channel reconnect budget, health snapshot with blocked reasons, and evidence ceilings"
+              }
+            },
+            {
+              "id": "backend-surface",
+              "zh": "后端面",
+              "en": "Backend Surface",
+              "path": "city/10-automation/01-computer-use-runtime/backend-surface",
+              "lifecycle": "PROMOTED",
+              "capabilityProvider": false,
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/Codex-Boss",
+                "commit": "8df428eaa437a409368401e95194e40266b83080",
+                "sourcePaths": [
+                  "src/shared/computer-recovery.ts",
+                  "src/shared/action-readiness.ts",
+                  "src/shared/ui-surface.ts",
+                  "src/shared/ui-surface-ids.ts",
+                  "src/shared/semantic.ts",
+                  "src/shared/permission.ts",
+                  "electron/computer/backends/dom-page.ts",
+                  "electron/computer/backends/provider-dom-surface.ts"
+                ]
+              },
+              "incubationRooms": [
+                "mb-008-backend-surface-lab"
+              ],
+              "mission": {
+                "missionId": "MB-008",
+                "cluster": "the DOM page readiness/act/verify ladder over an injected surface, the computer-recovery repair planner, the semantic-action validator, the workspace side-effect permission vocabulary, and the UI-surface registry"
+              }
+            }
+          ]
+        }
+      ]
     }
   ]
 }

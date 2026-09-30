@@ -30,8 +30,8 @@ import {
  *
  * This is a census, not an aspiration: each entry must have real code in the tree. The
  * wave-1 modules are followed by the mission-book migrations — MB-001, MB-002, MB-003, MB-004,
- * MB-005, MB-006, MB-007 and MB-009 — which the Digital-City control plane landed directly
- * rather than incubating a Room Pack module first.
+ * MB-005, MB-006, MB-007, MB-008 and MB-009 — which the Digital-City control plane landed
+ * directly rather than incubating a Room Pack module first.
  */
 const EXPECTED_MODULES = [
   'city/00-foundation/01-city-core/root-authority',
@@ -56,6 +56,12 @@ const EXPECTED_MODULES = [
   'city/09-planning-knowledge/01-knowledge-service/knowledge-core',
   'city/09-planning-knowledge/02-document-intake/ingestion-core',
   'city/09-planning-knowledge/02-document-intake/document-readers',
+  'city/10-automation/01-computer-use-runtime/execution-contract',
+  'city/10-automation/01-computer-use-runtime/target-guard',
+  'city/10-automation/01-computer-use-runtime/routing-safety',
+  'city/10-automation/01-computer-use-runtime/world-verification',
+  'city/10-automation/01-computer-use-runtime/bounded-run',
+  'city/10-automation/01-computer-use-runtime/backend-surface',
 ];
 
 test('the real manifest describes exactly the districts and modules that exist', async () => {
@@ -64,8 +70,8 @@ test('the real manifest describes exactly the districts and modules that exist',
   assert.equal(manifest.schemaVersion, 2);
   assert.deepEqual(
     manifest.districts.map((district) => district.id),
-    ['00-foundation', '02-engineering', '06-research', '09-planning-knowledge'],
-    'only the districts that actually exist are declared, in manifest order; 00-foundation owns the theme engine after the MB-009 relocation, and 11-entertainment is no longer declared because it holds no module',
+    ['00-foundation', '02-engineering', '06-research', '09-planning-knowledge', '10-automation'],
+    'only the districts that actually exist are declared, in manifest order; 00-foundation owns the theme engine after the MB-009 relocation, 10-automation carries the MB-008 Computer Use Runtime, and 11-entertainment is no longer declared because it holds no module',
   );
   for (const district of manifest.districts) {
     assert.ok(district.zh.length > 0 && district.en.length > 0, `${district.id} has bilingual names`);

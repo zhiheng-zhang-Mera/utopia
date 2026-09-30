@@ -1,0 +1,34 @@
+{
+  "missionId": "MB-010",
+  "phase": "assessment",
+  "hostId": "Mech",
+  "assessedAt": "2026-09-30T05:45:58.006Z",
+  "host": {
+    "platform": "win32",
+    "arch": "x64",
+    "release": "10.0.26200",
+    "node": "v24.14.0",
+    "cpus": 24,
+    "totalMemBytes": 34066345984
+  },
+  "donor": {
+    "repository": "zhiheng-zhang-Mera/Codex-Boss",
+    "baseline": "8df428eaa437a409368401e95194e40266b83080",
+    "localPath": "D:/Codex-Boss",
+    "localHead": "06d423c171cacf5cd7ab741616fa58e57b3003dd",
+    "baselinePresent": "commit"
+  },
+  "utopia": {
+    "repository": "zhiheng-zhang-Mera/utopia",
+    "claimTimeMainSha": "756c7d760c605e33ba386e87605e078fe24b82ca",
+    "branch": "mission/MB-010-node-fabric",
+    "baseSha": "756c7d760c605e33ba386e87605e078fe24b82ca"
+  },
+  "city": {
+    "repository": "zhiheng-zhang-Mera/Digital-City",
+    "claimCommit": "e424178c35dd7f47cd859dc5e784186c2e976a91"
+  },
+  "notes": [
+    "The donor checkout at D:/Codex-Boss is NOT on the frozen baseline; the frozen baseline was read read-only via git show/ls-tree/archive from the same object store. No file in the donor worktree was modified."
+  ]
+}

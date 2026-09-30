@@ -1,0 +1,177 @@
+{
+  "missionId": "MB-012",
+  "phase": "assessment",
+  "steps": [
+    {
+      "name": "RC-01 escape is DENY, protected hit is REQUIRE_OWNER, clean is ALLOW",
+      "ok": true,
+      "detail": {
+        "escape": "DENY",
+        "protected": "REQUIRE_OWNER",
+        "clean": "ALLOW"
+      }
+    },
+    {
+      "name": "RC-01 a rename is classified on BOTH source and destination",
+      "ok": true,
+      "detail": {
+        "decision": "REQUIRE_OWNER",
+        "protected": [
+          "protected/a.mjs"
+        ]
+      }
+    },
+    {
+      "name": "RC-01 reasons are bounded and audit-friendly",
+      "ok": true,
+      "detail": {
+        "code": "path:escape",
+        "detail": "path escaped the candidate workspace: ../../etc/passwd"
+      }
+    },
+    {
+      "name": "RC-03/RC-05 a Guardian given NO evidence is blocking, not a pass",
+      "ok": true,
+      "detail": {
+        "released": false,
+        "blocking": 7,
+        "required": 7
+      }
+    },
+    {
+      "name": "RC-05 every check carries a verdict plus its inspected facts and reasons",
+      "ok": true,
+      "detail": [
+        {
+          "check": "GOAL_COMPLIANCE",
+          "verdict": "NOT_RUN",
+          "inspected": [],
+          "reasons": [
+            "the compiled goal was not supplied to the Guardian"
+          ]
+        },
+        {
+          "check": "REQUIREMENT_COVERAGE",
+          "verdict": "NOT_RUN",
+          "inspected": [],
+          "reasons": [
+            "requirement bindings were not supplied"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "RC-01 a write outside the granted scope FAILS the gate",
+      "ok": true,
+      "detail": {
+        "verdict": "FAIL",
+        "reasons": [
+          "outside/b.mjs was written outside the granted scope"
+        ]
+      }
+    },
+    {
+      "name": "RC-03 an unapproved removal FAILS the gate",
+      "ok": true,
+      "detail": {
+        "verdict": "FAIL",
+        "reasons": [
+          "file city/x.mjs was removed without an Owner approval"
+        ]
+      }
+    },
+    {
+      "name": "RC-02 registry registers a well-formed capability",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "RC-02 registry refuses a cross-owner takeover of a registered capability",
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "conflict": {
+          "capabilityId": "probe.cap",
+          "owners": [
+            "owner.a",
+            "owner.b"
+          ],
+          "priority": 50
+        }
+      }
+    },
+    {
+      "name": "RC-02 registry refuses a capability whose provider does not describe itself",
+      "ok": true,
+      "detail": "INVALID_INPUT: describes must be a non-empty string"
+    },
+    {
+      "name": "RC-02 a live invoke of an unknown capability is refused",
+      "ok": true,
+      "detail": {
+        "code": "CAPABILITY_NOT_FOUND",
+        "status": 404
+      }
+    },
+    {
+      "name": "RC-02 a live invoke outside the declared operation allowlist is refused",
+      "ok": true,
+      "detail": {
+        "code": "OPERATION_BLOCKED"
+      }
+    },
+    {
+      "name": "RC-04 the live gateway refuses a protocol-version mismatch",
+      "ok": true,
+      "detail": {
+        "ok": 200,
+        "mismatch": 409
+      }
+    },
+    {
+      "name": "RC-01 the live gateway refuses a node token on a control route",
+      "ok": true,
+      "detail": {
+        "status": 401
+      }
+    },
+    {
+      "name": "RC-04 the live gateway refuses a report from the wrong node",
+      "ok": true,
+      "detail": {
+        "status": 403,
+        "taskId": "Q-e3ca7715-5e2d-434d-bc2c-21c0cda8d245"
+      }
+    },
+    {
+      "name": "RC-02 the live gateway assigns the task through the migrated capability gate",
+      "ok": true,
+      "detail": {
+        "state": "ASSIGNED",
+        "assignedNodeId": "mb012-node"
+      }
+    },
+    {
+      "name": "RC-04 the live gateway refuses an out-of-range progress value",
+      "ok": true,
+      "detail": {
+        "status": 400,
+        "error": "Invalid progress"
+      }
+    },
+    {
+      "name": "RC-04 the live gateway refuses an invalid task transition",
+      "ok": true,
+      "detail": {
+        "status": 409
+      }
+    },
+    {
+      "name": "RC-01 the live gateway refuses a wildcard bind",
+      "ok": true,
+      "detail": null
+    }
+  ],
+  "outcome": "PASS",
+  "finishedAt": "2026-09-30T06:01:53.259Z"
+}

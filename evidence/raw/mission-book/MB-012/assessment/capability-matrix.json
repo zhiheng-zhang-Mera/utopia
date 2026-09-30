@@ -1,0 +1,156 @@
+{
+  "missionId": "MB-012",
+  "phase": "assessment",
+  "hostId": "Mech",
+  "donorBaseline": "zhiheng-zhang-Mera/Codex-Boss@8df428eaa437a409368401e95194e40266b83080",
+  "utopiaBaseline": "zhiheng-zhang-Mera/utopia@756c7d760c605e33ba386e87605e078fe24b82ca",
+  "result": "NO_VALUE",
+  "plannedCapabilityCount": 5,
+  "coverageCounts": { "NONE": 0, "PARTIAL": 0, "EQUIVALENT": 2, "SUPERIOR": 3 },
+  "decisionCounts": { "MIGRATE": 0, "PARTIAL": 0, "ABANDON": 5 },
+  "reasonCodeCounts": {
+    "DUPLICATE_EQUIVALENT": 2,
+    "UTOPIA_SUPERIOR": 3,
+    "OBSOLETE_DONOR": 3,
+    "NO_REAL_CONSUMER": 1
+  },
+  "capabilities": [
+    {
+      "id": "RC-01",
+      "name": "privilege / cross-domain / protected-resource access enforcement",
+      "donorAnchors": [
+        "electron/root-authority/protected-surface-guard.ts (LIVE, 3 production callers)",
+        "electron/root-authority/root-authority.ts#enforce -> RootDeniedError (LIVE)",
+        "src/shared/permission.ts#desktopMutationGate,manifestAllows (LIVE at main-commander.ts:701, software-runtime.ts:88)",
+        "src/shared/guardian.ts#changeAllowed (LIVE, 4 call sites)",
+        "electron/root-authority/execution-profile.ts (assert* methods TEST-ONLY)"
+      ],
+      "utopiaAnchors": [
+        "city/00-foundation/01-city-core/root-authority/guard.mjs (escape=>DENY, protected=>REQUIRE_OWNER, rename both sides, case-insensitive)",
+        "city/00-foundation/01-city-core/audit-ledger/guardian-gate.mjs#SCOPE_VALIDATION,DESTRUCTIVE_CHANGE_CHECK",
+        "city/10-automation/01-computer-use-runtime/backend-surface/permission.mjs + computer-recovery.mjs (the computer side-effect permission gate, migrated by MB-008 from the same donor src/shared/permission.ts)",
+        "services/dev-gateway/server.mjs (separate control/node tokens, explicit interface binding, per-route auth)",
+        "services/capability-bridge/bridge.mjs#invoke (operation allowlist)"
+      ],
+      "coverage": "EQUIVALENT",
+      "decision": "ABANDON",
+      "reasonCodes": ["DUPLICATE_EQUIVALENT", "OBSOLETE_DONOR"],
+      "gap": "None material. The donor's live privilege gates (computer side-effect grants, software-action manifest, Guardian token, Root operation floor) all have a migrated or live Utopia counterpart. The donor's extra surface (execution-profile assert* methods, named refuse* guards) is test-only and its behaviour is a subset of what guardian-gate already enforces.",
+      "runtimeCheck": "escape=>DENY / protected=>REQUIRE_OWNER / clean=>ALLOW PASS; rename both sides PASS; scope FAIL PASS; unapproved removal FAIL PASS; node token on control route 401 PASS; wildcard bind refused PASS"
+    },
+    {
+      "id": "RC-02",
+      "name": "service / capability registration enforcement hooks",
+      "donorAnchors": [
+        "electron/capability/capability-broker.ts (registration refusals; ZERO non-test production callers)",
+        "electron/capability/authorization.ts#evaluate,validateGrants (reachable only via the broker)",
+        "electron/capability/permission-contract.ts#validateGrant (reachable only via the broker)",
+        "electron/capability/integration/execution-authorization.ts (ZERO production callers)",
+        "electron/capability/integration/boundary-inventory.ts (self-declared 'legacy' / 'mapped' debt marker)"
+      ],
+      "utopiaAnchors": [
+        "city/00-foundation/03-capability-fabric/capability-fabric/registry.mjs (registration-time refusal: nameless, ownerless, undescribed, duplicate owner naming both owners, priority conflict)",
+        "services/capability-bridge/registry.mjs (moduleRefs resolution, ownership, duplicate-owner refusal, district/building kind gating)",
+        "services/capability-bridge/bridge.mjs#invoke (LIVE: CAPABILITY_NOT_FOUND 404, BRIDGE_PENDING 409, OPERATION_BLOCKED, BUSY 429, RESULT_TOO_LARGE, worker resourceLimits)",
+        "apps/android/.../CapabilityPolicy.kt (client-side gate)"
+      ],
+      "coverage": "SUPERIOR",
+      "decision": "ABANDON",
+      "reasonCodes": ["UTOPIA_SUPERIOR", "OBSOLETE_DONOR"],
+      "gap": "None. The donor's registration enforcement exists in code but is UNREACHABLE FROM PRODUCTION: createCapabilityBroker / invokeThroughBroker / evaluate / gateAuthorizer / authorizeExecution have zero non-test callers, and electron/main.ts:1003 constructs new ExecutionGate() with NO options, so the authorizer hook never fires. Utopia's equivalent is live, tested and consumed on a real HTTP invoke path.",
+      "runtimeCheck": "registry refuses cross-owner takeover PASS; refuses undescribed provider PASS; LIVE invoke refuses unknown capability 404 PASS; refuses operation outside allowlist OPERATION_BLOCKED PASS; gateway assigns through the migrated capability gate PASS"
+    },
+    {
+      "id": "RC-03",
+      "name": "authority escalation rejection",
+      "donorAnchors": [
+        "src/shared/root-authority/authority-planes.ts#effectiveChangeClass,decideAuthorityAction (CI-SCRIPT-ONLY: 1 caller, scripts/runtime-intelligence-diff-guard.cjs:64)",
+        "electron/root-authority/root-authority.ts named refuse* guards + acceptOwnerClaim (TEST-ONLY)",
+        "src/shared/guardian.ts#changeAllowed (LIVE)"
+      ],
+      "utopiaAnchors": [
+        "city/00-foundation/01-city-core/audit-ledger/guardian-gate.mjs (ACCEPTED unreachable without a named verdict for every required check; NOT_RUN is a blocker, never a pass; DESTRUCTIVE_CHANGE_CHECK requires Owner approval; OWNER_OVERRIDE_COMPLIANCE lexical check)",
+        "city/00-foundation/01-city-core/task-lifecycle/contracts.mjs (awaiting_release_permission)",
+        "city/00-foundation/01-city-core/root-authority/contracts.mjs (three-valued strictest-decision order + immutable floor table)"
+      ],
+      "coverage": "EQUIVALENT",
+      "decision": "ABANDON",
+      "reasonCodes": ["DUPLICATE_EQUIVALENT", "OBSOLETE_DONOR"],
+      "gap": "None. The donor's escalation rejection is real code with CI-script-only reach (a standalone diff-guard script), and its named self-elevation guards are test-only. Utopia's migrated Guardian gate is strictly stronger: it makes ACCEPTED unreachable without a named verdict for every required check and blocks when evidence is missing, which is the escalation property the Mission names.",
+      "runtimeCheck": "Guardian with no evidence is blocking (7/7 NOT_RUN, released=false) PASS; every check carries verdict + inspected[] + reasons[] PASS; unapproved removal FAILs PASS"
+    },
+    {
+      "id": "RC-04",
+      "name": "runtime-policy decision application",
+      "donorAnchors": [
+        ".codex-boss/config/runtime-policy.json (NO live consumer anywhere)",
+        ".codex-boss/config/runtime-policy.schema.json (NO validator exists in the repo)",
+        "electron/commander/runtime-policy.ts (exports NOTHING; loadRuntimePolicy module-private with zero callers)",
+        "electron/commander/scheduler.ts (the live bound is a DIFFERENT object, SchedulerPolicy.maxParallel)"
+      ],
+      "utopiaAnchors": [
+        "services/dev-gateway/server.mjs (LIVE: apiVersion/schemaVersion 0 required else 409, separate control/node tokens, refuses 0.0.0.0/:: binding, request size limits, task ownership 403, transition validity 409, progress monotonicity 400, pairing session single-use/expiry/attempt lock 410/429/403)",
+        "city/00-foundation/03-capability-fabric/capability-fabric/providers.mjs (four lifecycle facts, disabled refused a load unless forced, health ladder, bounded restart budget)",
+        "city/10-automation/01-computer-use-runtime/routing-safety (destructive-action and focus/modal safety gates, secret redaction)",
+        "services/capability-bridge/bridge.mjs (operation allowlist + circuit breaker)"
+      ],
+      "coverage": "SUPERIOR",
+      "decision": "ABANDON",
+      "reasonCodes": ["OBSOLETE_DONOR", "DUPLICATE_EQUIVALENT", "NO_REAL_CONSUMER"],
+      "gap": "None. The planned capability does not exist as a live donor behaviour at all: the runtime-policy JSON is consumed by nothing, its only reader exports nothing and has zero callers, and no JSON-Schema validator exists in the repository. There is no donor behaviour to migrate. Utopia applies runtime policy on genuinely live paths.",
+      "runtimeCheck": "protocol-version mismatch 409 PASS; out-of-range progress 400 PASS; invalid transition 409 PASS; wrong-node report 403 PASS"
+    },
+    {
+      "id": "RC-05",
+      "name": "audit-friendly runtime verdict / enforcement evidence",
+      "donorAnchors": [
+        "electron/root-authority/root-audit-ledger.ts (WRITTEN on live paths; READ only by tests; unkeyed SHA-256 hash chain, no MAC or signature)",
+        "electron/root-authority/promotion-state.ts#decidePromotion (verdict codes; qualification/promotion control is OUT OF SCOPE)",
+        "scripts/permission-surface-report.cjs (CI report, not a runtime refusal)"
+      ],
+      "utopiaAnchors": [
+        "city/00-foundation/01-city-core/audit-ledger/guardian-gate.mjs (every check carries verdict + inspected[] + reasons[] + a blocking[] list, bounded reason counts)",
+        "city/00-foundation/01-city-core/audit-ledger/decision-ledger.mjs + recovery.mjs",
+        "services/dev-gateway: durable event stream, GET /api/v0/events, /api/v0/events/stream, consumed by the Web UI",
+        "data-records/evolution/episodes (verified episode with inboxDigestSha256)",
+        "city/00-foundation/01-city-core/root-authority/contracts.mjs#rootDecisionReason (bounded, coded reasons)"
+      ],
+      "coverage": "SUPERIOR",
+      "decision": "ABANDON",
+      "reasonCodes": ["UTOPIA_SUPERIOR"],
+      "gap": "None. The donor's audit ledger is written on live paths but consumed by nothing except tests; the only donor verdict that reaches a live surface is the owner-intervention ledger. Its integrity mechanism is an unkeyed SHA-256 chain, which is tamper-evident against naive edits only and is not a MAC or a signature. Utopia's Guardian verdicts are audit-friendly by construction (per-check verdict, inspected facts, reasons, blocking list) and the gateway event stream is consumed by a real UI.",
+      "runtimeCheck": "every Guardian check carries verdict + inspected[] + reasons[] PASS; bounded coded reasons PASS"
+    }
+  ],
+  "donorLifecycleFinding": {
+    "claim": "The donor's runtime-enforcement surface is much narrower than its file count suggests: only 5 refusal paths are live in the shipped app, and the planned capability set points mostly at code that never runs.",
+    "evidence": [
+      "LIVE refusal paths (5): desktop mutation gate (main-commander.ts:701), software-action manifest gate (software-runtime.ts:88), Guardian-token gate (4 call sites), EvolutionHostOperations.authorize DENY throw (host-operations.ts:149), promotion gate Root-Surface stop.",
+      "The entire electron/capability/* layer is unreachable from production: createCapabilityBroker / invokeThroughBroker / evaluate / gateAuthorizer / authorizeExecution have ZERO non-test callers, and electron/main.ts:1003 builds new ExecutionGate() with NO options so the authorizer hook never fires.",
+      "RUNTIME-POLICY: loadRuntimePolicy is module-private with zero callers, electron/commander/runtime-policy.ts exports nothing, and no JSON-Schema validator exists in the repository. The runtime-policy JSON is hashed by repro-snapshot.ts and listed by a report script; it is parsed by nothing.",
+      "authority-planes.ts escalation rejection has exactly one caller, scripts/runtime-intelligence-diff-guard.cjs:64 (a CI script).",
+      "The named refuseSelfElevation / refuseOwnerIdentityChange / refuseDirectMainPush / refuseOwnerCredentialAccess / refuseRepositoryAdministration / refuseStaleShaPromotion / refuseArbitraryShell / refuseWorkspaceEscape and acceptOwnerClaim have ZERO production callers.",
+      "The Root audit ledger is written on live paths but read only by RootAuthority.history(), whose callers are tests.",
+      "NO cryptographic verification exists: createVerify / verifySignature / publicKey / x509 / createHmac = 0 hits in electron/ and src/. The only signing is an outbound GitHub App JWT; the ledger's chain is unkeyed SHA-256.",
+      "Dead code inside otherwise-live files: assessWorkspaceChanges (protected-surface-guard.ts:208, not exported), autonomousCeiling and protectedPathFor (root-authority.ts:341,346), EvolutionExecutionProfile's three assert* methods, guardedGrant (permission-manifest.ts:43), writeRootPolicy.",
+      "Two verdict-precision defects: authorization.ts reuses reason 'unresolvable-resource' for an unresolvable SUBJECT, and execution-authorization.ts reuses it for an unmapped execution KIND."
+    ],
+    "liveDonorPaths": [
+      "electron/root-authority/protected-surface-guard.ts (3 production callers)",
+      "electron/root-authority/root-authority.ts + root-audit-ledger.ts + root-policy-loader.ts + root-policy.ts (constructed live at self-evolution-coordinator.ts:359)",
+      "src/shared/permission.ts (desktopMutationGate, manifestAllows)",
+      "src/shared/guardian.ts (changeAllowed, 4 call sites)",
+      "src/shared/root-authority/promotion-state.ts (decidePromotion at promotion-controller.ts:229)"
+    ],
+    "conclusion": "MB-002's capability-fabric/DONOR.json named MB-012 as the owner of the deferred Codex-Boss permission/authorization resolution (capability-broker.ts, authorization.ts, permission-contract.ts). This assessment finds that deferral is correctly closed as NO_VALUE: that entire layer has zero production callers in the donor, the donor's runtime-policy file has no consumer at all, and the parts that ARE live already have migrated or live Utopia counterparts (including the computer side-effect permission gate, which MB-008 migrated from the same src/shared/permission.ts)."
+  },
+  "runtimeEvidence": {
+    "boundedChain": "19/19 PASS - see bounded-enforcement.json",
+    "existingSuites": {
+      "city/test-all.mjs": "1807 pass, 0 fail, 1 skipped (of 1808)",
+      "root node --test tests/*.test.mjs": "84 pass, 0 fail",
+      "scripts/verify-promotion-history.mjs": "10/10 records verified at 756c7d7"
+    }
+  },
+  "utopiaChurn": { "filesChanged": 0, "implementationCodeWritten": 0 }
+}

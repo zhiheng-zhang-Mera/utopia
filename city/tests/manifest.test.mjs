@@ -28,13 +28,10 @@ import {
 /**
  * Every module the manifest declares, in declaration order.
  *
- * This list is a census, not an aspiration: each entry must have real code in the
- * tree. The wave-1 modules are followed by the modules migrated by the Digital-City
- * mission-book control plane — MB-001's City Core, MB-002's Capability Fabric, MB-003's
- * Worker Gateway, MB-004's Project Foreman, MB-006's Restart Recovery Station and
- * MB-009's relocation of the theme engine to 00-foundation/05-control-centre — rather
- * than incubated in the Room Pack. `11-entertainment` is no longer declared: its only
- * module moved, so the district holds nothing.
+ * This is a census, not an aspiration: each entry must have real code in the tree. The
+ * wave-1 modules are followed by the mission-book migrations — MB-001, MB-002, MB-003, MB-004,
+ * MB-005, MB-006, MB-007 and MB-009 — which the Digital-City control plane landed directly
+ * rather than incubating a Room Pack module first.
  */
 const EXPECTED_MODULES = [
   'city/00-foundation/01-city-core/root-authority',
@@ -51,6 +48,11 @@ const EXPECTED_MODULES = [
   'city/02-engineering/04-restart-recovery-station/checkpoint-gate',
   'city/02-engineering/04-restart-recovery-station/restart-ticket',
   'city/06-research/01-research-institute/evidence-engine',
+  'city/06-research/01-research-institute/research-protocol',
+  'city/06-research/01-research-institute/research-provenance',
+  'city/06-research/01-research-institute/research-statistics',
+  'city/06-research/01-research-institute/research-manuscript',
+  'city/06-research/01-research-institute/research-review',
   'city/09-planning-knowledge/01-knowledge-service/knowledge-core',
   'city/09-planning-knowledge/02-document-intake/ingestion-core',
   'city/09-planning-knowledge/02-document-intake/document-readers',

@@ -1,4 +1,4 @@
-// Conformance tests for RF-005 â€” remote invite / meeting code / deep-link rendezvous.
+// Conformance tests for RF-005 â€?remote invite / meeting code / deep-link rendezvous.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -276,4 +276,57 @@ test('the rendezvous service stays independent of the eventual data path', () =>
   assert.throws(() => createInviteRendezvous({ entropy: () => 'zz', clock: () => T0 }).createInvite({ host_device_ref: hostRef }), error => error.code === 'ENTROPY_REQUIRED');
   assert.equal(genericFailure(() => rendezvous.redeem({ locator: invite.representations.code, guest_device_ref: '' })).code, 'INVALID_TICKET');
   assert.equal(rendezvous.policy().default_ttl_ms, 600000);
+});
+
+/* --------------------------------- 8. regressions (Correction, host Alien) */
+
+import { createInviteRendezvous as makeRendezvous } from '../index.mjs';
+import { MAX_INVITE_TTL_MS } from '../invite-rendezvous.mjs';
+
+const T0R = '2026-09-30T12:00:00.000Z';
+let seedR = 0;
+const entropyR = bytes => ((seedR += 1), `${String(seedR).padStart(4, '0')}${'ab12'.repeat(bytes)}`.slice(0, bytes * 2).padEnd(bytes * 2, 'f'));
+const rendezvousR = (policy = {}) => makeRendezvous({ entropy: entropyR, clock: () => T0R, policy });
+const expectCodeR = (fn, code) => { try { fn(); } catch (error) { assert.equal(error.code, code, 'expected ' + code + ', got ' + error.code); return error; } assert.fail('expected the call to fail with ' + code); };
+
+test('invite policy values are bounded, so a locator cannot be eternal', () => {
+  expectCodeR(() => rendezvousR({ max_ttl_ms: Number.MAX_SAFE_INTEGER }), 'INVALID_INVITE');
+  expectCodeR(() => rendezvousR({ max_ttl_ms: MAX_INVITE_TTL_MS + 1 }), 'INVALID_INVITE');
+  expectCodeR(() => rendezvousR({ max_ttl_ms: 0 }), 'INVALID_INVITE');
+  expectCodeR(() => rendezvousR({ default_ttl_ms: 10_000, max_ttl_ms: 1_000 }), 'INVALID_INVITE');
+  expectCodeR(() => rendezvousR({ rate_limit: { max_attempts: Number.MAX_SAFE_INTEGER } }), 'INVALID_INVITE');
+  expectCodeR(() => rendezvousR({ rate_limit: { max_attempts: 0 } }), 'INVALID_INVITE');
+  expectCodeR(() => rendezvousR({ allow_multi_use: 'yes' }), 'INVALID_INVITE');
+  // neighbours: the default policy works, and a longer-but-legal window is still accepted
+  assert.equal(rendezvousR().createInvite({ host_device_ref: 'dev-host' }).state, 'ACTIVE');
+  assert.equal(rendezvousR({ max_ttl_ms: MAX_INVITE_TTL_MS }).createInvite({ host_device_ref: 'dev-host', ttl_ms: MAX_INVITE_TTL_MS }).state, 'ACTIVE');
+});
+
+test('a hostile link is a bad link, never a crash', () => {
+  for (const link of ['digitalcity://join?c=%E0%A4%A', 'https://digitalcity.local/join/%E0%A4%A', 'digitalcity://join?c=%']) {
+    const verdict = parseLocator(link);
+    assert.equal(verdict.format_valid, false, link + ' must be a verdict, not a throw');
+    assert.equal(verdict.reason, 'BAD_LINK');
+  }
+  // neighbours: a well-formed code still parses, and an ordinary bad code still reports its reason
+  const good = rendezvousR().createInvite({ host_device_ref: 'dev-host' }).code;
+  assert.equal(parseLocator(good).format_valid, true);
+  assert.equal(parseLocator('digitalcity://join?c=' + good).format_valid, true);
+  assert.equal(parseLocator('ABCD-EFGH-0').reason, 'BAD_CHECKSUM');
+});
+
+test('a consumed invite keeps its outcome, and an impossible instant is typed', () => {
+  const r = rendezvousR();
+  const invite = r.createInvite({ host_device_ref: 'dev-host' });
+  const ticket = r.redeem({ locator: invite.code, guest_device_ref: 'dev-guest' });
+  assert.equal(r.confirm({ ticket_ref: ticket.ticket_ref, host_device_ref: 'dev-host', accepted: true }).invite_state, 'USED');
+  expectCodeR(() => r.revoke({ invite_id: invite.invite_id, host_device_ref: 'dev-host' }), 'RENDEZVOUS_UNAVAILABLE');
+  assert.equal(r.getInvite(invite.invite_id).state, 'USED', 'the recorded outcome is not rewritten');
+  // an impossible instant is refused rather than reaching toISOString
+  expectCodeR(() => rendezvousR().createInvite({ host_device_ref: 'dev-host', at: '2026-13-45T99:99:99Z' }), 'INVALID_INVITE');
+  // neighbours: an active invite can still be revoked, and a real instant is accepted
+  const live = rendezvousR();
+  const active = live.createInvite({ host_device_ref: 'dev-host' });
+  assert.equal(live.revoke({ invite_id: active.invite_id, host_device_ref: 'dev-host' }).state, 'CANCELLED');
+  assert.equal(rendezvousR().createInvite({ host_device_ref: 'dev-host', at: T0R }).state, 'ACTIVE');
 });

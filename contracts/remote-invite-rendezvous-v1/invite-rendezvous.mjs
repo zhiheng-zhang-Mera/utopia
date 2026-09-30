@@ -60,7 +60,19 @@ const freeze = value => {
   for (const child of Object.values(value)) freeze(child);
   return Object.freeze(value);
 };
-export const isIsoInstant = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+const isIsoInstantShape = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+/** Shape is not enough: an impossible instant parses to NaN, and a NaN comparison is always false. */
+export const isIsoInstant = value => {
+  if (!isIsoInstantShape(value)) return false;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) && new Date(parsed).toISOString().slice(0, 19) === value.slice(0, 19);
+};
+/**
+ * A rendezvous window is short by nature. Policy may shorten it, never make a locator eternal: an
+ * unvalidated max_ttl_ms accepted MAX_SAFE_INTEGER and minted a rendezvous good for centuries.
+ */
+export const MAX_INVITE_TTL_MS = 24 * 60 * 60 * 1000;
+export const MAX_RATE_LIMIT_ATTEMPTS = 1000;
 
 /** Input tolerance for humans: case, spaces and separators are ignored, I/L look like 1 and O like 0. */
 export function normalizeCodeInput(input) {
@@ -110,7 +122,14 @@ export function parseLocator(input) {
 function locateFromUrl(url, kind) {
   const query = url.match(/[?&]c=([^&/#]+)/i);
   const path = url.match(/\/join\/([^?&#/]+)/i);
-  const candidate = query ? decodeURIComponent(query[1]) : path ? decodeURIComponent(path[1]) : '';
+  // A hostile link with a malformed escape used to escape as an untyped URIError from
+  // decodeURIComponent; parsing is local validation and must always return a verdict.
+  let candidate = '';
+  try {
+    candidate = query ? decodeURIComponent(query[1]) : path ? decodeURIComponent(path[1]) : '';
+  } catch {
+    return freeze({ kind, code: null, format_valid: false, reason: 'BAD_LINK' });
+  }
   const parsed = parseLocator(candidate);
   if (!parsed.format_valid || parsed.kind !== 'CODE') {
     return freeze({ kind, code: null, format_valid: false, reason: 'BAD_LINK' });
@@ -134,6 +153,16 @@ export function createInviteRendezvous({
     ...(isPlainObject(policy) ? policy : {}),
   };
   const rateLimit = { max_attempts: 5, window_ms: 60000, ...(isPlainObject(config.rate_limit) ? config.rate_limit : {}) };
+  // Policy is configured authority, so its values still have to be real and bounded.
+  const policyProblems = [];
+  if (!Number.isSafeInteger(config.default_ttl_ms) || config.default_ttl_ms <= 0) policyProblems.push('default_ttl_ms');
+  if (!Number.isSafeInteger(config.max_ttl_ms) || config.max_ttl_ms <= 0 || config.max_ttl_ms > MAX_INVITE_TTL_MS) policyProblems.push('max_ttl_ms');
+  if (Number.isSafeInteger(config.default_ttl_ms) && Number.isSafeInteger(config.max_ttl_ms) && config.default_ttl_ms > config.max_ttl_ms) policyProblems.push('default_ttl_ms > max_ttl_ms');
+  if (!Number.isSafeInteger(config.max_uses_cap) || config.max_uses_cap < 1) policyProblems.push('max_uses_cap');
+  if (!Number.isSafeInteger(rateLimit.max_attempts) || rateLimit.max_attempts < 1 || rateLimit.max_attempts > MAX_RATE_LIMIT_ATTEMPTS) policyProblems.push('rate_limit.max_attempts');
+  if (!Number.isSafeInteger(rateLimit.window_ms) || rateLimit.window_ms < 1) policyProblems.push('rate_limit.window_ms');
+  if (typeof config.allow_multi_use !== 'boolean') policyProblems.push('allow_multi_use');
+  if (policyProblems.length > 0) throw new InviteError('INVALID_INVITE', 'policy values are not usable: ' + policyProblems.join(', '));
   const invites = new Map();
   const byCode = new Map();
   const tickets = new Map();
@@ -260,7 +289,12 @@ export function createInviteRendezvous({
         uses: 0,
         max_uses,
         created_at,
-        expires_at: new Date(Date.parse(created_at) + ttl).toISOString(),
+        expires_at: (() => {
+          const expiresMs = Date.parse(created_at) + ttl;
+          const produced = new Date(expiresMs);
+          if (!Number.isFinite(produced.getTime())) throw new InviteError('INVALID_INVITE', 'expires_at is out of range');
+          return produced.toISOString();
+        })(),
         cancelled_at: null,
       };
       invites.set(invite.invite_id, invite);
@@ -412,6 +446,9 @@ export function createInviteRendezvous({
       const invite = invites.get(invite_id);
       if (!invite) throw rendezvousUnavailable();
       if (host_device_ref !== invite.host_device_ref) throw new InviteError('NOT_THE_HOST', 'only the inviting device may cancel this rendezvous');
+      // A consumed or already-cancelled rendezvous is terminal: revoking a USED invite used to rewrite
+      // its recorded outcome to CANCELLED.
+      if (stateOf(invite, at) !== 'ACTIVE') throw rendezvousUnavailable();
       invite.state = 'CANCELLED';
       invite.cancelled_at = at;
       note('REVOKED', at, { invite_id });

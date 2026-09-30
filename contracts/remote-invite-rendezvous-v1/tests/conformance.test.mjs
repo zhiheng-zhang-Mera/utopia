@@ -330,3 +330,27 @@ test('a consumed invite keeps its outcome, and an impossible instant is typed', 
   assert.equal(live.revoke({ invite_id: active.invite_id, host_device_ref: 'dev-host' }).state, 'CANCELLED');
   assert.equal(rendezvousR().createInvite({ host_device_ref: 'dev-host', at: T0R }).state, 'ACTIVE');
 });
+test('enumeration is throttled even without a client reference, and an unparseable instant is refused', () => {
+  const r = rendezvousR();
+  const invite = r.createInvite({ host_device_ref: 'dev-host' });
+  // an unnamed caller shares one bucket; its over-limit answer stays the generic failure
+  let generic = 0;
+  for (let n = 0; n < 12; n += 1) {
+    try { r.preview({ locator: invite.code }); } catch (error) { if (error.code === 'RENDEZVOUS_UNAVAILABLE' && error.generic === true) generic += 1; }
+  }
+  assert.equal(generic, 12, 'every unnamed lookup fails generically, and throttling is invisible');
+  // a named caller is still told it is rate limited
+  const named = rendezvousR();
+  const other = named.createInvite({ host_device_ref: 'dev-host' });
+  for (let n = 0; n < 5; n += 1) named.preview({ locator: other.code, client_ref: 'c1' });
+  expectCodeR(() => named.preview({ locator: other.code, client_ref: 'c1' }), 'RATE_LIMITED');
+  // an unparseable instant can no longer make an expired invite immortal
+  const clocked = rendezvousR();
+  const expiring = clocked.createInvite({ host_device_ref: 'dev-host', ttl_ms: 1000 });
+  for (const at of ['2026-01-32T00:00:00Z', '2026-13-45T99:99:99Z', 'nonsense']) {
+    expectCodeR(() => clocked.preview({ locator: expiring.code, at }), 'INVALID_INVITE');
+  }
+  // neighbours: a real instant still works, and an expired invite still fails generically
+  assert.equal(clocked.preview({ locator: expiring.code, at: T0R }).available, true);
+  expectCodeR(() => clocked.preview({ locator: expiring.code, at: '2026-09-30T13:00:00.000Z' }), 'RENDEZVOUS_UNAVAILABLE');
+});

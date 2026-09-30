@@ -163,6 +163,7 @@ export function createInviteRendezvous({
   if (!Number.isSafeInteger(rateLimit.window_ms) || rateLimit.window_ms < 1) policyProblems.push('rate_limit.window_ms');
   if (typeof config.allow_multi_use !== 'boolean') policyProblems.push('allow_multi_use');
   if (policyProblems.length > 0) throw new InviteError('INVALID_INVITE', 'policy values are not usable: ' + policyProblems.join(', '));
+  const ANONYMOUS_CLIENT = 'anonymous';
   const invites = new Map();
   const byCode = new Map();
   const tickets = new Map();
@@ -202,6 +203,12 @@ export function createInviteRendezvous({
     return true;
   };
 
+  /** Every path validates the instant it is given: an unparseable one used to disable expiry entirely. */
+  const requireInstant = (value, field) => {
+    if (!isIsoInstant(value)) throw new InviteError('INVALID_INVITE', `${field} must be an ISO-8601 UTC instant`);
+    return value;
+  };
+
   const throttle = (client_ref, at) => {
     const timestamps = (attempts.get(client_ref) ?? []).filter(stamp => Date.parse(at) - Date.parse(stamp) < rateLimit.window_ms);
     if (timestamps.length >= rateLimit.max_attempts) {
@@ -209,6 +216,9 @@ export function createInviteRendezvous({
       const retryAfter = Math.max(0, rateLimit.window_ms - (Date.parse(at) - oldest));
       attempts.set(client_ref, timestamps);
       note('RATE_LIMITED', at, { client_ref });
+      // An unnamed caller shares one bucket so enumeration is throttled even without a client_ref; its
+      // over-limit answer stays the generic failure, so throttling reveals nothing about existence.
+      if (client_ref === ANONYMOUS_CLIENT) throw rendezvousUnavailable();
       throw new InviteError('RATE_LIMITED', 'too many rendezvous attempts', { retry_after_ms: retryAfter, window_ms: rateLimit.window_ms });
     }
     timestamps.push(at);
@@ -322,8 +332,10 @@ export function createInviteRendezvous({
      * so entering or clicking a locator cannot become a capability grant.
      */
     preview({ locator, client_ref, at: when } = {}) {
-      const at = when ?? now();
-      if (isText(client_ref)) throttle(client_ref, at);
+      const at = requireInstant(when ?? now(), 'at');
+      // Rate limiting is not opt-in: omitting client_ref used to skip the limiter entirely, so an
+      // enumerating caller simply left it out. An unnamed caller shares one anonymous bucket.
+      throttle(isText(client_ref) ? client_ref : ANONYMOUS_CLIENT, at);
       const parsed = parseLocator(locator);
       if (!parsed.format_valid) throw rendezvousUnavailable();
       const invite = invites.get(byCode.get(parsed.code) ?? '');
@@ -346,9 +358,9 @@ export function createInviteRendezvous({
 
     /** Redeem the locator into a ticket that is explicitly waiting for the host's own confirmation. */
     redeem({ locator, client_ref, guest_device_ref, at: when } = {}) {
-      const at = when ?? now();
+      const at = requireInstant(when ?? now(), 'at');
       if (!isText(guest_device_ref)) throw new InviteError('INVALID_TICKET', 'guest_device_ref is required');
-      if (isText(client_ref)) throttle(client_ref, at);
+      throttle(isText(client_ref) ? client_ref : ANONYMOUS_CLIENT, at);
       const parsed = parseLocator(locator);
       if (!parsed.format_valid) throw rendezvousUnavailable();
       const invite = invites.get(byCode.get(parsed.code) ?? '');
@@ -381,7 +393,7 @@ export function createInviteRendezvous({
      * a declined request leaves the invite usable rather than silently burning it.
      */
     confirm({ ticket_ref, host_device_ref, accepted = false, at: when } = {}) {
-      const at = when ?? now();
+      const at = requireInstant(when ?? now(), 'at');
       const ticket = tickets.get(ticket_ref);
       if (!ticket) throw new InviteError('UNKNOWN_TICKET', `no rendezvous ticket ${String(ticket_ref)}`);
       if (ticket.state !== 'AWAITING_CONFIRMATION') throw new InviteError('ALREADY_CONFIRMED', `ticket ${ticket_ref} is ${ticket.state}`);
@@ -442,7 +454,7 @@ export function createInviteRendezvous({
 
     /** Cancellation before expiry. Only the host may cancel. */
     revoke({ invite_id, host_device_ref, at: when } = {}) {
-      const at = when ?? now();
+      const at = requireInstant(when ?? now(), 'at');
       const invite = invites.get(invite_id);
       if (!invite) throw rendezvousUnavailable();
       if (host_device_ref !== invite.host_device_ref) throw new InviteError('NOT_THE_HOST', 'only the inviting device may cancel this rendezvous');

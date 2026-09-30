@@ -41,25 +41,71 @@ export class EngineeringJobError extends Error {
 const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const isText = value => typeof value === 'string' && value.trim().length > 0;
 const clone = value => (value === undefined ? undefined : structuredClone(value));
-const isIsoInstant = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+const isIsoInstantShape = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+/**
+ * Shape is not enough. `2026-13-45T99:99:99Z` matches the regex but parses to NaN, and a
+ * calendar-impossible date such as `2026-02-30T00:00:00.000Z` silently normalises to a *different*
+ * day, so an instant must also round-trip to the calendar date it claims to be.
+ */
+const isIsoInstant = value => {
+  if (!isIsoInstantShape(value)) return false;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) && new Date(parsed).toISOString().slice(0, 19) === value.slice(0, 19);
+};
 
 const SECRET_KEY_PATTERN = /(?:^|[._-])(token|secret|password|cookie|api[-_]?key|private[-_]?key|bearer|credential|access[-_]?token)(?:$|[._-])/i;
 const HANDLE_SUFFIX = /(?:_ref|_refs|_handle|_handles|_id)$/i;
 
-export function findRawSecretFields(value, path = 'envelope', found = []) {
-  if (Array.isArray(value)) { value.forEach((item, index) => findRawSecretFields(item, `${path}[${index}]`, found)); return found; }
+export const MAX_ENVELOPE_DEPTH = 32;
+
+/**
+ * Iterative and cycle-safe, so the check itself cannot overflow the stack. The secret scanner walks
+ * *data* (attacker-controlled) rather than the fixed schema, so without a bound a deeply nested
+ * envelope escaped as an untyped `RangeError: Maximum call stack size exceeded` instead of a refusal.
+ */
+export function envelopeDepthExceeded(value, max = MAX_ENVELOPE_DEPTH) {
+  const stack = [{ node: value, depth: 1 }];
+  const seen = new WeakSet();
+  while (stack.length > 0) {
+    const { node, depth } = stack.pop();
+    if (node === null || typeof node !== 'object') continue;
+    if (depth > max) return true;
+    if (seen.has(node)) continue;
+    seen.add(node);
+    for (const child of Array.isArray(node) ? node : Object.values(node)) stack.push({ node: child, depth: depth + 1 });
+  }
+  return false;
+}
+
+export function findRawSecretFields(value, path = 'envelope', found = [], seen = new WeakSet()) {
+  if (Array.isArray(value)) {
+    if (seen.has(value)) return found;
+    seen.add(value);
+    value.forEach((item, index) => findRawSecretFields(item, `${path}[${index}]`, found, seen));
+    return found;
+  }
   if (!isPlainObject(value)) return found;
+  // A cyclic envelope used to recurse until the stack blew; visiting each object once is enough to
+  // scan every reachable key.
+  if (seen.has(value)) return found;
+  seen.add(value);
   for (const [key, child] of Object.entries(value)) {
     const childPath = `${path}.${key}`;
     if (SECRET_KEY_PATTERN.test(key) && !HANDLE_SUFFIX.test(key)) found.push(childPath);
-    findRawSecretFields(child, childPath, found);
+    findRawSecretFields(child, childPath, found, seen);
   }
   return found;
 }
 
 function checkShape(value, path, spec, errors) {
   if (!isPlainObject(value)) { errors.push(`${path} must be an object`); return; }
-  for (const key of Object.keys(value)) if (!(key in spec)) errors.push(`${path}.${key} is not part of the canonical contract`);
+  // `key in spec` walks the prototype chain, and every spec is an object literal — so a field named
+  // `constructor`, `toString`, `valueOf`, `hasOwnProperty`, `__proto__` or any other Object.prototype
+  // member was accepted as "part of the canonical contract" at every nesting level, which is exactly
+  // how a cross-device transport field would enter the canonical Engineering record. Only own keys of
+  // the spec are part of the contract, and `Reflect.ownKeys` scans the value the same way the
+  // presence check reads it, so a non-enumerable own field cannot slip past the scan either.
+  for (const key of Reflect.ownKeys(value)) if (!Object.hasOwn(spec, key)) errors.push(`${path}.${String(key)} is not part of the canonical contract`);
   for (const [key, rule] of Object.entries(spec)) {
     const present = Object.hasOwn(value, key);
     if (!present) { if (rule.required) errors.push(`${path}.${key} is required`); continue; }
@@ -77,10 +123,25 @@ function checkShape(value, path, spec, errors) {
 }
 
 const VERSION = { required: true, type: 'int', constant: ENGINEERING_JOB_CONTRACT_VERSION };
+/** Bounds for the structured result arrays, matching the convention of the text arrays. */
+export const MAX_CHANGED_FILES = 256;
+export const MAX_RESULT_TESTS = 128;
+export const MAX_CONTROLLER_DECISIONS = 32;
+
 const textArray = (max = 64) => (value, path, errors) => {
   if (!Array.isArray(value)) return;
   if (value.length > max) errors.push(`${path} must hold at most ${max} entries`);
   value.forEach((item, index) => { if (!isText(item)) errors.push(`${path}[${index}] must be nonempty text`); });
+};
+/**
+ * The structured arrays need the same two-sided bound the text arrays already had: `changed_files`,
+ * `tests` and `controller_decisions` accepted an unbounded number of entries while every sibling
+ * array was capped, so one envelope could carry an arbitrary payload.
+ */
+const objectArray = (max) => (value, path, errors) => {
+  if (!Array.isArray(value)) return;
+  if (value.length > max) errors.push(`${path} must hold at most ${max} entries`);
+  value.forEach((item, index) => { if (!isPlainObject(item)) errors.push(`${path}[${index}] must be an object`); });
 };
 
 // ---- job envelope --------------------------------------------------------
@@ -136,6 +197,7 @@ export function admitJob(job) {
     if (isPlainObject(job.device_policy)) checkShape(job.device_policy, 'job.device_policy', DEVICE_POLICY_SPEC, errors);
     textArray()(job.context_refs, 'job.context_refs', errors);
     if (job.operations !== undefined) textArray(64)(job.operations, 'job.operations', errors);
+    if (envelopeDepthExceeded(job)) errors.push(`job must not be nested deeper than ${MAX_ENVELOPE_DEPTH} levels`);
     for (const found of findRawSecretFields(job, 'job')) errors.push(`${found} looks like raw secret bytes; jobs carry permission references, not secrets`);
   }
   if (errors.length) return { admitted: false, code: 'INVALID_ENGINEERING_JOB', detail: errors.slice(0, 3).join('; '), honest_blocker: false, errors };
@@ -189,6 +251,7 @@ export function validateEventEnvelope(event) {
     if (event.partial?.progress_percent !== 100 && TERMINAL_JOB_STATES.includes(event.state)) {
       errors.push('event.state: a partial or progress event cannot mark a job terminal');
     }
+    if (envelopeDepthExceeded(event)) errors.push(`event must not be nested deeper than ${MAX_ENVELOPE_DEPTH} levels`);
     for (const found of findRawSecretFields(event, 'event')) errors.push(`${found} looks like raw secret bytes`);
   }
   return { ok: errors.length === 0, errors: [...new Set(errors)] };
@@ -222,15 +285,16 @@ export function validateResultEnvelope(result) {
   const errors = [];
   checkShape(result, 'result', RESULT_SPEC, errors);
   if (isPlainObject(result)) {
-    if (Array.isArray(result.changed_files)) result.changed_files.forEach((entry, index) => checkShape(entry, `result.changed_files[${index}]`, CHANGED_FILE_SPEC, errors));
-    if (Array.isArray(result.tests)) result.tests.forEach((entry, index) => checkShape(entry, `result.tests[${index}]`, TEST_SPEC, errors));
+    if (Array.isArray(result.changed_files)) { objectArray(MAX_CHANGED_FILES)(result.changed_files, 'result.changed_files', errors); result.changed_files.forEach((entry, index) => checkShape(entry, `result.changed_files[${index}]`, CHANGED_FILE_SPEC, errors)); }
+    if (Array.isArray(result.tests)) { objectArray(MAX_RESULT_TESTS)(result.tests, 'result.tests', errors); result.tests.forEach((entry, index) => checkShape(entry, `result.tests[${index}]`, TEST_SPEC, errors)); }
     if (isPlainObject(result.git)) checkShape(result.git, 'result.git', GIT_SPEC, errors);
     if (isPlainObject(result.acceptance)) { checkShape(result.acceptance, 'result.acceptance', RESULT_ACCEPTANCE_SPEC, errors); textArray()(result.acceptance.evidence_refs, 'result.acceptance.evidence_refs', errors); }
-    if (Array.isArray(result.controller_decisions)) result.controller_decisions.forEach((entry, index) => checkShape(entry, `result.controller_decisions[${index}]`, CONTROLLER_DECISION_SPEC, errors));
+    if (Array.isArray(result.controller_decisions)) { objectArray(MAX_CONTROLLER_DECISIONS)(result.controller_decisions, 'result.controller_decisions', errors); result.controller_decisions.forEach((entry, index) => checkShape(entry, `result.controller_decisions[${index}]`, CONTROLLER_DECISION_SPEC, errors)); }
     textArray(32)(result.warnings, 'result.warnings', errors);
     // Success must be evidence-backed, and a terminal status must match the acceptance verdict.
     if (result.terminal_status === 'SUCCEEDED' && result.acceptance?.status !== 'PASS') errors.push('result.terminal_status SUCCEEDED requires acceptance.status PASS');
     if (result.terminal_status === 'SUCCEEDED' && Array.isArray(result.tests) && result.tests.some(test => test?.status === 'FAIL')) errors.push('result.terminal_status SUCCEEDED must not carry a failing test');
+    if (envelopeDepthExceeded(result)) errors.push(`result must not be nested deeper than ${MAX_ENVELOPE_DEPTH} levels`);
     for (const found of findRawSecretFields(result, 'result')) errors.push(`${found} looks like raw secret bytes`);
   }
   return { ok: errors.length === 0, errors: [...new Set(errors)] };
@@ -258,6 +322,7 @@ export function validateArtifactEnvelope(artifact) {
   if (isPlainObject(artifact)) {
     if (isPlainObject(artifact.provenance)) checkShape(artifact.provenance, 'artifact.provenance', PROVENANCE_SPEC, errors);
     if (isText(artifact.digest) && !/^sha256:[0-9a-f]{64}$/.test(artifact.digest)) errors.push('artifact.digest must be a sha256:<64 hex> digest');
+    if (envelopeDepthExceeded(artifact)) errors.push(`artifact must not be nested deeper than ${MAX_ENVELOPE_DEPTH} levels`);
     for (const found of findRawSecretFields(artifact, 'artifact')) errors.push(`${found} looks like raw secret bytes`);
   }
   return { ok: errors.length === 0, errors: [...new Set(errors)] };

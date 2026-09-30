@@ -9,9 +9,10 @@ import assert from 'node:assert/strict';
 
 import {
  ACTIVE_JOB_STATES, ARTIFACT_KINDS, ENGINEERING_JOB_PROTOCOL, EXECUTION_MODES, FILE_STATUSES,
- JOB_REJECTION_CODES, JOB_STATES, TERMINAL_JOB_STATES, admitJob, artifactProvenance, assertJobEnvelope,
- attachArtifact, createJobRecord, findRawSecretFields, jobSummary, reconcileEvents, applyEvent,
- applyResult, validateArtifactEnvelope, validateEventEnvelope, validateResultEnvelope
+ JOB_REJECTION_CODES, JOB_STATES, TERMINAL_JOB_STATES, MAX_CHANGED_FILES, admitJob, artifactProvenance,
+ assertJobEnvelope, attachArtifact, createJobRecord, envelopeDepthExceeded, findRawSecretFields,
+ jobSummary, reconcileEvents, applyEvent, applyResult, validateArtifactEnvelope, validateEventEnvelope,
+ validateResultEnvelope
 } from '../index.mjs';
 
 const TS = '2026-09-30T12:00:00.000Z';
@@ -259,3 +260,240 @@ test('the protocol publishes its guarantees and stays transport neutral', () => 
   // cross-device carriage may use RF envelopes, but the Engineering envelope is the canonical one
   assert.equal(validateEventEnvelope(baseEvent({ transport: 'RF_STREAM' })).ok, false);
 });
+
+/* --------------------------------- 10. regressions (Correction, host Alien) */
+
+// The author's strictness test above uses the name `transport`, which is not an Object.prototype
+// member — which is exactly why the hole below survived. Every refusal is paired with the legitimate
+// neighbour that must still pass, so no guard can be satisfied by refusing everything.
+
+test('unknown fields are refused even when named after Object.prototype members', () => {
+  const prototypeNames = Object.getOwnPropertyNames(Object.prototype);
+  assert.equal(prototypeNames.length >= 12, true);
+  for (const name of prototypeNames) {
+    const job = { ...baseJob() };
+    Object.defineProperty(job, name, { value: 'RF_STREAM', enumerable: true, configurable: true, writable: true });
+    const verdict = admitJob(job);
+    assert.equal(verdict.admitted, false, `job.${name} must not be part of the canonical contract`);
+    assert.equal(verdict.errors.some(error => error.startsWith(`job.${name}`)), true, `job.${name} must be named as the offending field`);
+  }
+  // ...at every nesting level, not only at the top
+  assert.equal(validateResultEnvelope(baseResult({ git: { commit_ref: 'abc1234', branch_ref: 'b', pr_ref: null, constructor: 'x' } })).ok, false);
+  assert.equal(validateEventEnvelope(baseEvent({ source: { connector_ref: 'c', device_ref: 'd', toString: 'x' } })).ok, false);
+  assert.equal(validateArtifactEnvelope(baseArtifact({ provenance: { device_ref: 'd', connector_ref: 'c', event_ref: null, valueOf: 1 } })).ok, false);
+  // neighbours: an ordinary unknown field is still refused, and a clean envelope is still admitted
+  assert.equal(admitJob(baseJob({ transport: 'RF_STREAM' })).admitted, false);
+  assert.equal(admitJob(baseJob()).admitted, true);
+  assert.equal(validateResultEnvelope(baseResult()).ok, true);
+  assert.equal(createJobRecord(baseJob()).job.job_ref, 'job-1');
+});
+
+test('a job record cannot be born terminal, and success is only reached through a result', () => {
+  for (const state of TERMINAL_JOB_STATES) {
+    expectCode(() => createJobRecord(baseJob({ state })), 'INVALID_ENGINEERING_JOB');
+  }
+  // neighbour: a record starts active, and its terminal state always arrives with a result
+  const record = createJobRecord(baseJob());
+  assert.equal(jobSummary(record).is_terminal, false);
+  const finished = applyResult(record, baseResult()).record;
+  assert.equal(jobSummary(finished).is_terminal, true);
+  assert.equal(jobSummary(finished).terminal_status, 'SUCCEEDED');
+  assert.equal(jobSummary(finished).acceptance, 'PASS');
+  assert.equal(jobSummary(finished).result_ref, 'result-1');
+});
+
+test('an event from a superseded job version never acts on the current job', () => {
+  const record = createJobRecord(baseJob());
+  const advanced = applyEvent(record, baseEvent({ event_id: 'event-v2', job_version: 2, sequence: 2 })).record;
+  assert.equal(advanced.job_version, 2);
+  assert.equal(advanced.state, 'RUNNING');
+  // a stale incarnation cannot walk the state backwards...
+  const backwards = applyEvent(advanced, baseEvent({ event_id: 'event-stale', job_version: 1, sequence: 9, state: 'QUEUED' }));
+  assert.equal(backwards.applied, false);
+  assert.equal(backwards.reason, 'STALE_JOB_VERSION');
+  assert.equal(backwards.record.state, 'RUNNING');
+  // ...nor terminally fail a job that is still running
+  const staleTerminal = applyEvent(advanced, baseEvent({ event_id: 'event-stale-fail', job_version: 1, sequence: 10, state: 'FAILED', partial: { progress_percent: 100, summary: 'old incarnation died' } }));
+  assert.equal(staleTerminal.applied, false);
+  assert.equal(staleTerminal.record.state, 'RUNNING');
+  // neighbours: the current version still applies, and a forward version is how the record advances
+  assert.equal(applyEvent(advanced, baseEvent({ event_id: 'event-v2-next', job_version: 2, sequence: 3 })).applied, true);
+  assert.equal(applyEvent(advanced, baseEvent({ event_id: 'event-v3', job_version: 3, sequence: 3 })).record.job_version, 3);
+});
+
+test('a replayed result is recognised by its content, not by its ref', () => {
+  const finished = applyResult(createJobRecord(baseJob()), baseResult()).record;
+  const replay = applyResult(finished, baseResult());
+  assert.equal(replay.applied, false);
+  assert.equal(replay.reason, 'DUPLICATE_RESULT');
+  assert.equal(replay.record.state, 'SUCCEEDED');
+  // a rewritten result under the same ref is not a replay, and must not be passed off as one
+  const rewritten = baseResult({ terminal_status: 'FAILED', acceptance: { status: 'FAIL', evidence_refs: [] }, summary: 'actually failed' });
+  expectCode(() => applyResult(finished, rewritten), 'TERMINAL_JOB_IS_FINAL');
+  // neighbours: an unrelated second result is refused, and a fresh job still accepts its result
+  expectCode(() => applyResult(finished, baseResult({ result_ref: 'result-2' })), 'TERMINAL_JOB_IS_FINAL');
+  assert.equal(applyResult(createJobRecord(baseJob()), baseResult({ result_ref: 'result-2' })).applied, true);
+});
+
+test('a replayed artifact is recognised by its content and digest', () => {
+  const attached = attachArtifact(createJobRecord(baseJob()), baseArtifact()).record;
+  const replay = attachArtifact(attached, baseArtifact());
+  assert.equal(replay.applied, false);
+  assert.equal(replay.reason, 'DUPLICATE_ARTIFACT');
+  // same ref, different payload: refusing is the honest answer, and the digest is available to say so
+  const changed = baseArtifact({ digest: 'sha256:' + 'b'.repeat(64), size_bytes: 2048, kind: 'SCREENSHOT' });
+  expectCode(() => attachArtifact(attached, changed), 'INVALID_ARTIFACT');
+  assert.equal(attached.artifacts[0].digest, DIGEST);
+  // neighbours: a different artifact with the same digest still attaches, and provenance is copied
+  const second = baseArtifact({ artifact_ref: 'artifact-2' });
+  assert.equal(attachArtifact(attached, second).applied, true);
+  const provenance = artifactProvenance(second);
+  assert.equal(provenance.device_ref, 'device-1');
+  assert.equal(provenance.connector_ref, 'connector-1');
+  assert.equal(provenance.job_ref, 'job-1');
+});
+
+test('a malformed batch is refused with a typed contract error', () => {
+  const record = createJobRecord(baseJob());
+  // the ordering pass reads `sequence`, so a null entry used to escape as an untyped TypeError
+  for (const batch of [[null, null], [baseEvent(), null], [baseEvent(), 42], [undefined, undefined]]) {
+    const error = expectCode(() => reconcileEvents(record, batch), 'INVALID_EVENT');
+    assert.equal(error.name, 'EngineeringJobError');
+  }
+  assert.equal(expectCode(() => reconcileEvents(record, [baseEvent(), null]), 'INVALID_EVENT').detail.includes('events[1]'), true);
+  expectCode(() => reconcileEvents(record, 'not-an-array'), 'INVALID_EVENT');
+  // neighbours: a well-formed batch still reconciles, and equal ids still compare equal
+  assert.equal(reconcileEvents(record, [baseEvent()]).applied.length, 1);
+  assert.equal(reconcileEvents(record, [baseEvent({ event_id: 'b', sequence: 2 }), baseEvent({ event_id: 'a', sequence: 1 })]).applied.length, 2);
+});
+
+test('an ignored duplicate is recorded on the record, once, and stays idempotent', () => {
+  const record = createJobRecord(baseJob());
+  const applied = applyEvent(record, baseEvent());
+  assert.equal(applied.applied, true);
+  assert.deepEqual([...applied.record.ignored_events], []);
+  const duplicate = applyEvent(applied.record, baseEvent());
+  assert.equal(duplicate.applied, false);
+  assert.equal(duplicate.reason, 'DUPLICATE_EVENT');
+  assert.deepEqual(duplicate.record.ignored_events.map(entry => entry.reason), ['DUPLICATE_EVENT']);
+  // replaying the duplicate does not grow the record: the audit is visible but not replay-sensitive
+  const again = applyEvent(duplicate.record, baseEvent());
+  assert.equal(again.record.ignored_events.length, 1);
+  assert.deepEqual(jobSummary(again.record).ignored_events, duplicate.record.ignored_events);
+  // neighbour: a late event is still recorded alongside it, with its own reason
+  const late = applyEvent(again.record, baseEvent({ event_id: 'event-late', sequence: 1 }));
+  assert.deepEqual(late.record.ignored_events.map(entry => entry.reason), ['DUPLICATE_EVENT', 'LATE_EVENT']);
+});
+
+test('a calendar-impossible instant is refused, not merely shape-checked', () => {
+  assert.equal(validateEventEnvelope(baseEvent({ at: '2026-13-45T99:99:99Z' })).ok, false);
+  assert.equal(validateEventEnvelope(baseEvent({ at: '2026-02-30T00:00:00.000Z' })).ok, false);
+  assert.equal(validateResultEnvelope(baseResult({ produced_at: '2026-02-30T00:00:00.000Z' })).ok, false);
+  assert.equal(validateArtifactEnvelope(baseArtifact({ produced_at: '2026-13-01T00:00:00.000Z' })).ok, false);
+  assert.equal(admitJob(baseJob({ created_at: '2026-13-01T00:00:00.000Z' })).admitted, false);
+  // neighbours: both accepted spellings of a real instant still pass
+  assert.equal(validateEventEnvelope(baseEvent({ at: TS })).ok, true);
+  assert.equal(validateEventEnvelope(baseEvent({ at: '2026-09-30T12:00:00Z' })).ok, true);
+  assert.equal(validateEventEnvelope(baseEvent({ at: LATER })).ok, true);
+  assert.equal(validateResultEnvelope(baseResult()).ok, true);
+});
+
+test('a terminal announcement without a result is completed by the honest result', () => {
+  // a 100 % event may announce a terminal state (the validator blesses that shape above), but the
+  // announcement carries no evidence: gating finality on the *state* made the job final with
+  // result: null and then refused its own result with "already succeeded with undefined"
+  const announced = applyEvent(createJobRecord(baseJob()), baseEvent({ state: 'SUCCEEDED', partial: { progress_percent: 100, summary: 'done' } })).record;
+  assert.equal(announced.state, 'SUCCEEDED');
+  assert.equal(announced.result, null);
+  assert.equal(jobSummary(announced).terminal_status, null);
+  const completed = applyResult(announced, baseResult());
+  assert.equal(completed.applied, true, 'the result that makes the job final must still be accepted');
+  assert.equal(completed.record.result.result_ref, 'result-1');
+  assert.equal(completed.record.state, 'SUCCEEDED');
+  const summary = jobSummary(completed.record);
+  assert.equal(summary.is_terminal, true);
+  assert.equal(summary.terminal_status, 'SUCCEEDED');
+  assert.equal(summary.acceptance, 'PASS');
+  // evidence wins over an announcement: the recorded result, not the event, sets the terminal status
+  const announcedSuccess = applyEvent(createJobRecord(baseJob()), baseEvent({ state: 'SUCCEEDED', partial: { progress_percent: 100, summary: 'done' } })).record;
+  const failed = applyResult(announcedSuccess, baseResult({ terminal_status: 'FAILED', acceptance: { status: 'FAIL', evidence_refs: [] } }));
+  assert.equal(failed.record.state, 'FAILED');
+  // neighbour: once a result is recorded, finality is unchanged
+  expectCode(() => applyResult(completed.record, baseResult({ result_ref: 'result-2' })), 'TERMINAL_JOB_IS_FINAL');
+  const afterResult = applyEvent(completed.record, baseEvent({ event_id: 'event-after', sequence: 5, state: 'RUNNING' }));
+  assert.equal(afterResult.applied, false);
+  assert.equal(afterResult.reason, 'TERMINAL_JOB_IS_FINAL');
+  assert.equal(afterResult.record.state, 'SUCCEEDED');
+});
+
+test('the job record is immutable at every level, not only at the top', () => {
+  const record = createJobRecord(baseJob());
+  assert.equal(Object.isFrozen(record), true);
+  assert.equal(Object.isFrozen(record.job), true);
+  assert.equal(Object.isFrozen(record.event_ids), true);
+  assert.equal(Object.isFrozen(record.applied_events), true);
+  // a rewritten job_ref would make the record accept another job's event
+  assert.throws(() => { record.job.job_ref = 'job-ATTACKER'; }, TypeError);
+  expectCode(() => applyEvent(record, baseEvent({ job_ref: 'job-ATTACKER' })), 'INVALID_EVENT');
+  const attached = attachArtifact(record, baseArtifact()).record;
+  assert.equal(Object.isFrozen(attached.artifacts), true);
+  assert.equal(Object.isFrozen(attached.artifacts[0]), true);
+  assert.equal(Object.isFrozen(attached.artifacts[0].provenance), true);
+  assert.throws(() => { attached.artifacts[0].provenance.device_ref = 'device-ATTACKER'; }, TypeError);
+  assert.equal(artifactProvenance(attached.artifacts[0]).device_ref, 'device-1');
+  const applied = applyEvent(record, baseEvent()).record;
+  assert.equal(Object.isFrozen(applied.applied_events[0]), true);
+  assert.throws(() => { applied.event_ids.push('event-forged'); }, TypeError);
+  // neighbours: a forger still cannot suppress a real event, and the record still reads normally
+  assert.equal(applyEvent(applied, baseEvent({ event_id: 'event-2', sequence: 2 })).applied, true);
+  assert.equal(jobSummary(applied).job_ref, 'job-1');
+});
+
+test('a non-enumerable own out-of-contract field is refused too', () => {
+  const job = { ...baseJob() };
+  Object.defineProperty(job, 'transport', { value: 'RF_STREAM', enumerable: false, configurable: true, writable: true });
+  assert.deepEqual(Object.keys(job).includes('transport'), false);
+  assert.equal(admitJob(job).admitted, false, 'scanning enumerable keys only left the non-enumerable one admitted');
+  const event = { ...baseEvent() };
+  Object.defineProperty(event, 'rf_stream_ref', { value: 'x', enumerable: false, configurable: true, writable: true });
+  assert.equal(validateEventEnvelope(event).ok, false);
+  // neighbours: enumerable unknown fields are still refused, and a clean envelope is still admitted
+  assert.equal(admitJob(baseJob({ transport: 'RF_STREAM' })).admitted, false);
+  assert.equal(admitJob(baseJob()).admitted, true);
+  assert.equal(validateEventEnvelope(baseEvent()).ok, true);
+});
+
+test('the structured result arrays are bounded like their siblings', () => {
+  const files = count => Array.from({ length: count }, (unused, index) => ({ path: `f${index}.mjs`, status: 'MODIFIED', digest: null }));
+  assert.equal(validateResultEnvelope(baseResult({ changed_files: files(MAX_CHANGED_FILES) })).ok, true);
+  assert.equal(validateResultEnvelope(baseResult({ changed_files: files(MAX_CHANGED_FILES + 1) })).ok, false);
+  assert.equal(validateResultEnvelope(baseResult({ tests: Array.from({ length: 5000 }, () => ({ name: 't', status: 'PASS' })) })).ok, false);
+  assert.equal(validateResultEnvelope(baseResult({ controller_decisions: Array.from({ length: 5000 }, () => ({ decision: 'd', reason: 'r' })) })).ok, false);
+  // neighbours: the text arrays keep their existing caps, and a normal result still validates
+  assert.equal(validateResultEnvelope(baseResult({ warnings: Array.from({ length: 33 }, () => 'w') })).ok, false);
+  assert.equal(validateResultEnvelope(baseResult()).ok, true);
+  assert.equal(validateResultEnvelope(baseResult({ changed_files: files(2) })).ok, true);
+});
+
+test('a cyclic or over-deep envelope is refused, never a stack overflow', () => {
+  const loop = [];
+  loop.push(loop);
+  const cyclic = { ...baseJob(), context_refs: loop };
+  const verdict = admitJob(cyclic);
+  assert.equal(verdict.admitted, false);
+  assert.equal(verdict.errors.every(error => typeof error === 'string'), true);
+  const cyclicObject = { token: 'raw' };
+  cyclicObject.self = cyclicObject;
+  assert.deepEqual(findRawSecretFields(cyclicObject, ''), ['.token']);
+  // depth is attacker-controlled data, so it is bounded rather than left to the stack
+  let deep = 'leaf';
+  for (let index = 0; index < 200; index += 1) deep = { next: deep };
+  assert.equal(admitJob({ ...baseJob(), context_refs: [deep] }).admitted, false);
+  assert.equal(envelopeDepthExceeded(deep), true);
+  // neighbours: a shallow, acyclic envelope is unaffected, and a deep-but-legal nesting is allowed
+  assert.equal(admitJob(baseJob()).admitted, true);
+  assert.equal(envelopeDepthExceeded(baseJob()), false);
+  assert.equal(envelopeDepthExceeded({ a: { b: { c: 'd' } } }), false);
+  assert.equal(admitJob(baseJob({ context_refs: ['context-1', 'context-2'] })).admitted, true);
+});
+

@@ -27,8 +27,19 @@ test('theme generation returns a reproducible PNG and validation',async()=>{
  assert.equal(digest(a),digest(b));assert.equal(Buffer.from(a.previewPngBase64,'base64').subarray(1,4).toString(),'PNG');assert.equal(a.globalApply,false);
 });
 test('future promoted module stays pending and all five existing adapters still execute',async()=>{
- const manifest=JSON.parse(readFileSync('city/CITY_IMPLEMENTATION_MANIFEST.json'));manifest.districts[0].buildings[0].modules.push({id:'future',en:'Future',lifecycle:'PROMOTED'});const catalog=registry(manifest);
- assert.equal(catalog.find(x=>x.moduleRefs?.[0]?.moduleId==='future').bridgeState,'BRIDGE_PENDING');assert.equal(catalog.length,6);assert.equal(catalog.filter(c=>c.bridgeState==='AVAILABLE').length,5);
+ const manifest=JSON.parse(readFileSync('city/CITY_IMPLEMENTATION_MANIFEST.json'));
+ // 02-engineering is a domain district, so the fixture module lands in the
+ // described catalog rather than in the filtered-out infrastructure kernel. The
+ // total descriptor count is stated relative to the current census only: an
+ // absolute count is exactly what broke on three Missions, because every newly
+ // declared module adds a descriptor. The adapter invariants stay absolute.
+ const baseline=registry(manifest);
+ manifest.districts.find(d=>d.id==='02-engineering').buildings[0].modules.push({id:'future',en:'Future',lifecycle:'PROMOTED'});
+ const catalog=registry(manifest);
+ assert.equal(catalog.find(x=>x.moduleRefs?.[0]?.moduleId==='future').bridgeState,'BRIDGE_PENDING');
+ assert.equal(catalog.length,baseline.length+1,'exactly one descriptor is added, and it is the future module');
+ assert.equal(catalog.filter(c=>c.bridgeState==='AVAILABLE').length,5,'the five existing adapters are unaffected');
+ assert.equal(catalog.filter(c=>c.bridgeState==='AVAILABLE').length,baseline.filter(c=>c.bridgeState==='AVAILABLE').length);
  const inputs={document:{fileName:'sample.txt',base64:Buffer.from('Utopia').toString('base64')},knowledge:{entries:[],query:'Utopia'},skill:{ref:'owner/repo'},evidence:{sample:true},theme:{seed:'future-module-check'}};for(const descriptor of catalog.filter(c=>c.bridgeState==='AVAILABLE'))assert.ok(await invokeAdapter(descriptor.capabilityId,descriptor.operations[0].operationId,inputs[descriptor.inputKind]));
 });
 test('malformed and oversized inputs have explicit refusals',async()=>{

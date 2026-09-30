@@ -1,0 +1,90 @@
+{
+  "module": "research-provenance",
+  "cityPath": "city/06-research/01-research-institute/research-provenance",
+  "district": "06-research",
+  "building": "01-research-institute",
+  "incubationRooms": [
+    "mb-007-research-provenance-lab"
+  ],
+  "mission": {
+    "missionId": "MB-007",
+    "book": "Digital-City/mission-book/MB-007-research-institute.md",
+    "role": "MIGRATION",
+    "cluster": "literature and source provenance, and claim/citation verification"
+  },
+  "repository": "zhiheng-zhang-Mera/Codex-Boss",
+  "commit": "8df428eaa437a409368401e95194e40266b83080",
+  "sourcePaths": [
+    "src/shared/research-citation.ts",
+    "src/shared/research-bibliography.ts",
+    "src/shared/research-input.ts"
+  ],
+  "portedFiles": {
+    "src/shared/research-citation.ts": [
+      "contracts.mjs",
+      "citation.mjs"
+    ],
+    "src/shared/research-bibliography.ts": "bibliography.mjs",
+    "src/shared/research-input.ts": [
+      "contracts.mjs",
+      "input.mjs"
+    ]
+  },
+  "adaptation": [
+    "TypeScript -> ESM JavaScript. The behaviour is the donor's, unchanged: the same statuses in the same ladder order, the same question order in verifyCitation, the same strings, the same thresholds (title 500, 50 passages, quote 4000, question/hypothesis 20000, 50 constraints of 2000 chars, 1-5 reviewers, positive-integer budget) and the same bibliography document bytes.",
+    "The donor's type-only edges carried no runtime dependency, and none was invented. `research-bibliography.ts` imported `CitationRecord`/`CitationStatus` only as types, and `research-input.ts` imported `ResearchIR` only as a type. Decision for the ResearchIR edge: the minimal shape this module actually produces is declared locally (the `ResearchIRShape` typedef in `input.mjs`) instead of importing the sibling `research-protocol` module, because `humanResearchToIR` is a producer, not a consumer - there is no caller-supplied boundary value to accept or validate. The frozen vocabularies replace the imported citation types, so the donor set stays three pure files and nothing is imported across modules.",
+    "`researchIdFor` built each hex digit with `Math.floor(Math.random() * 16)`. The entropy source is now an injectable `hexDigit` parameter whose default is `crypto.randomInt(16)`, uniform over the same 0-15 range. The loop, the `entropy * 2` character count, the slug rules and the `<slug>-<hex>` id shape are the donor's.",
+    "`humanResearchToIR` defaulted `now` to `new Date().toISOString()`. A pure module may not read a clock, so `now` is a required parameter, written to `createdAt` and `updatedAt` verbatim; the donor's generated-id default is preserved through the same injectable entropy source.",
+    "The donor's private `validateHumanResearchInput` is exported (surface only) so every rule and every message is directly testable; `validateCitationRecord` keeps the donor's name. `slugOf` stays module-private exactly as in the donor, and its rules (six tokens, 60-character cap, `research` fallback) are pinned through `researchIdFor`. The citation vocabulary is exposed frozen (`CITATION_LADDER`, `VERIFIED_CITATION_STATUSES`, `BIBLIOGRAPHY_STATUSES`, `PROVIDER_POLICIES`).",
+    "The value shapes are materialised through copy-on-construct factories (`citationRecord`, `humanResearchInput`) that validate first and then copy arrays and passages, so a caller cannot mutate a record it already handed over. The factories add no rule: an input the donor accepts is accepted with the same fields, and an input the donor refuses is refused with the donor's exact message.",
+    "The donor file boundaries are mirrored as behaviour modules over one contracts module: `citation.mjs`, `bibliography.mjs`, `input.mjs`, with `index.mjs` as the single export site. `evidence-engine` and `research-protocol` are neither imported nor re-exported."
+  ],
+  "knownDifferences": [
+    "No research conductor, no stage machine, no provider calls, no filesystem and no network: the module builds values and contacts nobody.",
+    "The research IR is produced as the declared local subset, not as the sibling `research-protocol` module's full `ResearchIR` contract. No import crosses a module boundary, and the donor's type-only edge is therefore recorded, not carried.",
+    "`bibliographyEntries` validates nothing and deduplicates nothing, exactly as the donor: entries follow record order, the same record twice renders twice, and a malformed verified record (for example a non-array `proposedAuthors`) fails inside the renderer instead of at a gate. No validation rung was added in front of it.",
+    "`summarizeCitationAudit().ok` is false only for UNSUPPORTED or CONTRADICTED ids, so an empty citation list audits as `ok: true` and METADATA_ONLY never blocks, while `primaryClaimSupported` names only UNSUPPORTED and does not block on CONTRADICTED. Both are the donor's rules, carried verbatim rather than tightened.",
+    "The donor's `validateCitationRecord` leaves `proposedAuthors`, `proposedVenue`, `sourceRef` and `updatedAt` unchecked, and `validateHumanResearchInput` leaves reviewer entries unchecked and accepts empty constraint strings. Carried verbatim; recorded here as the donor's own gap, not repaired.",
+    "The donor's refusal surface is a plain `Error` with a message and no error code, so the refusal paths are pinned by their exact message strings - all 13 verified verbatim against the donor sources - rather than by an invented `code` field."
+  ],
+  "parity": {
+    "vectorSource": "Codex-Boss src/shared/research-citation.ts + src/shared/research-bibliography.ts + src/shared/research-input.ts @ 8df428eaa437a409368401e95194e40266b83080",
+    "vectors": [
+      "verifyCitation asks acquisition, then located passage, then contradiction, then support: no source gives METADATA_ONLY or UNSUPPORTED, no passage gives SOURCE_RETRIEVED, a contradicting passage gives CONTRADICTED even when it also supports, and PARTIAL is never computed",
+      "the citation ladder is UNSUPPORTED, METADATA_ONLY, SOURCE_RETRIEVED, PASSAGE_VERIFIED, CLAIM_SUPPORTED, PARTIAL, CONTRADICTED, in that order",
+      "a primary claim is refused when any citation is UNSUPPORTED, and only UNSUPPORTED blocks that rule",
+      "the audit counts perStatus in first-encounter order, verifies exactly SOURCE_RETRIEVED/PASSAGE_VERIFIED/CLAIM_SUPPORTED/PARTIAL, reports UNSUPPORTED and CONTRADICTED ids, and is ok only when both lists are empty",
+      "citation validation refuses id, title (trim-empty or over 500), status, reasons array and passages (over 50, or a quote that is not a non-empty string of at most 4000), with the donor's exact messages in the donor's order",
+      "the input validator refuses the research question (trim-empty or over 20000), the workspace, hypothesis, constraints, providerPolicy, reviewers, the budget integers and maxRuntimeMinutes, in the donor's order and with the donor's exact messages, including the en dashes",
+      "only SOURCE_RETRIEVED, PASSAGE_VERIFIED, CLAIM_SUPPORTED and PARTIAL enter the bibliography; UNSUPPORTED, METADATA_ONLY and CONTRADICTED records are excluded",
+      "bibliography entries keep record order, sanitise the key to [a-zA-Z0-9:_-] with `citation` as the empty-id fallback, join authors with ` and `, fall back to Unknown/Untitled, and escape braces in the title, journal and url fields only",
+      "referencesBib writes the count header, separates entries with one blank line, ends with a newline and writes `% no verified citations yet` when nothing is verified",
+      "the run id is the lower-cased question slug (six tokens, non-alphanumerics collapsed, 60-character cap, `research` fallback) plus 2 x entropy hex characters, never a timestamp",
+      "the IR carries the trimmed question as goal and researchQuestions[0], the donor defaults (reviewers ['research:auto'], providerPolicy AUTO, autonomy AUTOPILOT, allowedDomains [], state SCOPING, hypotheses []), maxRuntimeMinutes only when the budget had it, and the injected timestamp in createdAt and updatedAt"
+    ]
+  },
+  "classification": {
+    "PARITY": [
+      "citation ladder, question order and PARTIAL never computed",
+      "primary-claim rule and citation audit arithmetic",
+      "citation and input validation rules, order and exact messages",
+      "bibliography inclusion, ordering, key sanitisation, brace escaping and document header",
+      "question slug, run-id shape and IR defaults"
+    ],
+    "PORT_ADAPTATION": [
+      "TypeScript -> ESM JavaScript with the donor file boundaries as behaviour modules",
+      "injectable entropy source replacing Math.random",
+      "required injected `now` replacing new Date()",
+      "validators exported and value shapes materialised as copy-on-construct factories",
+      "one contracts module for the frozen vocabularies and one index.mjs export site"
+    ],
+    "UTOPIA_EXTENSION": [],
+    "DEFERRED": [
+      "research conductor and stage orchestration",
+      "IR state machine and persistence",
+      "provider calls and source acquisition over the network",
+      "manuscript integration and audit-tree rendering",
+      "the sibling research-protocol ResearchIR contract"
+    ]
+  }
+}

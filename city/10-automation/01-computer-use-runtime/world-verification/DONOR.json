@@ -1,0 +1,144 @@
+{
+  "module": "world-verification",
+  "cityPath": "city/10-automation/01-computer-use-runtime/world-verification",
+  "district": "10-automation",
+  "building": "01-computer-use-runtime",
+  "incubationRooms": [
+    "mb-008-world-verification-lab"
+  ],
+  "mission": {
+    "missionId": "MB-008",
+    "book": "Digital-City/mission-book/MB-008-computer-use.md",
+    "role": "MIGRATION",
+    "cluster": "world-state construction, meaningful-change versus evidence-digest separation, postcondition verification with success/failure/unknown, miss signals, and progress that counts only verified effects"
+  },
+  "repository": "zhiheng-zhang-Mera/DS-Hns",
+  "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+  "sourcePaths": [
+    "app/computer-use/world-state.cjs",
+    "app/computer-use/verification.cjs",
+    "app/computer-use/miss.cjs",
+    "app/computer-use/observer.cjs",
+    "app/computer-use/progress.cjs"
+  ],
+  "portedFiles": {
+    "app/computer-use/world-state.cjs": "world-state.mjs",
+    "app/computer-use/verification.cjs": "verification.mjs",
+    "app/computer-use/miss.cjs": "miss.mjs",
+    "app/computer-use/observer.cjs": "observer.mjs",
+    "app/computer-use/progress.cjs": "progress.mjs"
+  },
+  "adaptation": [
+    "CommonJS `.cjs` -> plain ESM `.mjs`. Every donor export is re-exported under the same name: `MEANINGFUL_FIELDS`, `createWorldState`, `meaningfulChange`, `evidenceDigest`, `summarizeWorldState`, `discardWorldState`, `computeConfidence`, `signatureOf`, `stableStringify`; `createVerifier`, `evaluateEffect`, `verifyFactsFrom`, `targetPresent`, `findControl`; `MISS_SIGNALS`, `detectMiss`; `createObserver`; `createProgressTracker`, `PROGRESS_KINDS`, `PROGRESS_KIND_LIST`, `EVIDENCE_KINDS`. Every message, ordering, threshold and verdict rule is carried over verbatim.",
+    "NO SIBLING IMPORTS. `constants.cjs` is being ported concurrently, so `contracts.mjs` declares locally — byte-for-byte — the only two donor vocabularies these five files read: `VERDICTS` (`success`/`failure`/`unknown`) and `VERIFICATION_KINDS` (nine kinds). Nothing else from `constants.cjs` is used or declared. `contracts.mjs` also carries the plain value shapes and the two small `isVerificationKind`/`isVerdict` closure helpers. The donor's `verification.cjs` imports `./world-state.cjs`; here `verification.mjs`, `miss.mjs` and `observer.mjs` import the local `world-state.mjs`, which is the same module boundary the donor had.",
+    "MANDATORY PURITY ADAPTATION — THE ONE INTERFACE CHANGE. The donor has NO injection point for either the digest or the captured time: `world-state.cjs` calls `crypto.createHash('sha1')` at :155 inside `signatureOf` and reads `Date.now()` directly at :57, `observer.cjs` defaults its clock to `{ now: () => Date.now() }`, `verification.cjs` does the same, and `progress.cjs` defaults `now` to `() => Date.now()`. This port exposes `{ now, hash }` on `createWorldState` (and `createObserver`, which forwards both), an optional `{ hash }` on `evidenceDigest`/`verifyFactsFrom`/`detectMiss`/`createVerifier`, and treats the clock as optional everywhere. When a hash is supplied the donor's exact algorithm and output format are kept, and the default remains the donor's own `sha1` hex truncated to 16 characters, so `createWorldState(parts)` with no hash produces the donor's exact signatures and `evidenceDigest(world)` with no options produces the donor's exact digest. The only values that change are the times, and only when no clock is injected: `capturedAt` takes the fixed `DONOR_DEFAULT_CAPTURED_AT` (0) instead of the wall clock, `checkedAt` (the verdict's field, still present) is `null`, an observation error's `at` is `null`, and the progress tracker records `null` instants. A caller that injects `now` gets the donor's exact arithmetic and ordering of clock reads. `createVerifier()` with the donor's own call shape — no clock, no hash — still verifies exactly as the donor did and answers the same verdicts and evidence; only `checkedAt` is `null` instead of a wall-clock number. Nothing else in the five modules was changed.",
+    "`node:crypto` is imported statically as ESM in `world-state.mjs` (the donor's `require('node:crypto')`) and in the test fixtures, and nowhere else: `verification.mjs`, `miss.mjs` and `progress.mjs` reach the digest only through `world-state.mjs`, exactly as the donor did."
+  ],
+  "knownDifferences": [
+    "DEFERRED — `log.cjs`: the donor's retention-receipt writer is not ported, so receipt retention and the screenshots/logs it records are out of this slice. The modules ported here never persist anything; that absence is the donor's own rule for `world-state.cjs` ('nothing in this module writes to disk').",
+    "DEFERRED — `controllers/**` and `drivers/**`: every `facts` function the verifier consumes (`fileExists`, `fileModifiedSince`, `domText`, `visualChange`, `lastShell`) and every browser/desktop/file `snapshot()` the observer calls are supplied by those modules. Here they are plain injected values, so an effect whose fact is missing answers `unknown` exactly as the donor's 'the X controller is unavailable' branches already did.",
+    "DEFERRED — the planner/executor loop, stabilization waits, stall/recovery ladder and the screenshot/UIA capture paths: they read the `STALL`, `RETRY` and `TIMING` vocabulary from `constants.cjs` and drive these modules; they are not part of this slice.",
+    "PRESERVED DEFECT — `verification.cjs` :197 and :202 call `targetPresent(action, after)` while `targetPresent(world, action)` expects `(world, action)`. The action is therefore read as the world, its `controls`/`ax` are absent, and the `target_appears` / `target_disappears` effects can never report an observed target: they always answer `ok: null` ('the target could not be located after the action'). `targetPresent` called with the declared argument order answers correctly. Kept verbatim.",
+    "PRESERVED DEFECT — `verification.cjs` `collectEffects` reads `expectedEffect.any`/`expectedEffect.all` only as arrays, so a declaration such as `{ all: { url_matches: ... } }` yields no effects and silently falls back to the world-change check. In consequence the donor's `mode === 'all'` branch is unreachable for an action-declared `all`: `mode` is only read for `effectMode` and `expectedEffect.mode`, and whenever `mode` is consulted there is at least one effect. Kept verbatim (the branch itself is ported as written).",
+    "PRESERVED DEFECT — `verification.cjs` `targetPresent` guards `!world.controls && !world.ax`, so it answers `false` rather than `null` for a world carrying empty control arrays. Worlds built by `createWorldState` always carry both arrays, so the `null` return is reachable only for a bare world object. Kept verbatim.",
+    "PRESERVED DEFECT — `verification.cjs` `evidenceDigest` guards on `!observed` and then digests, so a world missing everything yields `null` on both sides and the guard short-circuits: `'no comparable observation'` (and therefore `unknown`) is reachable only when `before` or `after` is absent, never for a degenerate world. Kept verbatim.",
+    "PRESERVED DEFECT — `verification.cjs` `file_modified: true` reads `action.params.path`, which throws when the action carries no `params`. Kept verbatim; it is pinned as such in the suite only through actions that do carry `params`.",
+    "PRESERVED DEFECT — `progress.cjs` `accept` reads `detail.kind` for the evidence kind while every verifier result labels it `verificationKind`. A raw verification result is therefore judged on the wrong field: with no `detail.kind` no evidence kind is examined (so a `direct` world-change success is recorded as progress), while the natural `{ verdict: 'success', kind: 'direct' }` is refused. Kept verbatim.",
+    "PRESERVED DEFECT — `miss.cjs` returns the signal `no_observation` for a lost observation, which is not a member of its own closed `MISS_SIGNALS` list. Kept verbatim.",
+    "PRESERVED DEFECT — `observer.cjs` `probeAvailable` treats a controller without a `probe()` as unavailable even when `snapshot()` would answer, because it calls `controller.probe()` and catches the resulting TypeError. Kept verbatim.",
+    "PRESERVED DEFECT — `observer.cjs` registers a SYSTEM observation error only for `file.facts()` that throws out of `guard`; in fact the throw is caught inside the donor's own `collectSystemEvents` and reported through `sources.system.reason`, so the note 'system observation failed: …' is unreachable. (The browser/desktop failure notes are reachable.) Kept verbatim.",
+    "PRESERVED QUIRK — `verification.cjs` `textPresent` answers `false` (not `null`) whenever a world object was supplied, so 'no observation to read' is reachable only when `after` is null; and `text_disappears` is `ok` when the text was never present. Both kept verbatim.",
+    "The port's own test fixtures supply the injected `now`/`hash`. That is test scaffolding, not donor behaviour, and no assertion depends on the wall clock or on an unseeded digest."
+  ],
+  "parity": {
+    "vectorSource": "DS-Hns app/computer-use/{world-state,verification,miss,observer,progress}.cjs @ eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+    "vectors": {
+      "world-state": [
+        "the 13 MEANINGFUL_FIELDS are the donor list, in the donor order, frozen",
+        "the pinned world's control/window/ax/world signatures and evidence digest equal the donor sha1 of the pinned stable string, and are 16 characters long",
+        "signatureOf is the donor sha1 truncated to 16 chars; stableStringify sorts object keys, keeps array order and renders null and undefined alike",
+        "the evidence digest covers signature, DOM revision, the event stream and the focused value, and is null without a world",
+        "confidence is the donor weight table rounded to two places (browser .3, url .1, desktop .25, foreground .1, system .1, structured .1, no dialogs .05) and scores only an exact true",
+        "a missing source is recorded as unavailable with its reason, never replaced by a guess",
+        "meaningfulChange reports '<first observation>'/'<observation lost>' and is a boundary for each of the 13 fields, while ignoring DOM revision churn and lastAction",
+        "empty or absent ax falls back from browser to desktop; controls and windows are filtered of null entries; browser and desktop dialogs are concatenated",
+        "the foreground window comes from desktop.foreground or the first window flagged foreground",
+        "summarizeWorldState is the compact donor summary with notes capped at 5, and discardWorldState empties the world in place and returns that summary"
+      ],
+      "verification": [
+        "a receipt with ok:false and an error is failure/none with the receipt evidence; ok:false alone is not",
+        "with no declared effect: a field difference is success, an identical pair is failure, a non-null DOM revision difference is success via the evidence digest, and a missing observation on either side is unknown",
+        "receipt.signals are appended and receipt.changed === true can carry success",
+        "collectEffects reads any/all as arrays, so an effectMode of 'all' over a non-array declaration checks nothing",
+        "any mode: one observed effect is success, all-unknown is unknown, and a checked failure beats an unknown",
+        "all mode (declared as expectedEffect.mode or effectMode): all must hold, a false beats an unknown, only unknown is unknown",
+        "effectMode outranks the action declaration, and the default is any",
+        "the dominant kind follows the donor order navigation, file, process, event, state, focus, visual, direct, then none",
+        "every expected-effect evaluator answers ok/false/null with the donor message: event, dom_mutated, navigation, url_changed, url_matches, toast, text_appears, text_disappears, control_state_changed, target_appears, target_disappears, value_equals, checked_equals, focus_changed, window_changed, file_created, file_exists, file_missing, file_modified, process_exited, exit_code, stdout_matches, stderr_matches, visual_change, and the unsupported-effect fallback",
+        "implied state: FOCUS/SWITCH_WINDOW compare handle, title substring and process id against the foreground window; CLOSE_WINDOW compares the window list; both decline without a target and fall through to the change check",
+        "findControl resolves by ref, selector, semantic text and accessibility name, searching controls before the accessibility tree",
+        "verifyFactsFrom returns { worldDigest } from the same evidence digest",
+        "every verdict is success/failure/unknown and two identical verifications produce identical results"
+      ],
+      "miss": [
+        "MISS_SIGNALS is the donor list, in the donor order, frozen",
+        "a lost observation returns the out-of-vocabulary no_observation signal with unknown confidence",
+        "controller_reported_noop comes from ok:false + retryable, changed:false + silent:true, or missed:true",
+        "no_state_change requires both no meaningful change and no evidence movement; moved evidence suppresses it",
+        "a failure verdict contributes expected_event_missing, focus_unchanged and control_state_unchanged from its false entries",
+        "focus_unchanged also fires when a FOCUS/SELECT left the focused ref alone",
+        "active_element_unchanged fires for TYPE, DOM_TYPE, ACCESSIBILITY_SET_VALUE, KEY_PRESS and HOTKEY, and is too soft to carry a miss alone",
+        "visual_identical only carries a miss when the evidence did not move",
+        "confidence is low for no signal, medium for one, high for more",
+        "signals are unique and reported in the donor collection order"
+      ],
+      "observer": [
+        "every source is read behind its own fault boundary and degrades with a note plus sources.reason instead of failing the observation",
+        "a controller without probe() is unavailable even when snapshot() works; a probe that throws or answers available:false is a skip with no error record",
+        "a throwing snapshot is an observation error with source, message and code; a source exceeding its window is reported with the donor timeout message, and the per-observation window overrides the default",
+        "a snapshot returning null or undefined is an unavailable source",
+        "the accessibility walk is opt-out through context.ax",
+        "window_changed, focus_changed and url_changed are computed from consecutive observations, accumulate until drained, and are read from the injected clock",
+        "file events (last 20) join the browser events in systemEvents; a file controller whose facts throw degrades sources.system",
+        "watchFile pushes watched events into the stream and calls the callback, and installs nothing without a file controller or a watch function",
+        "the world is built from the parts the sources returned: targets filtered, dialogs signed, notes empty, sources map carried through",
+        "errors() is a copy"
+      ],
+      "progress": [
+        "PROGRESS_KINDS, PROGRESS_KIND_LIST and EVIDENCE_KINDS are the donor vocabulary, frozen",
+        "verified-effect needs verdict success and, when given, an evidence kind from the seven-kind list; direct and none are refused",
+        "subprocess-exit needs an exited process, accepts an exit code or an explicit signal, and refuses a run with neither",
+        "file-operation needs verified:true; criteria-satisfied needs satisfied:true; state-transition needs a state and refuses a repeat",
+        "an unknown progress kind is refused",
+        "a heartbeat and an issued action never move lastProgressAt; only progress does",
+        "noOp counts an identical signature and flags repetition at the repeat window, and a null signature never repeats",
+        "recorded progress clears the no-op streak and forgets the last no-op signature",
+        "history is a bounded copy of the ring (200 by default, ringSize otherwise)",
+        "status reports lastProgressAt/lastActionAt/lastVerifiedEffectAt, the three elapsed windows, the streak, the heartbeat count and the last progress record",
+        "progress counts only verified effects: a failed, unknown or direct world-change verification never advances progress, while a verified file effect does"
+      ]
+    }
+  },
+  "classification": {
+    "PARITY": [
+      "world-state construction, signature and evidence-digest separation",
+      "meaningful change and discarded world state",
+      "success/failure/unknown verification with every expected-effect evaluator",
+      "implied state verification for FOCUS, SWITCH_WINDOW and CLOSE_WINDOW",
+      "miss signals and the soft/conditional/hard ladder",
+      "per-source observation fault boundaries and event accumulation",
+      "progress that counts only verified effects, with the ring and no-op streak"
+    ],
+    "PORT_ADAPTATION": [
+      "CommonJS to ESM, siblings resolved locally instead of importing constants.cjs",
+      "injectable now/hash, with the donor sha1 kept as the default digest",
+      "the donor's implicit Date.now() defaults replaced by is-null or fixed-default behaviour"
+    ],
+    "UTOPIA_EXTENSION": [],
+    "DEFERRED": [
+      "log.cjs retention receipts",
+      "controllers/** and drivers/** (the facts suppliers)",
+      "planner/executor wiring, stabilization/stall recovery ladder and screenshot/UIA capture"
+    ]
+  }
+}

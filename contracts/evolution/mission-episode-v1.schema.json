@@ -147,6 +147,35 @@
         }
       }
     },
+    "migrationAcceptance": {
+      "description": "How the migration stage was accepted. Optional in the schema so the episodes finalized before this field existed (MB-001/002/004/005/006/009) stay valid; the finalizer always writes it now, with mode HOST_PASS unless an Owner ruling overrode an unresolved migration blocker.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "HOST_PASS",
+            "OWNER_OVERRIDE"
+          ]
+        },
+        "ownerRuling": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 200
+        },
+        "migrationBlockerEventId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "ownerInterventionEventId": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
     "learning": {
       "type": "object",
       "additionalProperties": false,

@@ -11,5 +11,8 @@
                                       "app/extensions/mega/theme/png.js"
                                   ]
               },
-    "status":  "PROMOTED"
+    "status":  "PROMOTED",
+    "relocatedTo":  "city/00-foundation/05-control-centre/theme-engine",
+    "relocatedByMission":  "MB-009",
+    "relocationNote":  "The promotion landed at the path above; MB-009 moved the same code, with no semantic change, to 00-foundation/05-control-centre/theme-engine after Digital-City reassigned presentation/theming ownership to 00/05 Control Centre. targetCityPath is deliberately unchanged because this record is a historical fact."
 }

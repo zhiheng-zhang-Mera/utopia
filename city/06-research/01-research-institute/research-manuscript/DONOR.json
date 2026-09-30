@@ -1,0 +1,113 @@
+{
+  "module": "research-manuscript",
+  "cityPath": "city/06-research/01-research-institute/research-manuscript",
+  "district": "06-research",
+  "building": "01-research-institute",
+  "incubationRooms": [
+    "mb-007-research-manuscript-lab"
+  ],
+  "mission": {
+    "missionId": "MB-007",
+    "book": "Digital-City/mission-book/MB-007-research-institute.md",
+    "role": "MIGRATION",
+    "cluster": "figures and tables, and manuscript assembly"
+  },
+  "waves": [
+    {
+      "wave": "MB-007",
+      "room": "mb-007-research-manuscript-lab",
+      "sourcePaths": [
+        "src/shared/research-figures.ts",
+        "src/shared/research-manuscript.ts"
+      ]
+    }
+  ],
+  "repository": "zhiheng-zhang-Mera/Codex-Boss",
+  "commit": "8df428eaa437a409368401e95194e40266b83080",
+  "sourcePaths": [
+    "src/shared/research-figures.ts",
+    "src/shared/research-manuscript.ts"
+  ],
+  "referenceTypes": [
+    "electron/research/manuscript/manuscript-assembler.ts",
+    "electron/research/manuscript/latex-compiler.ts"
+  ],
+  "portedFiles": {
+    "src/shared/research-figures.ts": "figures.mjs",
+    "src/shared/research-manuscript.ts": "manuscript.mjs"
+  },
+  "adaptation": [
+    "TypeScript -> ESM JavaScript. Every donor name, default, bound, colour, coordinate, regex, label, escape rule, section order and exact error message is kept. No rule was added to the renderers; the donor's own permissiveness is what `figures.mjs` and `manuscript.mjs` implement.",
+    "`contracts.mjs` holds the donor's frozen vocabularies (MANUSCRIPT_SECTIONS, SECTION_STATUSES, the figure defaults and bounds, the §18 obligation labels) plus copy-on-construct factories and strict validators for the donor's value shapes (ManuscriptPlan, SectionBrief, SectionDraft, the evidence-check input, FigureBar, FigureOptions, ResultTable/column/row/cell and the { name, svg } figure artifact). A factory validates, returns a NEW deeply frozen copy, and returns the value unchanged; it never repairs, coerces or defaults. Validation is the single gate, and the matching `validate*`/`is*` helpers expose the same gate without constructing.",
+    "The factories are additive and are not called by the renderers: `metricFigureSvg`, `figureForRuns`, `resultTableToLatex` and `resultTableToMarkdown` behave exactly as the donor behaves, including for inputs a factory would refuse (a non-finite bar value, an absent bar label). A caller that wants the shape guaranteed calls the factory first.",
+    "MANUSCRIPT_SECTIONS lives in `contracts.mjs` and is imported by `manuscript.mjs` instead of being declared twice. Two identical star exports cancel each other out in `index.mjs`, and one frozen vocabulary with one owner is the only way to expose it. The donor declared it once, in research-manuscript.ts; the list itself is unchanged.",
+    "The donor's `validateManuscriptPlan` is module-private and, because it is never exported, Node's type stripping erases it — it is not reachable at runtime in the donor at all. It is ported here (exact messages kept) and exported so the gate can be tested and reused. This changes no call path: the donor's consumers never called it either.",
+    "Nothing is injected, because nothing needed to be: within these two donor files there is no clock read, no id generated, no randomness, no environment read, no file access and no network. `ManuscriptPlan.id`, `SectionDraft.updatedAt`, `ManuscriptOptions.title` and every evidence id are supplied by the caller in the donor and here.",
+    "`index.mjs` is the single export site: contracts, figures and manuscript."
+  ],
+  "knownDifferences": [
+    "NOT PORTED — the LaTeX/PDF compilation step: `electron/research/manuscript/latex-compiler.ts` is out of scope. This module produces the document text (`resultTableToLatex`, `resultTableToMarkdown`, the SVG) and the assembly verdicts; invoking a TeX engine, staging a work directory, producing a PDF and reporting compilation failure are not modelled here. Nothing in the two donor source files calls that compiler, so no ported behaviour is lost.",
+    "NOT PORTED — the pipeline driver `electron/research/manuscript/manuscript-assembler.ts`: it reads and writes files (`paper.md`, `paper.tex`, `references.bib`, `manuscript/figures/`, `audit/*.json`), stamps `new Date().toISOString()`, sanitises figure file names, and imports the citation and bibliography modules (`research-citation`, `research-bibliography`) that are outside this cluster. Its brief→draft→reviewer→evidence-check→revision loop, its `maxRevisions` default of 3, its Markdown/LaTeX section assembly and its `passed` audit rule are therefore not reproduced. The pure pieces it consumes (MANUSCRIPT_SECTIONS, evidenceCheckDraft, resultTableToLatex, resultTableToMarkdown) are ported.",
+    "The document model is returned as strings and plain objects only. Writing a file, compiling a document and contacting a model or provider are out of scope by instruction.",
+    "PRESERVED DONOR DEFECT (kept, not fixed): `evidenceCheckDraft` computes `missingEvidence` as `[...referenced-unavailable, ...asserted]` and then filters it by `!allowedEvidenceIds.includes(id)`. The second component is built from `allowedEvidenceIds`, so that filter discards exactly the briefed-but-unavailable ids it was meant to report: a briefed id the Evidence Graph does not contain never fails the check unless the draft also cites it as `@id`. `asserted` is therefore effectively dead code. A briefed id that IS cited falls out through the reference branch only when it is not briefed, so the two branches never merge the way the donor's variable names imply. Fixing this would change `passed` for an input the donor accepts, so it is recorded here instead.",
+    "PRESERVED DONOR DEFECT (kept, not fixed): the `.slice(0, 20)` in `evidenceCheckDraft` is applied to `asserted` before the referenced ids are merged in, and `asserted` is empty whenever anything was referenced. 25 out-of-scope `@id` references therefore all come back in `missingEvidence`; the 20-item bound in the donor's own comment does not hold. The comparable bound that DOES hold is the 80-character reference length.",
+    "PRESERVED DONOR QUIRK (kept, not fixed): `metricFigureSvg` prints `n/a` for a non-finite bar value but still emits the raw coordinates, so a NaN or Infinity value produces `y=\"NaN\" height=\"NaN\"` in the SVG. The donor has no fallback and none was added; `contracts.mjs`'s `figureBar` refuses non-finite values for callers that want the shape guaranteed, while `metricFigureSvg` keeps emitting exactly what the donor emits.",
+    "PRESERVED DONOR QUIRK (kept, not fixed): the SVG escape is applied once (`/[<>&\"']/g` over the raw text), so text that already contains an entity such as `&amp;` is escaped again. Missing `label` and missing `value` render as empty text, and a bar height has a floor of 1 while the maximum has a floor of 1.",
+    "PRESERVED DONOR ASYMMETRY (kept, not fixed): `resultTableToMarkdown` escapes only the row label and the footnote. Column names, `unit`, `title` and every cell value go into the table unescaped, so a value or column name containing `|` produces a table with more cells than headers. `resultTableToLatex` escapes headers, row labels and the footnote but trusts a cell's `raw` string verbatim, which is how `n = 32` reaches a numeric column by design.",
+    "PRESERVED DONOR QUIRK (kept, not fixed): a results table without a `footnote` still emits an empty line between `\\end{tabular}` and `\\end{table}` in the LaTeX form, and a table with no rows emits a bare ` \\\\ ` body line.",
+    "NOT ADDED — numbering and cross-reference: the donor has no figure or table numbering, no `\\label`/`\\ref` bookkeeping and no caption cross-reference rule in either file (its LaTeX figure block in the assembler lists `\\includegraphics` names and an SVG comment, also without numbering). None was invented, so a figure or table here carries no number and no cross-reference.",
+    "NOT ADDED — a second Evidence Engine. `evidenceCheckDraft` keeps taking a plain `Set` of available evidence ids. The Evidence Graph, the claim graph and the tamper-refusing evidence engine in the sibling module are not touched, read, wrapped, re-exported or forked; this module asserts nothing about the truth of an id.",
+    "A stricter-looking guard that DOES change a verdict for a donor-accepted input was deliberately not written: an `abstract` minimum length beyond the donor's 240 characters, a Markdown pipe escape, a finite-value guard inside the SVG renderer, and a `validateManuscriptPlan` call inside `buildSectionBriefs` were all considered and rejected. `validateManuscriptPlan` in particular stays uncalled: calling it from `buildSectionBriefs` would make a plan with a blank id or an unmapped section throw where the donor silently builds six briefs."
+  ],
+  "parity": {
+    "vectorSource": "Codex-Boss src/shared/research-figures.ts + src/shared/research-manuscript.ts @ 8df428eaa437a409368401e95194e40266b83080, differential-tested against this port with 1590 comparisons and 0 mismatches (source text read only; validateManuscriptPlan verified against the donor source because the donor does not export it)",
+    "vectors": [
+      "same bars and options -> the same SVG bytes, including every coordinate, colour, font size and the trailing newline",
+      "a digest over a concrete chart is stable at 64 hex characters (sha256 e14e35fd0ae01422d224c06c6c2eb7f4ba0a9654e50ceb9e5cb7799c7a244395 for the two-bar chart pinned in the suite)",
+      "bars are sliced to 40 and a bar label to 24 characters; title to 80 and y label to 40",
+      "a bar height and the chart maximum both have a floor of 1; the bar width is capped at 48 and the plot area at a floor of 80 x 60",
+      "figureForRuns always names its artifact runs.svg and passes only the title through",
+      "a non-finite value is labelled n/a while its coordinates still render as NaN",
+      "section briefs are built for all six sections in MANUSCRIPT_SECTIONS order, with the donor's one-line purpose each",
+      "a brief's claim ids follow the plan's claim→section map and its evidence ids are de-duplicated in first-seen order",
+      "an evidence reference is `@` + 3-80 characters of [A-Za-z0-9:_-]; a 2-character token is not a reference and an 81-character run captures 80",
+      "a reference that exists but is not briefed for the section fails the check and is named; missingClaims is always empty",
+      "§18 obligations are evaluated per section in declaration order and every unmet label is reported, not just the first",
+      "the abstract's second obligation is released when the brief had no evidence, and its content exceeds 240 characters",
+      "the results number obligation is released when runCount is undefined or 0, and the statistic obligation is judged separately",
+      "methods with no metric given leaves the metric/baseline obligation unmet without building a regex",
+      "a section with no obligations (including an unknown section) passes trivially",
+      "§19 addresses a claim when any section the plan maps it to has a draft, and discusses evidence cited as `@id` or listed in allowedEvidenceIds",
+      "§19 flags results text with no discussing section, or with a discussion lacking consistent|support|limitation|uncertain|suggest",
+      "the LaTeX table header is empty then one column per metric, the format is l followed by one r per column, and a raw cell replaces the formatted number",
+      "the LaTeX escape covers \\ { } _ $ & % # then ~ and ^; the Markdown escape covers only | and a line break",
+      "the Markdown mirror labels the first column Run, drops the unit, and italicises the footnote",
+      "§21.2 returns ok only for non-quantitative work or at least one result table or embeddable figure, else the exact MANUSCRIPT_VISUAL_EVIDENCE_INSUFFICIENT reason string",
+      "validateManuscriptPlan throws \"Manuscript plan requires an id\" and \"Invalid claim→section mapping for <claim>\" exactly"
+    ]
+  },
+  "classification": {
+    "PARITY": [
+      "deterministic SVG figure bytes with the donor's bounds, escapes and colours",
+      "evidence-scoped section briefs and purposes",
+      "the @id evidence check and its verdict shape",
+      "the §18 per-section sufficiency obligations and labels",
+      "the §19 anti-premature-closure verdicts",
+      "the LaTeX and Markdown result-table renderers, escapes included",
+      "the §21.2 quantitative visual-evidence verdict"
+    ],
+    "PORT_ADAPTATION": [
+      "TypeScript -> ESM JavaScript",
+      "frozen vocabularies and copy-on-construct factories in contracts.mjs",
+      "MANUSCRIPT_SECTIONS declared once and imported by manuscript.mjs",
+      "the donor's private validateManuscriptPlan ported and exported"
+    ],
+    "UTOPIA_EXTENSION": [],
+    "DEFERRED": [
+      "LaTeX/PDF compilation (latex-compiler.ts)",
+      "the Electron manuscript assembler pipeline and its file output",
+      "figure/table numbering and cross-references (the donor has none)",
+      "citation/bibliography generation (research-citation, research-bibliography)"
+    ]
+  }
+}

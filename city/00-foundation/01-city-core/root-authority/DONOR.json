@@ -1,0 +1,111 @@
+{
+  "module": "root-authority",
+  "cityPath": "city/00-foundation/01-city-core/root-authority",
+  "district": "00-foundation",
+  "building": "01-city-core",
+  "incubationRooms": [
+    "mb-001-root-authority-lab"
+  ],
+  "mission": {
+    "missionId": "MB-001",
+    "book": "Digital-City/mission-book/MB-001-core-os.md",
+    "role": "MIGRATION",
+    "cluster": "A — owner sovereignty / root authority / root trust and protected-surface contracts"
+  },
+  "waves": [
+    {
+      "wave": "mb-001",
+      "room": "mb-001-root-authority-lab",
+      "sourcePaths": [
+        "src/shared/root-authority/contracts.ts",
+        "src/shared/root-authority/protected-surface.ts",
+        "electron/root-authority/protected-surface-guard.ts"
+      ]
+    }
+  ],
+  "repository": "zhiheng-zhang-Mera/Codex-Boss",
+  "commit": "8df428eaa437a409368401e95194e40266b83080",
+  "sourcePaths": [
+    "src/shared/root-authority/contracts.ts",
+    "src/shared/root-authority/protected-surface.ts",
+    "electron/root-authority/protected-surface-guard.ts"
+  ],
+  "referenceTypes": [],
+  "portedFiles": {
+    "src/shared/root-authority/contracts.ts": "contracts.mjs",
+    "src/shared/root-authority/protected-surface.ts": "protected-surface.mjs",
+    "electron/root-authority/protected-surface-guard.ts": "guard.mjs"
+  },
+  "adaptation": [
+    "TypeScript -> plain ESM JavaScript. `contracts.mjs` replaces the donor's interfaces and type aliases with frozen value vocabularies plus validators in the same spirit as `city/06-research/01-research-institute/evidence-engine/contracts.mjs`: CHANGE_KINDS, ROOT_DECISIONS, PROTECTED_SOURCES, REASON_CODES, REASON_LIMITS, and the `rootDecisionReason`, `protectedPathHit`, `surfaceChange`, `surfaceAssessment` factories.",
+    "Only the donor's vocabulary that this module can actually produce was carried over. `RootOperation`/`ROOT_OPERATIONS`, `ROOT_OPERATION_FLOOR`, `RootIdentity`, `RootDecisionRecord`, `RootRequestMode` and `ExecutionProfile` describe a Boss run, a Boss actor and a Boss audit ledger and are NOT ported. The donor's decision algebra IS ported (`strictestRootDecision`, `foldRootDecisions`, `isAtLeastAsStrict`), and the donor's documented reason codes `floor:DENY` / `policy:REQUIRE_OWNER` are NOT declared because the operation classifier that emits them is not ported; every code this module can emit is listed in REASON_CODES.",
+    "The donor's host wrapper mixed fs, realpath containment and classification in one class. Containment is now an injected seam: `createProtectedSurfaceGuard({ resolve })` takes `resolve(requested) -> { relative } | undefined`, replacing `workspacePath` + `canonicalRealPathSync` and the constructor's CODEOWNERS read. A resolver that throws is classified as an escape, exactly as the donor's try/catch around `workspacePath` treated it; a returned value is re-normalized with `normalizeRepoPath` before use. The class becomes a factory function, because nothing here needs `this`.",
+    "DELIBERATE DEVIATION: the donor hard-codes `ROOT_PROTECTED_MANIFEST` inside `compileProtectedSurface`. Adopting a Boss protected-path policy as Utopia's would be inventing authority policy rather than migrating behaviour, so the immutable manifest is now an explicit caller option (`compileProtectedSurface({ manifest, extraPatterns, caseInsensitive })`, `createProtectedSurfaceGuard({ manifest, ... })`). With no options nothing is protected -- pinned by a test. The donor's list is exported as inert data (`DONOR_ROOT_PROTECTED_MANIFEST`), frozen and in donor order, and no function in this module reads it automatically; it exists so the donor's behaviour stays documented and can still be measured by passing it in explicitly.",
+    "`caseInsensitive` still defaults to true (the donor's fail-closed choice on a case-insensitive host) and is applied by the caller-supplied surface, not baked into the manifest.",
+    "The reason budget is unchanged and now named: REASON_LIMITS = { escapes: 5, protected: 10 }. The escape reason joins at most the first five escapes into one `path:escape` reason; at most the first ten hits each become a `path:protected:<source>` reason in hit order.",
+    "`assessWorkspaceChanges(options, changes)` is the one-shot convenience counterpart of the donor's non-exported `assessWorkspaceChanges`, but it takes the same injected-resolver options object instead of a filesystem root."
+  ],
+  "knownDifferences": [
+    "No filesystem access at all: the donor's `fs.existsSync`/`fs.readFileSync` of `.github/CODEOWNERS` is gone. CODEOWNERS content is supplied by the caller (normally through `parseCodeownersPatterns`) and never loaded from disk here.",
+    "No realpath containment: `canonicalRealPathSync`, symlink/junction resolution and the workspace root are replaced by the injected `resolve` seam. A link escape is whatever the injected resolver refuses; this module cannot and does not decide it.",
+    "No root-policy secret scanning and no root policy file: `root-policy.ts`, its `applyPolicyFloor` and the `owner.credential.scan` surface are not ported.",
+    "`authority-planes.ts` and `promotion-state.ts` are not ported, and neither is any part of the donor's promotion gate or promotion state machine.",
+    "No operation-level Root classifier and no run modes: the donor's `classifyRootOperation`, `RootRequestMode` (ASSISTED/AUTONOMOUS/OWNER_RESULT/EVOLUTION/UNKNOWN) and `ExecutionProfile` do not exist here. This module decides about paths, not operations.",
+    "No audit ledger and no decision records: `RootDecisionRecord` and the durable decision log are not ported; reasons are returned to the caller and nowhere else.",
+    "No CODEOWNERS file reload, no guard construction over a real root, and no `codeownersMissing` flag: the host concerns that flag modelled are the loader's, not the classifier's."
+  ],
+  "parity": {
+    "vectorSource": "Codex-Boss src/shared/root-authority/contracts.ts, src/shared/root-authority/protected-surface.ts and electron/root-authority/protected-surface-guard.ts @ 8df428eaa437a409368401e95194e40266b83080",
+    "vectors": [
+      "no manifest supplied means an empty compiled surface: `isProtectedPath('package.json')` is false and `assessProtectedPaths(...)` is `{ protected: false, hits: [], escapes: [] }`; the donor's DONOR_ROOT_PROTECTED_MANIFEST still classifies its own paths when a caller passes it in explicitly",
+      "grammar: a leading `/` root-anchors, an internal `/` root-anchors without a leading slash, a pattern with no `/` matches the basename at any depth, `*` stays inside a segment, `**` crosses segments, `?` matches one non-separator character (and cannot cross one)",
+      "a bare `**` compiles to `.*`; a trailing `/` is stripped before the wildcards are read, so `**/` is the bare `**` plus the directory suffix; `**/*.ts` compiles to `^(?:[^/]+\\/)*[^/]*\\.ts$` and matches at any depth",
+      "a directory pattern protects the directory entry itself and every descendant, and not a sibling sharing its prefix (`/config/` matches `config`, `config/x.json`, `config/deep/x.json`, not `configx/x.json`)",
+      "an empty or whitespace-only pattern compiles to `$^` and matches nothing",
+      "matching is case-insensitive by default (`.GITHUB/WORKFLOWS/ci.yml` and `Package.JSON` match) and exact when `caseInsensitive: false`",
+      "one rule per path: the first matching rule is the evidence, and a repeated path (including a case variant, and a path passed in both `paths` and `also`) is counted once",
+      "normalizeRepoPath: trims, converts backslashes, collapses `//` and `.`, resolves an internal `..`, and returns undefined for `/etc/passwd`, `C:/...`, `//server/share`, `..`, `../x`, `src/../../x`, `''`, `'  '`, `'.'` and every non-string",
+      "a non-string entry becomes an escape via `String(raw)` (`42` -> `\"42\"`, `null` -> `\"null\"`, `{}` -> `\"[object Object]\"`, `[]` -> `\"\"`) and is never silently dropped",
+      "an absolute path arrives as an escape through the injected resolver (`/etc/passwd` -> escape -> DENY), not through lexical normalization alone",
+      "escape beats protected: DENY whenever any path escapes, even when protected paths are touched in the same call, and the escape reason still lists at most the first five escapes",
+      "protected with no escape is REQUIRE_OWNER, with one `path:protected:immutable-manifest` or `path:protected:codeowners` reason per hit, at most the first ten, in hit order",
+      "a rename is classified on BOTH endpoints (out of, into and within the protected surface), and a rename with a missing `from` contributes an escape instead of skipping half the move",
+      "a delete is classified exactly like a write (byte-identical assessment for the same path, including deleting the protected directory itself)",
+      "read/write/create contribute only their `path`",
+      "assessChangeSet skips blank and non-string entries (an empty diff line is not an escape) while still turning an escaping entry into DENY, and unions `additionalProtectedPaths` into that call only -- they are not compiled into `patterns()`",
+      "the guard composes `manifest` first and `extraPatterns` second, so `patterns()` is the immutable manifest in order followed by the CODEOWNERS patterns, a duplicate cannot shadow the immutable source, and the immutable rule is the hit recorded for a tie"
+    ]
+  },
+  "classification": {
+    "PARITY": [
+      "the CODEOWNERS subset grammar and its regex translation",
+      "normalizeRepoPath containment rules, including the undefined refusals",
+      "one-rule-per-path evidence and duplicate-path de-duplication",
+      "non-string entries and unresolvable paths becoming escapes",
+      "the composition rule: escape => DENY, protected => REQUIRE_OWNER, clean => ALLOW",
+      "the five-escape and ten-hit reason budget, with the donor's reason codes and detail wording",
+      "rename classified on both endpoints; delete classified like a write",
+      "assessChangeSet over repo-relative diff names, with blank entries skipped",
+      "patterns() order: immutable manifest first, then CODEOWNERS",
+      "case-insensitive matching by default"
+    ],
+    "PORT_ADAPTATION": [
+      "TypeScript types and classes replaced by plain ESM values, factory functions and validators",
+      "containment is an injected `resolve(requested) -> { relative } | undefined` seam instead of `workspacePath` + `canonicalRealPathSync` over a real root",
+      "the immutable protected manifest is caller-supplied; the donor's list is exported as inert, frozen data and is not an active default",
+      "CODEOWNERS content is passed in rather than read from disk, and the throwing resolver case is carried over as an escape",
+      "the guard is a factory function rather than a class instance"
+    ],
+    "UTOPIA_EXTENSION": [],
+    "DEFERRED": [
+      "fs reads and `.github/CODEOWNERS` file loading (including the unreadable-versus-absent refusal and the `codeownersMissing` flag)",
+      "realpath/symlink/junction containment and the workspace root",
+      "root-policy secret scanning and the root policy file",
+      "authority-planes.ts",
+      "promotion-state.ts and the promotion gate",
+      "the operation-level Root classifier, `RootOperation`, `ROOT_OPERATIONS` and `ROOT_OPERATION_FLOOR`",
+      "run modes (`RootRequestMode`), execution profiles and `RootIdentity`",
+      "the durable Root decision ledger (`RootDecisionRecord`)"
+    ]
+  }
+}

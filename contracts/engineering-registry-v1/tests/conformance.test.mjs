@@ -1,4 +1,4 @@
-﻿// EM-004 conformance suite — connector capability / probe / auth / instance registry.
+// EM-004 conformance suite — connector capability / probe / auth / instance registry.
 //
 // Acceptance: two instances of one connector type remain distinct; stale probe data is visible as
 // stale and not silently healthy; auth READY cannot be inferred from a live process; a capability
@@ -8,11 +8,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
- AUTH_STATUSES, CAPABILITY_FACTS, ENGINEERING_REGISTRY_CONTRACT, HEALTH_STATES, PROCESS_STATES,
- READINESS, REGISTRY_CODES, RegistryError, SUPPORT_LEVELS, assertRequirements, assertUsable,
- capabilityOf, createConnectorRegistry, findRawSecretFields, matchRequirements, probeFreshness,
- processReadiness, usability, validateCapabilityManifest, validateConnectorDescriptor,
- validateConnectorInstance
+ AUTH_STATUSES, CAPABILITY_FACTS, ENGINEERING_REGISTRY_CONTRACT, HEALTH_STATES, MAX_CLOCK_SKEW_MS,
+ MAX_PROBE_TTL_MS, PROCESS_STATES, READINESS, REGISTRY_CODES, RegistryError, SUPPORT_LEVELS,
+ assertConnectorDescriptor, assertConnectorInstance, assertRequirements, assertUsable, capabilityOf,
+ createConnectorRegistry, findRawSecretFields, findRawSecretValues, isIsoInstant, matchRequirements,
+ probeEvidenceSource, probeFreshness, processReadiness, recordDepthExceeded, usability,
+ validateCapabilityManifest, validateConnectorDescriptor, validateConnectorInstance
 } from '../index.mjs';
 
 const T0 = Date.parse('2026-09-30T12:00:00.000Z');
@@ -239,3 +240,219 @@ test('records are strict, and eligibility reports fit without choosing a host', 
   assert.equal(new Set(REGISTRY_CODES).size, REGISTRY_CODES.length);
   assert.equal(new RegistryError('X', 'y').status, 409);
 });
+
+/* --------------------------------- 8. regressions (Correction, host Alien) */
+
+// Every refusal is paired with the legitimate neighbour that must still pass, so no guard can be
+// satisfied by refusing everything.
+
+test('unknown fields are refused even when named after Object.prototype members', () => {
+  for (const name of Object.getOwnPropertyNames(Object.prototype)) {
+    const bad = Object.defineProperty({ ...descriptor() }, name, { value: 'SMUGGLED', enumerable: true, configurable: true, writable: true });
+    assert.equal(validateConnectorDescriptor(bad).ok, false, `descriptor.${name} must not be canonical`);
+    const badInstance = Object.defineProperty({ ...instance() }, name, { value: 'SMUGGLED', enumerable: true, configurable: true, writable: true });
+    assert.equal(validateConnectorInstance(badInstance).ok, false, `instance.${name} must not be canonical`);
+  }
+  const hidden = { ...descriptor() };
+  Object.defineProperty(hidden, 'transport', { value: 'RF', enumerable: false, configurable: true, writable: true });
+  assert.equal(validateConnectorDescriptor(hidden).ok, false, 'a non-enumerable own field must be refused too');
+  // neighbours: an ordinary unknown field is still refused, and clean records are still admitted
+  assert.equal(validateConnectorDescriptor({ ...descriptor(), transport: 'RF' }).ok, false);
+  assert.equal(validateConnectorDescriptor(descriptor()).ok, true);
+  assert.equal(validateConnectorInstance(instance()).ok, true);
+  assert.equal({}.SMUGGLED, undefined, 'no prototype pollution');
+});
+
+test('a future-dated probe is never fresh, and never silently usable', () => {
+  const year = 365 * 24 * 3600 * 1000;
+  const replayed = instance({ probe: { ...instance().probe, observed_at: ISO(T0 + 10 * year), ttl_ms: 1 } });
+  // freshness gates capability, readiness, usability and requirement matching
+  assert.equal(probeFreshness(replayed, T0), 'STALE', 'a probe dated ten years ahead is not current evidence');
+  assert.equal(capabilityOf(replayed, 'SHELL', T0).level, 'UNKNOWN');
+  assert.equal(processReadiness(replayed, T0).readiness, 'UNKNOWN');
+  assert.equal(usability(replayed, T0).usable, false);
+  expectCode(() => assertUsable(replayed, T0), 'STALE_PROBE');
+  assert.equal(matchRequirements(replayed, ['SHELL'], T0).matched, false);
+  assert.equal(registryAt().listInstances({ usableOnly: true }).length, 0);
+  // neighbour: an ordinary clock skew ahead by a minute is NOT invalidated
+  const skewed = instance({ probe: { ...instance().probe, observed_at: ISO(T0 + 60_000) } });
+  assert.equal(probeFreshness(skewed, T0), 'FRESH');
+  assert.equal(60_000 < MAX_CLOCK_SKEW_MS, true);
+  // neighbours: the original boundaries are unchanged
+  assert.equal(probeFreshness(instance(), T0 + TTL), 'FRESH');
+  assert.equal(probeFreshness(instance(), T0 + TTL + 1), 'STALE');
+  assert.equal(probeFreshness(instance({ probe: { ...instance().probe, observed_at: 'not-an-instant' } }), T0), 'UNKNOWN');
+});
+
+test('the typed refusal names the blocker that actually applies', () => {
+  const unhealthy = instance({ health: 'UNHEALTHY' });
+  assert.deepEqual([...usability(unhealthy, T0).blockers], ['HEALTH_UNHEALTHY']);
+  expectCode(() => assertUsable(unhealthy, T0), 'HEALTH_NOT_READY');
+  expectCode(() => assertUsable(instance({ auth: { status: 'EXPIRED', handle_ref: null } }), T0), 'AUTH_NOT_READY');
+  expectCode(() => assertUsable(instance({ process: { state: 'STOPPED', pid_ref: null } }), T0), 'PROCESS_NOT_READY');
+  expectCode(() => assertUsable(instance({ probe: { ...instance().probe, attachable: false } }), T0), 'PROCESS_NOT_READY');
+  // neighbours: a healthy instance is still usable, and a stale one is still reported as stale first
+  assert.equal(assertUsable(instance(), T0).usable, true);
+  expectCode(() => assertUsable(instance({ health: 'UNHEALTHY', probe: { ...instance().probe, observed_at: ISO(T0 - TTL - 1) } }), T0), 'STALE_PROBE');
+});
+
+test('the auditable snapshot cannot be rewritten by its reader', () => {
+  const registry = registryAt();
+  registry.registerInstance(instance());
+  registry.probeAll([{ instanceRef: 'instance-1', probe: () => { throw new Error('boom'); } }]);
+  const snapshot = registry.snapshot();
+  assert.equal(snapshot.probe_failures.length, 1);
+  assert.equal(Object.isFrozen(snapshot.probe_failures[0]), true);
+  assert.throws(() => { snapshot.probe_failures[0].code = 'REWRITTEN'; }, TypeError);
+  assert.equal(registry.snapshot().probe_failures[0].code, 'PROBE_FAILED', 'the registry record is unchanged');
+  // neighbours: the failure is still recorded and visible, and a successful probe is still ok
+  assert.equal(snapshot.probe_failures[0].instance_ref, 'instance-1');
+  const clean = registryAt();
+  clean.registerInstance(instance());
+  const ok = clean.probeAll([{ instanceRef: 'instance-1', probe: () => ({ probe: { ...instance().probe }, health: 'DEGRADED' }) }]);
+  assert.equal(ok.outcomes[0].ok, true);
+  assert.equal(clean.getInstance('instance-1').instance.health, 'DEGRADED');
+  assert.deepEqual([...clean.snapshot().probe_failures], []);
+});
+
+test('a partial probe update leaves the fields it does not mention alone', () => {
+  const registry = registryAt();
+  registry.registerInstance(instance());
+  // observing only health must not wipe the probe block
+  const updated = registry.updateProbe('instance-1', { health: 'DEGRADED' });
+  assert.equal(updated.health, 'DEGRADED');
+  assert.deepEqual(updated.probe, instance().probe, 'the probe block is untouched');
+  assert.equal(updated.auth.status, 'READY');
+  // a patch that carries no fact at all is refused rather than reported as a successful no-op
+  expectCode(() => registry.updateProbe('instance-1', {}), 'INVALID_REGISTRY_RECORD');
+  expectCode(() => registry.updateProbe('instance-1', { nonsense: 1 }), 'INVALID_REGISTRY_RECORD');
+  // neighbours: a full patch still applies, and an invalid patch is still refused without half-applying
+  const fresh = registry.updateProbe('instance-1', { probe: { ...instance().probe, version: '2.0.0' }, health: 'HEALTHY' });
+  assert.equal(fresh.probe.version, '2.0.0');
+  assert.equal(fresh.health, 'HEALTHY');
+  expectCode(() => registry.updateProbe('instance-1', { probe: { ...instance().probe, observed_at: 'nonsense' } }), 'INVALID_REGISTRY_RECORD');
+  assert.equal(registry.getInstance('instance-1').instance.probe.version, '2.0.0', 'the refusal left the record intact');
+});
+
+test('a raw credential is refused by value as well as by key name', () => {
+  // key-shaped, including a non-enumerable own key
+  assert.equal(validateConnectorInstance(instance({ auth: { status: 'READY', credential: 'raw' } })).ok, false);
+  const hidden = { ...instance() };
+  Object.defineProperty(hidden, 'access_token', { value: 'RAW', enumerable: false, configurable: true, writable: true });
+  assert.equal(validateConnectorInstance(hidden).ok, false, 'a non-enumerable own token field must be refused');
+  // value-shaped: a token in a benign field is still a stored token
+  assert.equal(validateConnectorDescriptor(descriptor({ display_name: 'ghp_0123456789abcdefghijklmnopqrstuvwxyz' })).ok, false);
+  assert.equal(validateConnectorInstance(instance({ installation_ref: 'sk-abcdefghijklmnopqrstuvwx' })).ok, false);
+  assert.equal(validateConnectorDescriptor(descriptor({ display_name: 'AKIAIOSFODNN7EXAMPLE' })).ok, false);
+  expectCode(() => assertConnectorInstance(instance({ auth: { status: 'READY', credential: 'raw' } })), 'RAW_SECRET_FORBIDDEN');
+  // neighbours: handles are still fine, ordinary text is still fine, and reads stay handle-only
+  assert.equal(validateConnectorInstance(instance()).ok, true);
+  assert.equal(validateConnectorDescriptor(descriptor({ display_name: 'Code worker (v2) — AKIA is not always a key' })).ok, true);
+  const registry = registryAt();
+  registry.registerInstance(instance());
+  assert.equal(JSON.stringify(registry.snapshot()).includes('handle:credential:1'), false);
+});
+
+test('a cyclic or over-deep record is refused, never a stack overflow', () => {
+  const loop = [];
+  loop.push(loop);
+  assert.equal(validateConnectorInstance(instance({ capability_manifest: { registry_version: 1, capabilities: {}, extra: loop } })).ok, false);
+  let deep = 'leaf';
+  for (let index = 0; index < 200; index += 1) deep = { next: deep };
+  assert.equal(recordDepthExceeded(deep), true);
+  assert.equal(validateConnectorDescriptor(descriptor({ capability_manifest: { registry_version: 1, capabilities: {}, extra: deep } })).ok, false);
+  // neighbours: a shallow record is still valid, and the scans still find what they should
+  assert.equal(recordDepthExceeded(descriptor()), false);
+  assert.deepEqual([...findRawSecretFields({ a: { session_key: 'x' } }, '')], ['.a.session_key']);
+  assert.deepEqual([...findRawSecretValues({ a: 'plain text' }, '')], []);
+  assert.equal(validateConnectorDescriptor(descriptor()).ok, true);
+});
+
+test('a calendar-impossible instant is refused, not merely shape-checked', () => {
+  assert.equal(isIsoInstant('2026-13-45T99:99:99Z'), false);
+  assert.equal(isIsoInstant('2026-02-30T00:00:00.000Z'), false);
+  assert.equal(validateConnectorDescriptor(descriptor({ declared_at: '2026-13-45T99:99:99Z' })).ok, false);
+  assert.equal(validateConnectorInstance(instance({ probe: { ...instance().probe, observed_at: '2026-02-30T00:00:00.000Z' } })).ok, false);
+  // neighbours: both accepted spellings of a real instant still pass
+  assert.equal(isIsoInstant('2026-09-30T12:00:00Z'), true);
+  assert.equal(isIsoInstant('2026-09-30T12:00:00.000Z'), true);
+  assert.equal(validateConnectorDescriptor(descriptor({ declared_at: '2026-09-30T12:00:00Z' })).ok, true);
+});
+
+test('a probe cannot claim to stay current indefinitely', () => {
+  // an unbounded ttl made an observation authoritative for a century
+  assert.equal(validateConnectorInstance(instance({ probe: { ...instance().probe, ttl_ms: Number.MAX_SAFE_INTEGER } })).ok, false);
+  const century = instance({ probe: { ...instance().probe, ttl_ms: Number.MAX_SAFE_INTEGER } });
+  assert.equal(probeFreshness(century, T0 + 100 * 365 * 24 * 3600 * 1000), 'STALE', 'freshness is clamped even for an unvalidated record');
+  // neighbours: a real ttl is accepted, up to and including the ceiling
+  assert.equal(validateConnectorInstance(instance({ probe: { ...instance().probe, ttl_ms: MAX_PROBE_TTL_MS } })).ok, true);
+  assert.equal(probeFreshness(instance({ probe: { ...instance().probe, ttl_ms: MAX_PROBE_TTL_MS } }), T0 + MAX_PROBE_TTL_MS), 'FRESH');
+  assert.equal(probeFreshness(instance(), T0 + TTL), 'FRESH');
+});
+
+test('a failed probe is visible on the instance and blocks dispatch', () => {
+  const registry = registryAt();
+  registry.registerInstance(instance());
+  assert.equal(usability(registry.getInstance('instance-1').instance, T0).usable, true);
+  const failed = registry.probeAll([{ instanceRef: 'instance-1', probe: () => { throw new Error('connector refused'); } }]);
+  assert.equal(failed.outcomes[0].ok, false);
+  const record = registry.getInstance('instance-1').instance;
+  assert.equal(record.probe_failure.code, 'PROBE_FAILED', 'the failure is stamped on the instance, not only counted globally');
+  assert.deepEqual([...usability(record, T0).blockers], ['PROBE_FAILED']);
+  assert.equal(usability(record, T0).usable, false, 'a connector that just stopped answering is not offered as usable');
+  expectCode(() => assertUsable(record, T0), 'PROBE_FAILED');
+  assert.equal(registry.listInstances({ usableOnly: true }).length, 0);
+  // a timeout is recorded with its own code
+  registry.probeAll([{ instanceRef: 'instance-1', probe: () => null }]);
+  assert.equal(registry.getInstance('instance-1').instance.probe_failure.code, 'PROBE_TIMEOUT');
+  // neighbours: a successful probe clears the failure and restores usability
+  const ok = registry.probeAll([{ instanceRef: 'instance-1', probe: () => ({ probe: { ...instance().probe }, health: 'HEALTHY' }) }]);
+  assert.equal(ok.outcomes[0].ok, true);
+  assert.equal(Object.hasOwn(registry.getInstance('instance-1').instance, 'probe_failure'), false);
+  assert.equal(usability(registry.getInstance('instance-1').instance, T0).usable, true);
+  // ...and the failure history remains auditable
+  assert.deepEqual(registry.snapshot().probe_failures.map(entry => entry.code), ['PROBE_FAILED', 'PROBE_TIMEOUT']);
+});
+
+test('a probe that reports not-installed cannot be a running, usable worker', () => {
+  const notInstalled = instance({ probe: { ...instance().probe, installed: false, attachable: true } });
+  assert.equal(processReadiness(notInstalled, T0).readiness, 'NOT_READY');
+  assert.equal(processReadiness(notInstalled, T0).reason, 'NOT_INSTALLED');
+  assert.equal(usability(notInstalled, T0).usable, false);
+  expectCode(() => assertUsable(notInstalled, T0), 'PROCESS_NOT_READY');
+  // neighbours: an installed, attached, running worker is still usable
+  assert.equal(processReadiness(instance(), T0).readiness, 'READY');
+  assert.equal(usability(instance(), T0).usable, true);
+  assert.equal(processReadiness(instance({ probe: { ...instance().probe, attachable: false } }), T0).reason, 'NOT_ATTACHABLE');
+});
+
+test('an exempted reference field must still look like a reference', () => {
+  // a raw credential anywhere is refused by value, including in a reference-named field
+  assert.equal(validateConnectorInstance(instance({ auth: { status: 'READY', handle_ref: 'ghp_0123456789abcdefghijklmnopqrstuvwxyz' } })).ok, false);
+  assert.equal(validateConnectorDescriptor(descriptor({ installation_ref: 'sk-abcdefghijklmnopqrstuvwx' })).ok, false);
+  // The `*_ref`/`*_handle`/`*_id` exemption is for references, so a secret-shaped key with a handle
+  // suffix must hold something that actually looks like a reference. No canonical record field has
+  // such a name, so this is exercised through the exported scan the validators use.
+  assert.deepEqual([...findRawSecretFields({ credential_ref: 'handle:credential:1' }, '')], []);
+  assert.deepEqual([...findRawSecretFields({ access_token_id: 'token-1' }, '')], []);
+  assert.deepEqual([...findRawSecretFields({ credential_ref: 'one two' }, '')], ['.credential_ref']);
+  assert.deepEqual([...findRawSecretFields({ credential_ref: 'x'.repeat(200) }, '')], ['.credential_ref']);
+  assert.deepEqual([...findRawSecretFields({ credential_ref: 'blob+with=base64/chars' }, '')], ['.credential_ref']);
+  // neighbours: real handles and references are accepted in the record, and a non-secret name is not flagged
+  assert.equal(validateConnectorInstance(instance()).ok, true);
+  assert.equal(validateConnectorInstance(instance({ auth: { status: 'EXPIRED', handle_ref: 'handle:credential:9' } })).ok, true);
+  assert.equal(validateConnectorDescriptor(descriptor({ display_name: 'Code worker v2' })).ok, true);
+  assert.equal(validateConnectorInstance(instance({ installation_ref: 'ins-1' })).ok, true);
+  assert.deepEqual([...findRawSecretFields({ handle_ref: 'h', installation_ref: 'i' }, '')], []);
+});
+
+test('the evidence source travels with the answer', () => {
+  assert.equal(usability(instance(), T0).evidence_source, 'PROBED');
+  assert.equal(probeEvidenceSource(instance()), 'PROBED');
+  assert.equal(probeEvidenceSource(instance({ probe: { ...instance().probe, source: { kind: 'CONFIGURED', ref: 'r' } } })), 'CONFIGURED');
+  assert.equal(probeEvidenceSource(instance({ probe: { ...instance().probe, source: { kind: 'NONSENSE', ref: 'r' } } })), 'UNKNOWN');
+  // neighbours: the answer itself is unchanged for an honest PROBED record
+  assert.equal(capabilityOf(instance(), 'SHELL', T0).level, 'SUPPORTED');
+  assert.equal(usability(instance(), T0).usable, true);
+});
+

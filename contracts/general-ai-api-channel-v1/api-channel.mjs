@@ -65,7 +65,13 @@ const freeze = value => {
   for (const child of Object.values(value)) freeze(child);
   return Object.freeze(value);
 };
-export const isIsoInstant = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+const isIsoInstantShape = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+/** Shape is not enough: an impossible instant parses to NaN, and a NaN comparison is always false. */
+export const isIsoInstant = value => {
+  if (!isIsoInstantShape(value)) return false;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) && new Date(parsed).toISOString().slice(0, 19) === value.slice(0, 19);
+};
 
 const SECRET_KEY_SHAPE = /(secret|token|password|passwd|api_?key|private_?key|bearer|client_secret|credential_?value|^value$)/i;
 const SECRET_VALUE_SHAPE = /^(sk|pk|ghp|xox[baprs]|AKIA)-[A-Za-z0-9_\-]{8,}$/;
@@ -73,9 +79,11 @@ const SECRET_SUBSTRING_SHAPE = /(?:sk|pk|ghp|xox[baprs]|AKIA)-[A-Za-z0-9_\-]{8,}
 
 export const looksLikeSecretValue = value => isText(value) && SECRET_VALUE_SHAPE.test(value);
 
-export function findSecretFields(value, path = 'record', found = []) {
+export function findSecretFields(value, path = 'record', found = [], seen = new WeakSet()) {
   if (Array.isArray(value)) {
-    value.forEach((item, index) => findSecretFields(item, `${path}[${index}]`, found));
+    if (seen.has(value)) return found;
+    seen.add(value);
+    value.forEach((item, index) => findSecretFields(item, `${path}[${index}]`, found, seen));
     return found;
   }
   if (typeof value === 'string') {
@@ -85,14 +93,18 @@ export function findSecretFields(value, path = 'record', found = []) {
   }
   if (typeof value === 'boolean' || value === null) return found;
   if (!isPlainObject(value)) return found;
-  for (const [key, child] of Object.entries(value)) {
-    const childPath = `${path}.${key}`;
-    const keyIsSecret = SECRET_KEY_SHAPE.test(key) && !/_ref$/.test(key) && typeof child !== 'boolean';
+  if (seen.has(value)) return found;
+  seen.add(value);
+  // Own keys of any enumerability: a non-enumerable own api_key used to be invisible to the scan.
+  for (const key of Reflect.ownKeys(value)) {
+    const child = value[key];
+    const childPath = `${path}.${String(key)}`;
+    const keyIsSecret = typeof key === 'string' && SECRET_KEY_SHAPE.test(key) && !/_ref$/.test(key) && typeof child !== 'boolean';
     if (keyIsSecret) {
       if (!found.includes(childPath)) found.push(childPath);
       continue;
     }
-    findSecretFields(child, childPath, found);
+    findSecretFields(child, childPath, found, seen);
   }
   return found;
 }
@@ -105,8 +117,10 @@ export function redact(value, key = null) {
   }
   if (!isPlainObject(value)) return value;
   const out = {};
-  for (const [childKey, child] of Object.entries(value)) {
-    out[childKey] = SECRET_KEY_SHAPE.test(childKey) && !/_ref$/.test(childKey) && typeof child !== 'boolean' ? '[REDACTED]' : redact(child, childKey);
+  // Own keys of any enumerability: a hidden secret used to survive redaction into logs and provenance.
+  for (const childKey of Reflect.ownKeys(value)) {
+    const child = value[childKey];
+    out[childKey] = typeof childKey === 'string' && SECRET_KEY_SHAPE.test(childKey) && !/_ref$/.test(childKey) && typeof child !== 'boolean' ? '[REDACTED]' : redact(child, childKey);
   }
   return out;
 }
@@ -128,7 +142,9 @@ export class ApiChannelError extends Error {
 
 function checkShape(value, path, spec, errors) {
   if (!isPlainObject(value)) { errors.push(`${path} must be an object`); return; }
-  for (const key of Object.keys(value)) if (!(key in spec)) errors.push(`${path}.${key} is not part of the canonical contract`);
+  // `key in spec` walks the prototype chain, so a field named constructor/toString passed as part of
+  // the contract; only own keys of the spec count, and Reflect.ownKeys closes the non-enumerable case.
+  for (const key of Reflect.ownKeys(value)) if (!Object.hasOwn(spec, key)) errors.push(`${path}.${String(key)} is not part of the canonical contract`);
   for (const [key, rule] of Object.entries(spec)) {
     const present = Object.hasOwn(value, key);
     if (!present) { if (rule.required) errors.push(`${path}.${key} is required`); continue; }
@@ -151,18 +167,28 @@ export const DEFAULT_BUDGET_POLICY = Object.freeze({
 /** A provider response whose usage is absent yields UNKNOWN usage, never a zero that looks like free. */
 export function usageFromResponse(response) {
   const usage = isPlainObject(response) ? response.usage : null;
-  const input = Number.isFinite(usage?.input_tokens) ? usage.input_tokens : null;
-  const output = Number.isFinite(usage?.output_tokens) ? usage.output_tokens : null;
+  // A negative count used to be summed in, so a call could *increase* the remaining budget.
+  const count = value => (Number.isSafeInteger(value) && value >= 0 ? value : null);
+  const input = count(usage?.input_tokens);
+  const output = count(usage?.output_tokens);
   if (input === null && output === null) {
     return freeze({ known: false, input_tokens: null, output_tokens: null, total_tokens: null, cost: null, reason: 'PROVIDER_REPORTED_NO_USAGE' });
   }
-  return freeze({ known: true, input_tokens: input, output_tokens: output, total_tokens: (input ?? 0) + (output ?? 0), cost: Number.isFinite(usage?.cost) ? usage.cost : null, reason: 'PROVIDER_REPORTED_USAGE' });
+  return freeze({ known: true, input_tokens: input, output_tokens: output, total_tokens: (input ?? 0) + (output ?? 0), cost: typeof usage?.cost === 'number' && Number.isFinite(usage.cost) && usage.cost >= 0 ? usage.cost : null, reason: 'PROVIDER_REPORTED_USAGE' });
 }
 
 export function createApiChannel({ adapters = {}, config = {}, clock = () => new Date().toISOString() } = {}) {
   if (typeof clock !== 'function') throw new ApiChannelError('INVALID_CLOCK', 'clock must be a function returning an ISO-8601 UTC instant');
   if (!isPlainObject(adapters)) throw new ApiChannelError('INVALID_ADAPTER', 'adapters must be a map keyed by protocol');
   const budgetPolicy = { ...DEFAULT_BUDGET_POLICY, ...(isPlainObject(config.budget) ? config.budget : {}) };
+  // The budget is the second gate after consent, so its limits must be real: NaN, Infinity, a string or
+  // null made BOTH Number.isFinite checks false and admitted every call regardless of size.
+  const budgetProblems = [];
+  for (const key of ['per_action_limit', 'aggregate_limit']) {
+    if (typeof budgetPolicy[key] !== 'number' || !Number.isFinite(budgetPolicy[key]) || budgetPolicy[key] < 0) budgetProblems.push(key);
+  }
+  if (!['REFUSE', 'ALLOW'].includes(budgetPolicy.on_unknown_usage)) budgetProblems.push('on_unknown_usage');
+  if (budgetProblems.length > 0) throw new ApiChannelError('INVALID_BUDGET', 'budget policy values are not usable: ' + budgetProblems.join(', '));
   const adapterCalls = [];
   const provenance = [];
   const log = [];
@@ -217,10 +243,13 @@ export function createApiChannel({ adapters = {}, config = {}, clock = () => new
       aggregate_limit: budgetPolicy.aggregate_limit,
       estimated_actions: estimated,
       aggregate_consumed: consumed,
-      aggregate_usage_known: !aggregateUnknown,
+      // These two fields are reported as the code actually behaves. `aggregate_usage_known` said true
+      // for an absent aggregate and `usage_absent_treated_as_zero` said false while the accounting
+      // treated absence as zero — a claim that could not fail, on the second gate after consent.
+      aggregate_usage_known: usage_so_far !== null && isPlainObject(usage_so_far) && usage_so_far.known === true,
       on_unknown_usage: budgetPolicy.on_unknown_usage,
       evaluated_at: at(when),
-      usage_absent_treated_as_zero: false,
+      usage_absent_treated_as_zero: usage_so_far === null,
       user_consent_implied: false,
     });
   };
@@ -325,7 +354,14 @@ export function createApiChannel({ adapters = {}, config = {}, clock = () => new
       if (!admission.admitted) {
         return freeze({ ok: false, executed: false, adapter_called: false, admission, fault: null, response: null, usage: null, provenance: null });
       }
+      // Admission is consent + budget; the adapter is chosen at execution time. A call admitted with no
+      // protocol (or a protocol with no adapter) used to reach this line and throw an untyped TypeError.
       const adapter = adapterFor(protocol);
+      if (adapter === null) {
+        record('API_ADAPTER_MISSING', { action_ref, protocol });
+        const fault = freeze({ code: 'NO_ADAPTER_FOR_PROTOCOL', retryable: false, detail: 'no adapter is configured for ' + String(protocol) });
+        return freeze({ ok: false, executed: false, adapter_called: false, admission, fault, response: null, usage: null, provenance: null });
+      }
       const supportsStreaming = adapter.supports?.streaming === true;
       if (stream && !supportsStreaming) {
         const fault = freeze({ code: 'STREAMING_UNSUPPORTED', retryable: false, detail: `${protocol} adapter does not support streaming` });

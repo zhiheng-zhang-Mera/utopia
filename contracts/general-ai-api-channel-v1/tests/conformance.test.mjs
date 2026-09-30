@@ -1,4 +1,4 @@
-// Conformance tests for GAI-004 â€” API channel + explicit consent + budget policy.
+// Conformance tests for GAI-004 â€?API channel + explicit consent + budget policy.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -67,7 +67,7 @@ test('no API network call happens before consent and budget admission', () => {
   assert.equal(denied.admission.reason, 'CONSENT_DENIED');
   assert.equal(denied.adapter_called, false);
 
-  // Consent approved but budget denied: refused, and the verdict says budget â€” not consent.
+  // Consent approved but budget denied: refused, and the verdict says budget â€?not consent.
   const overBudget = channel.execute({
     action_ref: 'action:1',
     consent: approvedCommand(),
@@ -120,7 +120,7 @@ test('a Web failure proposes API but never grants it, and budget does not stand 
   assert.equal(budgetOnly.user_consent_implied, false);
   assert.equal(channel.admit({ action_ref: 'action:1', request: {} }).verdict, 'REFUSED_NO_CONSENT');
 
-  // An explicit user command is enough on its own â€” no Web failure needs to have happened.
+  // An explicit user command is enough on its own â€?no Web failure needs to have happened.
   const explicit = channel.execute({ action_ref: 'action:1', consent: approvedCommand(), protocol: 'ANTHROPIC', request: { prompt: 'explicit' } });
   assert.equal(explicit.ok, true);
   assert.equal(explicit.provenance.user_directed, true, 'an explicit use-API command is a user-directed choice');
@@ -284,4 +284,72 @@ test('channel state stays isolated, frozen and free of ambient behaviour', () =>
   assert.equal(first.channel.budgetPolicy().per_action_limit, DEFAULT_BUDGET_POLICY.per_action_limit);
   assert.deepEqual([...CONSENT_KINDS].length, 2);
   assert.throws(() => first.channel.execute({ action_ref: 'action:1', consent: approvedCommand(), protocol: 'OPENAI_COMPATIBLE', request: {}, at: 'yesterday' }), error => error.code === 'INVALID_REQUEST');
+});
+
+/* --------------------------------- 8. regressions (Correction, host Alien) */
+
+import { createApiChannel as makeChannel, findSecretFields as scanSecret, redact as redactValue, usageFromResponse as usageOf } from '../index.mjs';
+
+const T0R = '2026-09-30T12:00:00.000Z';
+const consentR = (over = {}) => ({ consent_id: 'consent-1', kind: 'USER_COMMAND', verdict: 'APPROVED', action_ref: 'action-1', command_ref: 'cmd-1', setting_ref: null, scope: 'api:execute', created_at: T0R, ...over });
+const adapterR = () => ({ supports: { streaming: false }, execute: () => ({ ok: true, usage: { input_tokens: 1, output_tokens: 1 } }) });
+const channelR = (config = {}) => makeChannel({ adapters: { OPENAI_COMPATIBLE: adapterR() }, config, clock: () => T0R });
+const expectCodeR = (fn, code) => { try { fn(); } catch (error) { assert.equal(error.code, code, 'expected ' + code + ', got ' + error.code); return error; } assert.fail('expected the call to fail with ' + code); };
+
+test('budget policy limits must be real numbers, so the second gate cannot vanish', () => {
+  for (const bad of [NaN, Infinity, 'ten', null, -1]) {
+    expectCodeR(() => channelR({ budget: { per_action_limit: bad, aggregate_limit: bad } }), 'INVALID_BUDGET');
+  }
+  expectCodeR(() => channelR({ budget: { on_unknown_usage: 'ALLOW_ANYTHING' } }), 'INVALID_BUDGET');
+  // neighbours: the default policy still admits a small call and refuses an oversized one
+  assert.equal(channelR().admit({ action_ref: 'a', consent: consentR(), protocol: 'OPENAI_COMPATIBLE', request: { estimated_actions: 1 } }).verdict, 'ADMITTED');
+  assert.equal(channelR().admit({ action_ref: 'a', consent: consentR(), protocol: 'OPENAI_COMPATIBLE', request: { estimated_actions: 999 } }).budget.verdict, 'OVER_PER_ACTION_LIMIT');
+});
+
+test('provider usage that is negative is not usage', () => {
+  const negative = usageOf({ usage: { input_tokens: -1000, output_tokens: -1000 } });
+  assert.equal(negative.known, false, 'a negative count is unusable, not authoritative');
+  assert.equal(negative.total_tokens, null);
+  // neighbours: real usage is still summed, and omitted usage is still unknown
+  assert.equal(usageOf({ usage: { input_tokens: 3, output_tokens: 4 } }).total_tokens, 7);
+  assert.equal(usageOf({}).known, false);
+});
+
+test('secrets are found and redacted however they are hidden', () => {
+  const hidden = { note: 'ok' };
+  Object.defineProperty(hidden, 'api_key', { value: 'sk-live-abcdefghijklmnop', enumerable: false, configurable: true, writable: true });
+  assert.deepEqual([...scanSecret(hidden)], ['record.api_key']);
+  assert.equal(redactValue(hidden).api_key, '[REDACTED]', 'a hidden secret is redacted like a visible one');
+  // neighbours: enumerable secrets are still redacted, and ordinary text survives
+  assert.deepEqual([...scanSecret({ api_key: 'x' })], ['record.api_key']);
+  assert.deepEqual(redactValue({ api_key: 'x' }), { api_key: '[REDACTED]' });
+  assert.deepEqual(redactValue({ note: 'plain' }), { note: 'plain' });
+});
+
+test('an admitted call with no usable adapter is a typed refusal, not a crash', () => {
+  const c = channelR();
+  const execution = c.execute({ action_ref: 'action-1', consent: consentR(), protocol: null, request: {} });
+  assert.equal(execution.ok, false);
+  assert.equal(execution.adapter_called, false, 'no adapter may be called');
+  assert.equal(execution.fault.code, 'NO_ADAPTER_FOR_PROTOCOL');
+  assert.equal(execution.admitted ?? execution.admission.admitted, true, 'admission is consent + budget, as designed');
+  // neighbours: a named protocol with an adapter still executes
+  const ok = channelR().execute({ action_ref: 'action-1', consent: consentR(), protocol: 'OPENAI_COMPATIBLE', request: {} });
+  assert.equal(ok.ok, true);
+  assert.equal(ok.adapter_called, true);
+});
+
+test('the budget result does not claim knowledge it does not have', () => {
+  const unknown = channelR().admit({ action_ref: 'a', consent: consentR(), protocol: 'OPENAI_COMPATIBLE' }).budget;
+  assert.equal(unknown.aggregate_usage_known, false, 'an absent aggregate is not knowledge');
+  assert.equal(unknown.usage_absent_treated_as_zero, true, 'and the field says so');
+  const known = channelR().admit({ action_ref: 'a', consent: consentR(), protocol: 'OPENAI_COMPATIBLE', usage_so_far: { known: true, total_tokens: 1, actions: 1 } }).budget;
+  assert.equal(known.aggregate_usage_known, true);
+  assert.equal(known.usage_absent_treated_as_zero, false);
+  // neighbours: consent fields named after Object.prototype members are refused
+  for (const name of Object.getOwnPropertyNames(Object.prototype)) {
+    const probe = Object.defineProperty({ ...consentR() }, name, { value: 'X', enumerable: true, configurable: true, writable: true });
+    expectCodeR(() => channelR().validateConsent(probe), 'INVALID_CONSENT');
+  }
+  expectCodeR(() => channelR().admit({ action_ref: 'a', consent: consentR(), protocol: 'OPENAI_COMPATIBLE', at: '2026-13-45T99:99:99Z' }), 'INVALID_REQUEST');
 });

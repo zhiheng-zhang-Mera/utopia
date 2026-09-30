@@ -5,7 +5,7 @@
 // silently escalating to API, and API execution gated by *explicit user consent* with budget
 // approval as a separate, non-substituting check.
 import {
-  ATTENTION_KINDS, CHANNELS, GeneralAiGatewayError, isIsoInstant
+  ATTENTION_KINDS, CHANNELS, GeneralAiGatewayError, isIsoInstant, normalizeFieldName
 } from './contracts.mjs';
 
 export const ROUTING_PRIORITY = Object.freeze([
@@ -72,14 +72,25 @@ export function asAdvisoryAssessment(assessment) {
   if (typeof assessment.confidence !== 'number' || assessment.confidence < 0 || assessment.confidence > 1) errors.push('confidence must be between 0 and 1');
   if (typeof assessment.needsGeneralAI !== 'boolean') errors.push('needsGeneralAI must be a boolean');
   if (assessment.preferredChannel !== null && assessment.preferredChannel !== undefined && !CHANNELS.includes(assessment.preferredChannel)) errors.push(`preferredChannel must be one of ${CHANNELS.join(', ')} or null`);
+  // Whitelist projection, not a spread. Spreading an untrusted classifier output let it carry
+  // arbitrary extra keys — `channel: 'API'`, `route: 'API_SUBMIT'`, `requires_user_confirmation`,
+  // `confirmedByRef`, `budgetDecision` — into the very object whose purpose is to be safe to hand
+  // to a later consumer. Routing itself is not fooled (it reads only `jev.degraded`), but a future
+  // consumer branching on those names would read a "user-confirmed, API, budget-approved"
+  // assessment that nothing ever confirmed.
+  const unknown = Object.keys(assessment).filter((key) => !JEV_ASSESSMENT_FIELDS.includes(key));
+  if (unknown.length) errors.push(`${unknown[0]} is not a JEV assessment field; an advisory assessment carries no other keys`);
   if (errors.length) throw new GeneralAiGatewayError('MALFORMED_ENVELOPE', errors.slice(0, 3).join('; '));
-  return Object.freeze({
-    ...assessment,
+  const projected = {
     advisory: true,
     grantedAuthority: false,
     executedAnything: false,
     note: 'JEV output recommends; City/Utopia policy decides and executes',
-  });
+  };
+  for (const field of JEV_ASSESSMENT_FIELDS) {
+    if (Object.hasOwn(assessment, field) && assessment[field] !== undefined) projected[field] = assessment[field];
+  }
+  return Object.freeze(projected);
 }
 
 /**
@@ -284,7 +295,12 @@ export function createDeterministicRemoteExecutionDouble({ endpoints = [], scrip
 // ---- historical-product dependency scan ----------------------------------
 
 export const FORBIDDEN_PRODUCT_PATTERN = /boss/i;
-export const EXECUTABLE_FILE_PATTERN = /\.(?:mjs|cjs|js|mts|ts|tsx|jsx|json|ya?ml|gradle|kts|ps1|sh|cmd)$/i;
+/**
+ * Files that can carry a dependency edge. Extensionless dotfiles such as `.npmrc` count: a
+ * scoped registry line names a package source just as effectively as a `package.json` entry,
+ * and leaving them out made the "zero findings" result weaker than it claimed to be.
+ */
+export const EXECUTABLE_FILE_PATTERN = /(?:\.(?:mjs|cjs|js|mts|ts|tsx|jsx|json|ya?ml|gradle|kts|ps1|sh|cmd|npmrc)$|(?:^|[\\/])\.npmrc$)/i;
 
 /**
  * Linkage shapes that would make the repository depend on the historical product: a module
@@ -296,17 +312,36 @@ export const EXECUTABLE_FILE_PATTERN = /\.(?:mjs|cjs|js|mts|ts|tsx|jsx|json|ya?m
  * The product token is composed at runtime so that this table, and the tests that falsify it,
  * do not themselves contain linkage-shaped text: the scan needs no exclusion list, which is
  * what keeps it auditable.
+ *
+ * The module rules keep the author's original insight: a *static* `from '...'` needs its quotes,
+ * because prose containing the phrase "from `Product`" is a provenance sentence, not an import —
+ * dropping the quote requirement reintroduced exactly the false positive the report's D5 had
+ * already rejected. What was genuinely missing is the call form: `import(\`...\`)`,
+ * `require(\`...\`)`, `require.resolve('...')` and `createRequire(...)('...')` are the same edge.
  */
 const PRODUCT = 'boss';
 export const FORBIDDEN_DEPENDENCY_RULES = Object.freeze([
-  Object.freeze({ id: 'MODULE_IMPORT', pattern: new RegExp(`(?:^|[^\\w])(?:import|require|from)\\s*\\(?\\s*['"][^'"]*${PRODUCT}[^'"]*['"]`, 'i') }),
+  Object.freeze({ id: 'MODULE_IMPORT', pattern: new RegExp(`(?:^|[^\\w])(?:(?:import|require|require\\.resolve)\\s*\\(\\s*['"\`]?[^'"\`\\s)]*${PRODUCT}|from\\s+['"][^'"]*${PRODUCT})`, 'i') }),
   Object.freeze({ id: 'HOST_REFERENCE', pattern: new RegExp(`(?:https?://|git@|github\\.com/)[^\\s'"]*${PRODUCT}`, 'i') }),
-  Object.freeze({ id: 'PROCESS_OR_ENDPOINT', pattern: new RegExp(`(?:spawn|exec|execFile|fork|fetch|axios|request)\\s*\\(\\s*['"\`][^'"\`]*${PRODUCT}[^'"\`]*['"\`]`, 'i') }),
-  Object.freeze({ id: 'REPO_LINKAGE', pattern: new RegExp(`(?:submodule|symlink|workspace:)\\s*[^\\n]*${PRODUCT}`, 'i') }),
+  Object.freeze({ id: 'PROCESS_OR_ENDPOINT', pattern: new RegExp(`(?:(?:spawn|exec|execFile|fork|fetch|axios|request)\\s*\\(\\s*['"\`][^'"\`]*${PRODUCT}|createRequire\\b[^\\n]*['"\`][^'"\`\\n]*${PRODUCT})`, 'i') }),
+  Object.freeze({ id: 'REPO_LINKAGE', pattern: new RegExp(`(?:submodule|symlink|workspace:|registry\\s*=)[^\\n]*${PRODUCT}|^\\s*-\\s*[^\\n]*${PRODUCT}`, 'i') }),
 ]);
 
 /** Manifest blocks that constitute a real dependency edge when they name the product. */
 export const DEPENDENCY_BLOCKS = Object.freeze(['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies', 'resolutions', 'overrides']);
+
+/**
+ * Every JSON key under which a package name or module path is a dependency edge, held in
+ * *normalised* form (see `normalizeFieldName`), because equality is tested against normalised
+ * keys. The fixed six-name list missed `pnpm.overrides`, `bundleDependencies`,
+ * `workspaces: { packages: [...] }`, tsconfig `paths`/`imports`, and the lockfile
+ * `packages["node_modules/..."]` map — all real shapes that install or resolve a package.
+ */
+const DEPENDENCY_CONTAINER_KEYS = new Set([
+  'dependencies', 'dev_dependencies', 'peer_dependencies', 'optional_dependencies',
+  'resolutions', 'overrides', 'pnpm', 'bundle_dependencies', 'bundled_dependencies',
+  'workspaces', 'packages', 'imports', 'paths', 'aliases', 'package_manager',
+]);
 
 function lineOf(text, needle) {
   const index = text.split(/\r?\n/).findIndex(line => line.includes(needle));
@@ -314,26 +349,58 @@ function lineOf(text, needle) {
 }
 
 /**
- * A JSON manifest is scanned structurally: only dependency blocks and workspaces are linkage.
- * A provenance manifest such as `DONOR.json` legitimately *describes* a historical donor in
- * prose fields, and such a description is a record, not an edge — flagging it would be a false
- * positive that teaches nothing.
+ * A JSON manifest is scanned structurally at any depth: a package name or module path is a
+ * linkage wherever it sits under a dependency/override/workspace/lockfile container, while a
+ * provenance manifest such as `DONOR.json` legitimately *describes* a historical donor in prose
+ * fields — a record, not an edge. Flagging prose would be a false positive that teaches nothing;
+ * missing `pnpm.overrides` was a false negative that taught less.
  */
 function scanJsonManifest(path, text) {
   let parsed;
   try { parsed = JSON.parse(text); } catch { return []; }
   const findings = [];
-  for (const block of DEPENDENCY_BLOCKS) {
-    const value = parsed?.[block];
-    if (!isPlainObject(value)) continue;
-    for (const name of Object.keys(value)) {
-      if (FORBIDDEN_PRODUCT_PATTERN.test(name)) findings.push({ path, line: lineOf(text, `"${name}"`), rule: 'PACKAGE_DEPENDENCY', text: name });
+  const push = (rule, needle) => findings.push({ path, line: lineOf(text, String(needle)), rule, text: String(needle).slice(0, 160) });
+  const namesProduct = (candidate) => typeof candidate === 'string' && FORBIDDEN_PRODUCT_PATTERN.test(candidate);
+
+  // `inContainer` is what keeps this honest. A bare array entry that happens to name the product
+  // (a `sourcePaths` list, a `knownDifferences` paragraph) is provenance prose, not an edge; only
+  // a name or path reached through a dependency/override/workspace/lockfile container is linkage.
+  const walk = (node, inContainer = false) => {
+    if (Array.isArray(node)) {
+      for (const entry of node) {
+        if (isPlainObject(entry)) walk(entry, inContainer);
+        else if (inContainer && namesProduct(entry)) push('REPO_LINKAGE', entry);
+      }
+      return;
     }
-  }
-  for (const entry of Array.isArray(parsed?.workspaces) ? parsed.workspaces : []) {
-    if (typeof entry === 'string' && FORBIDDEN_PRODUCT_PATTERN.test(entry)) findings.push({ path, line: lineOf(text, entry), rule: 'REPO_LINKAGE', text: entry });
-  }
-  return findings;
+    if (!isPlainObject(node)) return;
+    for (const [key, child] of Object.entries(node)) {
+      const container = DEPENDENCY_CONTAINER_KEYS.has(normalizeFieldName(key));
+      // Any package-name key reached through a dependency container is an edge, at any depth:
+      // `pnpm.overrides`, the lockfile `packages` map and tsconfig `paths` are all maps of names.
+      if (inContainer && FORBIDDEN_PRODUCT_PATTERN.test(key)) push('PACKAGE_DEPENDENCY', key);
+      if (container) {
+        if (typeof child === 'string') {
+          if (namesProduct(child)) push('REPO_LINKAGE', child);
+        } else if (Array.isArray(child)) {
+          for (const entry of child) if (namesProduct(entry)) push('REPO_LINKAGE', entry);
+        }
+        walk(child, true);
+        continue;
+      }
+      walk(child, inContainer);
+    }
+  };
+  walk(parsed);
+  // A container's contents can be reached by more than one branch (a workspaces array is both a
+  // container value and a walking target), so the same edge would otherwise be reported twice.
+  const seen = new Set();
+  return findings.filter((finding) => {
+    const key = `${finding.rule}|${finding.line}|${finding.text}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 /**

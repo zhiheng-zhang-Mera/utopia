@@ -12,13 +12,16 @@ import { join } from 'node:path';
 
 import {
  ACTION_IN_FLIGHT_STATUSES, ACTION_ROUTES_V1, ACTION_STATUSES, ACTION_TERMINAL_STATUSES,
+ ACTION_UPDATE_SOURCES,
  ATTENTION_KINDS, BUDGET_DECISIONS, CHANNELS, GAI_CONTRACT_VERSION, GAI_ERROR_CODES,
  GAI_PORT_CONTRACTS, GENERAL_AI_GATEWAY_CONTRACT, GENERAL_AI_ROUTE, GeneralAiGatewayError,
+ JEV_ASSESSMENT_FIELDS,
  JEV_TRIAGE_PORT, LEGACY_ACTION_ROUTES, ROUTING_OUTCOMES, ROUTING_PRIORITY,
  applyApiEscalation, applyDeviceSwitch, asAdvisoryAssessment, assessWithJevTriage,
  assertActionRoute, attentionForDecision, checkIdempotentReuse, createDeterministicJevTriageDouble,
  createDeterministicRemoteExecutionDouble, decideRoute, describeGaiPort, fingerprintGeneralAiRequest,
- findRawSecretFields, nextActionStatus, probeGaiPortConformance, scanForForbiddenProductDependency,
+ findRawSecretFields, findRawSecretValues, findReservedKeyPaths, isSecretFieldName, normalizeFieldName,
+ nextActionStatus, probeGaiPortConformance, scanForForbiddenProductDependency,
  validateActionRoute, validateApiSwitchProposal, validateAttentionRequest, validateConversation,
  validateDeviceSwitchProposal, validateEscalationReceipt, validateGeneralAiRequest,
  validateInputBundle, validateModelDescriptor, validatePartialResult, validateProviderAccount,
@@ -379,4 +382,165 @@ test('the contract publishes its routing guarantees and error vocabulary', () =>
   assert.equal(GAI_ERROR_CODES.includes('FORBIDDEN_ROUTE'), true);
   assert.equal(new Set(GAI_ERROR_CODES).size, GAI_ERROR_CODES.length);
   assert.equal(new GeneralAiGatewayError('X', 'y').status, 400);
+});
+
+/* ---------------------------------------------------------------------------
+ * CORRECTION (host Alien, GAI-001 Correction stage) — adversarial regressions.
+ *
+ * Every assertion below failed before the repair. Two themes run through them, and
+ * both are the same mistake in different places: a guard that compared raw key
+ * spellings (so a forbidden concept walked through by being written differently),
+ * and a guard that trusted an unvalidated caller-supplied field.
+ * --------------------------------------------------------------------------- */
+
+test('undeclared keys inherited from Object.prototype are refused, and a prototype key never is canonical', () => {
+  const base = {
+    contract_version: 1, provider_ref: 'p', display_name: 'P', channels: ['WEB'],
+    auth_status: 'AUTHENTICATED', health: 'HEALTHY', credential_ref: null,
+  };
+  assert.equal(validateProviderDescriptor(base).ok, true, 'the control envelope is accepted');
+  // `key in spec` walks the prototype chain, so every one of these was "part of the canonical contract".
+  for (const key of ['toString', 'valueOf', 'hasOwnProperty', 'constructor', 'isPrototypeOf', 'propertyIsEnumerable', 'toLocaleString']) {
+    const result = validateProviderDescriptor({ ...base, [key]: 'SMUGGLED' });
+    assert.equal(result.ok, false, `${key} must not be accepted as an undeclared envelope field`);
+    assert.ok(result.errors.some((error) => error.includes(key)), JSON.stringify(result.errors));
+  }
+  // A `__proto__` own key can only arrive as data; `JSON.parse` is how.
+  const raw = JSON.parse(JSON.stringify(base).replace('{', '{"__proto__":{"isAdmin":true},'));
+  assert.equal(validateProviderDescriptor(raw).ok, false);
+  assert.deepEqual(findReservedKeyPaths({ ok: 1, nested: { __proto__: null } }), [], 'a plain nested object carries no own prototype key');
+  assert.equal(findReservedKeyPaths(JSON.parse('{"a":{"__proto__":{"x":1}}}')).length, 1, 'a nested own prototype key is found');
+});
+
+test('a secret-shaped name is refused in its plural and compound spellings, and a quantity is not a secret', () => {
+  for (const key of ['credential', 'credentials', 'tokens', 'secrets', 'apiKeys', 'api_keys', 'privateKeys',
+    'sessionKeys', 'refreshTokens', 'authToken', 'bearerToken', 'clientSecret', 'accountCredential',
+    'tokenValue', 'passwordHash', 'passwords']) {
+    assert.equal(isSecretFieldName(key), true, `${key} must be treated as a secret-shaped name`);
+    assert.equal(findRawSecretFields({ [key]: 'RAW' }).length, 1, `${key} must be caught`);
+  }
+  // The reference forms the contract allows are still allowed.
+  for (const key of ['credential_ref', 'api_key_handle', 'access_token_id', 'secret_refs', 'session_handle', 'token_id']) {
+    assert.equal(isSecretFieldName(key), false, `${key} is a permitted reference`);
+    assert.deepEqual(findRawSecretFields({ [key]: 'handle:x' }), []);
+  }
+  // A secret-shaped name holding a *number* is a usage quantity, not credential bytes.
+  assert.deepEqual(findRawSecretFields({ input_tokens: 10, output_tokens: 20 }), []);
+  assert.equal(findRawSecretFields({ input_tokens: 'ten' }).length, 1, 'the same name holding text is refused');
+  assert.equal(normalizeFieldName('camelCaseName'), 'camel_case_name');
+});
+
+test('raw credential bytes are refused in any field, not only in a secret-shaped one', () => {
+  const rawValues = [
+    'sk-live-9f8e7d6c5b4a39281706',
+    'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dBjftJeZ4CVPmB92K27uhbUJU1p1r_wW1gFWFOEjXk',
+    '-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA\n-----END RSA PRIVATE KEY-----',
+  ];
+  for (const raw of rawValues) {
+    // `credential_ref` is a declared *handle* field, so a name scan alone would never look at it.
+    assert.equal(validateProviderDescriptor({
+      contract_version: 1, provider_ref: 'p', display_name: 'P', channels: ['WEB'],
+      auth_status: 'AUTHENTICATED', health: 'HEALTHY', credential_ref: raw,
+    }).ok, false, `a raw credential in credential_ref must be refused: ${raw.slice(0, 16)}`);
+    assert.equal(findRawSecretValues({ anywhere: raw }).length, 1);
+  }
+  assert.deepEqual(findRawSecretValues({ credential_ref: 'handle://1', text: 'an ordinary sentence' }), []);
+  assert.equal(validateProviderAccount({
+    contract_version: 1, account_ref: 'a', provider_ref: 'p', credential_ref: 'handle://1',
+    status: 'AUTHENTICATED', created_at: TS,
+  }).ok, true, 'the legitimate handle form still passes');
+  assert.equal(validateProviderDescriptor({
+    contract_version: 1, provider_ref: 'p', display_name: 'P', channels: ['WEB'],
+    auth_status: 'AUTHENTICATED', health: 'HEALTHY', credential_ref: 'handle://1',
+  }).ok, true);
+});
+
+test('a partial result cannot claim a terminal status by relabelling or omitting its source', () => {
+  assert.deepEqual([...ACTION_UPDATE_SOURCES], ['CHANNEL', 'PARTIAL', 'RECONCILE']);
+  for (const terminal of ACTION_TERMINAL_STATUSES) {
+    // Any spelling of the partial marker is recognised: the source is normalised, so whitespace
+    // and casing cannot be used to dodge the rule (which is exactly how it used to be dodged).
+    for (const marker of ['PARTIAL', 'partial', 'Partial', 'PARTIAL ', ' PARTIAL', '  partial  ']) {
+      expectCode(() => nextActionStatus('RUNNING', { status: terminal, source: marker }), 'PARTIAL_RESULT_CANNOT_COMPLETE');
+    }
+    // A missing or unknown source is refused outright rather than treated as "not partial".
+    for (const missing of [undefined, null, '', '   ', 'STREAM', 'PROCESS', 42, {}]) {
+      const error = expectCode(() => nextActionStatus('RUNNING', { status: terminal, source: missing }), 'UNKNOWN_STATUS');
+      assert.ok(error.detail.includes('update source'), error.detail);
+    }
+    // An explicit, well-formed partial marker on a non-terminal status is still allowed.
+    assert.equal(nextActionStatus('RUNNING', { status: 'RUNNING', source: 'PARTIAL' }), 'RUNNING');
+    assert.equal(nextActionStatus('QUEUED', { status: 'RUNNING', source: 'CHANNEL' }), 'RUNNING');
+  }
+});
+
+test('UNAVAILABLE is final for this action, and entering it is still allowed', () => {
+  // The contract keeps UNAVAILABLE out of its terminal vocabulary on purpose, but the documented
+  // retry is a new action with a new key, so the same action must not later claim SUCCEEDED.
+  for (const next of ['QUEUED', 'RUNNING', 'SUCCEEDED', 'FAILED', 'CANCELLED', 'REFUSED']) {
+    expectCode(() => nextActionStatus('UNAVAILABLE', { status: next, source: 'CHANNEL' }), 'RETRYABLE_STATUS_IS_FINAL_FOR_THIS_ACTION');
+  }
+  assert.equal(nextActionStatus('RUNNING', { status: 'UNAVAILABLE', source: 'CHANNEL' }), 'UNAVAILABLE');
+  assert.equal(nextActionStatus('WAITING_CONFIRMATION', { status: 'UNAVAILABLE', source: 'CHANNEL' }), 'UNAVAILABLE');
+});
+
+test('an advisory assessment carries advisory fields and nothing else', () => {
+  assert.deepEqual([...JEV_ASSESSMENT_FIELDS], ['intent', 'complexity', 'risk', 'routeRecommendation', 'confidence', 'needsGeneralAI', 'preferredChannel']);
+  const legitimate = asAdvisoryAssessment({
+    intent: 'summarise', complexity: 'NORMAL', risk: 'LOW', confidence: 0.6, needsGeneralAI: true, preferredChannel: null,
+  });
+  assert.deepEqual(
+    Object.keys(legitimate).sort(),
+    ['advisory', 'complexity', 'confidence', 'executedAnything', 'grantedAuthority', 'intent', 'needsGeneralAI', 'note', 'preferredChannel', 'risk'].sort(),
+    'the projection carries the declared assessment fields that were supplied, plus the three safety flags and the note',
+  );
+  assert.equal(Object.hasOwn(legitimate, 'routeRecommendation'), false, 'an absent whitelist field is not invented');
+  assert.equal(legitimate.advisory, true);
+  assert.equal(legitimate.grantedAuthority, false);
+  assert.equal(legitimate.executedAnything, false);
+  // A classifier that also reports channel/route/confirmation/budget must not have those keys
+  // carried into the object a later consumer branches on.
+  for (const smuggled of ['channel', 'route', 'requires_user_confirmation', 'confirmedByRef', 'budgetDecision', 'grants']) {
+    expectCode(() => asAdvisoryAssessment({
+      intent: 'x', complexity: 'NORMAL', risk: 'LOW', confidence: 0.5, needsGeneralAI: true, [smuggled]: 'API',
+    }), 'MALFORMED_ENVELOPE');
+  }
+  // The existing validation still applies, and a failure still degrades rather than throws outward.
+  expectCode(() => asAdvisoryAssessment({ intent: 'x', complexity: 'IMPOSSIBLE', risk: 'LOW', confidence: 0.5, needsGeneralAI: true }), 'MALFORMED_ENVELOPE');
+  // A classifier that oversteps is a degraded input, not an exception that blocks the terminal.
+  const degraded = assessWithJevTriage({
+    assess: () => ({ intent: 'x', complexity: 'NORMAL', risk: 'LOW', confidence: 0.5, needsGeneralAI: true, channel: 'API' }),
+  }, {});
+  assert.equal(degraded.degraded, true);
+  assert.equal(degraded.assessment, null);
+  assert.match(degraded.reason, /^JEV_FAILED:/);
+});
+
+test('the linkage scanner catches real dependency shapes it used to miss, and still ignores provenance prose', () => {
+  const P = 'boss';
+  const positives = [
+    [{ path: 'package.json', text: `{"pnpm":{"overrides":{"${P}-client":"2"}}}` }, 'PACKAGE_DEPENDENCY'],
+    [{ path: 'package.json', text: `{"workspaces":{"packages":["packages/${P}-core"]}}` }, 'REPO_LINKAGE'],
+    [{ path: 'package.json', text: `{"bundleDependencies":["${P}-client"]}` }, 'REPO_LINKAGE'],
+    [{ path: 'package.json', text: `{"packageManager":"pnpm@9+${P}"}` }, 'REPO_LINKAGE'],
+    [{ path: 'package-lock.json', text: `{"packages":{"node_modules/${P}-client":{"version":"1"}}}` }, 'PACKAGE_DEPENDENCY'],
+    [{ path: 'tsconfig.json', text: `{"compilerOptions":{"paths":{"${P}-client":["./x"]}}}` }, 'PACKAGE_DEPENDENCY'],
+    [{ path: 'services/example.mjs', text: 'const m = await import(`' + P + '-client`);' }, 'MODULE_IMPORT'],
+    [{ path: 'services/example.mjs', text: `const r = createRequire(import.meta.url)("${P}-client");` }, 'PROCESS_OR_ENDPOINT'],
+    [{ path: 'services/example.mjs', text: `const p = require.resolve('${P}-client/x');` }, 'MODULE_IMPORT'],
+    [{ path: '.npmrc', text: `@scope:registry=https://npm.${P}.example/` }, 'HOST_REFERENCE'],
+    [{ path: 'pnpm-workspace.yaml', text: `packages:\n  - packages/${P}-core\n` }, 'REPO_LINKAGE'],
+  ];
+  for (const [file, rule] of positives) {
+    const found = scanForForbiddenProductDependency([file]);
+    assert.equal(found.length, 1, `${file.path}: ${JSON.stringify(file.text)}`);
+    assert.equal(found[0].rule, rule);
+  }
+  // The property that made the false negatives worth fixing without reintroducing noise: a
+  // provenance record that merely describes the product is still not an edge.
+  assert.deepEqual(scanForForbiddenProductDependency([{
+    path: 'city/x/DONOR.json',
+    text: `{"notes":["the donor's ${P}Task runtime vocabulary"],"sourcePaths":["electron/${P}/thing.ts"]}`,
+  }]), []);
+  assert.deepEqual(scanForForbiddenProductDependency([{ path: 'services/x.mjs', text: '// copied verbatim from `' + 'Codex-' + P + '` @ 8df428e\n' }]), []);
 });

@@ -93,15 +93,89 @@ const SECRET_KEY_PATTERN = /(?:^|[._-])(token|secret|password|cookie|api[-_]?key
 const HANDLE_SUFFIX = /(?:_ref|_refs|_handle|_handles|_id)$/i;
 
 /**
+ * Reserved prototype keys. A `__proto__` own key is worse than invalid: assigning it rewrites
+ * an object's prototype instead of adding a key, so `Object.keys` — and therefore every check
+ * below — cannot see the result. Refused at every depth of every canonical envelope.
+ */
+export const RESERVED_KEY_PATTERN = /^(?:__proto__|prototype|constructor)$/;
+
+/**
+ * Normalise a field name to one comparable form.
+ *
+ * The secret vocabulary is spelled with separator boundaries, so comparing raw keys missed
+ * every compound and plural spelling of the same concept: `authToken`, `bearerToken`,
+ * `clientSecret`, `accountCredential`, `tokenValue`, `passwordHash`, `credentials`. Splitting
+ * camelCase into words, collapsing every non-alphanumeric run to one `_` and lowercasing makes
+ * the scan about the name's meaning rather than its exact spelling.
+ */
+export function normalizeFieldName(key) {
+  return String(key)
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/[^A-Za-z0-9]+/g, '_')
+    .toLowerCase()
+    .replace(/^_+|_+$/g, '');
+}
+
+/** True when a field name denotes a raw secret, allowing a plural spelling. */
+export function isSecretFieldName(key) {
+  const normalised = normalizeFieldName(key);
+  // A reference form is explicitly allowed, so it is exempt before the plural tolerance is
+  // applied: `credential_ref` and `token_id` stay references, `credentials` does not.
+  if (HANDLE_SUFFIX.test(`_${normalised}`)) return false;
+  if (SECRET_KEY_PATTERN.test(normalised)) return true;
+  const singular = normalised.replace(/s$/, '');
+  return singular !== normalised && SECRET_KEY_PATTERN.test(singular);
+}
+
+/**
+ * Value shapes that are recognisably raw credential bytes rather than a reference.
+ *
+ * A name scan alone cannot hold the rule "canonical contracts carry handles, not bytes": a
+ * caller can put a private key in a field called `provider_ref` and the name is innocent. This
+ * is the other half — PEM blocks, JWTs and provider key prefixes are refused wherever they
+ * appear as a value, so the rule is about the *content* as well as the field name.
+ */
+export const RAW_SECRET_VALUE_PATTERN = /(?:-----BEGIN [A-Z ]*PRIVATE KEY-----|^eyJ[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}$|^(?:sk|rk|pk|ghp|gho|ghs|ghu|github_pat_|AKIA|ASIA|xox[baprs])[-_][A-Za-z0-9_-]{12,}$)/;
+
+/** Every value that looks like raw credential bytes rather than a reference. */
+export function findRawSecretValues(value, path = 'envelope', found = []) {
+  if (typeof value === 'string') {
+    if (RAW_SECRET_VALUE_PATTERN.test(value.trim())) found.push(path);
+    return found;
+  }
+  if (Array.isArray(value)) { value.forEach((item, index) => findRawSecretValues(item, `${path}[${index}]`, found)); return found; }
+  if (!isPlainObject(value)) return found;
+  for (const [key, child] of Object.entries(value)) findRawSecretValues(child, `${path}.${key}`, found);
+  return found;
+}
+
+/** Every reserved prototype key, at every depth. `JSON.parse` can produce an own `__proto__`. */
+export function findReservedKeyPaths(value, path = 'envelope', found = []) {
+  if (Array.isArray(value)) { value.forEach((item, index) => findReservedKeyPaths(item, `${path}[${index}]`, found)); return found; }
+  if (!isPlainObject(value)) return found;
+  for (const [key, child] of Object.entries(value)) {
+    const childPath = `${path}.${key}`;
+    if (RESERVED_KEY_PATTERN.test(key)) found.push(childPath);
+    findReservedKeyPaths(child, childPath, found);
+  }
+  return found;
+}
+
+/**
  * Every occurrence of a secret-shaped field name that is not a bounded handle.
  * `credential_ref` is a handle; `credential` is bytes and is refused.
+ *
+ * The check is value-aware in one direction only: a secret-shaped name holding a **number** is
+ * a quantity, not credential bytes. `input_tokens` / `output_tokens` in a usage record are
+ * counts, and the plural tolerance that catches `credentials` would otherwise flag them. A
+ * secret-shaped name holding a string, array or object is still refused.
  */
 export function findRawSecretFields(value, path = 'envelope', found = []) {
   if (Array.isArray(value)) { value.forEach((item, index) => findRawSecretFields(item, `${path}[${index}]`, found)); return found; }
   if (!isPlainObject(value)) return found;
   for (const [key, child] of Object.entries(value)) {
     const childPath = `${path}.${key}`;
-    if (SECRET_KEY_PATTERN.test(key) && !HANDLE_SUFFIX.test(key)) found.push(childPath);
+    if (isSecretFieldName(key) && typeof child !== 'number') found.push(childPath);
     findRawSecretFields(child, childPath, found);
   }
   return found;
@@ -111,7 +185,14 @@ export function findRawSecretFields(value, path = 'envelope', found = []) {
 
 function checkShape(value, path, spec, errors) {
   if (!isPlainObject(value)) { errors.push(`${path} must be an object`); return; }
-  for (const key of Object.keys(value)) if (!(key in spec)) errors.push(`${path}.${key} is not part of the canonical contract`);
+  // Own-key lookup: `key in spec` walks the prototype chain, so `toString`, `valueOf`,
+  // `hasOwnProperty`, `constructor`, `isPrototypeOf`, `propertyIsEnumerable` and `toLocaleString`
+  // were all accepted as "part of the canonical contract" even though no spec declares them.
+  // That made the strict envelope check false for exactly the names an attacker would choose.
+  for (const key of Object.keys(value)) {
+    if (RESERVED_KEY_PATTERN.test(key)) { errors.push(`${path}.${key} is a reserved prototype key and is never canonical contract data`); continue; }
+    if (!Object.hasOwn(spec, key)) errors.push(`${path}.${key} is not part of the canonical contract`);
+  }
   for (const [key, rule] of Object.entries(spec)) {
     const present = Object.hasOwn(value, key);
     if (!present) { if (rule.required) errors.push(`${path}.${key} is required`); continue; }
@@ -147,6 +228,8 @@ function seal(name, value, spec) {
   const errors = [];
   checkShape(value, name, spec, errors);
   for (const found of findRawSecretFields(value, name)) errors.push(`${found} looks like raw secret bytes; canonical contracts carry handles only`);
+  for (const found of findRawSecretValues(value, name)) errors.push(`${found} contains raw credential bytes; canonical contracts carry references only`);
+  for (const found of findReservedKeyPaths(value, name)) errors.push(`${found} is a reserved prototype key and is never canonical contract data`);
   return { ok: errors.length === 0, errors: [...new Set(errors)] };
 }
 
@@ -188,6 +271,8 @@ export function validateGeneralAiRequest(request) {
     for (const error of validateActionRoute(request.route).errors) errors.push(`request.${error}`);
   }
   for (const found of findRawSecretFields(request, 'request')) errors.push(`${found} looks like raw secret bytes; canonical contracts carry handles only`);
+  for (const found of findRawSecretValues(request, 'request')) errors.push(`${found} contains raw credential bytes; canonical contracts carry references only`);
+  for (const found of findReservedKeyPaths(request, 'request')) errors.push(`${found} is a reserved prototype key and is never canonical contract data`);
   return { ok: errors.length === 0, errors: [...new Set(errors)] };
 }
 
@@ -319,6 +404,15 @@ export const validateUsageRecord = value => seal('usage', value, USAGE_RECORD_SP
 // ---- status / idempotency rules -----------------------------------------
 
 /**
+ * Where a status update came from.
+ *
+ * A closed vocabulary, because the partial-result rule below reads this field: while it was
+ * free text, omitting it — or spelling it `partial`, `Partial`, `PARTIAL ` or `STREAM` — let a
+ * partial result claim a terminal status, which is the one thing the rule exists to prevent.
+ */
+export const ACTION_UPDATE_SOURCES = Object.freeze(['CHANNEL', 'PARTIAL', 'RECONCILE']);
+
+/**
  * A partial result can never move an Action to a terminal status, and a terminal status is
  * final. This is the single place both rules are decided, so no channel implementation can
  * invent its own answer.
@@ -326,8 +420,19 @@ export const validateUsageRecord = value => seal('usage', value, USAGE_RECORD_SP
 export function nextActionStatus(currentStatus, incoming) {
   if (!ACTION_STATUSES.includes(currentStatus)) throw new GeneralAiGatewayError('UNKNOWN_STATUS', String(currentStatus));
   if (!isPlainObject(incoming) || !ACTION_STATUSES.includes(incoming.status)) throw new GeneralAiGatewayError('UNKNOWN_STATUS', String(incoming?.status));
+  const source = typeof incoming.source === 'string' ? incoming.source.trim().toUpperCase() : incoming.source;
+  if (!ACTION_UPDATE_SOURCES.includes(source)) {
+    throw new GeneralAiGatewayError('UNKNOWN_STATUS', `update source ${JSON.stringify(incoming.source)} is not one of ${ACTION_UPDATE_SOURCES.join(', ')}`);
+  }
   if (ACTION_TERMINAL_STATUSES.includes(currentStatus)) throw new GeneralAiGatewayError('TERMINAL_STATUS_IS_FINAL', `${currentStatus} cannot become ${incoming.status}`);
-  if (incoming.source === 'PARTIAL' && ACTION_TERMINAL_STATUSES.includes(incoming.status)) {
+  // UNAVAILABLE is terminal *for this attempt*: the documented retry path is a new action with a
+  // new key, so the same action must not later claim a different outcome. Leaving this edge open
+  // was a false-success path — an action already reported unavailable could then report SUCCEEDED,
+  // and a client that followed the documented advice had two contradictory results for one action.
+  if (currentStatus === ACTION_RETRYABLE_STATUS) {
+    throw new GeneralAiGatewayError('RETRYABLE_STATUS_IS_FINAL_FOR_THIS_ACTION', `${currentStatus} is final for this action; retry with a new action and a new idempotency key`);
+  }
+  if (source === 'PARTIAL' && ACTION_TERMINAL_STATUSES.includes(incoming.status)) {
     throw new GeneralAiGatewayError('PARTIAL_RESULT_CANNOT_COMPLETE', `partial output must not mark the action ${incoming.status}`);
   }
   return incoming.status;

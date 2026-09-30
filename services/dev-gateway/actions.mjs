@@ -44,6 +44,36 @@ export const ACTION_ROUTES = ['ROOM', 'CAPABILITY', 'CITY_TASK', 'GENERAL_AI'];
 
 const ROOM_HUB_ERROR_CODES = new Set(['ROOM_HUB_UNREACHABLE', 'ROOM_HUB_TIMEOUT', 'ROOM_NOT_FOUND']);
 
+/**
+ * Statuses an Action may never leave.
+ *
+ * This is the rule `contracts/general-ai-gateway-v1` states in `nextActionStatus`, and it is
+ * repeated here deliberately rather than imported: the gateway is the product surface, and a
+ * service must not take a build dependency on one programme's contract module. `UNAVAILABLE` is
+ * final *for this attempt* — the documented retry is a new Action with a new key — so it is
+ * included even though the contract keeps it out of its own terminal vocabulary.
+ */
+export const FINAL_ACTION_STATUSES = Object.freeze(['SUCCEEDED', 'FAILED', 'REFUSED', 'CANCELLED', 'UNAVAILABLE']);
+
+/**
+ * Decide the status a reconciled observation may write.
+ *
+ * Exported because it is the whole rule, and it had no test at all: `reconcile` is reachable only
+ * through a CITY_TASK Action backed by a live City task, which no test in this repository set up,
+ * so a terminal Action could be silently re-opened by the next read. A late observation is
+ * evidence, not a new outcome: the recorded status stands and the observation is returned as
+ * `refused` so the caller can keep it in provenance instead of writing it.
+ *
+ * @param {string} currentStatus the status already recorded for the Action
+ * @param {string} observedStatus the status the City task state maps to now
+ * @returns {{status: string, refused: string|null}}
+ */
+export function reconcileStatus(currentStatus, observedStatus) {
+  if (observedStatus === currentStatus) return { status: currentStatus, refused: null };
+  if (FINAL_ACTION_STATUSES.includes(currentStatus)) return { status: currentStatus, refused: observedStatus };
+  return { status: observedStatus, refused: null };
+}
+
 function invalid(code, message) {
   const error = new Error(message);
   error.code = code;
@@ -364,13 +394,21 @@ export function createActions({ store, rooms, bridge, cityTasks, host = 'utopia-
     if (action.route !== 'CITY_TASK' || !action.backendRef.taskId) return action;
     const task = cityTasks.get(action.backendRef.taskId);
     if (!task) return action;
-    const status = TASK_STATUS_MAP[task.state] ?? action.status;
+    const observedStatus = TASK_STATUS_MAP[task.state] ?? action.status;
     const progress = task.state === 'RUNNING' ? Math.max(action.progress, Number(task.progress) || 0) : TASK_PROGRESS[task.state] ?? action.progress;
     const error = task.state === 'FAILED' ? { code: task.errorCode ?? 'TASK_FAILED', message: String(task.error ?? 'task failed') } : null;
     const resultRef = task.state === 'COMPLETED'
       ? { kind: 'CITY_TASK_RESULT', id: task.id, digest: null, summary: `City task ${task.type} completed.` }
       : null;
-    if (status === action.status && progress === action.progress && action.provenance.cityTaskState === task.state) return action;
+    // A reconciled status must obey the same status machine as every other update. Without this
+    // guard a later read silently re-opened a finished Action: SUCCEEDED became CANCELLED or
+    // FAILED once the City task moved on, and REFUSED/UNAVAILABLE became SUCCEEDED. A late
+    // observation is evidence, not a new outcome, so it is kept in provenance and the Action's
+    // recorded status is left alone.
+    const decision = reconcileStatus(action.status, observedStatus);
+    const status = decision.status;
+    const refusedObservation = decision.refused;
+    if (status === action.status && progress === action.progress && action.provenance.cityTaskState === task.state && refusedObservation === null) return action;
     return persist({
       ...action,
       status,
@@ -383,7 +421,16 @@ export function createActions({ store, rooms, bridge, cityTasks, host = 'utopia-
         // Keep the observed City Control state in step with the task, so provenance does not
         // keep claiming QUEUED after the task has completed.
         cityTaskState: task.state,
-        history: [...action.provenance.history, { at: now(), status, note: `observed City task state ${task.state}` }],
+        lateObservations: refusedObservation === null
+          ? (action.provenance.lateObservations ?? [])
+          : [...(action.provenance.lateObservations ?? []), { at: now(), observedStatus: refusedObservation, keptStatus: action.status }],
+        history: [...action.provenance.history, {
+          at: now(),
+          status,
+          note: refusedObservation === null
+            ? `observed City task state ${task.state}`
+            : `ignored late City task state ${task.state} (${refusedObservation}); ${action.status} is final`,
+        }],
       },
     });
   }

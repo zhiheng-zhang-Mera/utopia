@@ -17,7 +17,7 @@ function parse(argv) {
     const name = key.slice(2);
     const value = argv[++i];
     if (value == null || value.startsWith('--')) fail(`Missing value for --${name}`);
-    if (['mission','migration-host','verification-host','branch-sha','ci-run','migration-acceptance','owner-ruling'].includes(name)) out[name] = value;
+    if (['mission','migration-host','verification-host','branch-sha','ci-run','migration-acceptance','owner-ruling','host-separation','completing-host'].includes(name)) out[name] = value;
     else fail(`Unknown option: --${name}`);
   }
   return out;
@@ -44,7 +44,35 @@ const ciRun = args['ci-run'];
 if (!/^MB-[0-9]{3}$/.test(missionId || '')) fail('Invalid --mission');
 if (!/^[A-Za-z0-9._-]{1,80}$/.test(migrationHost || '')) fail('Invalid --migration-host');
 if (!/^[A-Za-z0-9._-]{1,80}$/.test(verificationHost || '')) fail('Invalid --verification-host');
-if (migrationHost === verificationHost) fail('Migration and verification hosts must differ');
+
+/**
+ * Host separation.
+ *
+ * `strict` (the default) is the rule: the Migration Host and the Verification Host are two
+ * different real hosts, and each role's events must come from its own host.
+ *
+ * `owner-waived` exists for the case an Owner ruling resolved explicitly: a Mission whose
+ * Verification Host cannot execute the closeout while the Migration Host can, so the Owner
+ * authorises the Migration Host to finish the verification role. Nothing is rewritten to
+ * make that work — every historical event keeps the hostId that produced it, the ruling must
+ * be cited by an event in the record, the completing host must actually have produced the
+ * verification events, and the episode states which host produced which side. A waiver that
+ * is not needed is refused rather than recorded.
+ */
+const HOST_SEPARATION_MODES = ['strict', 'owner-waived'];
+const hostSeparationMode = args['host-separation'] ?? 'strict';
+if (!HOST_SEPARATION_MODES.includes(hostSeparationMode)) fail(`Invalid --host-separation: ${hostSeparationMode}`);
+const completingHost = args['completing-host'];
+
+if (hostSeparationMode === 'strict') {
+  if (completingHost !== undefined) fail('--completing-host is only valid with --host-separation owner-waived');
+  if (migrationHost === verificationHost) fail('Migration and verification hosts must differ');
+} else {
+  if (!/^[A-Za-z0-9._-]{1,80}$/.test(completingHost || '')) fail('--host-separation owner-waived requires --completing-host');
+  if (!/^[A-Za-z0-9._/#-]{10,200}$/.test(args['owner-ruling'] || '')) fail('--host-separation owner-waived requires --owner-ruling');
+  if (completingHost === verificationHost) fail('--host-separation owner-waived is unnecessary: the completing host is already the Verification Host');
+  if (completingHost !== migrationHost && completingHost !== verificationHost) fail('--completing-host must already participate in this Mission');
+}
 if (!/^[A-Fa-f0-9]{7,64}$/.test(branchFinalSha || '')) fail('Invalid --branch-sha');
 if (!ciRun) fail('Missing --ci-run');
 
@@ -57,11 +85,44 @@ const events = inboxRaw.split(/\r?\n/).filter(Boolean).map((line, i) => {
   try { return JSON.parse(line); } catch { fail(`Invalid JSONL at line ${i + 1}`); }
 });
 if (!events.length) fail('Inbox is empty');
+
+const allowedMigrationHosts = hostSeparationMode === 'owner-waived' ? [migrationHost, completingHost] : [migrationHost];
+const allowedVerificationHosts = hostSeparationMode === 'owner-waived' ? [verificationHost, completingHost] : [verificationHost];
+const hostsSeen = { migration: new Set(), verification: new Set() };
+
 for (const event of events) {
   if (!validEvent(event)) fail(`Invalid event: ${event?.eventId || 'unknown'}`);
   if (event.missionId !== missionId) fail('Inbox contains another mission');
-  if (event.role === 'MIGRATION' && event.hostId !== migrationHost) fail('Migration role contains another host');
-  if (event.role === 'VERIFICATION' && event.hostId !== verificationHost) fail('Verification role contains another host');
+  if (event.role === 'MIGRATION') {
+    if (!allowedMigrationHosts.includes(event.hostId)) fail('Migration role contains another host');
+    hostsSeen.migration.add(event.hostId);
+  }
+  if (event.role === 'VERIFICATION') {
+    if (!allowedVerificationHosts.includes(event.hostId)) fail('Verification role contains another host');
+    hostsSeen.verification.add(event.hostId);
+  }
+}
+
+let hostSeparation = { mode: 'STRICT', migrationHost, verificationHost };
+if (hostSeparationMode === 'owner-waived') {
+  const byCompleting = events.filter((e) => e.role === 'VERIFICATION' && e.hostId === completingHost);
+  if (!byCompleting.length) {
+    fail(`--host-separation owner-waived requires the completing host ${completingHost} to have produced VERIFICATION events`);
+  }
+  const searchable = events.map((e) => `${e.summary ?? ''} ${Array.isArray(e.evidence) ? e.evidence.join(' ') : ''}`).join(' ');
+  if (!searchable.includes(args['owner-ruling'])) {
+    fail('--host-separation owner-waived requires an event that cites the Owner ruling relied on');
+  }
+  hostSeparation = {
+    mode: 'OWNER_WAIVED',
+    ownerRuling: args['owner-ruling'],
+    migrationHost,
+    verificationHost,
+    completingHost,
+    migrationHosts: [...hostsSeen.migration].sort(),
+    verificationHosts: [...hostsSeen.verification].sort(),
+    verificationEventsByCompletingHost: byCompleting.length,
+  };
 }
 
 /**
@@ -89,7 +150,7 @@ if (!ACCEPTANCE_MODES.includes(migrationAcceptanceMode)) fail(`Invalid --migrati
 let migrationDoneIndex;
 let migrationAcceptance;
 if (migrationAcceptanceMode === 'host-pass') {
-  if (ownerRuling !== undefined) fail('--owner-ruling is only valid with --migration-acceptance owner-override');
+  if (ownerRuling !== undefined && hostSeparationMode !== 'owner-waived') fail('--owner-ruling is only valid with --migration-acceptance owner-override or --host-separation owner-waived');
   migrationDoneIndex = events.findIndex(e => e.role === 'MIGRATION' && e.eventType === 'MIGRATION_COMPLETE' && e.outcome === 'PASS');
   if (migrationDoneIndex < 0) fail('Missing PASS MIGRATION_COMPLETE');
   migrationAcceptance = { mode: 'HOST_PASS' };
@@ -166,6 +227,7 @@ const episode = {
   missionId,
   status: 'VERIFIED',
   participants: { migrationHost, verificationHost },
+  hostSeparation,
   sourceRefs: unique(events.map(e => e.sourceRef)),
   target: { branchFinalSha: branchFinalSha.toLowerCase(), targetRefs: unique(events.map(e => e.targetRef)) },
   inboxDigestSha256,

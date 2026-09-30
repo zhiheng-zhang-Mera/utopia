@@ -1,0 +1,86 @@
+{
+  "module": "worker-task-contract",
+  "cityPath": "city/02-engineering/02-worker-gateway/worker-task-contract",
+  "district": "02-engineering",
+  "building": "02-worker-gateway",
+  "incubationRooms": [
+    "mb-003-worker-task-contract-lab"
+  ],
+  "mission": {
+    "missionId": "MB-003",
+    "book": "Digital-City/mission-book/MB-003-worker-gateway.md",
+    "role": "MIGRATION",
+    "cluster": "Hns worker/task contract: canonical task lifecycle vocabulary, persisted-status compatibility, terminal-event identity and idempotency, and notification-safe summaries"
+  },
+  "repository": "zhiheng-zhang-Mera/DS-Hns",
+  "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+  "sourcePaths": [
+    "app/extensions/mega/scheduler/lifecycle.js"
+  ],
+  "portedFiles": {
+    "app/extensions/mega/scheduler/lifecycle.js": [
+      "contracts.mjs",
+      "lifecycle.mjs"
+    ]
+  },
+  "adaptation": [
+    "CommonJS -> ESM. The donor's `module.exports` object becomes named ESM exports, split across `contracts.mjs` (the closed vocabularies) and `lifecycle.mjs` (the behaviour port), re-exported from `index.mjs`. No `require`, no `module.exports`, no default export.",
+    "Injected clock — the one deliberate behavioural adaptation. The donor called `Date.now()` as the `completedAt` fallback inside `buildTerminalEvent`. That fallback is now `options.now` (a number, or a function returning milliseconds), defaulting to 0 when the caller supplies none, so the module is pure and deterministic and no test has to freeze the global clock. `now` is consulted only when `task.endedAt` is falsy — exactly where the donor's `||` short-circuited to `Date.now()` — and an unusable clock is refused with a TypeError rather than silently replaced. Every other function has no clock at all.",
+    "The donor declared `ACTIVE_STATUSES`, `QUEUED_STATUSES`, `firstLine`, `truncate` and `shortResult` but did not export them from `module.exports`. All five are exported here because they are part of this contract's surface; their behaviour is unchanged.",
+    "House-style copy-on-construct factories (`canonicalTerminal()`, `terminalStatuses()`, `activeStatuses()`, `queuedStatuses()`, `reasons()`) and strict validators (`isCanonicalTerminal`/`requireCanonicalTerminal`, `isKnownStatus`/`requireKnownStatus`, `isKnownReason`/`requireKnownReason`) were added over the donor's frozen data. They only validate the donor's own vocabulary: a validator refuses an invalid value instead of normalizing it, so invalid input is never turned into valid input, and they add no lifecycle behaviour of their own.",
+    "The donor's terminal-event identity is carried as data, not re-derived: `terminalKey` keeps the `<id>#<state>#<epoch>` form and `buildTerminalEvent` keeps `finalStatus`, `status`, `statusLabel`, `terminalEpoch`, `terminalKey`, `completedAt` and `endedAt` exactly as the donor shaped them.",
+    "Notification-safe summaries are preserved byte for byte: whitespace collapse and the `max-1` + ellipsis rule in `truncate`, the `Xs` / `Xm Ys` / `Xh Ym` formats in `shortResult`, the `code: message` join and the never-throwing JSON fallback in `errorSummary`, and the candidate order in `taskDisplayName`."
+  ],
+  "knownDifferences": [
+    "gate.js (`decideTask`) was not ported: its peak-price and scheduled-start branches are scheduling policy that belongs to a different City building.",
+    "dsh-runner.js was not ported: it is the real spawn seam (child_process + fs), and this module spawns nothing and reads no filesystem.",
+    "scheduler.js was not ported: the queue is orchestration state, not task-lifecycle vocabulary, so it stays with the queue rather than with this contract.",
+    "No `Date.now()` and no ambient time: the donor's single clock read is the injected `now` option, and with no clock supplied `completedAt` is 0 rather than the current time.",
+    "The donor's scheduler-side helpers that classify a task into a queue decision (`decideTask`), write queue files or spawn a worker are out of scope; this module is pure data plus pure functions.",
+    "`REASONS` is carried as the donor's closed vocabulary, but `buildTerminalEvent` still passes a caller's `reason` through verbatim (the donor never validated it). The `requireKnownReason` validator exists only for callers that must stay inside the declared vocabulary.",
+    "The donor's `lifecycle.js` header notes that the persisted `task.status` spellings stay backward compatible with existing queue files; this module preserves that mapping (FAILED => FAILED_FINAL, CANCELED and INTERRUPTED => CANCELLED) but does not read or write those queue files."
+  ],
+  "parity": {
+    "vectorSource": "DS-Hns app/extensions/mega/scheduler/lifecycle.js @ eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+    "vectors": [
+      "the closed vocabularies and their order: TERMINAL_EVENT, CANONICAL_TERMINAL (COMPLETED, FAILED_FINAL, CANCELLED), TERMINAL_STATUSES, ACTIVE_STATUSES, QUEUED_STATUSES, REASONS",
+      "every persisted status classified by isActiveStatus / isQueuedStatus / isTerminalStatus, with an unknown status in none of them",
+      "normalizeStatus trims and upper-cases, and yields '' for null/undefined",
+      "terminalState maps all six persisted spellings (COMPLETED, FAILED_FINAL, FAILED, CANCELLED, CANCELED, INTERRUPTED) onto the canonical vocabulary and returns null for a non-terminal status",
+      "persistedStatusFor: COMPLETED => COMPLETED, FAILED_FINAL => FAILED, CANCELLED => CANCELED with the default fallback, CANCELLED => INTERRUPTED only for an INTERRUPTED fallback, and normalizeStatus(fallback) for anything else",
+      "statusLabel: Completed / Failed / Cancelled, and Terminated for anything that is not the exact canonical state",
+      "firstLine returns the first non-empty trimmed line and '' when there is none",
+      "truncate collapses whitespace, returns the value at the limit, and cuts to max-1 characters plus an ellipsis above it, including Math.max(1, max-1) at max <= 1",
+      "taskDisplayName: name, taskName, displayName, first prompt line, id, taskId, then the literal 'task'",
+      "errorSummary: code: message join, JSON fallback for an object with neither, null for a null/blank error, and no throw for an unserializable or hostile object",
+      "shortResult: Xs below a minute, Xm Ys below an hour, Xh Ym above it, and null for a missing/zero endpoint or an end before the start",
+      "terminalEpoch truncates a positive instant and collapses a non-finite, zero or negative candidate to 0",
+      "terminalKey is <id>#<state>#<epoch>, with the epoch-0 case and the PENDING / TERMINAL fallbacks",
+      "buildTerminalEvent's payload shape for a COMPLETED and for a FAILED_FINAL task, including statusLabel, shortResult only for COMPLETED, the source default (official-session deliveryMode, else queue), and the null-vs-zero handling of exitCode, createdAt and startedAt",
+      "the injected clock: completedAt from task.endedAt when set, from options.now otherwise, and 0 with no clock at all — identical payloads for identical input"
+    ]
+  },
+  "classification": {
+    "PARITY": [
+      "canonical and persisted status vocabularies with their exact members and order",
+      "normalizeStatus and the three status predicates",
+      "terminalState and persistedStatusFor compatibility mapping",
+      "statusLabel, firstLine, truncate and taskDisplayName",
+      "errorSummary and shortResult notification-safe summaries",
+      "terminalEpoch and the terminalKey idempotency identity",
+      "the full buildTerminalEvent payload shape"
+    ],
+    "PORT_ADAPTATION": [
+      "CommonJS -> ESM with named exports, split into contracts.mjs + lifecycle.mjs + index.mjs",
+      "the clock is injected as options.now instead of Date.now()",
+      "ACTIVE_STATUSES, QUEUED_STATUSES, firstLine, truncate and shortResult are exported",
+      "copy-on-construct factories and strict validators over the donor's frozen data"
+    ],
+    "UTOPIA_EXTENSION": [],
+    "DEFERRED": [
+      "gate.js was not ported: its peak-price and scheduled-start branches are scheduling policy that belongs to a different City building.",
+      "dsh-runner.js was not ported: it is the real spawn seam (child_process + fs).",
+      "scheduler.js was not ported: it is the queue, not the task-lifecycle contract."
+    ]
+  }
+}

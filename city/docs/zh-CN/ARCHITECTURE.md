@@ -228,3 +228,25 @@ donor 的结构被保留：`restart-protocol` 是 donor 共享契约层的移植
 ### 冻结，与 mission-book 的消费要求
 
 §5 冻结产品面，是为了不让某个 city module 悄悄改掉 Android 与 Web 依赖的协议。而 mission-book 迁移有一个更晚的要求：MB-006 必须被某个既有 task/control 流程真实消费。两者的调和方式仅限如下：当 mission-book 要求时消费接线可以进入 `services/**`，且必须是等价重构。因此 `services/dev-gateway/server.mjs` 判断"被重启打断的工作能否续跑"改由迁移后的 `checkpoint-gate` 作出，而 Utopia 自己的策略作为数据传入（从未开始的任务不需要检查点；已经开始的任务没有绑定检查点端口，因此按 donor 的 fail-closed 默认拒绝）。
+
+## 8. MB-003 Worker Gateway 迁移
+
+`Digital-City/mission-book` 是另一套由 Owner 定义的施工控制面：它在 `mission/<MISSION_ID>-<slug>` 分支上直接把代码落到 `city/`，并由**另一台**主机对照 donor 独立验证后才允许进入 `main`。这是 Room Pack 之外的第二套孵化身份，两者不得混淆——这些 module 根本没有跑过房间，写成 Room Pack 晋升就是伪造来源。
+
+mission 形式的孵化 id 形如 `mb-<MISSION_ID>-<module>-lab`，并且该 module 必须同时带 `mission` 块。`city/tests/manifest.test.mjs` 会拒绝只写其一的情况，也会拒绝清单条目与该 module 自己的 `DONOR.json` 不一致的情况。
+
+MB-003（donor 为 `Codex-Boss @ 8df428e` 与 `DS-Hns @ eeb57ca`）在既有的 `02-worker-gateway` Building 内新增三个 module：
+
+| Module | Donor 源 | 提供的能力 |
+| --- | --- | --- |
+| `worker-task-contract` | DS-Hns `app/extensions/mega/scheduler/lifecycle.js` | 任务终态词表、持久状态兼容、终态事件身份与幂等、通知安全摘要 |
+| `provider-adapter` | Codex-Boss `electron/runtimes/{runtime,unsupported-runtime,web/provider-runtime-adapter}.ts`、`src/shared/provider-state.ts` | provider/runtime 适配契约、就绪判定、不支持能力拒绝、provider 生命周期状态 |
+| `provider-resilience` | Codex-Boss `electron/commander/circuit-breaker.ts`、`src/shared/provider-outcome.ts` | provider 失败/中断语义、熔断健康隔离、provider outcome 码 |
+
+### `capabilityProvider`
+
+这三个 module 属于适配层基础设施：它们在 city 里真实存在，但不对外暴露任何能力，因此声明 `"capabilityProvider": false`，能力注册表会跳过它们。若没有这个标记，Web 与 Android 的能力列表会把它们当作"尚未接桥的不可用能力"——那是在断言一个并不存在的产品面。
+
+### 冻结，与 mission-book 的消费要求
+
+§5 冻结产品面，是为了不让某个 city module 悄悄改掉 Android 与 Web 依赖的协议。而 mission-book 迁移有一个更晚的要求：MB-003 必须被某个既有 task/control 流程真实消费。两者的调和方式仅限如下：当 mission-book 要求时消费接线可以进入 `services/**`，且必须是等价重构——City Control Protocol、Gateway API v0 形状、Runtime Node 任务状态名、事件名与 payload 形状、Android 协议契约都不得改变。因此 `services/capability-bridge/bridge.mjs` 的按能力降级判定改由迁移后的 `provider-resilience` 熔断器作出，而 Utopia 自己的策略（阈值 1、两个 provider 技术性错误码）作为数据传入。

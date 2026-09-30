@@ -203,3 +203,106 @@ test('--owner-ruling is rejected in host-pass mode', async () => {
   assert.equal(result.ok, false);
   assert.match(result.stderr, /only valid with --migration-acceptance owner-override/);
 });
+
+/* ------------------------------------------------------------------ host separation waiver */
+
+const WAIVER_RULING = 'Digital-City/mission-book/response-9-30.md#R8';
+const WAIVER = ['--host-separation', 'owner-waived', '--completing-host', 'Alien', '--owner-ruling', WAIVER_RULING];
+
+/**
+ * The shape MB-003 actually has: the migration host recorded a real MIGRATION_COMPLETE/PASS,
+ * the Verification Host produced the early independent findings, and the Migration Host then
+ * finished the verification under an Owner ruling because the Verification Host could not
+ * execute the closeout. Both hosts are genuinely present in the stream.
+ */
+const waivedEvents = () => [
+  event({ seq: 1, role: 'MIGRATION', hostId: 'Alien', eventType: 'MISSION_CLAIMED' }),
+  event({ seq: 2, role: 'MIGRATION', hostId: 'Alien', eventType: 'MIGRATION_COMPLETE', outcome: 'PASS' }),
+  event({ seq: 3, eventType: 'VERIFIER_FINDING', outcome: 'BLOCKED' }),
+  event({ seq: 4, eventType: 'OWNER_INTERVENTION', outcome: 'INFO', summary: `Owner ruling ${WAIVER_RULING} authorises the migration host to complete the verification role`, evidence: [WAIVER_RULING] }),
+  event({ seq: 5, hostId: 'Alien', role: 'VERIFICATION', eventType: 'RUNTIME_PASS', outcome: 'PASS' }),
+  event({ seq: 6, hostId: 'Alien', role: 'VERIFICATION', eventType: 'CI_RESULT', outcome: 'PASS' }),
+  event({ seq: 7, hostId: 'Alien', role: 'VERIFICATION', eventType: 'VERIFICATION_COMPLETE', outcome: 'PASS' }),
+];
+
+test('owner-waived host separation: an Owner ruling lets the migration host finish verification', async () => {
+  const { ok, episode, inboxExists } = await finalize(waivedEvents(), WAIVER);
+  assert.equal(ok, true);
+  assert.equal(episode.status, 'VERIFIED');
+  assert.equal(inboxExists, false);
+  assert.equal(episode.hostSeparation.mode, 'OWNER_WAIVED');
+  assert.equal(episode.hostSeparation.ownerRuling, WAIVER_RULING);
+  assert.equal(episode.hostSeparation.verificationHost, 'Mech');
+  assert.equal(episode.hostSeparation.completingHost, 'Alien');
+  // The historical participation is preserved rather than flattened: both hosts are named.
+  assert.deepEqual(episode.hostSeparation.verificationHosts, ['Alien', 'Mech']);
+  assert.equal(episode.hostSeparation.verificationEventsByCompletingHost, 3);
+  // The Verification Host's own early finding is still in the timeline under its own host.
+  assert.ok(episode.timeline.some((e) => e.hostId === 'Mech' && e.eventType === 'VERIFIER_FINDING'));
+});
+
+test('a strict episode records hostSeparation STRICT', async () => {
+  const { ok, episode } = await finalize(hostPassEvents());
+  assert.equal(ok, true);
+  assert.equal(episode.hostSeparation.mode, 'STRICT');
+});
+
+test('owner-waived without --completing-host fails', async () => {
+  const result = await finalize(waivedEvents(), ['--host-separation', 'owner-waived', '--owner-ruling', WAIVER_RULING]);
+  assert.equal(result.ok, false);
+  assert.match(result.stderr, /requires --completing-host/);
+});
+
+test('owner-waived without --owner-ruling fails', async () => {
+  const result = await finalize(waivedEvents(), ['--host-separation', 'owner-waived', '--completing-host', 'Alien']);
+  assert.equal(result.ok, false);
+  assert.match(result.stderr, /requires --owner-ruling/);
+});
+
+test('owner-waived whose completing host produced no verification events fails', async () => {
+  const result = await finalize(hostPassEvents(), WAIVER);
+  assert.equal(result.ok, false);
+  assert.match(result.stderr, /to have produced VERIFICATION events/);
+});
+
+test('owner-waived whose record cites no ruling fails', async () => {
+  const events = waivedEvents().map((e) => ({ ...e, summary: 'no ruling is cited anywhere', evidence: [] }));
+  const result = await finalize(events, WAIVER);
+  assert.equal(result.ok, false);
+  assert.match(result.stderr, /cites the Owner ruling/);
+});
+
+test('owner-waived is refused when the completing host is already the verification host', async () => {
+  const result = await finalize(waivedEvents(), ['--host-separation', 'owner-waived', '--completing-host', 'Mech', '--owner-ruling', WAIVER_RULING]);
+  assert.equal(result.ok, false);
+  assert.match(result.stderr, /unnecessary/);
+});
+
+test('owner-waived still refuses a verification event from a host that does not participate', async () => {
+  const events = waivedEvents();
+  events[5] = { ...events[5], hostId: 'Stranger' };
+  const result = await finalize(events, WAIVER);
+  assert.equal(result.ok, false);
+  assert.match(result.stderr, /Verification role contains another host/);
+});
+
+test('--completing-host is rejected in strict host separation', async () => {
+  const result = await finalize(hostPassEvents(), ['--completing-host', 'Alien']);
+  assert.equal(result.ok, false);
+  assert.match(result.stderr, /only valid with --host-separation owner-waived/);
+});
+
+test('strict host separation still refuses the same host for both roles', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'mb-finalize-'));
+  try {
+    const inboxDir = path.join(dir, 'data-records', 'evolution', 'inbox', 'mission-book', 'MB-900');
+    await mkdir(inboxDir, { recursive: true });
+    await writeFile(path.join(inboxDir, 'events.jsonl'), hostPassEvents().map((e) => JSON.stringify(e)).join('\n') + '\n', 'utf8');
+    await assert.rejects(
+      run(process.execPath, [FINALIZER, '--mission', 'MB-900', '--migration-host', 'Alien', '--verification-host', 'Alien', '--branch-sha', 'abcdef1234567890', '--ci-run', '1'], { cwd: dir }),
+      (error) => /must differ/.test(String(error.stderr)),
+    );
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+});

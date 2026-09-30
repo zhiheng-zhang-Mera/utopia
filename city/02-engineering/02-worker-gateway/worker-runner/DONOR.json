@@ -1,0 +1,100 @@
+{
+  "module": "worker-runner",
+  "cityPath": "city/02-engineering/02-worker-gateway/worker-runner",
+  "district": "02-engineering",
+  "building": "02-worker-gateway",
+  "incubationRooms": [
+    "mb-003-worker-runner-lab"
+  ],
+  "mission": {
+    "missionId": "MB-003",
+    "book": "Digital-City/mission-book/MB-003-worker-gateway.md",
+    "role": "MIGRATION",
+    "cluster": "Hns worker/runner execution seam: one dsh headless job spawned as an external Node child, per-task working directory, log-stream tee, the pinned child environment, and the Windows process-tree kill"
+  },
+  "repository": "zhiheng-zhang-Mera/DS-Hns",
+  "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+  "sourcePaths": [
+    "app/extensions/mega/scheduler/dsh-runner.js"
+  ],
+  "portedFiles": {
+    "app/extensions/mega/scheduler/dsh-runner.js": [
+      "contracts.mjs",
+      "runner.mjs"
+    ]
+  },
+  "adaptation": [
+    "CommonJS -> ESM. The donor's five `module.exports` (`startJob`, `killTree`, `childEnv`, `DSH_BIN`, `nodeExecutable`) become one factory, `createRunner(seams)`, whose returned object exposes `startJob`, `killTree`, `childEnv`, `dshBin` and `nodeExecutable`. `contracts.mjs` owns the donor's literal strings, `runner.mjs` owns the seam, `index.mjs` re-exports both. No `require`, no `module.exports`, no default export.",
+    "Injected host seam — the one structural adaptation. The donor reached outside itself exactly twice: `require('../utils/paths')` for `PATHS`/`ROOT` and `require('../utils/workspace')` for `getWorkspaceRoot()`, both of which read the desktop app's hard-coded `D:\\`-style layout via `config/paths.json` and `data/state/workspace.json`. `runner.mjs` resolves none of that; the caller supplies `appRoot` (was `PATHS.APP`), `dshHome` (`PATHS.DSH_HOME`), `tempDir` (`PATHS.TEMP`, used for both `TEMP` and `TMP`), `cacheDir` (`PATHS.CACHE`, still joined with `'npm'`), `logsDir` (was the literal `<ROOT>\\logs\\harness` default log directory) and `workspaceRoot` (was `getWorkspaceRoot()`). The donor's `DSH_ROOT`/`DSH_HOME`/`DSH_CACHE_ROOT`/`DSH_TEMP_ROOT` path-resolution policy stayed with `utils/paths.js` and is not re-implemented here.",
+    "`spawn`, `fs` and `path` are injectable and default to `node:child_process`, `node:fs` and `node:path`, so the module can be exercised without a real child process or file.",
+    "The donor's module-level `const DSH_BIN = path.join(PATHS.APP, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')` is now the per-runner value `dshBin`, built with the same `path.join` shape against the injected `appRoot` and the frozen `DSH_BIN_SEGMENTS`. Same install, same layout, no hard-coded drive letter and no ambient resolution.",
+    "`nodeExecutable()` is the donor's `process.env.DSH_NODE || 'node'` against the injected `env` (default `process.env`), so with no `node` seam supplied the expression is unchanged. An explicit `node` seam wins over `DSH_NODE`; that seam exists because the factory's whole point is that no host location or binary is ambient.",
+    "`contracts.mjs` names only strings the donor already wrote inline (the `--profile headless` argv, `DISABLED`, `workspace-write`, the `['ignore','pipe','pipe']` stdio triple, the `'a'` log flag, the dsh bin segments, `DSH_NODE`, `taskkill.exe` and its `/PID … /T /F` flags). Naming them changes no value and adds no policy; `runner.mjs` builds every argv and every environment exactly as the donor did.",
+    "No validation, defaults, retries, timeouts or guards were added. With a seam missing, `createRunner` fails inside `path.join` exactly where the donor would have failed on its own missing `PATHS` entry — a TypeError from Node, not a new refusal path invented by this module."
+  ],
+  "knownDifferences": [
+    "scheduler.js was not ported: it is the queue. Its ~1200 lines are orchestration state — the `EventEmitter` queue loop, concurrency limits, peak-price and scheduled-start gating, `scheduler-queue.json`/`scheduler-config.json`/`decision-ledger.json` persistence, stall detection, continuation control, task-history writes and the official-session monitor — and it is a CONSUMER of this seam (`require('./dsh-runner')`), not part of it. The seam a scheduler needs is exactly the five functions ported here.",
+    "gate.js was not ported: `decideTask` is pure price/schedule policy ('ready' | 'suspend-peak' | 'suspend-schedule' | 'running' | 'terminal') that the queue loop called before it ever reached the runner. It says nothing about spawning a child.",
+    "system.js was not ported: it samples `os.cpus()` and shells out to PowerShell `Get-CimInstance` for a hardware inventory, and exists only to feed the queue's concurrency and reserve limits. The runner has no concurrency opinion.",
+    "lifecycle.js is not ported here either: it is the sibling module `worker-task-contract` in this same building, and this module deliberately does not duplicate its vocabulary.",
+    "The default log path changed owner, not shape: the donor wrote `path.join(ROOT, 'logs', 'harness', `${id}.log`)`; here it is `path.join(logsDir, `${id}.log`)`, and the caller decides what the equivalent directory is. An explicit `logFile` still wins and is still used verbatim.",
+    "`killTree` is Windows-only by construction (`taskkill.exe`), exactly as the donor was. No portable fallback, no signal escalation and no `child.kill()` path was invented.",
+    "The donor's empty `catch` around the `taskkill` spawn covers a synchronous throw only. An asynchronous `'error'` event on that child process is still not observed, and nothing here adds a listener — this is preserved, not fixed.",
+    "`startJob` still returns as soon as the child is spawned. It does not wait for exit, does not read the exit code, does not detect a spawn failure delivered asynchronously, and does not retry, time out or back off: the donor's queue owned the child lifecycle, and this module still does not.",
+    "`childEnv` still spreads `overrides` last, so the caller can put `DSH_PERMISSION_MODE` back to `undefined` — the donor spread did the same, and that is asserted rather than repaired.",
+    "A supplied `node` seam takes precedence over `env.DSH_NODE`. The donor had no such option because it had an ambient `process.env`; the seam is listed here because it is observable when both are set.",
+    "`createRunner()` with no seams throws a TypeError from `path.join`. No fallback to `process.cwd()`, to a `DSH_*` variable or to a sibling file was added, because inventing one would invent configuration semantics the donor never had."
+  ],
+  "parity": {
+    "vectorSource": "DS-Hns app/extensions/mega/scheduler/dsh-runner.js @ eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+    "vectors": [
+      "the exact argv `[dshBin, '--profile', 'headless', prompt]`, in the donor's order and length",
+      "`dshBin` is `path.join(appRoot, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')`, and a different injected appRoot produces a different bin",
+      "`nodeExecutable()` returns `env.DSH_NODE || 'node'`, and an explicit `node` seam overrides it",
+      "`childEnv()` sets exactly the donor's seven keys, in the donor's order, on a fresh copy of the ambient environment: DSH_HOME, DSH_TELEMETRY_MODE (env value or 'DISABLED'), DSH_PERMISSION_MODE (env value or 'workspace-write'), TEMP, TMP, npm_config_cache (`<cacheDir>\\npm`), DEEPSEEK_HARNESS_WORKSPACE",
+      "`childEnv(overrides)` spreads overrides last, including an explicit undefined, and never mutates the ambient environment or returns the same object twice",
+      "the default log path is `<logsDir>\\<id>.log`, and an explicit `logFile` is honoured verbatim",
+      "`fs.mkdirSync(taskDir, { recursive: true })` then `fs.mkdirSync(path.dirname(log), { recursive: true })`, in that order",
+      "`fs.createWriteStream(log, { flags: 'a' })` — append, never truncate",
+      "`spawn(nodeExecutable(), args, { cwd: taskDir, env: childEnv(...), stdio: ['ignore','pipe','pipe'], windowsHide: true })` with exactly those four options",
+      "`permissionMode` truthy produces `DSH_PERMISSION_MODE: permissionMode`; a falsy or absent one produces the ambient value or 'workspace-write'",
+      "`child.stdout.pipe(stream)` then `child.stderr.pipe(stream)`, and `child.logStream = stream`",
+      "`startJob` returns `{ child, pid: child.pid, logFile }` and nothing else",
+      "`killTree(pid)` spawns `taskkill.exe` with exactly `['/PID', String(pid), '/T', '/F']`, `{ windowsHide: true, stdio: 'ignore' }`",
+      "`killTree` returns immediately for a falsy pid (0, undefined, null, '') and spawns nothing",
+      "`killTree` swallows a synchronous spawn error after having attempted the kill",
+      "the public surface from `index.mjs`: `createRunner` plus the frozen vocabularies (HEADLESS_ARGS, RUNNER_STDIO, LOG_STREAM_FLAGS, DEFAULT_TELEMETRY_MODE, DEFAULT_PERMISSION_MODE, DSH_BIN_SEGMENTS, NODE_ENV_VAR, TASKKILL_EXE)"
+    ]
+  },
+  "classification": {
+    "PARITY": [
+      "the headless argv: `<node> <dshBin> --profile headless <prompt>`",
+      "the dsh bin path shape, resolved against the injected app root",
+      "the child environment: the seven pinned keys, their defaults, the ambient spread first and overrides last",
+      "`nodeExecutable`'s `DSH_NODE || 'node'` rule",
+      "the default and explicit log paths, the append flag, the two pipe tees and `child.logStream`",
+      "the spawn options: cwd, env, stdio triple, windowsHide",
+      "the `permissionMode` truthiness rule",
+      "the `{ child, pid, logFile }` return shape",
+      "the `taskkill.exe /PID <pid> /T /F` kill and its falsy-pid early return",
+      "the empty catch that swallows a synchronous spawn error"
+    ],
+    "PORT_ADAPTATION": [
+      "CommonJS -> ESM with a `createRunner(seams)` factory instead of five module-level exports",
+      "`utils/paths` and `utils/workspace` replaced by six injected host locations (appRoot, dshHome, tempDir, cacheDir, logsDir, workspaceRoot)",
+      "`spawn`, `fs` and `path` injectable, defaulting to the Node implementations the donor required",
+      "`process.env` injectable, defaulting to `process.env`; an optional `node` seam replaces the `DSH_NODE` lookup",
+      "the module-level `DSH_BIN` const is the per-runner `dshBin` value",
+      "the donor's inline literals are named once in `contracts.mjs` with unchanged values"
+    ],
+    "UTOPIA_EXTENSION": [],
+    "DEFERRED": [
+      "scheduler.js — the queue: EventEmitter loop, concurrency, peak/schedule gating, queue-file persistence, stall detection, continuation, ledger and the official-session monitor. It consumes the runner; it is not the runner.",
+      "gate.js — `decideTask`, pure price/schedule policy evaluated before dispatch.",
+      "system.js — CPU and hardware sampling that only feeds the queue's concurrency limits.",
+      "lifecycle.js — ported by the sibling module `worker-task-contract`.",
+      "any retry, backoff, timeout, spawn-failure observation or exit-code reading: the donor's queue owned the child lifecycle and this seam does not take it over.",
+      "a cross-platform kill: the donor is Windows-only and this port stays Windows-only."
+    ]
+  }
+}

@@ -110,6 +110,28 @@
                 "missionId": "MB-003",
                 "cluster": "provider failure and interruption semantics, circuit-breaker health isolation, and provider outcome codes"
               }
+            },
+            {
+              "id": "worker-runner",
+              "zh": "执行器",
+              "en": "Worker Runner",
+              "path": "city/02-engineering/02-worker-gateway/worker-runner",
+              "lifecycle": "PROMOTED",
+              "capabilityProvider": false,
+              "donor": {
+                "repository": "zhiheng-zhang-Mera/DS-Hns",
+                "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+                "sourcePaths": [
+                  "app/extensions/mega/scheduler/dsh-runner.js"
+                ]
+              },
+              "incubationRooms": [
+                "mb-003-worker-runner-lab"
+              ],
+              "mission": {
+                "missionId": "MB-003",
+                "cluster": "Hns worker/runner execution seam: one dsh headless job spawned as an external Node child, per-task working directory, log-stream tee, the pinned child environment, and the Windows process-tree kill"
+              }
             }
           ]
         }

@@ -37,6 +37,7 @@ const WAVE1 = [
   'city/02-engineering/02-worker-gateway/worker-task-contract',
   'city/02-engineering/02-worker-gateway/provider-adapter',
   'city/02-engineering/02-worker-gateway/provider-resilience',
+  'city/02-engineering/02-worker-gateway/worker-runner',
   'city/06-research/01-research-institute/evidence-engine',
   'city/09-planning-knowledge/01-knowledge-service/knowledge-core',
   'city/09-planning-knowledge/02-document-intake/ingestion-core',

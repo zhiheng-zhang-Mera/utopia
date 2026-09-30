@@ -1,4 +1,4 @@
-/**
+﻿/**
  * UTOPIA · City Foundation — city-node-network — pairing and trust contracts.
  *
  * RF-002 (Digital-City/mission-book/remote/RF-002-unified-pairing-trust-lifecycle.md).
@@ -72,9 +72,9 @@ export const PAIRING_TERMINAL_STATES = Object.freeze(['REJECTED', 'EXPIRED', 'CA
 export const PAIRING_STATES = Object.freeze([...PAIRING_PHASES, ...PAIRING_TERMINAL_STATES]);
 
 /**
- * The only legal transitions. A session never moves backwards, never skips the
- * preview (so a human always sees what they are about to trust) and never leaves a
- * terminal state.
+ * The only legal transitions. A session never moves backwards and never skips the
+ * preview (so a human always sees what they are about to trust). A state with no outgoing
+ * edge is final — see `isFinalState`.
  */
 export const PAIRING_TRANSITIONS = Object.freeze({
   PAIRING_SESSION: Object.freeze(['EPHEMERAL_KEY_EXCHANGE', 'REJECTED', 'CANCELLED', 'EXPIRED', 'FAILED']),
@@ -87,6 +87,38 @@ export const PAIRING_TRANSITIONS = Object.freeze({
   CANCELLED: Object.freeze([]),
   FAILED: Object.freeze([]),
 });
+
+/**
+ * A state is final when the transition table gives it no outgoing edge.
+ *
+ * Derived from the one transition table rather than kept as a second hand-maintained list.
+ * `TRUSTED` is final although it is not a *failure* state: a successful pairing must not be
+ * rewritten by expiry, and moving out of it is a terminal-state refusal rather than an
+ * "illegal transition". The states in `PAIRING_TERMINAL_STATES` are the states a session can
+ * *fail into*; every one of them is also final.
+ */
+export function isFinalState(state) {
+  return Object.hasOwn(PAIRING_TRANSITIONS, state) && PAIRING_TRANSITIONS[state].length === 0;
+}
+
+/**
+ * Which trust record is currently live for one device.
+ *
+ * Ambiguity is a *reported* state, not a resolved one: two live records for a device mean a
+ * replacement failed to supersede its predecessor, and answering with whichever was inserted
+ * first would hide a revocation bypass instead of surfacing it. Extracted from the authority so
+ * the decision can be exercised directly with a hand-built population.
+ *
+ * @param {{trust_id: string, state: string}[]} records every record held for one device
+ * @returns {{status: 'NONE'|'CONFLICT'|'ACTIVE', active: object|null, conflicts: string[]}}
+ */
+export function resolveActiveTrust(records) {
+  const held = Array.isArray(records) ? records : [];
+  const live = held.filter((record) => record?.state === 'TRUSTED');
+  if (live.length > 1) return { status: 'CONFLICT', active: null, conflicts: live.map((record) => record.trust_id).sort() };
+  if (live.length === 1) return { status: 'ACTIVE', active: live[0], conflicts: [] };
+  return { status: 'NONE', active: null, conflicts: [] };
+}
 
 /** How a device is trusted. A classification, never a grant. */
 export const TRUST_ROLES = Object.freeze([
@@ -104,6 +136,9 @@ export const REVOCATION_REASONS = Object.freeze(['OWNER_REVOKED', 'DEVICE_LOST',
 
 /** The one default a caller may not silently change without recording it. */
 export const DEFAULT_SESSION_TTL_MS = 120_000;
+
+/** Wrong confirmation tokens a single session may absorb before it is failed outright. */
+export const MAX_CONFIRMATION_ATTEMPTS = 5;
 
 /** MAC evidence is preview text. These two constants are the machine-readable half. */
 export const MAC_EVIDENCE_ROLE = 'OPTIONAL_HUMAN_CONFIRMATION';
@@ -200,6 +235,8 @@ export const PAIRING_REJECTION_CODES = Object.freeze([
   'credential_unknown',
   'role_not_allowed',
   'mac_not_authority',
+  'preview_mismatch',
+  'confirmation_attempts_exhausted',
 ]);
 
 export class PairingError extends Error {
@@ -252,7 +289,8 @@ export function instantOf(nowMs) {
   if (typeof nowMs !== 'number' || !Number.isFinite(nowMs)) {
     throw new PairingValidationError('instant', `nowMs must be a finite millisecond instant, got ${String(nowMs)}`);
   }
-  const rendered = new Date(nowMs).toISOString();
+  const rendered = (() => { try { return new Date(nowMs).toISOString(); } catch { return null; } })();
+  if (rendered === null || !Number.isFinite(nowMs)) throw new PairingValidationError('instant', `nowMs  is outside the representable instant range`);
   if (Number.isNaN(Date.parse(rendered))) throw new PairingValidationError('instant', `nowMs ${nowMs} is not representable`);
   return rendered;
 }

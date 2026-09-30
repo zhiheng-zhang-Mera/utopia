@@ -1,4 +1,4 @@
-/**
+﻿/**
  * UTOPIA · City Foundation — city-node-network — unified pairing and trust lifecycle.
  *
  * Implements the RF-002 state machine every join mechanism converges on:
@@ -27,6 +27,10 @@ import {
   DEVICE_ID_PATTERN,
   ENTRY_POINTS,
   FINGERPRINT_PATTERN,
+  MAC_AUTHORITY,
+  MAC_EVIDENCE_ROLE,
+  MAX_CONFIRMATION_ATTEMPTS,
+  PREVIEW_FIELDS,
   PAIRING_SCHEMA_VERSION,
   PAIRING_SESSION_KIND,
   PAIRING_TERMINAL_STATES,
@@ -44,6 +48,8 @@ import {
   canonicalJson,
   findSecretMaterial,
   instantOf,
+  isFinalState,
+  resolveActiveTrust,
   sessionDocument,
   sha256,
   trustDocument,
@@ -98,6 +104,16 @@ export function challengeFromNonce(nonce) {
  * and the audit log. Everything is copy-on-read and documents are frozen, so a caller
  * cannot mutate authority state by holding a reference.
  */
+/** Copy a preview so the authority owns its own frozen bytes, not the caller's object. */
+function freezePreview(preview) {
+  const deepFreeze = (value) => {
+    if (value === null || typeof value !== 'object') return value;
+    for (const child of Object.values(value)) deepFreeze(child);
+    return Object.freeze(value);
+  };
+  return deepFreeze(structuredClone(preview));
+}
+
 export function createPairingAuthority({ defaultTtlMs = DEFAULT_SESSION_TTL_MS } = {}) {
   if (!Number.isSafeInteger(defaultTtlMs) || defaultTtlMs <= 0) {
     throw new PairingValidationError('malformed', 'defaultTtlMs must be a positive integer');
@@ -106,6 +122,7 @@ export function createPairingAuthority({ defaultTtlMs = DEFAULT_SESSION_TTL_MS }
   const trusts = new Map();
   const seenChallenges = new Map();
   const consumedConfirmations = new Map();
+  const confirmationAttempts = new Map();
   let auditSequence = 0;
   const audit = [];
 
@@ -133,7 +150,9 @@ export function createPairingAuthority({ defaultTtlMs = DEFAULT_SESSION_TTL_MS }
    * the transition is auditable rather than implied by a timestamp.
    */
   const expireIfDue = (session, nowMs) => {
-    if (PAIRING_TERMINAL_STATES.includes(session.state)) return session;
+    // A final state is never rewritten: expiry must not turn a trusted (or already finished)
+    // session into EXPIRED, which would misreport how trust was established.
+    if (isFinalState(session.state)) return session;
     if (!Number.isFinite(nowMs) || nowMs < Date.parse(session.expires_at)) return session;
     session.state = 'EXPIRED';
     session.terminal_reason = 'session_ttl_elapsed';
@@ -152,7 +171,7 @@ export function createPairingAuthority({ defaultTtlMs = DEFAULT_SESSION_TTL_MS }
    * to be legal.
    */
   const assertTransition = (session, nextState) => {
-    if (PAIRING_TERMINAL_STATES.includes(session.state)) {
+    if (isFinalState(session.state)) {
       throw new PairingError('terminal_state', `session ${session.session_id} is ${session.state} and cannot move to ${nextState}`);
     }
     if (!PAIRING_TRANSITIONS[session.state].includes(nextState)) {
@@ -196,6 +215,10 @@ export function createPairingAuthority({ defaultTtlMs = DEFAULT_SESSION_TTL_MS }
       }
       if (!Number.isSafeInteger(ttlMs) || ttlMs <= 0) throw new PairingValidationError('malformed', 'ttlMs must be a positive integer');
       const createdAt = instantOf(nowMs);
+      // Every refusal must be a no-op, so the deadline is computed (and can throw) *before* the
+      // challenge is recorded as used. Burning a nonce for a call that then fails would let a
+      // malformed request deny a legitimate retry.
+      const expiresAt = instantOf(nowMs + ttlMs);
       const challenge = challengeFromNonce(nonce);
 
       // Replay protection at the bootstrap step: a nonce that has already been used to
@@ -214,7 +237,7 @@ export function createPairingAuthority({ defaultTtlMs = DEFAULT_SESSION_TTL_MS }
         entry_point: entryPoint,
         state: 'PAIRING_SESSION',
         created_at: createdAt,
-        expires_at: instantOf(nowMs + ttlMs),
+        expires_at: expiresAt,
         challenge,
         confirmation_token_ref: null,
         initiator_fingerprint: initiatorFingerprint,
@@ -256,7 +279,12 @@ export function createPairingAuthority({ defaultTtlMs = DEFAULT_SESSION_TTL_MS }
     presentDevicePreview(sessionId, { preview, nowMs }) {
       const session = expireIfDue(requireSession(sessionId), nowMs);
       if (session.state === 'DEVICE_PREVIEW' || session.state === 'HUMAN_CONFIRM' || session.state === 'TRUSTED') {
-        if (preview !== null && typeof preview === 'object' && preview.fingerprint !== session.responder_fingerprint) {
+        // Re-presenting is idempotent only for a real preview of the same peer; a decoy or
+        // absent preview must not be reported as success.
+        if (preview === null || typeof preview !== 'object' || Array.isArray(preview)) {
+          throw new PairingValidationError('preview', 'a preview must be built with buildDevicePreview');
+        }
+        if (preview.fingerprint !== session.responder_fingerprint) {
           throw new PairingError('fingerprint_mismatch', 'the preview must carry the fingerprint bound by the key exchange');
         }
         return sessionDocument(session);
@@ -264,16 +292,34 @@ export function createPairingAuthority({ defaultTtlMs = DEFAULT_SESSION_TTL_MS }
       // Legality before content: a caller that has not exchanged keys yet is told it
       // skipped a phase, rather than being told its preview fingerprint is wrong.
       assertTransition(session, 'DEVICE_PREVIEW');
-      if (preview === null || typeof preview !== 'object') {
+      if (preview === null || typeof preview !== 'object' || Array.isArray(preview)) {
         throw new PairingValidationError('preview', 'a preview must be built with buildDevicePreview');
       }
       if (preview.fingerprint !== session.responder_fingerprint) {
         throw new PairingError('fingerprint_mismatch', 'the preview must carry the fingerprint bound by the key exchange');
       }
+      // The preview is the human's evidence, so it is checked against the declared field list and
+      // the MAC rule rather than trusted for having two booleans set: a preview that claims MAC
+      // authority must be refused, not stored. It is then copied and frozen, so the caller cannot
+      // rewrite what the authority recorded by mutating the object it passed in.
+      const previewErrors = [];
+      for (const key of Object.keys(preview)) if (!PREVIEW_FIELDS.includes(key)) previewErrors.push(`preview.${key} is not a declared preview field`);
       if (preview.identity_is_cryptographic !== true || preview.metadata_is_not_authority !== true) {
-        throw new PairingValidationError('preview', 'the preview must state that identity is cryptographic and metadata is not authority');
+        previewErrors.push('the preview must state that identity is cryptographic and metadata is not authority');
       }
-      session.preview = preview;
+      if (preview.device_id !== null && preview.device_id !== undefined
+        && (typeof preview.device_id !== 'string' || !DEVICE_ID_PATTERN.test(preview.device_id))) {
+        previewErrors.push('preview.device_id must be a dev-<32 hex> identity or null');
+      }
+      const mac = preview.mac_evidence;
+      if (mac !== null && mac !== undefined) {
+        const macOk = typeof mac === 'object' && !Array.isArray(mac)
+          && mac.role === MAC_EVIDENCE_ROLE && mac.authority === MAC_AUTHORITY
+          && mac.authoritative === false && mac.can_block_or_grant === false;
+        if (!macOk) previewErrors.push('preview.mac_evidence must stay optional human evidence: role/authority are fixed and authoritative/can_block_or_grant must be false');
+      }
+      if (previewErrors.length) throw new PairingValidationError('preview', previewErrors.slice(0, 3).join('; '));
+      session.preview = freezePreview(preview);
       transition(session, 'DEVICE_PREVIEW', { at: instantOf(nowMs) });
       record({
         event: 'DEVICE_PREVIEW_PRESENTED',
@@ -291,7 +337,14 @@ export function createPairingAuthority({ defaultTtlMs = DEFAULT_SESSION_TTL_MS }
      */
     requestConfirmation(sessionId, { tokenNonce, nowMs }) {
       const session = expireIfDue(requireSession(sessionId), nowMs);
-      if (session.state === 'HUMAN_CONFIRM' || session.state === 'TRUSTED') return sessionDocument(session);
+      if (session.state === 'HUMAN_CONFIRM' || session.state === 'TRUSTED') {
+        // Idempotent only for the token this session already requested. Reporting success for a
+        // different token would tell the caller a token is authoritative when it is not.
+        if (session.state === 'HUMAN_CONFIRM' && tokenNonce !== undefined && sha256(String(tokenNonce)) !== session.confirmation_token_ref) {
+          throw new PairingError('confirmation_not_available', 'a different confirmation token cannot replace the one this session already requested');
+        }
+        return sessionDocument(session);
+      }
       assertTransition(session, 'HUMAN_CONFIRM');
       if (typeof tokenNonce !== 'string' || tokenNonce === '') {
         throw new PairingValidationError('malformed', 'a confirmation token nonce is required');
@@ -339,6 +392,15 @@ export function createPairingAuthority({ defaultTtlMs = DEFAULT_SESSION_TTL_MS }
         throw new PairingError('confirmation_replayed', `confirmation token was already consumed by session ${consumedBy}`);
       }
       if (tokenRef !== session.confirmation_token_ref) {
+        // A wrong token is counted. Without a budget a short caller-chosen token is an oracle:
+        // every guess is free and the session stays open until one lands.
+        const attempts = (confirmationAttempts.get(sessionId) ?? 0) + 1;
+        confirmationAttempts.set(sessionId, attempts);
+        record({ event: 'CONFIRMATION_REFUSED', session_id: sessionId, at: instantOf(nowMs), attempts });
+        if (attempts >= MAX_CONFIRMATION_ATTEMPTS) {
+          transition(session, 'FAILED', { at: instantOf(nowMs), reason: 'confirmation_attempts_exhausted' });
+          throw new PairingError('confirmation_attempts_exhausted', `session ${sessionId} failed after ${attempts} wrong confirmation tokens`);
+        }
         throw new PairingError('confirmation_not_available', 'the confirmation token does not match the one this session requested');
       }
       if (typeof confirmedBy !== 'string' || confirmedBy.trim() === '') {
@@ -350,10 +412,16 @@ export function createPairingAuthority({ defaultTtlMs = DEFAULT_SESSION_TTL_MS }
       if (typeof deviceId !== 'string' || !DEVICE_ID_PATTERN.test(deviceId)) {
         throw new PairingValidationError('device_id', `deviceId ${JSON.stringify(deviceId)} is not a dev-<32 hex> identity`);
       }
+      // The human confirmed a specific device; trusting a different one would make the preview
+      // decorative.
+      if (session.preview?.device_id !== null && session.preview?.device_id !== undefined && session.preview.device_id !== deviceId) {
+        throw new PairingError('preview_mismatch', `the previewed device ${session.preview.device_id} is not the device being trusted (${deviceId})`);
+      }
       if (!TRUST_ROLES.includes(role)) throw new PairingError('role_not_allowed', String(role));
       if (typeof credentialFingerprint !== 'string' || !FINGERPRINT_PATTERN.test(credentialFingerprint)) {
         throw new PairingValidationError('fingerprint', 'credentialFingerprint must be a sha256:<hex> reference');
       }
+      if (typeof macMismatchObserved !== 'boolean') throw new PairingValidationError('malformed', 'macMismatchObserved must be a boolean');
       if (typeof trustId !== 'string' || !TRUST_ID_PATTERN.test(trustId)) {
         throw new PairingValidationError('trust_id', `trustId ${JSON.stringify(trustId)} is not a trust-<32 hex> identity`);
       }
@@ -362,7 +430,8 @@ export function createPairingAuthority({ defaultTtlMs = DEFAULT_SESSION_TTL_MS }
       // includes a REVOKED record: revoking a lost device must not be undone by simply
       // pairing again, so re-pairing is a deliberate, named decision rather than a
       // side effect of a successful handshake.
-      const existing = [...trusts.values()].find((record) => record.device_id === deviceId);
+      const priorRecords = [...trusts.values()].filter((record) => record.device_id === deviceId);
+      const existing = priorRecords[0] ?? null;
       if (existing && !replaceExisting) {
         throw new PairingError('already_trusted', `device ${deviceId} already holds trust ${existing.trust_id} (${existing.state})`);
       }
@@ -370,6 +439,20 @@ export function createPairingAuthority({ defaultTtlMs = DEFAULT_SESSION_TTL_MS }
       assertTransition(session, 'TRUSTED');
 
       const at = instantOf(nowMs);
+      // A replacement must actually *supersede*: every prior record for this device that is
+      // not already revoked is retired here. Leaving a still-TRUSTED predecessor would put
+      // two live trusts on one device, and `checkReconnect` would then accept whichever it
+      // found first — so revoking the replacement would not cut the device off.
+      const superseded = [];
+      for (const prior of priorRecords) {
+        if (prior.state === 'REVOKED') continue;
+        prior.state = 'REVOKED';
+        prior.revoked_at = at;
+        prior.revocation_reason = 'REPAIRED';
+        prior.history.push({ state: 'REVOKED', at, reason: 'REPAIRED' });
+        superseded.push(prior.trust_id);
+        record({ event: 'TRUST_REVOKED', trust_id: prior.trust_id, device_id: deviceId, reason: 'REPAIRED', at, actor: confirmedBy });
+      }
       const trust = {
         schema_version: PAIRING_SCHEMA_VERSION,
         kind: TRUST_RECORD_KIND,
@@ -385,7 +468,7 @@ export function createPairingAuthority({ defaultTtlMs = DEFAULT_SESSION_TTL_MS }
         credential_fingerprint: credentialFingerprint,
         revoked_at: null,
         revocation_reason: null,
-        mac_mismatch_observed: Boolean(macMismatchObserved),
+        mac_mismatch_observed: macMismatchObserved,
         history: [{ state: 'TRUSTED', at, reason: null }],
       };
       assertTrustRecord(trust);
@@ -398,7 +481,7 @@ export function createPairingAuthority({ defaultTtlMs = DEFAULT_SESSION_TTL_MS }
       session.confirmed_at = at;
       transition(session, 'TRUSTED', { at, reason: null, actor: confirmedBy });
       record({ event: 'TRUST_ESTABLISHED', session_id: sessionId, trust_id: trustId, device_id: deviceId, role, at, confirmed_by: confirmedBy });
-      return { session: sessionDocument(session), trust: trustDocument(trust) };
+      return { session: sessionDocument(session), trust: trustDocument(trust), superseded: superseded.sort() };
     },
 
     /** Refuse a pairing. The reason is recorded, and the session is finished. */
@@ -434,7 +517,7 @@ export function createPairingAuthority({ defaultTtlMs = DEFAULT_SESSION_TTL_MS }
      */
     expireSession(sessionId, { nowMs }) {
       const session = requireSession(sessionId);
-      if (PAIRING_TERMINAL_STATES.includes(session.state)) return sessionDocument(session);
+      if (isFinalState(session.state)) return sessionDocument(session);
       if (Date.parse(session.expires_at) > nowMs) {
         throw new PairingError('session_not_expired', `session ${sessionId} expires at ${session.expires_at}`);
       }
@@ -445,7 +528,7 @@ export function createPairingAuthority({ defaultTtlMs = DEFAULT_SESSION_TTL_MS }
     cleanupExpired(nowMs) {
       const expired = [];
       for (const session of sessions.values()) {
-        if (PAIRING_TERMINAL_STATES.includes(session.state)) continue;
+        if (isFinalState(session.state)) continue;
         if (Date.parse(session.expires_at) <= nowMs) {
           expireIfDue(session, nowMs);
           expired.push(session.session_id);
@@ -558,7 +641,18 @@ export function createPairingAuthority({ defaultTtlMs = DEFAULT_SESSION_TTL_MS }
     checkReconnect({ deviceId, fingerprint, credentialFingerprint }) {
       const held = [...trusts.values()].filter((trust) => trust.device_id === deviceId);
       if (held.length === 0) return { allowed: false, code: 'unknown_device', detail: `device ${String(deviceId)} holds no trust record` };
-      const active = held.find((trust) => trust.state === 'TRUSTED');
+      const resolved = resolveActiveTrust(held);
+      // Ambiguity is refused rather than resolved by insertion order. Two live records for one
+      // device means a replacement did not supersede its predecessor, and answering with
+      // whichever came first would hide a revocation bypass instead of reporting it.
+      if (resolved.status === 'CONFLICT') {
+        return {
+          allowed: false,
+          code: 'trust_conflict',
+          detail: `device ${deviceId} holds ${resolved.conflicts.length} live trust records (${resolved.conflicts.join(', ')}); an operator must revoke the superseded one`,
+        };
+      }
+      const active = resolved.active;
       if (!active) {
         const state = held[0].state;
         return {
@@ -629,7 +723,9 @@ export function inspectSessionDocument(raw) {
     session_id: raw.session_id,
     state: raw.state,
     entry_point: raw.entry_point,
-    is_terminal: PAIRING_TERMINAL_STATES.includes(raw.state),
+    // Final means "the transition table gives this state no outgoing edge", which includes
+    // TRUSTED: a consumer must not believe a trusted session can still move.
+    is_terminal: isFinalState(raw.state),
     is_trusted: raw.state === 'TRUSTED',
     transitions: raw.transitions.length,
   };

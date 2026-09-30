@@ -1,4 +1,4 @@
-/**
+﻿/**
  * UTOPIA · City Foundation — city-node-network — pairing-trust module entry point.
  *
  * RF-002: one pairing/trust state machine every join entry point converges on. New
@@ -18,6 +18,7 @@ export {
   ENTRY_POINTS,
   FINGERPRINT_PATTERN,
   MAC_AUTHORITY,
+  MAX_CONFIRMATION_ATTEMPTS,
   MAC_EVIDENCE_ROLE,
   PAIRING_PHASES,
   PAIRING_REJECTION_CODES,
@@ -45,6 +46,7 @@ export {
   findSecretMaterial,
   instantOf,
   isIsoInstant,
+  isFinalState,
   isLocallyAdministeredMac,
   normalizeMac,
   sessionDigest,
@@ -52,6 +54,7 @@ export {
   sha256,
   trustDigest,
   trustDocument,
+  resolveActiveTrust,
   trustFromMacEvidence,
   validatePairingSession,
   validateTrustRecord,

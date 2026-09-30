@@ -1,4 +1,4 @@
-/**
+﻿/**
  * UTOPIA · City Foundation — city-node-network — pairing-trust tests (RF-002).
  *
  * Every "Required acceptance" line of
@@ -15,6 +15,7 @@ import {
   DEFAULT_SESSION_TTL_MS,
   ENTRY_POINTS,
   MAC_AUTHORITY,
+  MAX_CONFIRMATION_ATTEMPTS,
   MAC_EVIDENCE_ROLE,
   PAIRING_PHASES,
   PAIRING_REJECTION_CODES,
@@ -32,11 +33,13 @@ import {
   createPairingAuthority,
   findSecretMaterial,
   inspectSessionDocument,
+  isFinalState,
   isLocallyAdministeredMac,
   mintSessionId,
   mintTrustId,
   normalizeMac,
   randomEntropy,
+  resolveActiveTrust,
   sessionDigest,
   sha256,
   trustDigest,
@@ -707,4 +710,199 @@ test('the exported vocabularies are frozen and internally consistent', () => {
     assert.deepEqual([...PAIRING_TRANSITIONS[terminal]], [], `${terminal} must be terminal`);
   }
   assert.equal(new PairingError('X', 'y').status, 409);
+});
+
+/* ------------------------------------------- 13. correction round (host: Mech)
+ *
+ * Repairs made by the Correction host after independent adversarial probing. Each test below
+ * fails on the pre-correction branch head 3c0eb4f and passes on the corrected head.
+ */
+
+test('C1 a trusted session is final: expiry and cleanup never rewrite it', () => {
+  const auth = authority();
+  readySession(auth);
+  auth.confirmPairing(SESSION, confirmArgs());
+  assert.equal(auth.getSession(SESSION).state, 'TRUSTED');
+
+  // The deadline passes. Neither expiry path may turn a successful pairing into EXPIRED.
+  assert.equal(auth.expireSession(SESSION, { nowMs: EXPIRED }).state, 'TRUSTED');
+  assert.deepEqual(auth.cleanupExpired(EXPIRED + 60_000).expired, []);
+  const doc = auth.getSession(SESSION);
+  assert.equal(doc.state, 'TRUSTED');
+  assert.equal(doc.terminal_reason, null);
+  assert.deepEqual(doc.transitions.map((entry) => entry.state), [
+    'PAIRING_SESSION', 'EPHEMERAL_KEY_EXCHANGE', 'DEVICE_PREVIEW', 'HUMAN_CONFIRM', 'TRUSTED',
+  ]);
+  assert.equal(doc.transitions.some((entry) => entry.state === 'EXPIRED'), false, 'a trusted session never expires');
+
+  // The derived rule: a state with no outgoing edge is final, and TRUSTED is one of them.
+  assert.equal(isFinalState('TRUSTED'), true);
+  for (const state of PAIRING_TERMINAL_STATES) assert.equal(isFinalState(state), true, state);
+  for (const phase of ['PAIRING_SESSION', 'EPHEMERAL_KEY_EXCHANGE', 'DEVICE_PREVIEW', 'HUMAN_CONFIRM']) {
+    assert.equal(isFinalState(phase), false, phase);
+  }
+  assert.equal(isFinalState('NOT_A_STATE'), false);
+
+  // Leaving a successful pairing is a terminal-state refusal, not an incidental one.
+  expectCode(() => auth.rejectPairing(SESSION, { reason: 'changed mind', nowMs: EXPIRED }), 'terminal_state');
+  expectCode(() => auth.cancelPairing(SESSION, { nowMs: EXPIRED }), 'terminal_state');
+  expectCode(() => auth.confirmPairing(SESSION, confirmArgs({ tokenNonce: 'token-2' })), 'terminal_state');
+
+  // A peer reading the document is told the session is final.
+  assert.equal(inspectSessionDocument(doc).is_terminal, true);
+  assert.equal(inspectSessionDocument(doc).is_trusted, true);
+});
+
+test('C2 a live re-pair supersedes the previous trust instead of leaving two', () => {
+  const auth = authority();
+  readySession(auth);
+  auth.confirmPairing(SESSION, confirmArgs());
+  const secondSession = mintSessionId(entropy('81'));
+  const secondTrust = mintTrustId(entropy('82'));
+  readySession(auth, { sessionId: secondSession, nonce: 'n2', tokenNonce: 't2' });
+
+  // Without the explicit flag the re-pair is still refused: replacement must be deliberate.
+  expectCode(
+    () => auth.confirmPairing(secondSession, confirmArgs({ tokenNonce: 't2', trustId: secondTrust })),
+    'already_trusted',
+  );
+
+  const repaired = auth.confirmPairing(secondSession, confirmArgs({
+    tokenNonce: 't2', trustId: secondTrust, replaceExisting: true,
+  }));
+  assert.deepEqual(repaired.superseded, [TRUST], 'the caller is told which record was superseded');
+  const records = auth.listTrusts({ deviceId: DEVICE });
+  assert.equal(records.length, 2, 'the superseded record is history, not deleted');
+  assert.equal(records.filter((record) => record.state === 'TRUSTED').length, 1, 'exactly one live trust');
+  const superseded = auth.getTrust(TRUST);
+  assert.equal(superseded.state, 'REVOKED');
+  assert.equal(superseded.revocation_reason, 'REPAIRED');
+
+  // The bypass is closed: revoking the replacement must leave no live trust behind.
+  auth.revokeTrust(secondTrust, { reason: 'OWNER_REVOKED', nowMs: T4 + 1000 });
+  assert.deepEqual(auth.listTrusts({ deviceId: DEVICE, state: 'TRUSTED' }), []);
+  const afterRevoke = auth.checkReconnect({ deviceId: DEVICE, fingerprint: FP_RESPONDER, credentialFingerprint: CREDENTIAL });
+  assert.equal(afterRevoke.allowed, false, 'a superseded record must not authenticate once the replacement is revoked');
+  assert.equal(afterRevoke.code, 'trust_revoked');
+});
+
+test('C2 the superseded credential and the replacement credential are both cut off by revocation', () => {
+  const auth = authority();
+  readySession(auth);
+  auth.confirmPairing(SESSION, confirmArgs());
+  const secondSession = mintSessionId(entropy('83'));
+  const secondTrust = mintTrustId(entropy('84'));
+  const replacementCredential = sha256('replacement-installation-credential');
+  readySession(auth, { sessionId: secondSession, nonce: 'n3', tokenNonce: 't3' });
+  auth.confirmPairing(secondSession, confirmArgs({
+    tokenNonce: 't3', trustId: secondTrust, replaceExisting: true, credentialFingerprint: replacementCredential,
+  }));
+
+  assert.equal(auth.checkReconnect({ deviceId: DEVICE, fingerprint: FP_RESPONDER, credentialFingerprint: replacementCredential }).allowed, true);
+  assert.equal(auth.checkReconnect({ deviceId: DEVICE, fingerprint: FP_RESPONDER, credentialFingerprint: CREDENTIAL }).allowed, false, 'the superseded credential is not live');
+
+  // Revoking everything the device holds (the lost-device path) cuts off both.
+  assert.deepEqual(auth.revokeLostDevice(DEVICE, { actor: 'owner', nowMs: T4 + 1000 }).revoked, [secondTrust]);
+  assert.equal(auth.checkReconnect({ deviceId: DEVICE, fingerprint: FP_RESPONDER, credentialFingerprint: replacementCredential }).allowed, false);
+});
+
+test('C2 two live records for one device are reported, never silently resolved', () => {
+  assert.deepEqual(resolveActiveTrust([]), { status: 'NONE', active: null, conflicts: [] });
+  const live = { trust_id: 'trust-a', state: 'TRUSTED' };
+  const single = resolveActiveTrust([live]);
+  assert.equal(single.status, 'ACTIVE');
+  assert.equal(single.active, live);
+  const conflict = resolveActiveTrust([
+    { trust_id: 'trust-b', state: 'TRUSTED' },
+    live,
+    { trust_id: 'trust-c', state: 'REVOKED' },
+  ]);
+  assert.equal(conflict.status, 'CONFLICT');
+  assert.deepEqual(conflict.conflicts, ['trust-a', 'trust-b']);
+  assert.equal(conflict.active, null, 'ambiguity is not resolved by insertion order');
+  assert.deepEqual(resolveActiveTrust([{ trust_id: 'trust-d', state: 'REVOKED' }]), { status: 'NONE', active: null, conflicts: [] });
+});
+
+test('C3 a preview that claims MAC authority, or names a foreign device, is refused', () => {
+  const auth = authority();
+  auth.startSession({ sessionId: SESSION, entryPoint: 'DISCOVERY_LAN', nonce: 'nonce-c3', initiatorFingerprint: FP_INITIATOR, nowMs: T0 });
+  auth.exchangeEphemeralKeys(SESSION, { responderFingerprint: FP_RESPONDER, nowMs: T0 + 500 });
+  const forged = {
+    fingerprint: FP_RESPONDER,
+    identity_is_cryptographic: true,
+    metadata_is_not_authority: true,
+    device_id: 'not-a-device-id',
+    mac_evidence: { role: 'AUTHORITY', authority: 'AUTHORITY', authoritative: true, can_block_or_grant: true },
+  };
+  expectCode(() => auth.presentDevicePreview(SESSION, { preview: forged, nowMs: T0 + 1000 }), 'preview');
+  // the refusal stored nothing and moved nothing
+  assert.equal(auth.getSession(SESSION).state, 'EPHEMERAL_KEY_EXCHANGE');
+  assert.ok(!auth.getSession(SESSION).preview);
+  // an undeclared preview field is refused as well, so a caller cannot smuggle key material in
+  const withExtra = { ...buildDevicePreview({ deviceId: DEVICE, fingerprint: FP_RESPONDER }), private_key: 'PEM' };
+  expectCode(() => auth.presentDevicePreview(SESSION, { preview: withExtra, nowMs: T0 + 1000 }), 'preview');
+});
+
+test('C3 the authority records its own copy of the preview', () => {
+  const auth = authority();
+  const preview = { ...buildDevicePreview({ deviceId: DEVICE, fingerprint: FP_RESPONDER }) };
+  readySession(auth, { nonce: 'nonce-c3b', tokenNonce: 'token-c3b', preview });
+  const before = sessionDigest(auth.getSession(SESSION));
+  preview.display_name = 'rewritten after the human saw it';
+  assert.equal(sessionDigest(auth.getSession(SESSION)), before, 'mutating the caller object must not rewrite what was recorded');
+  assert.notEqual(auth.getSession(SESSION).preview, preview);
+});
+
+test('C3 the trusted device must be the device the human was shown', () => {
+  const auth = authority();
+  readySession(auth, { nonce: 'nonce-c3c', tokenNonce: 'token-c3c' });
+  expectCode(
+    () => auth.confirmPairing(SESSION, confirmArgs({ tokenNonce: 'token-c3c', deviceId: OTHER_DEVICE })),
+    'preview_mismatch',
+  );
+  assert.deepEqual(auth.listTrusts(), [], 'the refusal created no trust');
+});
+
+test('C4 wrong confirmation tokens are bounded and then fail the session', () => {
+  const auth = authority();
+  readySession(auth, { nonce: 'nonce-c4', tokenNonce: 'token-c4' });
+  for (let attempt = 1; attempt < MAX_CONFIRMATION_ATTEMPTS; attempt += 1) {
+    expectCode(() => auth.confirmPairing(SESSION, confirmArgs({ tokenNonce: `wrong-${attempt}` })), 'confirmation_not_available');
+  }
+  expectCode(() => auth.confirmPairing(SESSION, confirmArgs({ tokenNonce: 'wrong-final' })), 'confirmation_attempts_exhausted');
+  assert.equal(auth.getSession(SESSION).state, 'FAILED');
+  // the real token can no longer be used, so a brute-force attempt cannot end in trust
+  expectCode(() => auth.confirmPairing(SESSION, confirmArgs({ tokenNonce: 'token-c4' })), 'terminal_state');
+  assert.deepEqual(auth.listTrusts(), []);
+  assert.equal(auth.auditLog().some((entry) => entry.event === 'CONFIRMATION_REFUSED'), true);
+});
+
+test('C4 re-requesting a different token is refused, and a decoy preview is never success', () => {
+  const auth = authority();
+  readySession(auth, { nonce: 'nonce-c5', tokenNonce: 'token-c5' });
+  expectCode(() => auth.requestConfirmation(SESSION, { tokenNonce: 'other-token', nowMs: T1 }), 'confirmation_not_available');
+  assert.equal(auth.confirmPairing(SESSION, confirmArgs({ tokenNonce: 'token-c5' })).trust.state, 'TRUSTED');
+  expectCode(() => auth.presentDevicePreview(SESSION, { preview: null, nowMs: T1 }), 'preview');
+});
+
+test('C5 a refused startSession does not burn the challenge', () => {
+  const auth = authority();
+  expectCode(
+    () => auth.startSession({
+      sessionId: SESSION, entryPoint: 'DISCOVERY_LAN', nonce: 'nonce-c6',
+      initiatorFingerprint: FP_INITIATOR, nowMs: T0, ttlMs: Number.MAX_SAFE_INTEGER,
+    }),
+    'instant',
+  );
+  assert.deepEqual(auth.listSessions(), []);
+  const retry = auth.startSession({ sessionId: SESSION, entryPoint: 'DISCOVERY_LAN', nonce: 'nonce-c6', initiatorFingerprint: FP_INITIATOR, nowMs: T0 });
+  assert.equal(retry.state, 'PAIRING_SESSION');
+});
+
+test('C5 the MAC mismatch flag must be a real boolean', () => {
+  const auth = authority();
+  readySession(auth, { nonce: 'nonce-c7', tokenNonce: 'token-c7' });
+  expectCode(() => auth.confirmPairing(SESSION, confirmArgs({ tokenNonce: 'token-c7', macMismatchObserved: 'no' })), 'malformed');
+  const confirmed = auth.confirmPairing(SESSION, confirmArgs({ tokenNonce: 'token-c7', macMismatchObserved: true }));
+  assert.equal(confirmed.trust.mac_mismatch_observed, true);
 });

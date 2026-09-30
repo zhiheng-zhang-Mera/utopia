@@ -13,6 +13,8 @@ export const PLACEMENT_DECISIONS = Object.freeze(['LOCAL_ALLOWED', 'LOCAL_THROTT
 export const REMOTE_PLACEMENT = 'REMOTE_APPROVED';
 export const FALLBACK_REASONS = Object.freeze(['LOCAL_BLOCKED', 'LOCAL_UNAVAILABLE']);
 export const MIN_LOCAL_WORKERS = 1;
+/** A device worker count is a small integer; an unbounded value used to be echoed as capacity. */
+export const MAX_LOCAL_WORKERS = 1024;
 export const PLACEMENT_CODES = Object.freeze([
   'INVALID_MEASUREMENT', 'INVALID_POLICY', 'MEASUREMENT_MISSING', 'PROTECTED_FOREGROUND_WORKLOAD',
   'RESOURCE_PRESSURE', 'LOCAL_FIRST_REQUIRED', 'REMOTE_FALLBACK_NOT_JUSTIFIED', 'USER_APPROVAL_REQUIRED',
@@ -115,7 +117,8 @@ export function validateMeasurements(measurements) {
   }
   if (isPlainObject(measurements.memory)) {
     num(measurements.memory.used_percent, 'measurements.memory.used_percent', errors, { max: 100 });
-    num(measurements.memory.free_bytes, 'measurements.memory.free_bytes', errors);
+    num(measurements.memory.free_bytes, 'measurements.memory.free_bytes', errors, { max: Number.MAX_SAFE_INTEGER });
+    if (typeof measurements.memory.free_bytes === 'number' && !Number.isInteger(measurements.memory.free_bytes)) errors.push('measurements.memory.free_bytes must be an integer');
   }
   if (isPlainObject(measurements.gpu)) {
     num(measurements.gpu.used_percent, 'measurements.gpu.used_percent', errors, { max: 100, nullable: true });
@@ -129,7 +132,8 @@ export function validateMeasurements(measurements) {
   }
   if (isPlainObject(measurements.workers)) {
     num(measurements.workers.running, 'measurements.workers.running', errors);
-    num(measurements.workers.max, 'measurements.workers.max', errors, { min: 1 });
+    num(measurements.workers.max, 'measurements.workers.max', errors, { min: 1, max: MAX_LOCAL_WORKERS });
+    if (typeof measurements.workers.max === 'number' && !Number.isInteger(measurements.workers.max)) errors.push('measurements.workers.max must be an integer');
   }
   return { ok: errors.length === 0, errors: [...new Set(errors)] };
 }
@@ -161,8 +165,21 @@ const DEFAULT_POLICY = Object.freeze({
 export function evaluateLocalPlacement(measurements, { policy = {} } = {}) {
   assertMeasurements(measurements);
   const settings = { ...DEFAULT_POLICY, ...policy };
+  // Every policy number is bounded on BOTH sides. A one-sided check let cpu_block_percent=1000 disable
+  // CPU blocking entirely, and reduce_concurrency_to=1000000 hand out the whole worker pool.
+  const POLICY_RANGES = {
+    cpu_block_percent: [1, 100], cpu_throttle_percent: [0, 100],
+    memory_block_percent: [1, 100], memory_throttle_percent: [0, 100],
+    gpu_block_percent: [1, 100], gpu_throttle_percent: [0, 100],
+    reduce_concurrency_to: [1, MAX_LOCAL_WORKERS],
+    vram_min_free_bytes: [0, Number.MAX_SAFE_INTEGER],
+  };
   for (const [key, value] of Object.entries(settings)) {
-    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) throw new PlacementError('INVALID_POLICY', `${key} must be a non-negative number`);
+    const range = POLICY_RANGES[key];
+    if (!range) throw new PlacementError('INVALID_POLICY', `${key} is not a placement policy field`);
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < range[0] || value > range[1]) {
+      throw new PlacementError('INVALID_POLICY', `${key} must be a number between ${range[0]} and ${range[1]}`);
+    }
   }
   const evidence = {
     cpu_load_percent: measurements.cpu.load_percent,
@@ -247,6 +264,12 @@ export function proposeRemoteFallback({ localDecision, jobRef, candidates = [], 
     throw new PlacementError('REMOTE_FALLBACK_NOT_JUSTIFIED', 'the local decision did not record itself as remote-eligible');
   }
   if (!isText(jobRef)) throw new PlacementError('INVALID_PROPOSAL', 'jobRef is required');
+  // A proposal that asserts a local attempt must carry the measurement that produced it: spreading a
+  // missing evidence field used to yield an empty object while the claim stayed true.
+  if (!isBareObject(localDecision.evidence) || Object.keys(localDecision.evidence).length === 0) {
+    throw new PlacementError('INVALID_PROPOSAL', 'a proposal requires the measured evidence of the blocking decision');
+  }
+  if (!isIsoInstant(localDecision.evidence.observed_at)) throw new PlacementError('INVALID_PROPOSAL', 'the measured evidence must carry its observed_at instant');
   if (!Array.isArray(candidates) || candidates.length === 0) throw new PlacementError('INVALID_PROPOSAL', 'at least one candidate device is required');
   for (const candidate of candidates) {
     if (!isBareObject(candidate) || !isText(candidate.host_ref)) throw new PlacementError('UNKNOWN_CANDIDATE', 'every candidate must be a plain own-property object with a host_ref');
@@ -281,6 +304,12 @@ export function approveRemoteFallback(proposal, { approvedBy, at } = {}) {
   }
   if (!isText(approvedBy)) throw new PlacementError('USER_APPROVAL_REQUIRED', 'remote execution requires explicit user approval in V1');
   if (!isIsoInstant(at)) throw new PlacementError('INVALID_PROPOSAL', 'at must be an ISO-8601 UTC instant');
+  // Approval cannot precede the measurement it relies on: a proposal built from a stale or replayed
+  // decision would otherwise be approved against evidence that did not exist yet.
+  const observedAt = proposal.measured_evidence?.observed_at;
+  if (isIsoInstant(observedAt) && Date.parse(at) < Date.parse(observedAt)) {
+    throw new PlacementError('INVALID_PROPOSAL', `approval at ${at} precedes the measurement at ${observedAt}`);
+  }
   return Object.freeze({
     job_ref: proposal.job_ref,
     placement: REMOTE_PLACEMENT,

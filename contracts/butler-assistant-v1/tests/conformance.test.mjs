@@ -10,6 +10,7 @@ import {
  BUNDLE_KIND, BUNDLE_VERSION, BUTLER_ASSISTANT_CONTRACT, DIGITAL_ME_WRITE_SURFACE,
  MAX_DUTY_LABELS, MAX_EXTENSION_NAMESPACES, PERSONALIZATION_PORT_IDS,
  PROFILE_AUTHORITY_BOUNDARY, PROFILE_SCHEMA_VERSION, PersonalizationError, RELATIONSHIP_MODES,
+ RESERVED_KEY_PATTERN,
  applyProfilePatch, createAssistantZone, createDefaultProfile, createPortRegistry,
  effectiveGrantsFromProfile, findAuthorityPaths, migrateProfile, normalizeProfile,
  validateBundle, validateProfile
@@ -381,4 +382,122 @@ test('the published schema matches the runtime contract', () => {
  assert.equal(schema.$defs.profile.additionalProperties, false);
  assert.deepEqual(Object.keys(schema.$defs).sort(),
   ['address', 'appearance', 'assistantIdentity', 'bundle', 'companion', 'duties', 'extensionEntry', 'label', 'nullableId', 'nullableText', 'personality', 'profile', 'voice']);
+});
+
+// ---------------------------------------------------------------------------
+// CORRECTION (host Alien, BA-001 Correction stage) — adversarial regressions.
+//
+// Every test below failed before the repair. They are grouped here so a later
+// reader can see exactly which attack each one closes, and they assert both the
+// refusal *and* that nothing changed, because a guard that throws after mutating
+// is not a guard.
+// ---------------------------------------------------------------------------
+
+// `JSON.parse` is used to build these objects on purpose: it is the only honest
+// way to obtain an object with an *own* `__proto__` property, which is the shape
+// that arrives over the wire and the shape a hand-written object literal cannot
+// express (`{ __proto__: x }` sets the prototype instead of adding a key).
+const ownProtoPatch = () => JSON.parse('{"__proto__":{"isAdmin":true}}');
+
+test('a profile patch cannot rewrite a prototype or inject a hidden property', () => {
+ const base = createDefaultProfile({ overrides: { address: { assistantName: 'Aria' } } });
+ const before = JSON.stringify(Object.keys(base));
+ for (const patch of [
+  ownProtoPatch(),
+  JSON.parse('{"constructor":{"prototype":{"isAdmin":true}}}'),
+  JSON.parse('{"prototype":{"isAdmin":true}}')
+ ]) {
+  expectCode(() => applyProfilePatch(base, patch), 'RESERVED_PROFILE_PATCH_KEY');
+ }
+ // The refused patch is a no-op: no hidden property, no prototype change, and the
+ // global Object.prototype was never reached either.
+ assert.equal(Object.getPrototypeOf(base), Object.prototype);
+ assert.equal('isAdmin' in base, false);
+ assert.equal(base.isAdmin, undefined);
+ assert.equal(Object.keys(base).length, 8);
+ assert.equal(JSON.stringify(Object.keys(base)), before);
+ assert.equal({}.isAdmin, undefined, 'Object.prototype must not be polluted');
+});
+
+test('the Zone patch path is closed to prototype injection and leaves state untouched', () => {
+ const z = zone();
+ const created = z.createIdentity({ assistantId: 'assistant-a' });
+ expectCode(() => z.patchProfile('assistant-a', ownProtoPatch()), 'RESERVED_PROFILE_PATCH_KEY');
+ const profile = z.getProfile('assistant-a');
+ assert.equal(Object.getPrototypeOf(profile), Object.prototype);
+ assert.equal('isAdmin' in profile, false);
+ assert.equal(z.getIdentity('assistant-a').revision, created.revision, 'a refused patch must not bump the revision');
+ assert.equal(validateProfile(profile).ok, true);
+});
+
+test('a rejected patch leaves the stored profile byte-identical', () => {
+ const z = zone();
+ z.createIdentity({ assistantId: 'assistant-a' });
+ const before = JSON.stringify(z.getProfile('assistant-a'));
+ expectCode(() => z.patchProfile('assistant-a', JSON.parse('{"__proto__":{"isAdmin":true}}')), 'RESERVED_PROFILE_PATCH_KEY');
+ expectCode(() => z.patchProfile('assistant-a', { nope: 1 }), 'UNKNOWN_PERSONALIZATION_PORT');
+ assert.equal(JSON.stringify(z.getProfile('assistant-a')), before);
+});
+
+test('inherited property names are not declared port fields', () => {
+ const base = createDefaultProfile();
+ for (const key of ['toString', 'valueOf', 'hasOwnProperty', 'isPrototypeOf', 'constructor', 'propertyIsEnumerable']) {
+  const profile = JSON.parse(JSON.stringify(base));
+  profile.voice[key] = 'x';
+  const result = validateProfile(profile);
+  assert.equal(result.ok, false, `${key} must not be accepted as a declared voice field`);
+  assert.ok(result.errors.some(error => error.includes(`profile.voice.${key}`)), JSON.stringify(result.errors));
+ }
+ // The legitimate fields of the same port are still accepted.
+ const ok = JSON.parse(JSON.stringify(base));
+ ok.voice.speakingRate = 0.75;
+ assert.equal(validateProfile(ok).ok, true);
+});
+
+test('reserved keys are refused at every depth of a stored profile document', () => {
+ const base = createDefaultProfile();
+ const deep = JSON.parse('{"extensions":{"ns":{"version":1,"value":{"a":{"__proto__":{"isAdmin":true}}}}}}');
+ const result = validateProfile({ ...JSON.parse(JSON.stringify(base)), ...deep });
+ assert.equal(result.ok, false);
+ assert.ok(result.errors.some(error => error.includes('__proto__')), JSON.stringify(result.errors));
+
+ const inPort = JSON.parse(JSON.stringify(base));
+ inPort.extensions = JSON.parse('{"ns":{"version":1,"value":{"prototype":{"x":1}}}}');
+ assert.equal(validateProfile(inPort).ok, false);
+});
+
+test('a bundle refuses a reserved key anywhere, including inside an extension value', () => {
+ const z = zone();
+ z.createIdentity({ assistantId: 'assistant-a' });
+ const bundle = JSON.parse(JSON.stringify(z.exportBundle('assistant-a')));
+ bundle.assistant.profile.extensions = JSON.parse('{"ns":{"version":1,"value":{"__proto__":{"isAdmin":true}}}}');
+ const result = validateBundle(bundle);
+ assert.equal(result.ok, false);
+ assert.ok(result.errors.some(error => error.includes('__proto__')), JSON.stringify(result.errors));
+ expectCode(() => z.importBundle(bundle, { mode: 'create' }), 'INVALID_ASSISTANT_BUNDLE');
+});
+
+test('a reserved key cannot be registered as a personalization port', () => {
+ for (const id of ['__proto__', 'prototype', 'constructor']) {
+  expectCode(
+   () => createPortRegistry({ additionalPorts: [{ id, sinceVersion: 1, default: () => ({}), validate: () => [] }] }),
+   'RESERVED_PORT_ID'
+  );
+ }
+ // Registering a normal additional port still works, and does not disturb the registry.
+ const registry = createPortRegistry({ additionalPorts: [{ id: 'ambience', sinceVersion: 1, default: () => ({ level: 0 }), validate: (value, path, errors) => errors }] });
+ assert.equal(Object.hasOwn(registry.ports, 'ambience'), true);
+ assert.equal(Object.getPrototypeOf(registry.ports), Object.prototype);
+ assert.equal(registry.ports.__proto__, Object.prototype);
+});
+
+test('the published schema states the reserved-prototype-key rule the runtime enforces', () => {
+ const schema = JSON.parse(readFileSync(new URL('../schema.json', import.meta.url), 'utf8'));
+ const declared = schema['x-authority-boundary'].forbiddenPrototypeKeys;
+ assert.deepEqual(declared, ['__proto__', 'prototype', 'constructor'], 'the schema must list exactly the keys the runtime refuses');
+ for (const key of declared) {
+  assert.equal(RESERVED_KEY_PATTERN.test(key), true, `${key} is enforced by the runtime`);
+ }
+ assert.equal(RESERVED_KEY_PATTERN.test('toString'), false, 'the rule is about prototype keys, not every inherited name');
+ assert.match(schema['x-authority-boundary'].note, /prototype/);
 });

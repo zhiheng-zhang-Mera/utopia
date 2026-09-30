@@ -1,4 +1,4 @@
-﻿// Butler Assistant Zone (BA-001) — assistant identity + personalization ownership.
+// Butler Assistant Zone (BA-001) — assistant identity + personalization ownership.
 //
 // The Zone owns assistant identities and their replaceable profiles. It never
 // touches Digital-Me: no API accepts Digital-Me state, and import rejects any
@@ -11,7 +11,7 @@
 import {
  BUNDLE_KIND, BUNDLE_VERSION, DEFAULT_PORT_REGISTRY,
  PersonalizationError, applyProfilePatch, createDefaultProfile,
- findAuthorityPaths, findDigitalMePaths, normalizeProfile, validateProfile
+ findAuthorityPaths, findDigitalMePaths, findReservedKeyPaths, normalizeProfile, validateProfile
 } from './personalization.mjs';
 
 const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -44,9 +44,11 @@ export function validateBundle(bundle, { registry = DEFAULT_PORT_REGISTRY } = {}
   for (const error of profileResult.errors) errors.push(`bundle.assistant.${error}`);
  }
  // A bundle is portable assistant state: it may not carry Digital-Me identity
- // data, and it may not smuggle authority into a profile.
+ // data, it may not smuggle authority into a profile, and it may not carry a
+ // prototype-manipulation key anywhere, because a bundle arrives over the wire.
  for (const path of findDigitalMePaths(bundle, 'bundle')) errors.push(`${path} must not be exported into or imported from the assistant bundle`);
  for (const path of findAuthorityPaths(bundle, 'bundle')) errors.push(`${path} is an authority field; personalization cannot grant authority`);
+ for (const path of findReservedKeyPaths(bundle, 'bundle')) errors.push(`${path} is a reserved prototype key; a bundle may not carry it`);
  return { ok: errors.length === 0, errors: [...new Set(errors)] };
 }
 

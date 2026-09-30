@@ -28,6 +28,14 @@ export const DIGITAL_ME_KEY_PATTERN =
 // Same rule for namespaced extension keys, where the namespace may be dotted.
 export const DIGITAL_ME_NAMESPACE_PATTERN =
  /^(?:digital[-_.]?me|digital[-_.]?self|user[-_.]?(?:identity|profile|self)|canonical[-_.]?(?:user|identity))(?:[.-]|$)/i;
+// Prototype-manipulation keys. These are never legitimate profile data, and a
+// `__proto__` key is worse than invalid: assigning it *rewrites an object's
+// prototype* instead of adding a key, so `Object.keys` cannot see the result and
+// every later read of the object is served from attacker-controlled properties.
+// That turns a descriptive profile write into property injection, which is a
+// denial of the "a profile grants nothing" boundary. Rejected at every depth, in
+// a stored document and in a patch.
+export const RESERVED_KEY_PATTERN = /^(?:__proto__|prototype|constructor)$/;
 export const EXTENSION_NAMESPACE_PATTERN = /^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/;
 // Duty labels are human-readable role descriptions (`butler`, `night-shift`).
 // The `:`-grant syntax (`act:device.control`) is explicitly not a label.
@@ -145,7 +153,11 @@ export function createPortRegistry({ additionalPorts = [] } = {}) {
  const ports = definePorts();
  for (const port of additionalPorts) {
   if (!isPlainObject(port) || !isText(port.id) || typeof port.validate !== 'function' || typeof port.default !== 'function') throw new PersonalizationError('INVALID_PORT_DEFINITION', String(port && port.id));
-  if (ports[port.id]) throw new PersonalizationError('DUPLICATE_PORT_ID', port.id);
+  if (RESERVED_KEY_PATTERN.test(port.id)) throw new PersonalizationError('RESERVED_PORT_ID', port.id);
+  // Own-key lookup: `ports[port.id]` would answer `Object.prototype` for
+  // `__proto__`/`constructor`, and assigning that id would rewrite the registry's
+  // prototype rather than register a port.
+  if (Object.hasOwn(ports, port.id)) throw new PersonalizationError('DUPLICATE_PORT_ID', port.id);
   if (!Number.isInteger(port.sinceVersion) || port.sinceVersion < 1) throw new PersonalizationError('INVALID_PORT_VERSION', port.id);
   ports[port.id] = { version: 1, required: false, ...port };
  }
@@ -180,6 +192,20 @@ export function findDigitalMePaths(value, path = 'profile', found = []) {
  return found;
 }
 
+// Reserved prototype keys, at every depth. `Object.entries` does surface an
+// own `__proto__` property produced by `JSON.parse`, so a document that arrived
+// over the wire is scanned exactly like a locally built one.
+export function findReservedKeyPaths(value, path = 'profile', found = []) {
+ if (Array.isArray(value)) { value.forEach((item, index) => findReservedKeyPaths(item, `${path}[${index}]`, found)); return found; }
+ if (!isPlainObject(value)) return found;
+ for (const [key, child] of Object.entries(value)) {
+  const childPath = `${path}.${key}`;
+  if (RESERVED_KEY_PATTERN.test(key)) found.push(childPath);
+  findReservedKeyPaths(child, childPath, found);
+ }
+ return found;
+}
+
 // ---- profile validation --------------------------------------------------
 
 function validateExtensions(extensions, errors, path = 'profile.extensions') {
@@ -195,7 +221,8 @@ function validateExtensions(extensions, errors, path = 'profile.extensions') {
   if (AUTHORITY_KEY_PATTERN.test(namespace.split(/[.-]/)[0])) errors.push(`${path}.${namespace} must not use an authority namespace`);
   if (!isPlainObject(entry)) { errors.push(`${path}.${namespace} must be an object with version and value`); continue; }
   if (!Number.isInteger(entry.version) || entry.version < 1) errors.push(`${path}.${namespace}.version must be a positive integer`);
-  if (!('value' in entry)) errors.push(`${path}.${namespace}.value is required`);
+  // Own-key check: `'value' in entry` is satisfied by an inherited `value`.
+  if (!Object.hasOwn(entry, 'value')) errors.push(`${path}.${namespace}.value is required`);
   for (const key of Object.keys(entry)) if (key !== 'version' && key !== 'value') errors.push(`${path}.${namespace}.${key} is not part of a versioned extension entry`);
  }
 }
@@ -220,9 +247,13 @@ export function validateProfile(profile, { registry = DEFAULT_PORT_REGISTRY, ver
   const value = profile[port.id];
   port.validate(value, `profile.${port.id}`, errors);
   // Ports are strict as well: an undeclared field inside a port is a schema error.
-  if (isPlainObject(value)) for (const key of Object.keys(value)) if (!(key in port.default())) errors.push(`profile.${port.id}.${key} is not a declared ${port.id} field`);
+  // Own-key check, because `key in port.default()` also accepts every inherited
+  // name (`toString`, `valueOf`, `constructor`, ...), which silently re-opened the
+  // strictness this line exists to enforce.
+  if (isPlainObject(value)) for (const key of Object.keys(value)) if (!Object.hasOwn(port.default(), key)) errors.push(`profile.${port.id}.${key} is not a declared ${port.id} field`);
  }
  validateExtensions(profile.extensions, errors);
+ for (const path of findReservedKeyPaths(profile)) errors.push(`${path} is a reserved prototype key; personalization data may not carry it`);
  for (const path of findAuthorityPaths(profile)) errors.push(`${path} is an authority field; personalization cannot grant authority`);
  return { ok: errors.length === 0, errors };
 }
@@ -263,6 +294,10 @@ export function applyProfilePatch(profile, patch, { registry = DEFAULT_PORT_REGI
  if (!isPlainObject(patch)) throw new PersonalizationError('INVALID_PROFILE_PATCH', 'patch must be an object');
  const next = clone(profile);
  for (const [key, value] of Object.entries(clone(patch))) {
+  // Refused before any assignment happens, so a patch can never reach the
+  // `__proto__` setter (which would rewrite `next`'s prototype instead of adding
+  // a key, leaving `Object.keys` and therefore validation unable to see it).
+  if (RESERVED_KEY_PATTERN.test(key)) throw new PersonalizationError('RESERVED_PROFILE_PATCH_KEY', key);
   if (key === 'schema_version') {
    if (value !== profile.schema_version) throw new PersonalizationError('PROFILE_SCHEMA_VERSION_IMMUTABLE', 'use migrateProfile to change schema_version');
    continue;
@@ -272,7 +307,9 @@ export function applyProfilePatch(profile, patch, { registry = DEFAULT_PORT_REGI
    next.extensions = { ...next.extensions, ...value };
    continue;
   }
-  const port = registry.ports[key];
+  // Own-key lookup. `registry.ports[key]` answers `Object.prototype` for
+  // `__proto__`/`constructor`/`toString` and so passed the unknown-port guard.
+  const port = Object.hasOwn(registry.ports, key) ? registry.ports[key] : null;
   if (!port) throw new PersonalizationError('UNKNOWN_PERSONALIZATION_PORT', key);
   if (isPlainObject(value) && isPlainObject(next[key])) next[key] = { ...next[key], ...value };
   else next[key] = value;

@@ -125,6 +125,7 @@
    "scope", "scopes", "accessToken", "token", "credential", "credentials", "secret", "secrets"
   ],
   "forbiddenEffectValues": ["allow", "grant", "permit", "authorize"],
-  "note": "A profile that names any authority field, or carries an allowing effect, is rejected by validateProfile."
+  "forbiddenPrototypeKeys": ["__proto__", "prototype", "constructor"],
+  "note": "A profile that names any authority field, or carries an allowing effect, is rejected by validateProfile. Reserved prototype keys are rejected at every depth of a profile and of a bundle, and a patch that contains one is refused before any assignment: assigning `__proto__` would rewrite an object's prototype instead of adding a key, which `Object.keys` (and therefore validation) cannot see."
  }
 }

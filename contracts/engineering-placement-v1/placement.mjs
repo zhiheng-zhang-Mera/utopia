@@ -30,18 +30,38 @@ export class PlacementError extends Error {
 }
 
 const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+/** A measurement, candidate or proposal must carry its fields as own properties on a bare object. */
+const isBareObject = value => isPlainObject(value) && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
 const isText = value => typeof value === 'string' && value.trim().length > 0;
-export const isIsoInstant = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+const isIsoInstantShape = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+/** Shape is not enough: an impossible instant parses to NaN, and a NaN comparison is always false. */
+export const isIsoInstant = value => {
+  if (!isIsoInstantShape(value)) return false;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) && new Date(parsed).toISOString().slice(0, 19) === value.slice(0, 19);
+};
 
 /** Fields that would turn placement into load balancing. They are refused, not ignored. */
 export const SPEED_FIELDS = Object.freeze(['speed', 'speed_rank', 'faster', 'benchmark_score', 'idle_percent', 'priority_rank']);
-export function findSpeedFields(value, path = 'candidate', found = []) {
-  if (Array.isArray(value)) { value.forEach((item, index) => findSpeedFields(item, `${path}[${index}]`, found)); return found; }
+/**
+ * A speed field is refused, not ignored. Object.entries sees only enumerable own keys, so a
+ * non-enumerable own speed field was admitted silently; Reflect.ownKeys sees every own key, and the
+ * walk over caller data is cycle-safe.
+ */
+export function findSpeedFields(value, path = 'candidate', found = [], seen = new WeakSet()) {
+  if (Array.isArray(value)) {
+    if (seen.has(value)) return found;
+    seen.add(value);
+    value.forEach((item, index) => findSpeedFields(item, `${path}[${index}]`, found, seen));
+    return found;
+  }
   if (!isPlainObject(value)) return found;
-  for (const [key, child] of Object.entries(value)) {
-    const childPath = `${path}.${key}`;
-    if (SPEED_FIELDS.includes(key)) found.push(childPath);
-    findSpeedFields(child, childPath, found);
+  if (seen.has(value)) return found;
+  seen.add(value);
+  for (const key of Reflect.ownKeys(value)) {
+    const childPath = `${path}.${String(key)}`;
+    if (typeof key === 'string' && SPEED_FIELDS.includes(key)) found.push(childPath);
+    findSpeedFields(value[key], childPath, found, seen);
   }
   return found;
 }
@@ -65,8 +85,22 @@ export const MEASUREMENT_SPEC = Object.freeze({
 
 export function validateMeasurements(measurements) {
   const errors = [];
-  if (!isPlainObject(measurements)) return { ok: false, errors: ['measurements must be an object'] };
-  for (const key of Object.keys(measurements)) if (!(key in MEASUREMENT_SPEC)) errors.push(`measurements.${key} is not part of the placement contract`);
+  if (!isBareObject(measurements)) return { ok: false, errors: ['measurements must be a plain own-property object'] };
+  // key in SPEC walks the prototype chain; only own keys of the spec are part of the contract.
+  for (const key of Reflect.ownKeys(measurements)) if (!Object.hasOwn(MEASUREMENT_SPEC, key)) errors.push(`measurements.${String(key)} is not part of the placement contract`);
+  // The nested measurement blocks are part of the same contract, so their own fields are checked too:
+  // an unexamined nested field (a speed hint, a profile byte) used to be admitted silently.
+  const NESTED_FIELDS = {
+    cpu: ['load_percent', 'cores'],
+    memory: ['used_percent', 'free_bytes'],
+    gpu: ['used_percent', 'vram_free_bytes', 'protected'],
+    foreground: ['protected_workload', 'full_screen_app', 'user_present'],
+    workers: ['running', 'max'],
+  };
+  for (const [block, allowed] of Object.entries(NESTED_FIELDS)) {
+    if (!isPlainObject(measurements[block])) continue;
+    for (const key of Reflect.ownKeys(measurements[block])) if (!allowed.includes(key)) errors.push(`measurements.${block}.${String(key)} is not part of the placement contract`);
+  }
   for (const [key, rule] of Object.entries(MEASUREMENT_SPEC)) {
     const present = Object.hasOwn(measurements, key);
     if (!present) { if (rule.required) errors.push(`measurements.${key} is required`); continue; }
@@ -111,7 +145,9 @@ const DEFAULT_POLICY = Object.freeze({
   cpu_throttle_percent: 75,
   memory_block_percent: 90,
   memory_throttle_percent: 70,
+  gpu_throttle_percent: 80,
   vram_min_free_bytes: 512 * 1024 * 1024,
+  gpu_block_percent: 95,
   reduce_concurrency_to: 1,
 });
 
@@ -132,6 +168,7 @@ export function evaluateLocalPlacement(measurements, { policy = {} } = {}) {
     cpu_load_percent: measurements.cpu.load_percent,
     memory_used_percent: measurements.memory.used_percent,
     vram_free_bytes: measurements.gpu.vram_free_bytes,
+    gpu_used_percent: measurements.gpu.used_percent,
     gpu_protected: measurements.gpu.protected,
     protected_workload: measurements.foreground.protected_workload,
     full_screen_app: measurements.foreground.full_screen_app,
@@ -154,10 +191,18 @@ export function evaluateLocalPlacement(measurements, { policy = {} } = {}) {
     return Object.freeze({ decision: 'LOCAL_UNAVAILABLE', reason: 'MEASUREMENT_MISSING', concurrency: 0, evidence: Object.freeze({ ...evidence }), remote_fallback_eligible: true });
   }
 
+  // More workers are already running than the device permits: that is a contradiction, so the honest
+  // answer is UNAVAILABLE rather than "throttle to one worker" on a device already over its limit.
+  if (measurements.workers.running > measurements.workers.max) {
+    return Object.freeze({ decision: 'LOCAL_UNAVAILABLE', reason: 'MEASUREMENT_MISSING', concurrency: 0, evidence: Object.freeze({ ...evidence }), remote_fallback_eligible: true });
+  }
   const blockedByCpu = measurements.cpu.load_percent >= settings.cpu_block_percent;
   const blockedByMemory = measurements.memory.used_percent >= settings.memory_block_percent;
   const blockedByVram = measurements.gpu.vram_free_bytes !== null && measurements.gpu.vram_free_bytes < settings.vram_min_free_bytes;
-  if (blockedByCpu || blockedByMemory || blockedByVram || measurements.workers.running >= measurements.workers.max) {
+  // The GPU load was validated and then never read, so a device with its GPU pinned at 100 % was
+  // placed as though it were idle.
+  const blockedByGpuLoad = typeof measurements.gpu.used_percent === 'number' && measurements.gpu.used_percent >= settings.gpu_block_percent;
+  if (blockedByCpu || blockedByMemory || blockedByVram || blockedByGpuLoad || measurements.workers.running >= measurements.workers.max) {
     // Reducing local work to a single worker is attempted before any remote fallback is proposed.
     const canRunOne = measurements.workers.max >= MIN_LOCAL_WORKERS && measurements.memory.free_bytes > 0 && measurements.cpu.load_percent < 100;
     if (canRunOne) {
@@ -172,7 +217,8 @@ export function evaluateLocalPlacement(measurements, { policy = {} } = {}) {
     return Object.freeze({ decision: 'LOCAL_BLOCKED', reason: 'RESOURCE_PRESSURE', concurrency: 0, evidence: Object.freeze({ ...evidence }), remote_fallback_eligible: true });
   }
 
-  const pressured = measurements.cpu.load_percent >= settings.cpu_throttle_percent || measurements.memory.used_percent >= settings.memory_throttle_percent;
+  const pressured = measurements.cpu.load_percent >= settings.cpu_throttle_percent || measurements.memory.used_percent >= settings.memory_throttle_percent
+    || (typeof measurements.gpu.used_percent === 'number' && measurements.gpu.used_percent >= settings.gpu_throttle_percent);
   const headroom = Math.max(MIN_LOCAL_WORKERS, measurements.workers.max - measurements.workers.running);
   if (pressured || measurements.workers.running >= measurements.workers.max - 1) {
     return Object.freeze({
@@ -203,7 +249,7 @@ export function proposeRemoteFallback({ localDecision, jobRef, candidates = [], 
   if (!isText(jobRef)) throw new PlacementError('INVALID_PROPOSAL', 'jobRef is required');
   if (!Array.isArray(candidates) || candidates.length === 0) throw new PlacementError('INVALID_PROPOSAL', 'at least one candidate device is required');
   for (const candidate of candidates) {
-    if (!isPlainObject(candidate) || !isText(candidate.host_ref)) throw new PlacementError('UNKNOWN_CANDIDATE', 'every candidate needs a host_ref');
+    if (!isBareObject(candidate) || !isText(candidate.host_ref)) throw new PlacementError('UNKNOWN_CANDIDATE', 'every candidate must be a plain own-property object with a host_ref');
     const speedFields = findSpeedFields(candidate);
     // "Faster" is not a placement reason; a ranking field would make it one.
     if (speedFields.length) throw new PlacementError('SPEED_IS_NOT_A_REASON', `${speedFields.join(', ')} would rank a host by speed; remote fallback is only for measured local blocking`);
@@ -227,7 +273,12 @@ export function proposeRemoteFallback({ localDecision, jobRef, candidates = [], 
 
 /** Approve a proposal. Only an explicit user/owner reference counts as approval. */
 export function approveRemoteFallback(proposal, { approvedBy, at } = {}) {
-  if (!isPlainObject(proposal) || proposal.requires_user_approval !== true) throw new PlacementError('INVALID_PROPOSAL', 'a user-approved proposal is required');
+  if (!isBareObject(proposal) || proposal.requires_user_approval !== true) throw new PlacementError('INVALID_PROPOSAL', 'a user-approved proposal is required');
+  // A hand-made object carrying the approval flag was approved as REMOTE_APPROVED without any measured
+  // local blocking, which is the invariant this module exists to protect.
+  if (!FALLBACK_REASONS.includes(proposal.reason) || proposal.local_attempted_first !== true) {
+    throw new PlacementError('REMOTE_FALLBACK_NOT_JUSTIFIED', 'only a proposal from a measured LOCAL_BLOCKED/LOCAL_UNAVAILABLE decision, after a local attempt, can be approved');
+  }
   if (!isText(approvedBy)) throw new PlacementError('USER_APPROVAL_REQUIRED', 'remote execution requires explicit user approval in V1');
   if (!isIsoInstant(at)) throw new PlacementError('INVALID_PROPOSAL', 'at must be an ISO-8601 UTC instant');
   return Object.freeze({

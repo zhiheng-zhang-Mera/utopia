@@ -179,3 +179,52 @@ test('a remote dispatch requires a recorded local attempt first', () => {
   assert.equal(new PlacementError('X', 'y').status, 409);
   assert.equal(LOCAL_FIRST_POLICY.cpu_block_percent, 92);
 });
+
+/* --------------------------------- 7. regressions (Correction, host Alien) */
+
+import { evaluateLocalPlacement as evalLocal, approveRemoteFallback as approveRemote, proposeRemoteFallback as proposeRemote } from '../index.mjs';
+
+const mR = (over = {}) => ({ cpu: { load_percent: 10, cores: 8 }, memory: { used_percent: 20, free_bytes: 8e9 }, gpu: { used_percent: 5, vram_free_bytes: 4e9, protected: false }, foreground: { protected_workload: false, full_screen_app: false, user_present: true }, workers: { running: 0, max: 4 }, observed_at: '2026-09-30T12:00:00.000Z', source: 'os-probe', ...over });
+const blockedR = () => evalLocal(mR({ foreground: { protected_workload: true, full_screen_app: false, user_present: true } }));
+
+test('a measurement is a strict own-property record', () => {
+  for (const name of Object.getOwnPropertyNames(Object.prototype)) {
+    const probe = Object.defineProperty({ ...mR() }, name, { value: 'X', enumerable: true, configurable: true, writable: true });
+    assert.equal(validateMeasurements(probe).ok, false, 'measurements.' + name + ' must not be canonical');
+  }
+  // an unexamined nested field is part of the same contract
+  assert.equal(validateMeasurements(mR({ cpu: { load_percent: 10, cores: 8, faster: true } })).ok, false);
+  assert.equal(validateMeasurements(mR({ workers: { running: 0, max: 4, speed_rank: 1 } })).ok, false);
+  const inherited = Object.assign(Object.create({ cpu: mR().cpu, memory: mR().memory }), { workers: { running: 0, max: 4 } });
+  assert.equal(validateMeasurements(inherited).ok, false, 'an inherited measurement is not a measurement');
+  // neighbours: a clean measurement is still valid
+  assert.equal(validateMeasurements(mR()).ok, true);
+  assert.equal(evalLocal(mR()).decision, 'LOCAL_ALLOWED');
+});
+
+test('a measured GPU load is used, and a contradictory worker count is unavailable', () => {
+  const hot = evalLocal(mR({ gpu: { used_percent: 100, vram_free_bytes: 4e9, protected: false } }));
+  assert.equal(hot.decision, 'LOCAL_THROTTLED', 'a saturated GPU is pressure');
+  assert.equal(hot.evidence.gpu_used_percent, 100, 'the measurement is exposed, not discarded');
+  // neighbours: an idle GPU still allows full local concurrency
+  assert.equal(evalLocal(mR()).concurrency, 4);
+  // more workers running than the device permits is a contradiction, not permission to run one
+  const over = evalLocal(mR({ workers: { running: 9, max: 2 } }));
+  assert.equal(over.decision, 'LOCAL_UNAVAILABLE');
+  assert.equal(over.concurrency, 0);
+  assert.equal(over.remote_fallback_eligible, true);
+});
+
+test('only a justified fallback proposal can be approved', () => {
+  const honest = proposeRemote({ localDecision: blockedR(), jobRef: 'job-1', candidates: [{ host_ref: 'host-b', measured_reason: 'LOCAL_BLOCKED' }] });
+  expectCode(() => approveRemote({ requires_user_approval: true, job_ref: 'job-x', reason: 'LOCAL_ALLOWED', local_attempted_first: false }, { approvedBy: 'owner-1', at: '2026-09-30T12:00:00.000Z' }), 'REMOTE_FALLBACK_NOT_JUSTIFIED');
+  expectCode(() => approveRemote({ requires_user_approval: true, job_ref: 'job-x', reason: 'LOCAL_BLOCKED', local_attempted_first: false }, { approvedBy: 'owner-1', at: '2026-09-30T12:00:00.000Z' }), 'REMOTE_FALLBACK_NOT_JUSTIFIED');
+  expectCode(() => approveRemote(honest, { approvedBy: 'owner-1', at: '2026-13-45T99:99:99Z' }), 'INVALID_PROPOSAL');
+  // neighbours: the honest proposal is still approvable, and a speed field is still refused
+  assert.equal(approveRemote(honest, { approvedBy: 'owner-1', at: '2026-09-30T12:00:00.000Z' }).placement, 'REMOTE_APPROVED');
+  expectCode(() => proposeRemote({ localDecision: blockedR(), jobRef: 'j', candidates: [{ host_ref: 'h', measured_reason: 'LOCAL_BLOCKED', speed_rank: 1 }] }), 'SPEED_IS_NOT_A_REASON');
+  const hidden = { host_ref: 'h', measured_reason: 'LOCAL_BLOCKED' };
+  Object.defineProperty(hidden, 'faster', { value: true, enumerable: false, configurable: true, writable: true });
+  expectCode(() => proposeRemote({ localDecision: blockedR(), jobRef: 'j', candidates: [hidden] }), 'SPEED_IS_NOT_A_REASON');
+  expectCode(() => proposeRemote({ localDecision: blockedR(), jobRef: 'j', candidates: [Object.assign(Object.create({ host_ref: 'h', measured_reason: 'LOCAL_BLOCKED' }), {})] }), 'UNKNOWN_CANDIDATE');
+});

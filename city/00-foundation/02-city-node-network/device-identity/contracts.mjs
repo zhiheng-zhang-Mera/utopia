@@ -74,6 +74,18 @@ export const KEY_STATES = Object.freeze(['ACTIVE', 'ROTATED', 'REVOKED']);
 export const KEY_ALGORITHMS = Object.freeze(['ed25519']);
 
 /**
+ * Whether a declared key is backed by real key material, or is a placeholder standing in for
+ * a key the record does not have.
+ *
+ * A legacy `services/dev-gateway` node row carries no key material, so its migrated device
+ * needs a key *reference* to satisfy the v1 document shape. Without this discriminator an
+ * unauthenticated record would be indistinguishable from an authenticated one and would pass
+ * the module's own trust check (`assertActiveKey`) — the distinction this module exists to
+ * create would be unrepresentable. `PLACEHOLDER` records exist as identity only.
+ */
+export const KEY_MATERIALS = Object.freeze(['PUBLIC_KEY_MATERIAL', 'PLACEHOLDER']);
+
+/**
  * The `metadata` block is a *cache of observations*, never an input to a trust decision.
  * These two constants are the machine-readable half of the MAC rule; the other half is
  * that no function in this module (or its siblings) reads a MAC to decide anything.
@@ -106,6 +118,7 @@ export const DEVICE_KEY_FIELDS = Object.freeze([
   'keyId',
   'algorithm',
   'fingerprint',
+  'material',
   'createdAt',
   'state',
   'retiredAt',
@@ -201,7 +214,9 @@ export const IDENTITY_REJECTION_CODES = Object.freeze([
   'clone_detected',
   'quarantined',
   'credential_mismatch',
+  'credential_reuse',
   'unknown_installation',
+  'key_material_missing',
   'mac_not_authority',
 ]);
 
@@ -379,12 +394,15 @@ export function deviceMetadata({
 }
 
 /** Build one device key reference from a fingerprint or from raw public key material. */
-export function deviceKey({ keyId, algorithm = 'ed25519', fingerprint, publicKeyMaterial, createdAt, state = 'ACTIVE', retiredAt = null }) {
+export function deviceKey({ keyId, algorithm = 'ed25519', fingerprint, publicKeyMaterial, material = 'PUBLIC_KEY_MATERIAL', createdAt, state = 'ACTIVE', retiredAt = null }) {
   if (typeof keyId !== 'string' || !KEY_ID_PATTERN.test(keyId)) {
     throw new DeviceIdentityError('key', `keyId ${JSON.stringify(keyId)} is not a key handle`);
   }
   if (!KEY_ALGORITHMS.includes(algorithm)) {
     throw new DeviceIdentityError('key', `algorithm ${JSON.stringify(algorithm)} is not a known key algorithm`);
+  }
+  if (!KEY_MATERIALS.includes(material)) {
+    throw new DeviceIdentityError('key', `material ${JSON.stringify(material)} is not a key material kind`);
   }
   const resolved = fingerprint ?? (publicKeyMaterial === undefined ? null : fingerprintKeyMaterial(publicKeyMaterial));
   if (typeof resolved !== 'string' || !KEY_FINGERPRINT_PATTERN.test(resolved)) {
@@ -400,6 +418,7 @@ export function deviceKey({ keyId, algorithm = 'ed25519', fingerprint, publicKey
     keyId,
     algorithm,
     fingerprint: resolved,
+    material,
     createdAt,
     state,
     retiredAt: instantOrNull(retiredAt, 'instant', 'deviceKey.retiredAt'),
@@ -445,6 +464,9 @@ export function validateDeviceIdentity(raw) {
     if (!KEY_ALGORITHMS.includes(key.algorithm)) return refuse('key', `algorithm ${JSON.stringify(key.algorithm)} is not a known key algorithm`);
     if (typeof key.fingerprint !== 'string' || !KEY_FINGERPRINT_PATTERN.test(key.fingerprint)) {
       return refuse('key', `fingerprint ${JSON.stringify(key.fingerprint)} is not a sha256:<64 hex> reference`);
+    }
+    if (!KEY_MATERIALS.includes(key.material)) {
+      return refuse('key', `key material ${JSON.stringify(key.material)} is not a known key material kind`);
     }
     if (!isIsoInstant(key.createdAt)) return refuse('instant', 'key createdAt must be a canonical ISO-8601 instant');
     if (!KEY_STATES.includes(key.state)) return refuse('key', `key state ${JSON.stringify(key.state)} is not a key state`);
@@ -500,6 +522,7 @@ export function deviceIdentityFromDocument(raw) {
       keyId: key.keyId,
       algorithm: key.algorithm,
       fingerprint: key.fingerprint,
+      material: key.material,
       createdAt: key.createdAt,
       state: key.state,
       retiredAt: key.retiredAt ?? null,
@@ -523,6 +546,7 @@ export function deviceIdentityDocument(device) {
       keyId: key.keyId,
       algorithm: key.algorithm,
       fingerprint: key.fingerprint,
+      material: key.material,
       createdAt: key.createdAt,
       state: key.state,
       retiredAt: key.retiredAt ?? null,
@@ -607,8 +631,10 @@ export function validateInstallation(raw) {
     if (typeof quarantine.code !== 'string' || quarantine.code === '') return refuse('malformed', 'quarantine.code must be a non-empty string');
     if (typeof quarantine.detail !== 'string') return refuse('malformed', 'quarantine.detail must be a string');
   }
-  if ((raw.state === 'QUARANTINED') !== (quarantine !== null)) {
-    return refuse('malformed', 'state QUARANTINED and a quarantine block must be set together');
+  if ((raw.state === 'QUARANTINED') !== (quarantine !== null) && !(raw.state === 'RETIRED' && quarantine !== null)) {
+    return refuse('malformed', raw.state === 'QUARANTINED'
+      ? 'a QUARANTINED installation must carry its quarantine block'
+      : 'only a QUARANTINED installation, or a RETIRED installation preserving a quarantine it already had, may carry a quarantine block');
   }
   const boundAt = raw.boundAt ?? null;
   if (boundAt !== null && !isIsoInstant(boundAt)) return refuse('instant', 'boundAt must be a canonical ISO-8601 instant or null');

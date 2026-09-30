@@ -802,3 +802,165 @@ test('every lifecycle refusal raised by the ladder is a declared rejection code'
   }
   for (const verdict of raised) assert.ok(PRESENTATION_VERDICTS.includes(verdict.verdict));
 });
+
+/* ------------------------------------------- 12. correction round (host: Mech)
+ *
+ * Repairs made by the Correction host after independent adversarial probing. Each test
+ * below fails on the pre-correction branch head b1ee127 and passes on the corrected head.
+ * They are grouped so a reader can see exactly what the Correction changed and why.
+ */
+
+test('C1 a retired device cannot present key authority', () => {
+  const retired = retireDevice(baseDevice(), T1);
+  assert.equal(retired.state, 'RETIRED');
+  // the key set is preserved as history, so the refusal must come from the device state
+  assert.equal(retired.keys[0].state, 'ACTIVE');
+  assert.throws(() => assertActiveKey(retired, 'key-1'), (error) => error.code === 'device_retired');
+});
+
+test('C2 a migrated legacy placeholder key is identity, never authentication', () => {
+  const migrated = migrateDeviceIdentity({
+    id: DEVICE,
+    devicePrincipalId: DEVICE,
+    displayName: 'gateway-row',
+    metadata: { platform: 'win32' },
+    agentVersion: '0.2.0',
+  }, { nowMs: T0 });
+  assert.equal(migrated.migrated, true);
+  assert.equal(migrated.device.keys[0].material, 'PLACEHOLDER');
+  assert.equal(migrated.device.keys[0].keyId, 'legacy-gateway');
+  assert.throws(
+    () => assertActiveKey(migrated.device, 'legacy-gateway'),
+    (error) => error.code === 'key_material_missing',
+  );
+  // a real enrollment/rotation replaces the placeholder without moving device_id
+  const rotated = rotateDeviceKey(migrated.device, { keyId: 'key-2', publicKeyMaterial: 'pk-real', nowMs: T1 });
+  assert.equal(rotated.deviceId, migrated.device.deviceId);
+  assert.equal(rotated.keys.find((key) => key.keyId === 'legacy-gateway').state, 'ROTATED');
+  assert.equal(rotated.keys.find((key) => key.keyId === 'key-2').material, 'PUBLIC_KEY_MATERIAL');
+  assert.equal(assertActiveKey(rotated, 'key-2').keyId, 'key-2');
+});
+
+test('C2 every v1 key must state a known material kind', () => {
+  const document = deviceIdentityDocument(baseDevice());
+  assert.equal(document.keys[0].material, 'PUBLIC_KEY_MATERIAL');
+  const missing = validateDeviceIdentity({ ...document, keys: [{ ...document.keys[0], material: undefined }] });
+  assert.equal(missing.valid, false);
+  assert.equal(missing.code, 'key');
+  const invented = validateDeviceIdentity({ ...document, keys: [{ ...document.keys[0], material: 'TRUST_ME' }] });
+  assert.equal(invented.valid, false);
+  assert.equal(invented.code, 'key');
+});
+
+test('C3 a reinstall must mint a new installation credential', () => {
+  const current = baseInstallation();
+  const fresh = { installationId: mintInstallationId(entropy('23')), instanceId: mintInstanceId(entropy('34')), nowMs: T1 };
+  // reusing the credential handle
+  assert.throws(
+    () => reinstallInstallation(current, { ...fresh, credentialId: CREDENTIAL, credentialSecret: 'brand-new-secret' }),
+    (error) => error.code === 'credential_reuse',
+  );
+  // reusing the credential secret under a new handle
+  assert.throws(
+    () => reinstallInstallation(current, { ...fresh, credentialId: mintCredentialId(entropy('55')), credentialSecret: SECRET }),
+    (error) => error.code === 'credential_reuse',
+  );
+  // reusing the fingerprint directly
+  assert.throws(
+    () => reinstallInstallation(current, { ...fresh, credentialId: mintCredentialId(entropy('55')), credentialFingerprint: current.credential.fingerprint }),
+    (error) => error.code === 'credential_reuse',
+  );
+  // a genuinely fresh credential is still accepted
+  const next = reinstallInstallation(current, { ...fresh, credentialId: mintCredentialId(entropy('55')), credentialSecret: 'fresh-secret' });
+  assert.equal(next.installation.state, 'UNBOUND');
+  assert.notEqual(next.installation.credential.fingerprint, current.credential.fingerprint);
+});
+
+test('C4 a population scan finds one credential shared by two installation identities', () => {
+  const shared = createInstallation({
+    installationId: mintInstallationId(entropy('55')),
+    instanceId: mintInstanceId(entropy('66')),
+    credentialId: CREDENTIAL,
+    credentialSecret: SECRET,
+    nowMs: T0,
+    deviceId: OTHER_DEVICE,
+  });
+  const findings = detectCredentialClones([baseInstallation(), shared]);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].reason, 'REUSED_CREDENTIAL');
+  assert.equal(findings[0].credentialFingerprint, credentialFingerprint(SECRET));
+  assert.deepEqual(findings[0].installationIds, [INSTALLATION, mintInstallationId(entropy('55'))].sort());
+  // the same installation identity under two instances is a different fact, reported once
+  const clone = createInstallation({
+    installationId: INSTALLATION,
+    instanceId: mintInstanceId(entropy('99')),
+    credentialId: CREDENTIAL,
+    credentialSecret: SECRET,
+    nowMs: T0,
+    deviceId: DEVICE,
+  });
+  const identityFindings = detectCredentialClones([baseInstallation(), clone]);
+  assert.equal(identityFindings.length, 1);
+  assert.equal(identityFindings[0].reason, 'SHARED_INSTALLATION_IDENTITY');
+  assert.equal(identityFindings[0].installationId, INSTALLATION);
+});
+
+test('C5 a quarantined installation can be retired and keeps its quarantine evidence', () => {
+  const quarantined = quarantineInstallation(baseInstallation(), { nowMs: T1, code: 'clone_detected', detail: 'two instances' });
+  const retired = retireInstallation(quarantined, T1);
+  assert.equal(retired.state, 'RETIRED');
+  assert.equal(retired.retiredAt, instantOf(T1));
+  assert.deepEqual(retired.quarantine, quarantined.quarantine);
+  assert.equal(validateInstallation(retired).valid, true);
+  assert.equal(resolveInstallationPresentation(retired, presentation()).verdict, 'RETIRED');
+  assert.throws(() => retireInstallation(retired, T1), (error) => error.code === 'already_retired');
+});
+
+test('C5 a reinstall from a quarantined installation works and preserves the quarantine record', () => {
+  const quarantined = quarantineInstallation(baseInstallation(), { nowMs: T1, code: 'clone_detected', detail: 'two instances' });
+  const { retired, installation } = reinstallInstallation(quarantined, {
+    installationId: mintInstallationId(entropy('55')),
+    instanceId: mintInstanceId(entropy('66')),
+    credentialId: mintCredentialId(entropy('77')),
+    credentialSecret: 'fresh-secret',
+    nowMs: T1,
+  });
+  assert.equal(retired.state, 'RETIRED');
+  assert.deepEqual(retired.quarantine, quarantined.quarantine);
+  assert.equal(installation.state, 'UNBOUND');
+  assert.equal(installation.deviceId, null);
+  assert.equal(installation.rebind.required, true);
+});
+
+test('C5 a quarantine block is legal only on a quarantined or already-quarantined-retired record', () => {
+  const withBlock = { ...baseInstallation(), quarantine: { at: instantOf(T1), code: 'clone_detected', detail: '' } };
+  const verdict = validateInstallation(withBlock);
+  assert.equal(verdict.valid, false);
+  assert.equal(verdict.code, 'malformed');
+  assert.match(verdict.detail, /quarantine block/);
+  const missingBlock = validateInstallation({
+    ...quarantineInstallation(baseInstallation(), { nowMs: T1, code: 'clone_detected', detail: '' }),
+    state: 'QUARANTINED',
+    quarantine: null,
+  });
+  assert.equal(missingBlock.valid, false);
+  assert.match(missingBlock.detail, /must carry its quarantine block/);
+});
+
+test('C6 MAC pairing evidence accepts one address, several, or none, and refuses other shapes', () => {
+  assert.equal(macPairingEvidence().entries.length, 0);
+  assert.equal(macPairingEvidence(null).entries.length, 0);
+  assert.equal(macPairingEvidence(GLOBAL_MAC).entries.length, 1);
+  assert.equal(macPairingEvidence(GLOBAL_MAC).entries[0].value, GLOBAL_MAC);
+  assert.equal(macPairingEvidence(GLOBAL_MAC).canBlockPairing, false);
+  assert.equal(macPairingEvidence([GLOBAL_MAC, RANDOM_MAC]).entries.length, 2);
+  assert.equal(macPairingEvidence([GLOBAL_MAC, RANDOM_MAC]).randomized, 1);
+  assert.throws(() => macPairingEvidence(42), (error) => error.code === 'malformed');
+  assert.throws(() => macPairingEvidence({ value: GLOBAL_MAC }), (error) => error.code === 'malformed');
+});
+
+test('C6 every correction refusal code is declared in the rejection vocabulary', () => {
+  for (const code of ['key_material_missing', 'credential_reuse', 'device_retired']) {
+    assert.ok(IDENTITY_REJECTION_CODES.includes(code), `${code} is declared`);
+  }
+});

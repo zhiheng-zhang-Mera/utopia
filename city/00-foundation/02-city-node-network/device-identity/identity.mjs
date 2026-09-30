@@ -204,12 +204,30 @@ export function recordNetworkMetadata(device, patch = {}) {
   return freezeDevice({ ...deviceIdentityDocument(current), metadata: deviceMetadata(merged) });
 }
 
-/** Refuse unless the named key exists and is ACTIVE. */
+/**
+ * Refuse unless the named key exists, is ACTIVE, carries real key material, and belongs to a
+ * device that has not been retired.
+ *
+ * This is the module's trust primitive: the contract docblock of `trustFromMacEvidence` names
+ * "a `deviceId` plus a key that passes `assertActiveKey`" as what a caller must present. Every
+ * rung here therefore has to hold, or a record that the module itself calls unauthenticated
+ * would pass its own trust check:
+ *
+ *   - a retired device is finished, whatever its key set still says (retirement is terminal);
+ *   - a `PLACEHOLDER` key is a reference to key material the record does not have — it is
+ *     identity, never authentication, and must be replaced by enrollment or rotation first.
+ */
 export function assertActiveKey(device, keyId) {
   const current = assertDeviceIdentity(device);
+  if (current.state === 'RETIRED') {
+    throw new IdentityLifecycleError('device_retired', `device ${current.deviceId} is retired and cannot present key authority`);
+  }
   const key = current.keys.find((entry) => entry.keyId === keyId);
   if (!key) throw new IdentityLifecycleError('key', `keyId ${JSON.stringify(keyId)} is not declared by this device`);
   if (key.state !== 'ACTIVE') throw new IdentityLifecycleError('key_not_active', `keyId ${keyId} is ${key.state}`);
+  if (key.material === 'PLACEHOLDER') {
+    throw new IdentityLifecycleError('key_material_missing', `keyId ${keyId} is a placeholder reference with no key material; enroll or rotate before it can authenticate`);
+  }
   return key;
 }
 
@@ -376,6 +394,17 @@ export function reinstallInstallation(previous, {
   if (instanceId === current.instanceId) {
     throw new IdentityLifecycleError('instance_id', 'a reinstall must mint a new instanceId');
   }
+  // A reused credential is the "reused installation credential" the workbook names: the old
+  // and the new installation would share one secret, so possession of it could not be
+  // attributed to exactly one physical installation. Identity and instance must both be new,
+  // and so must the credential.
+  const resolvedFingerprint = fingerprint ?? (credentialSecret === undefined ? null : credentialFingerprint(credentialSecret));
+  if (credentialId === current.credential.credentialId) {
+    throw new IdentityLifecycleError('credential_reuse', 'a reinstall must mint a new credential handle, not reuse the previous one');
+  }
+  if (resolvedFingerprint !== null && resolvedFingerprint === current.credential.fingerprint) {
+    throw new IdentityLifecycleError('credential_reuse', 'a reinstall must mint a new credential secret; reusing the previous secret would let two installations share one credential');
+  }
   const retired = freezeInstallation({
     ...installationDocument(current),
     state: 'RETIRED',
@@ -501,19 +530,31 @@ export function resolveInstallationPresentation(installation, presented) {
 }
 
 /**
- * Scan a population of installation records for a shared installation identity.
+ * Scan a population of installation records for a shared installation identity or a shared
+ * installation credential.
  *
  * A per-record ladder cannot see two *records* that both claim one installation id, so this
- * is the population-level half of clone detection: any installation identity observed under
- * more than one instance id, or with more than one credential fingerprint, is reported.
- * Retirement is not an exemption — a retired record that shares its identity is still
- * evidence that the identity was duplicated.
+ * is the population-level half of clone detection. Two distinct facts are reported separately,
+ * because they need different repairs:
+ *
+ *   - `SHARED_INSTALLATION_IDENTITY`: one installation identity observed under more than one
+ *     instance id, or with more than one credential fingerprint.
+ *   - `REUSED_CREDENTIAL`: one credential fingerprint observed under more than one installation
+ *     identity. This is the "reused installation credential" case — a fresh installation that
+ *     merely mints a new id while keeping the old secret would otherwise be invisible here,
+ *     even though it lets two physical installations present one credential.
+ *
+ * Retirement is not an exemption — a retired record that shares an identity or a credential
+ * is still evidence that it was duplicated.
  *
  * @param {object[]} installations
- * @returns {{installationId: string, instances: string[], credentialFingerprints: string[], states: string[]}[]}
+ * @returns {{reason: string, installationId?: string, credentialFingerprint?: string,
+ *            instances: string[], credentialFingerprints?: string[], installationIds?: string[],
+ *            states: string[]}[]}
  */
 export function detectCredentialClones(installations) {
   const byInstallation = new Map();
+  const byCredential = new Map();
   for (const candidate of installations) {
     const current = assertInstallation(candidate);
     const entry = byInstallation.get(current.installationId)
@@ -522,11 +563,19 @@ export function detectCredentialClones(installations) {
     entry.credentialFingerprints.add(current.credential.fingerprint);
     entry.states.add(current.state);
     byInstallation.set(current.installationId, entry);
+
+    const credentialEntry = byCredential.get(current.credential.fingerprint)
+      ?? { installationIds: new Set(), instances: new Set(), states: new Set() };
+    credentialEntry.installationIds.add(current.installationId);
+    credentialEntry.instances.add(current.instanceId);
+    credentialEntry.states.add(current.state);
+    byCredential.set(current.credential.fingerprint, credentialEntry);
   }
   const findings = [];
   for (const [installationId, entry] of byInstallation) {
     if (entry.instances.size > 1 || entry.credentialFingerprints.size > 1) {
       findings.push({
+        reason: 'SHARED_INSTALLATION_IDENTITY',
         installationId,
         instances: [...entry.instances].sort(),
         credentialFingerprints: [...entry.credentialFingerprints].sort(),
@@ -534,7 +583,23 @@ export function detectCredentialClones(installations) {
       });
     }
   }
-  return findings.sort((a, b) => (a.installationId < b.installationId ? -1 : 1));
+  for (const [credentialFingerprint, entry] of byCredential) {
+    if (entry.installationIds.size > 1) {
+      findings.push({
+        reason: 'REUSED_CREDENTIAL',
+        credentialFingerprint,
+        installationIds: [...entry.installationIds].sort(),
+        instances: [...entry.instances].sort(),
+        states: [...entry.states].sort(),
+      });
+    }
+  }
+  return findings.sort((a, b) => {
+    if (a.reason !== b.reason) return a.reason < b.reason ? -1 : 1;
+    const left = a.installationId ?? a.credentialFingerprint ?? '';
+    const right = b.installationId ?? b.credentialFingerprint ?? '';
+    return left < right ? -1 : 1;
+  });
 }
 
 /**
@@ -545,7 +610,16 @@ export function detectCredentialClones(installations) {
  * to compare against a sticker or a settings screen; they are not an input to any decision.
  */
 export function macPairingEvidence(values = []) {
-  const entries = (values ?? []).map((value) => macEvidence(value, 'reported'));
+  // A caller may hold one address, several, or nothing. Accepting all three is deliberate:
+  // this is the one path that must never fail a pairing, so an unhelpful shape is answered
+  // with a typed refusal rather than an incidental `TypeError` from `.map`.
+  const list = values === null || values === undefined
+    ? []
+    : (Array.isArray(values) ? values : (typeof values === 'string' ? [values] : null));
+  if (list === null) {
+    throw new IdentityLifecycleError('malformed', 'MAC evidence must be a single address, an array of addresses, or absent');
+  }
+  const entries = list.map((value) => macEvidence(value, 'reported'));
   return Object.freeze({
     role: MAC_EVIDENCE_ROLE,
     authority: MAC_AUTHORITY,
@@ -621,6 +695,10 @@ export function migrateDeviceIdentity(raw, { nowMs } = {}) {
       keyId: 'legacy-gateway',
       algorithm: 'ed25519',
       fingerprint: fingerprintKeyMaterial(canonicalJson({ id: raw.id, agentVersion: raw.agentVersion ?? null })),
+      // A placeholder, not a key: the legacy row was never issued one. Marked so that
+      // `assertActiveKey` refuses it — the migrated record is identity without authentication
+      // until a real enrollment or rotation replaces this reference.
+      material: 'PLACEHOLDER',
       createdAt: at,
     })],
     activeKeyId: 'legacy-gateway',

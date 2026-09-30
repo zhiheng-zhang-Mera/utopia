@@ -6,9 +6,18 @@ const isPlainObject = value => value !== null && typeof value === 'object' && !A
 
 // Deterministic JSON: object keys are sorted so the same logical envelope always
 // produces the same digest on every host, process and retry.
+//
+// An `undefined`-valued key is *dropped*, not emitted as `null`. Emitting it made
+// `{a: undefined}` and `{a: null}` share one digest, which would let an absent
+// field and an explicitly null field share one idempotency identity — the very
+// thing the digest exists to distinguish. (Only in-process callers can build the
+// former, since JSON round-trips drop `undefined`; the ambiguity is still real.)
 export function canonicalJson(value) {
  if (Array.isArray(value)) return '[' + value.map(canonicalJson).join(',') + ']';
- if (isPlainObject(value)) return '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + canonicalJson(value[key])).join(',') + '}';
+ if (isPlainObject(value)) {
+  return '{' + Object.keys(value).filter(key => value[key] !== undefined).sort()
+   .map(key => JSON.stringify(key) + ':' + canonicalJson(value[key])).join(',') + '}';
+ }
  return JSON.stringify(value ?? null);
 }
 

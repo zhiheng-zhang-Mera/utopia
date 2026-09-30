@@ -12,9 +12,10 @@ import {
  CONTROL_COMMANDS, ENGINEERING_MANAGER_CONTRACT, ENGINEERING_OWNED_STATE_FIELDS, ENGINEERING_ROUTE,
  EngineeringContractError, EVENT_SPEC, EVENT_TYPES, EXECUTION_MODES, FOREIGN_CANONICAL_FIELDS,
  FOREIGN_ROUTES, JOB_SPEC, JOB_STATES, PORT_CONTRACTS, PORT_CONTRACT_VERSION, REMOTE_FALLBACK_SPEC,
+ RESERVED_KEY_PATTERN, normalizeFieldName,
  applyApprovedFallback, applyControlCommand, applyResult, assertJobEnvelope, assertPortConformance,
  canonicalJson, createDeterministicConnectorDouble, createIdempotencyLedger, describePort, digestOf,
- findSecretFields, jobIdentityDigest, parseJobEnvelope, probePortConformance, projectAttention,
+ findForbiddenDonorReferences, findSecretFields, jobIdentityDigest, parseJobEnvelope, probePortConformance, projectAttention,
  acknowledgeAttention, resolveJobRoles, submitJob, validateAttentionEnvelope, validateArtifactEnvelope,
  validateAuthStatus, validateConnectorDescriptor, validateConnectorInstance, validateEngineeringOwnedState,
  validateEngineeringRoute, validateEventEnvelope, validateJobEnvelope, validateRemoteFallbackProposal,
@@ -431,4 +432,107 @@ test('contract error type carries a stable code and status', () => {
  assert.equal(error.detail, 'detail');
  assert.equal(error.status, 400);
  assert.equal(error instanceof Error, true);
+});
+
+// ---------------------------------------------------------------------------
+// CORRECTION (host Alien, EM-001 Correction stage) — adversarial regressions.
+//
+// Every assertion below failed before the repair. The theme is the same in all of
+// them: the boundary scans compared raw key spellings, so a forbidden concept
+// walked through by being written a different way. Each test also asserts the
+// legitimate form still passes, so the guard cannot be satisfied by refusing
+// everything.
+// ---------------------------------------------------------------------------
+
+test('a secret-shaped field is refused in its plural and camelCase spellings too', () => {
+ const plurals = ['credentials', 'secrets', 'tokens', 'passwords', 'apiKeys', 'api_keys',
+  'privateKeys', 'sessionKeys', 'refreshTokens', 'accessTokens', 'clientSecrets'];
+ for (const name of plurals) {
+  assert.equal(findSecretFields({ [name]: 'RAW' }).length, 1, `${name} must be caught`);
+  assert.equal(validateEngineeringOwnedState({ job_ref: 'job:1', nested: { [name]: 'RAW' } }).ok, false,
+   `${name} nested must be refused`);
+ }
+ // The reference forms the contract explicitly allows are still allowed.
+ for (const name of ['credential_ref', 'api_key_handle', 'access_token_id', 'secret_refs']) {
+  assert.deepEqual(findSecretFields({ [name]: 'handle:abc' }), [], `${name} is a permitted reference`);
+ }
+ assert.equal(validateEngineeringOwnedState({ job_ref: 'job:1', permission_context_ref: 'handle:1' }).ok, true);
+});
+
+test('foreign canonical state is refused in camelCase and separator variants', () => {
+ const variants = [
+  { job_ref: 'job:1', scope: { taskGraph: { nodes: [] } } },
+  { job_ref: 'job:1', workspace: { canonicalTaskState: { x: 1 } } },
+  { job_ref: 'job:1', context_refs: [{ assistantIdentity: { a: 1 } }] },
+  { job_ref: 'job:1', scope: { 'Task-Graph': {} } },
+  { job_ref: 'job:1', scope: { device_Trust_State: {} } }
+ ];
+ for (const state of variants) {
+  const result = validateEngineeringOwnedState(state);
+  assert.equal(result.ok, false, `${JSON.stringify(state)} must be refused`);
+ }
+ // Honest neighbour: an Engineering-owned reference is not foreign state.
+ assert.equal(validateEngineeringOwnedState({ job_ref: 'job:1', context_refs: ['ctx:1'] }).ok, true);
+});
+
+test('reserved prototype keys are refused at every depth of an owned state', () => {
+ const deep = JSON.parse('{"job_ref":"job:1","context_refs":[{"__proto__":{"isAdmin":true}}]}');
+ const result = validateEngineeringOwnedState(deep);
+ assert.equal(result.ok, false);
+ assert.ok(result.errors.some(error => error.includes('reserved prototype key')), JSON.stringify(result.errors));
+ for (const key of ['__proto__', 'prototype', 'constructor']) {
+  const state = { job_ref: 'job:1', scope: { [key]: { x: 1 } } };
+  // An own `__proto__` key can only be produced by JSON.parse; the other two are plain.
+  const candidate = key === '__proto__' ? JSON.parse(`{"job_ref":"job:1","scope":{"${key}":{"x":1}}}`) : state;
+  assert.equal(validateEngineeringOwnedState(candidate).ok, false, `${key} must be refused`);
+ }
+});
+
+test('an envelope refuses a reserved prototype key, so a wire payload cannot smuggle one', () => {
+ const job = { ...baseJob(), scope: undefined };
+ delete job.scope;
+ const smuggled = JSON.parse(JSON.stringify(job).replace('{', '{"__proto__":{"isAdmin":true},'));
+ const result = validateJobEnvelope(smuggled);
+ assert.equal(result.ok, false);
+ assert.ok(result.errors.some(error => error.includes('reserved prototype key')), JSON.stringify(result.errors));
+});
+
+test('a codex-boss reference is caught however its separators are spelled', () => {
+ for (const value of ['codex-boss', 'Codex_Boss', 'CODEX BOSS', 'codexboss', 'codex  boss', 'codex--boss', 'codex..boss']) {
+  assert.equal(findForbiddenDonorReferences({ note: value }).length, 1, `${JSON.stringify(value)} must be caught`);
+ }
+ assert.deepEqual(findForbiddenDonorReferences({ note: 'an ordinary engineering note' }), []);
+});
+
+test('provider product names are caught however their separators are spelled', () => {
+ for (const route of ['ds  hns', 'DS--HNS', 'ds.hns', 'Codex', 'CLAUDE']) {
+  assert.equal(validateEngineeringRoute(route).ok, false, `${JSON.stringify(route)} must be refused`);
+ }
+ assert.equal(validateEngineeringRoute('ENGINEERING').ok, true);
+});
+
+test('an absent field and an explicitly null field have different digests', () => {
+ // Before the repair both digested to `{"a":null}`, so an absent field and a null
+ // field shared one idempotency identity.
+ assert.notEqual(digestOf({ a: undefined }), digestOf({ a: null }));
+ assert.equal(digestOf({ a: undefined }), digestOf({}), 'an undefined-valued key is absent, not null');
+ assert.equal(canonicalJson({ a: undefined, b: 1 }), '{"b":1}');
+ assert.equal(canonicalJson({ a: null, b: 1 }), '{"a":null,"b":1}');
+ assert.equal(digestOf({ a: 1, b: 2 }), digestOf({ b: 2, a: 1 }), 'ordering stays irrelevant');
+});
+
+test('the published schema states the normalisation and reserved-key rules the runtime enforces', () => {
+ const schema = JSON.parse(readFileSync(new URL('../schema.json', import.meta.url), 'utf8'));
+ const boundary = schema['x-ownership-boundary'];
+ assert.deepEqual(boundary.reserved_prototype_keys, ['__proto__', 'prototype', 'constructor']);
+ for (const key of boundary.reserved_prototype_keys) {
+  assert.equal(RESERVED_KEY_PATTERN.test(key), true, `${key} is enforced by the runtime`);
+ }
+ assert.match(boundary.name_matching, /normalis/i);
+ assert.match(boundary.digest_rule, /undefined/);
+ // The normalisation helper really does what the schema claims.
+ assert.equal(normalizeFieldName('taskGraph'), 'task_graph');
+ assert.equal(normalizeFieldName('Task-Graph'), 'task_graph');
+ assert.equal(normalizeFieldName('apiKeys'), 'api_keys');
+ assert.equal(normalizeFieldName('__proto__'), 'proto');
 });

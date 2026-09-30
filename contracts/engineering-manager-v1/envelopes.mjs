@@ -6,7 +6,7 @@
 import { digestOf, isDigest, isPlainObjectValue as isPlainObject, isText } from './canonical.mjs';
 import {
  ENGINEERING_CONTRACT_VERSION, ENGINEERING_ROUTE, EngineeringContractError,
- findForbiddenDonorReferences, findForeignCanonicalFields, findSecretFields, validateEngineeringRoute
+ findForbiddenDonorReferences, findForeignCanonicalFields, findReservedKeyPaths, findSecretFields, validateEngineeringRoute
 } from './ownership.mjs';
 
 export const EXECUTION_MODES = Object.freeze(['AUTONOMOUS_AGENT', 'SCRIPTED_EXECUTOR', 'INTERACTIVE_AGENT']);
@@ -67,6 +67,7 @@ function boundaryScans(value, path, errors) {
  for (const found of findSecretFields(value, path)) errors.push(`${found} looks like a raw secret; canonical contracts carry handles/references only`);
  for (const found of findForeignCanonicalFields(value, path)) errors.push(`${found} is canonical state owned by another domain`);
  for (const found of findForbiddenDonorReferences(value, path)) errors.push(`${found} references Codex-Boss, which is forbidden for this programme`);
+ for (const found of findReservedKeyPaths(value, path)) errors.push(`${found} uses a reserved prototype key, which is never contract data`);
 }
 
 const versionSpec = { required: true, type: 'int', constant: ENGINEERING_CONTRACT_VERSION };

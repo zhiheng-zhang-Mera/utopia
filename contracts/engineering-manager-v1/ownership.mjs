@@ -48,15 +48,56 @@ export const FOREIGN_CANONICAL_FIELDS = Object.freeze([
 
 // Provider product names must never be required by the core contract and must
 // never become a task/route identity. Only an opaque `provider_ref` inside a
-// connector descriptor may name a concrete provider.
-export const PROVIDER_PRODUCT_PATTERN = /(?:ds[-_ ]?hns|hns|codex|claude|workbuddy|gemini|openai|chatgpt|anthropic|deepseek)/i;
+// connector descriptor may name a concrete provider. Separators are allowed to
+// repeat (`ds  hns`, `codex--boss`): a provider that changes only its spacing is
+// still the same provider identity.
+export const PROVIDER_PRODUCT_PATTERN = /(?:ds[\s._-]*hns|hns|codex|claude|workbuddy|gemini|openai|chatgpt|anthropic|deepseek)/i;
 // Historical tombstone: never a donor, dependency or connector target.
-export const FORBIDDEN_DONOR_PATTERN = /codex[-_ ]?boss/i;
+export const FORBIDDEN_DONOR_PATTERN = /codex[\s._-]*boss/i;
 
 // Secret-shaped field names. Only handle/reference forms (`*_ref`, `*_handle`)
 // are allowed in canonical contracts.
 export const SECRET_KEY_PATTERN = /(?:^|[._-])(token|secret|password|passwd|cookie|api[-_]?key|private[-_]?key|bearer|credential|session[-_]?key|refresh[-_]?token|access[-_]?token|client[-_]?secret)(?:$|[._-])/i;
 const REFERENCE_SUFFIX = /(?:_ref|_refs|_handle|_handles|_id)$/i;
+
+// Prototype-manipulation keys are never legitimate contract data. A `__proto__`
+// key is worse than invalid: assigning it rewrites an object's prototype instead
+// of adding a key, so `Object.keys` and every boundary scan below cannot see the
+// result. Rejected at every depth of every canonical record and envelope.
+export const RESERVED_KEY_PATTERN = /^(?:__proto__|prototype|constructor)$/;
+
+/**
+ * Normalise a field name to a single comparable form.
+ *
+ * The boundary scans used to compare raw keys, so every variant spelling of a
+ * forbidden concept walked straight through: `credentials` (plural), `apiKeys`
+ * (camelCase), `taskGraph` (camelCase foreign state), `Task-Graph`. Normalising
+ * first — camelCase split into words, every non-alphanumeric run collapsed to a
+ * single `_`, lowercased — makes the check about the *name's meaning* rather than
+ * its exact spelling, which is what "must not redefine a foreign concern" means.
+ */
+export function normalizeFieldName(key) {
+ return String(key)
+  .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+  .replace(/[^A-Za-z0-9]+/g, '_')
+  .toLowerCase()
+  .replace(/^_+|_+$/g, '');
+}
+
+// Foreign canonical fields are declared in snake_case; their normalised forms are
+// compared against every normalised key found in a record.
+const FOREIGN_CANONICAL_NORMALISED = new Set(FOREIGN_CANONICAL_FIELDS.map(normalizeFieldName));
+
+/** True when a field name denotes a secret, allowing a plural spelling. */
+export function isSecretFieldName(key) {
+ const normalised = normalizeFieldName(key);
+ if (REFERENCE_SUFFIX.test(`_${normalised}`)) return false;
+ // A reference form is explicitly allowed, so its suffix is stripped before the
+ // plural tolerance is applied: `credentials_ref` stays a reference.
+ if (SECRET_KEY_PATTERN.test(normalised)) return true;
+ const singular = normalised.replace(/s$/, '');
+ return singular !== normalised && SECRET_KEY_PATTERN.test(singular);
+}
 
 export class EngineeringContractError extends Error {
  constructor(code, detail) {
@@ -75,7 +116,7 @@ export function findSecretFields(value, path = 'record', found = []) {
  if (!isPlainObject(value)) return found;
  for (const [key, child] of Object.entries(value)) {
   const childPath = `${path}.${key}`;
-  if (SECRET_KEY_PATTERN.test(key) && !REFERENCE_SUFFIX.test(key)) found.push(childPath);
+  if (isSecretFieldName(key)) found.push(childPath);
   findSecretFields(child, childPath, found);
  }
  return found;
@@ -86,8 +127,22 @@ export function findForeignCanonicalFields(value, path = 'record', found = []) {
  if (!isPlainObject(value)) return found;
  for (const [key, child] of Object.entries(value)) {
   const childPath = `${path}.${key}`;
-  if (FOREIGN_CANONICAL_FIELDS.includes(key)) found.push(childPath);
+  if (FOREIGN_CANONICAL_NORMALISED.has(normalizeFieldName(key))) found.push(childPath);
   findForeignCanonicalFields(child, childPath, found);
+ }
+ return found;
+}
+
+// Reserved prototype keys, at every depth. `Object.entries` does surface an own
+// `__proto__` property produced by `JSON.parse`, so an envelope that arrived over
+// the wire is scanned exactly like a locally built one.
+export function findReservedKeyPaths(value, path = 'record', found = []) {
+ if (Array.isArray(value)) { value.forEach((item, index) => findReservedKeyPaths(item, `${path}[${index}]`, found)); return found; }
+ if (!isPlainObject(value)) return found;
+ for (const [key, child] of Object.entries(value)) {
+  const childPath = `${path}.${key}`;
+  if (RESERVED_KEY_PATTERN.test(key)) found.push(childPath);
+  findReservedKeyPaths(child, childPath, found);
  }
  return found;
 }
@@ -127,6 +182,7 @@ export function validateEngineeringOwnedState(state, { path = 'engineering_state
  for (const found of findForeignCanonicalFields(state, path)) if (!errors.some(error => error.startsWith(found))) errors.push(`${found} is foreign canonical state`);
  for (const found of findSecretFields(state, path)) errors.push(`${found} looks like a raw secret; canonical contracts store handles/references only`);
  for (const found of findForbiddenDonorReferences(state, path)) errors.push(`${found} references Codex-Boss, which is forbidden for this programme`);
+ for (const found of findReservedKeyPaths(state, path)) errors.push(`${found} uses a reserved prototype key, which is never contract data`);
  return { ok: errors.length === 0, errors };
 }
 

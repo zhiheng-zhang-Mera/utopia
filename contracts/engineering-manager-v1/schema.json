@@ -213,6 +213,10 @@
   "canonical_task_truth_owner": "Shared Task/Action Core",
   "forbidden_foreign_routes": ["ROOM", "ROOMS", "CAPABILITY", "CAPABILITIES", "CITY_TASK", "CITY_TASKS", "GENERAL_AI", "GENERAL_AI_GATEWAY", "ASSISTANT", "BUTLER", "REMOTE_FABRIC"],
   "forbidden_raw_secret_fields": "any token/secret/password/cookie/api-key/private-key/credential field without a _ref or _handle suffix",
-  "forbidden_donor": "Codex-Boss"
+  "forbidden_donor": "Codex-Boss",
+  "name_matching": "Boundary names are matched after normalisation: camelCase is split into words, every non-alphanumeric run collapses to a single separator, and the result is lowercased. A plural spelling of a forbidden name is refused as well (credentials, apiKeys, tokens, ...). This is what makes the boundary about a name's meaning rather than its exact spelling.",
+  "reserved_prototype_keys": ["__proto__", "prototype", "constructor"],
+  "reserved_prototype_key_rule": "Refused at every depth of an owned state and of every envelope. Assigning a __proto__ key rewrites an object's prototype instead of adding a key, so Object.keys and every boundary scan cannot see the result.",
+  "digest_rule": "canonical JSON drops undefined-valued keys rather than emitting null, so an absent field and an explicitly null field have different digests and therefore different idempotency identities."
  }
 }

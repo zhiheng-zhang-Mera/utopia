@@ -1,0 +1,108 @@
+{
+  "missionId": "MB-011",
+  "phase": "assessment",
+  "steps": [
+    {
+      "name": "CU-01 manifest validator refuses every malformed manifest",
+      "ok": true,
+      "detail": {
+        "root is an array": "probe.json: root must be a JSON object",
+        "wrong schemaVersion": "probe.json: schemaVersion must be 2",
+        "no districts": "probe.json: districts must be a non-empty array",
+        "bad district id shape": "probe.json: district id foundation must look like 02-engineering",
+        "unknown lifecycle": "probe.json: module fleet-routing lifecycle ACTIVEISH is not a city lifecycle",
+        "non-canonical module path": "probe.json: module fleet-routing path must be city/00-foundation/01-city-core/fleet-routing",
+        "implemented module without an incubator room": "probe.json: implemented module fleet-routing must name at least one incubator room",
+        "wrong donor commit shape": "probe.json: module fleet-routing donor.commit must be a git SHA",
+        "capabilityProvider not boolean": "probe.json: module fleet-routing capabilityProvider must be a boolean"
+      }
+    },
+    {
+      "name": "CU-01 manifest validator ACCEPTS a well-formed manifest",
+      "ok": true,
+      "detail": {
+        "schemaVersion": 2
+      }
+    },
+    {
+      "name": "CU-01 the REAL City manifest agrees with the tree on disk",
+      "ok": true,
+      "detail": {
+        "modules": 32,
+        "problems": []
+      }
+    },
+    {
+      "name": "CU-02 promotion record refuses a target outside city/",
+      "ok": true,
+      "detail": "probe.json: targetCityPath must live under city/"
+    },
+    {
+      "name": "CU-02 promotion record refuses a non-SHA donor commit",
+      "ok": true,
+      "detail": "probe.json: donor.commit must be a git commit SHA"
+    },
+    {
+      "name": "CU-02 the 10 REAL promotion records cross-check clean",
+      "ok": true,
+      "detail": {
+        "records": 10,
+        "problems": []
+      }
+    },
+    {
+      "name": "CU-02 provenance cross-check refuses a still-live room claimed as promoted",
+      "ok": true,
+      "detail": [
+        "phantom.json: knowledge is still in the active catalog"
+      ]
+    },
+    {
+      "name": "CU-03 capability registry refuses a second owner of one capability",
+      "ok": true,
+      "detail": {
+        "first": true,
+        "second": false,
+        "reason": "a provider with this identity is already registered: probe.capability is already owned by owner.a",
+        "conflict": {
+          "capabilityId": "probe.capability",
+          "owners": [
+            "owner.a",
+            "owner.b"
+          ],
+          "priority": 50
+        }
+      }
+    },
+    {
+      "name": "CU-03 capability registry refuses a nameless capability",
+      "ok": true,
+      "detail": "INVALID_INPUT: capabilityId must be a non-empty string"
+    },
+    {
+      "name": "CU-03 provider ledger registers a provider",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "name": "CU-03 provider ledger refuses a duplicate provider identity",
+      "ok": true,
+      "detail": "PLUGIN_DUPLICATE_ID"
+    },
+    {
+      "name": "CU-05 a disabled provider is refused a load, and only an explicit force admits it",
+      "ok": true,
+      "detail": {
+        "refused": "PLUGIN_DISABLED",
+        "forced": true
+      }
+    },
+    {
+      "name": "CU-05 an unknown provider is refused",
+      "ok": true,
+      "detail": "PLUGIN_NOT_FOUND"
+    }
+  ],
+  "outcome": "PASS",
+  "finishedAt": "2026-09-30T05:55:08.386Z"
+}

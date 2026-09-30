@@ -1,0 +1,44 @@
+{
+  "missionId": "MB-011",
+  "phase": "assessment",
+  "hostId": "Mech",
+  "assessedAt": "2026-09-30T05:55:54.851Z",
+  "host": {
+    "platform": "win32",
+    "arch": "x64",
+    "release": "10.0.26200",
+    "node": "v24.14.0",
+    "cpus": 24,
+    "totalMemBytes": 34066345984
+  },
+  "donors": [
+    {
+      "repository": "zhiheng-zhang-Mera/Codex-Boss",
+      "baseline": "8df428eaa437a409368401e95194e40266b83080",
+      "localPath": "D:/Codex-Boss",
+      "localHead": "06d423c171cacf5cd7ab741616fa58e57b3003dd",
+      "baselinePresent": "commit"
+    },
+    {
+      "repository": "zhiheng-zhang-Mera/DS-Hns",
+      "baseline": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+      "localPath": "D:/DS-Hns",
+      "localHead": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+      "baselinePresent": "commit"
+    }
+  ],
+  "utopia": {
+    "repository": "zhiheng-zhang-Mera/utopia",
+    "claimTimeMainSha": "756c7d760c605e33ba386e87605e078fe24b82ca",
+    "branch": "mission/MB-011-customs",
+    "baseSha": "756c7d760c605e33ba386e87605e078fe24b82ca",
+    "cityManifestModules": 32
+  },
+  "city": {
+    "repository": "zhiheng-zhang-Mera/Digital-City",
+    "claimCommit": "10b2267105a87dd610503a93d62793b5f12f62c1"
+  },
+  "notes": [
+    "Neither donor worktree was modified; the Codex-Boss checkout is not on its frozen baseline, so every file was read read-only via git show/ls-tree/archive from the same object store. The DS-Hns checkout HEAD equalled its frozen baseline."
+  ]
+}

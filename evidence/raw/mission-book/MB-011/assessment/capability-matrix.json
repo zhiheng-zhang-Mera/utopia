@@ -1,0 +1,162 @@
+{
+  "missionId": "MB-011",
+  "phase": "assessment",
+  "hostId": "Mech",
+  "donorBaselines": [
+    "zhiheng-zhang-Mera/Codex-Boss@8df428eaa437a409368401e95194e40266b83080",
+    "zhiheng-zhang-Mera/DS-Hns@eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b"
+  ],
+  "utopiaBaseline": "zhiheng-zhang-Mera/utopia@756c7d760c605e33ba386e87605e078fe24b82ca",
+  "result": "NO_VALUE",
+  "plannedCapabilityCount": 5,
+  "coverageCounts": { "NONE": 0, "PARTIAL": 0, "EQUIVALENT": 3, "SUPERIOR": 2 },
+  "decisionCounts": { "MIGRATE": 0, "PARTIAL": 0, "ABANDON": 5 },
+  "reasonCodeCounts": {
+    "DUPLICATE_EQUIVALENT": 3,
+    "UTOPIA_SUPERIOR": 2,
+    "OBSOLETE_DONOR": 3,
+    "NO_REAL_CONSUMER": 2,
+    "WRONG_OWNERSHIP": 1,
+    "NO_INDEPENDENT_VALUE": 1
+  },
+  "capabilities": [
+    {
+      "id": "CU-01",
+      "name": "manifest / schema admission validation",
+      "donorAnchors": [
+        "DS-Hns app/core/contracts/plugin.cjs#validateManifest,validatePlugin (LIVE, 11 app consumers)",
+        "DS-Hns app/core/plugin-adapters/contract.cjs#validateAdapter,standardizeManifest,validateAdapterOutput (LIVE)",
+        "DS-Hns app/core/plugin-adapters/process/contract.cjs#validateProcessManifest (LIVE)",
+        "Codex-Boss electron/platform/capability-manifest.ts#validateCapabilityManifest",
+        "Codex-Boss config/capabilities/*.yaml"
+      ],
+      "utopiaAnchors": [
+        "city/manifest.mjs#validateManifest,loadManifest,checkManifestAgainstTree",
+        "city/tests/manifest.test.mjs (13 refusals)",
+        "apps/rooms/hub/promotions.mjs#normalizePromotionRecord",
+        "apps/rooms/hub/manifest.mjs#ROOM_LIFECYCLES",
+        "city/00-foundation/03-capability-fabric/capability-fabric/contracts.mjs#FABRIC_API_VERSION,capabilityDescriptor",
+        "contracts/*/schema.json (5 contract schemas)"
+      ],
+      "coverage": "EQUIVALENT",
+      "decision": "ABANDON",
+      "reasonCodes": ["DUPLICATE_EQUIVALENT", "OBSOLETE_DONOR"],
+      "gap": "The donor's plugin-manifest field set (api_version equality, semver version, provides/requires_capabilities/optional_capabilities/conflicts arrays, hot_reload/model_specific, entry, config) has no Utopia artifact to admit: Utopia has no plugin format and no external extension package. Utopia's admission units are City modules and incubator Rooms, and its validator is strictly stronger on the fields that exist (canonical path equality, tree cross-check, incubation-room uniqueness, donor SHA shape).",
+      "runtimeCheck": "CU-01 manifest validator refuses 9/9 malformed manifests PASS; accepts a well-formed one PASS; real City manifest agrees with the tree for 32 modules PASS"
+    },
+    {
+      "id": "CU-02",
+      "name": "identity / source / provenance verification hooks at admission time",
+      "donorAnchors": [
+        "DS-Hns app/core/plugin-install/pipeline.cjs#normalizeSource (provenance recorded from a regex over user input; PRODUCTION-DEAD)",
+        "DS-Hns app/core/plugin-install/records.cjs (persists source/provenance; PRODUCTION-DEAD)",
+        "Codex-Boss scripts/city-ledger-provenance.cjs + config/city-ledger-provenance.json"
+      ],
+      "utopiaAnchors": [
+        "apps/rooms/hub/promotions.mjs#normalizePromotionRecord + crossCheckPromotions",
+        "scripts/verify-promotion-history.mjs (verifies every record against LOCAL Git history)",
+        "city/manifest.mjs donor.repository/donor.commit validation",
+        "per-module DONOR.json provenance records"
+      ],
+      "coverage": "SUPERIOR",
+      "decision": "ABANDON",
+      "reasonCodes": ["UTOPIA_SUPERIOR"],
+      "gap": "None. The donor performs NO provenance verification at admission: it builds a provenance object from a regex over a user-supplied string and stores it. A repo-wide search at the frozen baseline finds createVerify 0, verifySignature 0, publicKey 0, x509 0, contentHash 0, pluginHash 0, and no node:crypto import in any of the 17 surveyed admission modules. Utopia both records AND verifies: verify-promotion-history.mjs checks each record's accepted/promoted commits exist, are ancestors, and that the promoted target and HEAD target exist, and crossCheckPromotions refuses a record for a room still serving a live surface.",
+      "runtimeCheck": "CU-02 refuses a target outside city/ PASS; refuses a non-SHA donor commit PASS; 10/10 real records cross-check clean PASS; refuses a still-live room claimed PROMOTED PASS; verify-promotion-history 10/10 OK PASS"
+    },
+    {
+      "id": "CU-03",
+      "name": "dependency / capability / permission / domain / storage declaration checks",
+      "donorAnchors": [
+        "DS-Hns app/core/plugin-manager/index.cjs#loadOne (PLUGIN_MISSING_CAPABILITY, PLUGIN_CONFLICT - load-time only)",
+        "DS-Hns app/core/contracts/plugin.cjs#normalizePermissions,LOAD_REASONS",
+        "DS-Hns app/core/plugin-adapters/contract.cjs#resolvePermissions,PERMISSIONS (12-name closed vocabulary)",
+        "DS-Hns app/core/plugin-compat/deps.cjs#validatePackages",
+        "Codex-Boss electron/security/permission-manifest.ts"
+      ],
+      "utopiaAnchors": [
+        "city/00-foundation/03-capability-fabric/capability-fabric/registry.mjs (duplicate-owner refusal, miss recording, revocation)",
+        "city/00-foundation/03-capability-fabric/capability-fabric/providers.mjs (four lifecycle facts, duplicate identity refusal)",
+        "services/capability-bridge/registry.mjs (moduleRefs, ownership, priority, kind/capabilityProvider gating)",
+        "city/00-foundation/01-city-core/fleet-routing/capability-routing.mjs#eligibleCandidates (hard eligibility with reasons)",
+        "city/manifest.mjs (canonical domain path, lifecycle)"
+      ],
+      "coverage": "EQUIVALENT",
+      "decision": "ABANDON",
+      "reasonCodes": ["DUPLICATE_EQUIVALENT", "WRONG_OWNERSHIP", "NO_INDEPENDENT_VALUE"],
+      "gap": "Capability ownership, duplicate-owner refusal, requirement misses and revocation are already covered, and at REGISTRATION time rather than the donor's load time. Two sub-parts are not gaps: permissions are explicitly deferred to MB-012 Runtime Compliance by MB-002 capability-fabric/DONOR.json, and the donor does not enforce permissions at admission anyway (ADAPTER_UNKNOWN_PERMISSION and ADAPTER_PERMISSION_DENIED are declared but produced nowhere; an unenforceable permission is logged and the plugin is still admitted). Storage declarations exist in neither donor.",
+      "runtimeCheck": "CU-03 registry refuses a second owner of one capability PASS; refuses a nameless capability PASS; provider ledger refuses a duplicate identity with PLUGIN_DUPLICATE_ID PASS"
+    },
+    {
+      "id": "CU-04",
+      "name": "isolation / crash-boundary / compatibility preflight",
+      "donorAnchors": [
+        "DS-Hns app/core/plugin-adapters/contract.cjs#RUNTIME_KINDS,standardizeRuntime (declared metadata only)",
+        "DS-Hns app/core/plugin-adapters/process/contract.cjs (path containment is the only structural preflight)",
+        "DS-Hns app/core/plugin-compat/index.cjs + worker.cjs (isolation happens POST-admission, at activation)",
+        "Codex-Boss electron/root-recovery/rollback-controller.ts"
+      ],
+      "utopiaAnchors": [
+        "city/00-foundation/03-capability-fabric/capability-fabric/contracts.mjs#FAULT_LEVELS,HEALTH_STATUS,FABRIC_API_VERSION,RUNTIME_OUTCOMES",
+        "city/00-foundation/03-capability-fabric/capability-fabric/providers.mjs#reactionFor,aggregateHealth (health ladder + bounded restart budget)",
+        "city/02-engineering/04-restart-recovery-station/* (MB-006 protocol, lock, checkpoint gate, ticket)",
+        "city/00-foundation/01-city-core/root-authority (protected surface - OUT OF SCOPE for this Mission)"
+      ],
+      "coverage": "EQUIVALENT",
+      "decision": "ABANDON",
+      "reasonCodes": ["DUPLICATE_EQUIVALENT", "OBSOLETE_DONOR", "NO_REAL_CONSUMER"],
+      "gap": "Compatibility admission (closed API version + vocabulary) exists on both sides. The isolation/crash-boundary PREFLIGHT the Mission names does not exist as a refusal in the donor at all: RUNTIME_KINDS carries honest enforcement/isolation metadata, but nothing refuses admission because a plugin would run in-process with advisory enforcement; the only place the boundary feeds a decision is advisory risk scoring inside the PRODUCTION-DEAD plugin-install/plan.cjs, and the real boundary is a child process spawned after the decision to admit. Migrating it would mean importing a plugin-process isolation model for a plugin platform Utopia does not have, and building the consumer would be new capability. Codex-Boss root-recovery rollback is Owner sovereignty / Root Authority, which this Mission explicitly forbids.",
+      "runtimeCheck": "covered by the bounded admission chain and the MB-006 restart-recovery suites in the 1807-test city run"
+    },
+    {
+      "id": "CU-05",
+      "name": "enable / disable / uninstall / rollback readiness checks before admission",
+      "donorAnchors": [
+        "DS-Hns app/core/plugin-manager/index.cjs#setEnabled,removeOne (LIVE: only PLUGIN_NOT_FOUND; no dependent check, no rollback)",
+        "DS-Hns app/core/plugin-install/plan.cjs (advisory risk only; produces no refusal)",
+        "DS-Hns app/core/plugin-install/pipeline.cjs + records.cjs (the ONLY pin/quarantine/rollback readiness design; PRODUCTION-DEAD, 960 lines with zero app consumers)"
+      ],
+      "utopiaAnchors": [
+        "city/00-foundation/03-capability-fabric/capability-fabric/providers.mjs (installed/enabled/loaded/healthy as four independent facts; disabled refused a load unless forced)",
+        "apps/rooms/hub/promotions.mjs#crossCheckPromotions (retired room must not serve a live surface)",
+        "scripts/verify-promotion-history.mjs (retired incubator has no live implementation)",
+        "apps/rooms/manifest.mjs RETIRED_LIFECYCLES + apps/rooms/docs/en/INCUBATION_POLICY.md section 5 (no second living implementation)",
+        "city/02-engineering/04-restart-recovery-station (MB-006: checkpoint gate fail-closed, restart lock, checksummed ticket)"
+      ],
+      "coverage": "SUPERIOR",
+      "decision": "ABANDON",
+      "reasonCodes": ["UTOPIA_SUPERIOR", "OBSOLETE_DONOR"],
+      "gap": "None. The donor's LIVE enable/disable/remove path performs no readiness analysis at all (setEnabled and removeOne refuse only PLUGIN_NOT_FOUND), and the designed readiness checks - pin, quarantine, rollback-before-replace, explicit confirmation - live exclusively in app/core/plugin-install/*, which has ZERO app consumers and whose only non-test importer is an acceptance script. Utopia's equivalent is live, tested and consumed.",
+      "runtimeCheck": "CU-05 disabled provider refused a load and admitted only under explicit force PASS; unknown provider PLUGIN_NOT_FOUND PASS"
+    }
+  ],
+  "donorLifecycleFinding": {
+    "claim": "The donor's most complete admission machinery is production-dead, and its admission checks that are live are weaker than Utopia's existing ones.",
+    "evidence": [
+      "app/core/plugin-install/{plan,pipeline,records}.cjs = 960 lines with ZERO app consumers; only scripts/install-pipeline-acceptance.cjs and unit tests reference them. app/plugin-host.cjs never imports plugin-install.",
+      "Because records.cjs is the only implementation of pin / quarantine / rollback, those CU-05 features are dead with it.",
+      "Declared-but-never-produced refusal codes inside LIVE donor modules: ADAPTER_FAULT_CODES.{UNKNOWN_PERMISSION,PERMISSION_DENIED}; LOAD_REASONS.IMPORT_FAILED; COMPAT_LOAD_REASONS.IMPORT_FAILED; PROCESS_FAULT_CODES.{BAD_MANIFEST,NO_COMMAND,COMMAND_ESCAPES,HANDSHAKE_REFUSED,RESTART_LIMIT,PORT_NOT_REPORTED}; BRIDGE_FAULT_CODES.{HANDSHAKE_FAILED,NOT_ACTIVATED}; INSTALL_FAULT_CODES.{NO_ADAPTER,ALREADY_INSTALLED}.",
+      "No content hashing or signature verification of plugins exists anywhere: createVerify 0, verifySignature 0, publicKey 0, x509 0, contentHash 0, pluginHash 0 at the frozen baseline.",
+      "Permissions are not an admission gate: an unknown or denied permission is logged as adapter-permissions-incomplete and the plugin is admitted.",
+      "plugin-manager.loadOne classifies an API-version failure with a REGEX over the validator's error PROSE (/api_version/.test(reason)), not a structured check.",
+      "orderPlugins detects requirement cycles but does not refuse them: loadAll emits a MANIFEST_INVALID fault per cycle and still attempts the ordered entries."
+    ],
+    "liveDonorPaths": [
+      "app/core/contracts/plugin.cjs (11 app consumers) - the platform manifest validator",
+      "app/core/plugin-adapters/index.cjs - the real pre-run manifest gate for adapted plugins",
+      "app/core/plugin-manager/index.cjs install()/loadOne() - the manager's own admission gates",
+      "app/core/plugin-compat/index.cjs - refuses activation before spawn on manifest/entry problems",
+      "app/core/config-manager/index.cjs - live, but runtime (bad values fall back and are reported, never rejected)"
+    ],
+    "conclusion": "There is no single donor admission layer to lift. The live fragments are plugin-format-specific (dshns.plugin/v1, dshns.adapter/v1, dshns.process/v1) and are equivalent-or-weaker than Utopia's existing manifest, promotion and capability-ownership admission; the coherent design is unreachable in the donor. MB-002's DONOR.json named MB-011 as the owner of the deferred Hns plugin/adapter platform, and this assessment finds that deferral is now correctly closed as NO_VALUE rather than as a migration: the platform's consumer does not exist in Utopia, and creating one would be NEW_FEATURE_DEVELOPMENT."
+  },
+  "runtimeEvidence": {
+    "boundedChain": "13/13 PASS - see bounded-admission.json",
+    "existingSuites": {
+      "city/test-all.mjs": "1807 pass, 0 fail, 1 skipped (of 1808)",
+      "root node --test tests/*.test.mjs": "84 pass, 0 fail",
+      "scripts/verify-promotion-history.mjs": "10/10 records verified against local Git history at 756c7d7"
+    }
+  },
+  "utopiaChurn": { "filesChanged": 0, "implementationCodeWritten": 0 }
+}

@@ -149,3 +149,64 @@ test('scanning is bounded and payloads are strict', () => {
   assert.equal(BLUETOOTH_LIMITS.max_ip_candidates, MAX_IP_CANDIDATES);
   assert.equal(BOOTSTRAP_ENTRY_POINT, 'DISCOVERY_BLUETOOTH');
 });
+
+/* --------------------------------- 9. regressions (Correction, host Alien) */
+
+import { MAX_BOOTSTRAP_TTL_MS, createBluetoothBootstrap as makeBootstrap, createBluetoothTransportDouble as makeTransport, isIsoInstant as instantOk } from '../index.mjs';
+
+const T0R = Date.parse('2026-09-30T12:00:00.000Z');
+const ISOR = ms => new Date(ms).toISOString();
+const DEVR = 'dev-11111111111111111111111111111111';
+const FPR = 'sha256:' + 'a'.repeat(64);
+const payloadR = (over = {}) => ({ bootstrap_version: 1, device_id: DEVR, installation_ref: null, fingerprint: FPR, ip_candidates: ['192.168.1.20'], nonce: 'nonce-r1', advertised_at: ISOR(T0R), expires_at: ISOR(T0R + 60_000), entry_point: 'DISCOVERY_BLUETOOTH', grants_trust: false, is_trust: false, mac_is_authority: false, ...over });
+const trustedR = () => ({ trust_id: 'trust-1', device_id: DEVR, fingerprint: FPR, state: 'TRUSTED' });
+const bootR = (clockMs = T0R) => makeBootstrap({ adapter: makeTransport(), clock: () => clockMs });
+
+test('a bootstrap window is bounded and a junk clock is a refusal', () => {
+  const future = bootR();
+  expectCode(() => future.receive(payloadR({ expires_at: ISOR(T0R + 10 * 365 * 24 * 3600 * 1000) })), 'INVALID_BOOTSTRAP');
+  expectCode(() => bootR().receive(payloadR({ expires_at: undefined })), 'INVALID_BOOTSTRAP');
+  expectCode(() => bootR().receive(payloadR({ expires_at: '2026-13-45T99:99:99Z' })), 'INVALID_BOOTSTRAP');
+  // a clock that cannot be read must not silently skip the expiry decision
+  const junkClock = makeBootstrap({ adapter: makeTransport(), clock: () => 'nonsense' });
+  expectCode(() => junkClock.receive(payloadR()), 'INVALID_BOOTSTRAP');
+  // neighbours: a genuinely expired window is still BOOTSTRAP_EXPIRED, and an honest one is accepted
+  assert.equal(bootR(T0R + 200_000).receive(payloadR(), { at: T0R + 200_000 }).code, 'BOOTSTRAP_EXPIRED');
+  assert.equal(bootR().receive(payloadR()).accepted, true);
+  assert.equal(MAX_BOOTSTRAP_TTL_MS > 0, true);
+  expectCode(() => createBootstrapPayload({ deviceId: DEVR, fingerprint: FPR, nonce: 'n', at: ISOR(T0R), ttlMs: Number.MAX_SAFE_INTEGER }), 'INVALID_BOOTSTRAP');
+  assert.equal(instantOk('2026-13-45T99:99:99Z'), false);
+  assert.equal(instantOk(ISOR(T0R)), true);
+});
+
+test('an expired bootstrap cannot be handed off', () => {
+  const live = bootR();
+  const received = live.receive(payloadR());
+  assert.equal(received.accepted, true);
+  expectCode(() => live.handoffToIp(received.bootstrap_ref, { trust: trustedR(), verifiedFingerprint: FPR, at: T0R + 10 * 365 * 24 * 3600 * 1000 }), 'BOOTSTRAP_EXPIRED');
+  assert.equal(live.state(received.bootstrap_ref).state, 'EXPIRED');
+  assert.equal(live.state(received.bootstrap_ref).handed_off, false, 'the refusal is total');
+  // neighbours: inside the window the handoff still works exactly once
+  const fresh = bootR();
+  const r = fresh.receive(payloadR());
+  const handed = fresh.handoffToIp(r.bootstrap_ref, { trust: trustedR(), verifiedFingerprint: FPR, at: T0R + 1000 });
+  assert.equal(handed.address, '192.168.1.20');
+  assert.equal(handed.bluetooth_carried_trust, false);
+  expectCode(() => fresh.handoffToIp(r.bootstrap_ref, { trust: trustedR(), verifiedFingerprint: FPR, at: T0R + 1000 }), 'HANDOFF_ALREADY_DONE');
+});
+
+test('a payload must carry a real nonce, real candidates and its own fields', () => {
+  expectCode(() => bootR().receive(payloadR({ nonce: undefined })), 'INVALID_BOOTSTRAP');
+  expectCode(() => bootR().receive(payloadR({ nonce: {} })), 'INVALID_BOOTSTRAP');
+  // a string of characters used to become a set of one-character "addresses" usable at handoff
+  expectCode(() => bootR().receive(payloadR({ ip_candidates: 'an' })), 'INVALID_BOOTSTRAP');
+  expectCode(() => bootR().receive(payloadR({ ip_candidates: ['not-an-address'] })), 'INVALID_BOOTSTRAP');
+  expectCode(() => bootR().receive(payloadR({ ip_candidates: Array(9).fill('10.0.0.1') })), 'INVALID_BOOTSTRAP');
+  // an inherited payload is not an advertised payload
+  const inherited = Object.assign(Object.create({ device_id: DEVR, fingerprint: FPR, expires_at: ISOR(T0R + 60_000), nonce: 'inh-1', ip_candidates: ['10.0.0.1'] }), { bootstrap_version: 1 });
+  expectCode(() => bootR().receive(inherited), 'INVALID_BOOTSTRAP');
+  // neighbours: a clean payload is still accepted and its candidates survive intact
+  const ok = bootR().receive(payloadR({ ip_candidates: ['192.168.1.20', '10.0.0.5'] }));
+  assert.equal(ok.accepted, true);
+  assert.deepEqual([...ok.ip_candidates], ['192.168.1.20', '10.0.0.5']);
+});

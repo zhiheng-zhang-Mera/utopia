@@ -29,8 +29,31 @@ export class BluetoothBootstrapError extends Error {
 }
 
 const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+/**
+ * A bootstrap payload must carry its fields as own properties on a bare object: reading them through
+ * the prototype chain let an inherited payload be received as though it were advertised.
+ */
+const isBareObject = value => isPlainObject(value) && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
 const isText = value => typeof value === 'string' && value.trim().length > 0;
-export const isIsoInstant = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+const isIsoInstantShape = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+/** Shape is not enough: an impossible instant parses to NaN, and a NaN comparison is always false. */
+export const isIsoInstant = value => {
+  if (!isIsoInstantShape(value)) return false;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) && new Date(parsed).toISOString().slice(0, 19) === value.slice(0, 19);
+};
+/**
+ * A bootstrap is a pointer with a short life. Without a ceiling a payload could advertise an expiry
+ * years away (or omit it entirely, which also used to be accepted) and stay valid forever.
+ */
+export const MAX_BOOTSTRAP_TTL_MS = 10 * 60 * 1000;
+
+/** Build an instant, refusing an out-of-range millisecond value with a typed error. */
+const instantOf = (ms, field) => {
+  const value = new Date(ms);
+  if (!Number.isFinite(value.getTime())) throw new BluetoothBootstrapError('INVALID_BOOTSTRAP', field + ' is out of range');
+  return value.toISOString();
+};
 export const DEVICE_ID_PATTERN = /^dev-[0-9a-f]{32}$/;
 export const FINGERPRINT_PATTERN = /^sha256:[0-9a-f]{64}$/;
 const IP_PATTERN = /^(?:\d{1,3}\.){3}\d{1,3}$|^[0-9a-f:]{3,45}$/i;
@@ -79,6 +102,7 @@ export function createBootstrapPayload({ deviceId, fingerprint, installationRef 
   if (!isText(nonce)) throw new BluetoothBootstrapError('INVALID_BOOTSTRAP', 'a single-use nonce is required');
   if (!isIsoInstant(at)) throw new BluetoothBootstrapError('INVALID_BOOTSTRAP', 'at must be an ISO-8601 UTC instant');
   if (!Number.isSafeInteger(ttlMs) || ttlMs <= 0) throw new BluetoothBootstrapError('INVALID_BOOTSTRAP', 'ttlMs must be a positive integer');
+  if (ttlMs > MAX_BOOTSTRAP_TTL_MS) throw new BluetoothBootstrapError('INVALID_BOOTSTRAP', 'ttlMs must be at most ' + MAX_BOOTSTRAP_TTL_MS);
   if (!Array.isArray(ipCandidates) || ipCandidates.length > MAX_IP_CANDIDATES) throw new BluetoothBootstrapError('INVALID_BOOTSTRAP', `at most ${MAX_IP_CANDIDATES} IP candidates`);
   for (const candidate of ipCandidates) if (!isText(candidate) || !IP_PATTERN.test(candidate)) throw new BluetoothBootstrapError('INVALID_BOOTSTRAP', `${JSON.stringify(candidate)} is not an address`);
   return Object.freeze({
@@ -89,7 +113,7 @@ export function createBootstrapPayload({ deviceId, fingerprint, installationRef 
     ip_candidates: Object.freeze([...ipCandidates]),
     nonce,
     advertised_at: at,
-    expires_at: new Date(Date.parse(at) + ttlMs).toISOString(),
+    expires_at: instantOf(Date.parse(at) + ttlMs, 'expires_at'),
     entry_point: BOOTSTRAP_ENTRY_POINT,
     // A bootstrap is a pointer to the pairing path, not a trust decision.
     grants_trust: false,
@@ -123,10 +147,23 @@ export function createBluetoothBootstrap({ adapter, clock = () => null } = {}) {
      * addresses to try next — and nothing that could be mistaken for trust.
      */
     receive(payload, { at = clock() } = {}) {
-      if (!isPlainObject(payload) || !isText(payload.device_id)) throw new BluetoothBootstrapError('INVALID_BOOTSTRAP', 'a bootstrap payload is required');
+      if (!isBareObject(payload) || !isText(payload.device_id)) throw new BluetoothBootstrapError('INVALID_BOOTSTRAP', 'a bootstrap payload must be a plain own-property object');
       if (payload.bootstrap_version !== BLUETOOTH_BOOTSTRAP_VERSION) throw new BluetoothBootstrapError('INVALID_BOOTSTRAP', `bootstrap_version ${JSON.stringify(payload.bootstrap_version)} is not supported`);
       if (!DEVICE_ID_PATTERN.test(payload.device_id) || !FINGERPRINT_PATTERN.test(payload.fingerprint)) throw new BluetoothBootstrapError('INVALID_BOOTSTRAP', 'the payload must carry a device id and a fingerprint');
       if (payload.grants_trust === true || payload.is_trust === true) throw new BluetoothBootstrapError('BLUETOOTH_IS_NOT_TRUST', 'a bootstrap payload may not claim trust');
+      // The single-use nonce is what makes a replayed advertisement useless, so it must be real.
+      if (!isText(payload.nonce)) throw new BluetoothBootstrapError('INVALID_BOOTSTRAP', 'a single-use nonce is required');
+      // The payload's own expiry is caller-supplied, so it must be a real instant inside a bounded window.
+      if (!isIsoInstant(payload.expires_at)) throw new BluetoothBootstrapError('INVALID_BOOTSTRAP', 'expires_at must be an ISO-8601 UTC instant');
+      if (isIsoInstant(payload.advertised_at) && Date.parse(payload.expires_at) - Date.parse(payload.advertised_at) > MAX_BOOTSTRAP_TTL_MS) {
+        throw new BluetoothBootstrapError('INVALID_BOOTSTRAP', 'the advertised bootstrap window is longer than ' + MAX_BOOTSTRAP_TTL_MS + 'ms');
+      }
+      if (!Array.isArray(payload.ip_candidates) || payload.ip_candidates.length > MAX_IP_CANDIDATES) throw new BluetoothBootstrapError('INVALID_BOOTSTRAP', `at most ${MAX_IP_CANDIDATES} IP candidates`);
+      for (const candidate of payload.ip_candidates) if (!isText(candidate) || !IP_PATTERN.test(candidate)) throw new BluetoothBootstrapError('INVALID_BOOTSTRAP', `${JSON.stringify(candidate)} is not an address`);
+      // A clock that cannot be read is a refusal, not a reason to skip the expiry check.
+      if (at !== null && at !== undefined && !(typeof at === 'number' && Number.isFinite(at)) && !isIsoInstant(at)) {
+        throw new BluetoothBootstrapError('INVALID_BOOTSTRAP', 'at must be an ISO-8601 UTC instant');
+      }
       const atMs = typeof at === 'number' ? at : Date.parse(at);
       if (Number.isFinite(atMs) && Date.parse(payload.expires_at) <= atMs) {
         return { accepted: false, code: 'BOOTSTRAP_EXPIRED', detail: `bootstrap ${payload.device_id} expired at ${payload.expires_at}`, entry_point: null };
@@ -143,7 +180,8 @@ export function createBluetoothBootstrap({ adapter, clock = () => null } = {}) {
         device_id: payload.device_id,
         installation_ref: payload.installation_ref ?? null,
         fingerprint: payload.fingerprint,
-        ip_candidates: [...(payload.ip_candidates ?? [])],
+        ip_candidates: [...payload.ip_candidates],
+        expires_at: payload.expires_at,
         state: 'RECEIVED',
         received_at: isText(at) ? at : null,
         handed_off: false,
@@ -173,6 +211,13 @@ export function createBluetoothBootstrap({ adapter, clock = () => null } = {}) {
     handoffToIp(bootstrapRef, { trust, verifiedFingerprint, preferredCandidate = null, at = clock() } = {}) {
       const record = requireBootstrap(bootstrapRef);
       if (record.handed_off) throw new BluetoothBootstrapError('HANDOFF_ALREADY_DONE', `${bootstrapRef} already handed off`);
+      // Expiry is re-checked at handoff: the window is short, and a bootstrap received before it lapsed
+      // must not become usable long after. EXPIRED was declared vocabulary that nothing ever reached.
+      const handoffMs = typeof at === 'number' ? at : Date.parse(at);
+      if (Number.isFinite(handoffMs) && Date.parse(record.expires_at) <= handoffMs) {
+        record.state = 'EXPIRED';
+        throw new BluetoothBootstrapError('BOOTSTRAP_EXPIRED', `${bootstrapRef} expired at ${record.expires_at}`);
+      }
       if (!isPlainObject(trust) || trust.state !== 'TRUSTED' || trust.device_id !== record.device_id) {
         throw new BluetoothBootstrapError('TRUST_REQUIRED_FOR_HANDOFF', `bluetooth bootstrap for ${record.device_id} cannot hand off without an established trust record`);
       }
@@ -207,7 +252,7 @@ export function createBluetoothBootstrap({ adapter, clock = () => null } = {}) {
 
     /** Bounded scanning: a caller cannot ask for an unbounded radio sweep. */
     scan({ rounds = 1, maxRounds = MAX_SCAN_ROUNDS, at = clock() } = {}) {
-      if (!Number.isSafeInteger(rounds) || rounds < 1 || rounds > maxRounds || maxRounds > MAX_SCAN_ROUNDS) {
+      if (!Number.isSafeInteger(maxRounds) || maxRounds < 1 || maxRounds > MAX_SCAN_ROUNDS || !Number.isSafeInteger(rounds) || rounds < 1 || rounds > maxRounds) {
         throw new BluetoothBootstrapError('UNBOUNDED_SCAN_REFUSED', `rounds must be between 1 and ${Math.min(maxRounds, MAX_SCAN_ROUNDS)}`);
       }
       const results = [];

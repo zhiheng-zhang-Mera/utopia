@@ -33,15 +33,85 @@ export const isIsoInstant = value => typeof value === 'string' && /^\d{4}-\d{2}-
 const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const isText = value => typeof value === 'string' && value.trim().length > 0;
 
-const SECRET_KEY_PATTERN = /(?:^|[._-])(token|secret|password|cookie|api[-_]?key|private[-_]?key|bearer|credential|access[-_]?token|session[-_]?key)(?:$|[._-])/i;
+const SECRET_KEY_PATTERN = /(?:^|[._-])(token|secret|password|cookie|api[-_]?key|private[-_]?key|bearer|credential|access[-_]?token|refresh[-_]?token|session[-_]?key)(?:$|[._-])/i;
 const HANDLE_SUFFIX = /(?:_ref|_refs|_handle|_handles|_id)$/i;
+
+/**
+ * Reserved prototype keys. A `__proto__` own key is worse than invalid: assigning it rewrites an
+ * object's prototype instead of adding a key, so `Object.keys` — and therefore every check below —
+ * cannot see the result. Refused at every depth of a canonical record.
+ */
+export const RESERVED_KEY_PATTERN = /^(?:__proto__|prototype|constructor)$/;
+
+/**
+ * Normalise a field name to one comparable form.
+ *
+ * The secret vocabulary is spelled with separator boundaries, so comparing raw keys missed every
+ * compound and plural spelling of the same concept: `credentials`, `tokens`, `secrets`, `apiKeys`,
+ * `authToken`, `bearerToken`, `clientSecret`, `accountCredential`, `tokenValue`, `passwordHash`.
+ * Splitting camelCase into words, collapsing every non-alphanumeric run to one `_` and lowercasing
+ * makes the scan about the name's meaning rather than its exact spelling.
+ */
+export function normalizeFieldName(key) {
+  return String(key)
+    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+    .replace(/[^A-Za-z0-9]+/g, '_')
+    .toLowerCase()
+    .replace(/^_+|_+$/g, '');
+}
+
+/** True when a field name denotes a raw secret, allowing a plural spelling. */
+export function isSecretFieldName(key) {
+  const normalised = normalizeFieldName(key);
+  // A reference form is explicitly allowed, so it is exempt before the plural tolerance is applied:
+  // `credential_ref` and `token_id` stay references, `credentials` does not.
+  if (HANDLE_SUFFIX.test(`_${normalised}`)) return false;
+  if (SECRET_KEY_PATTERN.test(normalised)) return true;
+  const singular = normalised.replace(/s$/, '');
+  return singular !== normalised && SECRET_KEY_PATTERN.test(singular);
+}
+
+/**
+ * Value shapes that are recognisably raw credential bytes rather than a handle.
+ *
+ * A name scan alone cannot hold this module's rule — "only handles may be stored; raw secret bytes
+ * are refused" — because a provider record has declared free-text fields (`display_name`, and the
+ * `HANDLE_STORE_REQUIRED` path's neighbours) whose names are innocent. This is the other half.
+ */
+export const RAW_SECRET_VALUE_PATTERN = /(?:-----BEGIN [A-Z ]*PRIVATE KEY-----|^eyJ[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}\.[A-Za-z0-9_-]{6,}$|^(?:sk|rk|pk|ghp|gho|ghs|ghu|github_pat_|AKIA|ASIA|xox[baprs])[-_][A-Za-z0-9_-]{12,}$)/;
+
+/** Every value that looks like raw credential bytes rather than a handle. */
+export function findRawSecretValues(value, path = 'record', found = []) {
+  if (typeof value === 'string') {
+    if (RAW_SECRET_VALUE_PATTERN.test(value.trim())) found.push(path);
+    return found;
+  }
+  if (Array.isArray(value)) { value.forEach((item, index) => findRawSecretValues(item, `${path}[${index}]`, found)); return found; }
+  if (!isPlainObject(value)) return found;
+  for (const [key, child] of Object.entries(value)) findRawSecretValues(child, `${path}.${key}`, found);
+  return found;
+}
+
+/** Every reserved prototype key, at every depth. `JSON.parse` can produce an own `__proto__`. */
+export function findReservedKeyPaths(value, path = 'record', found = []) {
+  if (Array.isArray(value)) { value.forEach((item, index) => findReservedKeyPaths(item, `${path}[${index}]`, found)); return found; }
+  if (!isPlainObject(value)) return found;
+  for (const [key, child] of Object.entries(value)) {
+    const childPath = `${path}.${key}`;
+    if (RESERVED_KEY_PATTERN.test(key)) found.push(childPath);
+    findReservedKeyPaths(child, childPath, found);
+  }
+  return found;
+}
 
 export function findRawSecretFields(value, path = 'record', found = []) {
   if (Array.isArray(value)) { value.forEach((item, index) => findRawSecretFields(item, `${path}[${index}]`, found)); return found; }
   if (!isPlainObject(value)) return found;
   for (const [key, child] of Object.entries(value)) {
     const childPath = `${path}.${key}`;
-    if (SECRET_KEY_PATTERN.test(key) && !HANDLE_SUFFIX.test(key)) found.push(childPath);
+    // Value-aware in one direction only: a secret-shaped name holding a *number* is a quantity, not
+    // credential bytes.
+    if (isSecretFieldName(key) && typeof child !== 'number') found.push(childPath);
     findRawSecretFields(child, childPath, found);
   }
   return found;
@@ -49,7 +119,13 @@ export function findRawSecretFields(value, path = 'record', found = []) {
 
 function checkShape(value, path, spec, errors) {
   if (!isPlainObject(value)) { errors.push(`${path} must be an object`); return; }
-  for (const key of Object.keys(value)) if (!(key in spec)) errors.push(`${path}.${key} is not part of the canonical record`);
+  // Own-key lookup: `key in spec` walks the prototype chain, so `toString`, `valueOf`,
+  // `hasOwnProperty`, `constructor`, `isPrototypeOf`, `propertyIsEnumerable` and `toLocaleString`
+  // were all accepted as canonical record fields, and a JSON-parsed `__proto__` own key too.
+  for (const key of Object.keys(value)) {
+    if (RESERVED_KEY_PATTERN.test(key)) { errors.push(`${path}.${key} is a reserved prototype key and is never part of the canonical record`); continue; }
+    if (!Object.hasOwn(spec, key)) errors.push(`${path}.${key} is not part of the canonical record`);
+  }
   for (const [key, rule] of Object.entries(spec)) {
     const present = Object.hasOwn(value, key);
     if (!present) { if (rule.required) errors.push(`${path}.${key} is required`); continue; }
@@ -146,6 +222,8 @@ function validateCommon(record, path, spec, errors) {
     if (isPlainObject(record.capabilities)) validateCapabilityMap(record.capabilities, `${path}.capabilities`, errors);
     if (isPlainObject(record.source)) checkShape(record.source, `${path}.source`, SOURCE_SPEC, errors);
     for (const found of findRawSecretFields(record, path)) errors.push(`${found} looks like raw secret bytes; canonical records carry handles only`);
+  for (const found of findRawSecretValues(record, path)) errors.push(`${found} contains raw credential bytes; canonical records carry handles only`);
+  for (const found of findReservedKeyPaths(record, path)) errors.push(`${found} is a reserved prototype key and is never part of the canonical record`);
   }
 }
 

@@ -1,4 +1,4 @@
-﻿// GAI-002 conformance suite — provider / model / account registry.
+// GAI-002 conformance suite — provider / model / account registry.
 //
 // Acceptance: provider/model/account identities remain distinct under multiple accounts; stale
 // capability metadata is visible as stale/unknown; channel readiness can differ between WEB and API;
@@ -11,6 +11,7 @@ import {
  ABSENCE_CODES, CAPABILITY_FACTS, CHANNELS, CHANNEL_READINESS, FRESHNESS, GAI_REGISTRY_CONTRACT,
  RegistryError, SECURE_HANDLE_STORE_PORT, SUBJECT_KINDS, SUPPORT_LEVELS, capabilityOf,
  channelReadiness, createDeterministicHandleStoreDouble, createProviderRegistry, findRawSecretFields,
+ findRawSecretValues, findReservedKeyPaths, isSecretFieldName, normalizeFieldName,
  freshnessOf, validateModelDescriptor, validateProviderAccount, validateProviderDescriptor
 } from '../index.mjs';
 
@@ -232,4 +233,69 @@ test('registry records are strict about their shape', () => {
   assert.equal(validateModelDescriptor(modelRecord({ context_window: 0 })).ok, false);
   assert.equal(validateProviderAccount(accountRecord({ status: 'MAYBE' })).ok, false);
   assert.equal(validateProviderAccount(accountRecord({ channel_handles: { TELEPATHY: null } })).ok, false);
+});
+
+/* ---------------------------------------------------------------------------
+ * CORRECTION (host Alien, GAI-002 Correction stage) — adversarial regressions.
+ *
+ * Every assertion below failed before the repair. This is the seventh contract in this
+ * repository where a guard tested the *spelling* of a name or the mere *presence* of a
+ * key rather than the property it exists to protect.
+ * --------------------------------------------------------------------------- */
+
+test('undeclared keys inherited from Object.prototype are refused', () => {
+  assert.equal(validateProviderDescriptor(providerRecord()).ok, true, 'the control record is accepted');
+  // `key in spec` walked the prototype chain, so every one of these was a canonical record field.
+  for (const key of ['toString', 'valueOf', 'hasOwnProperty', 'constructor', 'isPrototypeOf', 'propertyIsEnumerable', 'toLocaleString']) {
+    const result = validateProviderDescriptor(providerRecord({ [key]: 'SMUGGLED' }));
+    assert.equal(result.ok, false, `${key} must not be accepted as a record field`);
+    assert.ok(result.errors.some((error) => error.includes(key)), JSON.stringify(result.errors));
+  }
+  // A `__proto__` own key arrives as data; `JSON.parse` is how.
+  const rawOwnProto = JSON.parse(JSON.stringify(providerRecord()).replace('{', '{"__proto__":{"isAdmin":true},'));
+  assert.equal(validateProviderDescriptor(rawOwnProto).ok, false);
+  assert.equal(validateProviderDescriptor(rawOwnProto).errors.some((error) => error.includes('reserved prototype key')), true);
+  // Nested, and reported by the exported scanner.
+  assert.equal(findReservedKeyPaths(JSON.parse('{"a":{"__proto__":{"x":1}}}')).length, 1);
+  assert.deepEqual(findReservedKeyPaths({ a: 1 }), []);
+  // An ordinary unknown field was already refused and must stay refused.
+  assert.equal(validateProviderDescriptor(providerRecord({ mood: 'happy' })).ok, false);
+});
+
+test('a secret-shaped name is refused in its plural and compound spellings', () => {
+  const caught = ['token', 'credential', 'apiKey', 'credentials', 'tokens', 'secrets', 'apiKeys',
+    'api_keys', 'privateKeys', 'sessionKeys', 'authToken', 'bearerToken', 'clientSecret',
+    'accountCredential', 'tokenValue', 'passwordHash'];
+  for (const key of caught) {
+    assert.equal(isSecretFieldName(key), true, `${key} must be treated as secret-shaped`);
+    assert.equal(findRawSecretFields({ [key]: 'RAW' }).length, 1, `${key} must be caught`);
+  }
+  // The handle forms this module allows are still allowed.
+  for (const key of ['credential_ref', 'api_key_handle', 'access_token_id', 'session_handle', 'token_id']) {
+    assert.equal(isSecretFieldName(key), false, `${key} is a permitted handle`);
+    assert.deepEqual(findRawSecretFields({ [key]: 'handle:abc' }), []);
+  }
+  // Value-aware in one direction only: a secret-shaped name holding a number is a quantity.
+  assert.deepEqual(findRawSecretFields({ max_tokens: 1024 }), []);
+  assert.equal(findRawSecretFields({ max_tokens: 'many' }).length, 1);
+  assert.equal(normalizeFieldName('clientSecret'), 'client_secret');
+});
+
+test('raw credential bytes are refused in a declared text field, not only under a secret-shaped name', () => {
+  const live = 'sk-live-9f8e7d6c5b4a39281706';
+  const jwt = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dBjftJeZ4CVPmB92K27uhbUJU1p1r_wW1gFWFOEjXk';
+  const pem = '-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA\n-----END RSA PRIVATE KEY-----';
+  // `display_name` and `source.ref` are DECLARED text fields, so a name scan never inspects them -
+  // even though this module's rule is that raw secret bytes are refused from canonical records.
+  for (const [label, patch] of [
+    ['display_name (provider key)', { display_name: live }],
+    ['display_name (jwt)', { display_name: jwt }],
+    ['source.ref (pem)', { source: { kind: 'PROBED', ref: pem } }],
+  ]) {
+    const result = validateProviderDescriptor(providerRecord(patch));
+    assert.equal(result.ok, false, `${label} must be refused`);
+    assert.ok(result.errors.some((error) => error.includes('raw credential bytes')), JSON.stringify(result.errors));
+  }
+  assert.deepEqual(findRawSecretValues({ display_name: 'Synthetic Alpha', source: { ref: 'probe-1' } }), []);
+  assert.equal(validateProviderDescriptor(providerRecord()).ok, true);
 });

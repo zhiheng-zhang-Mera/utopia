@@ -17,7 +17,7 @@ function parse(argv) {
     const name = key.slice(2);
     const value = argv[++i];
     if (value == null || value.startsWith('--')) fail(`Missing value for --${name}`);
-    if (['mission','migration-host','verification-host','branch-sha','ci-run'].includes(name)) out[name] = value;
+    if (['mission','migration-host','verification-host','branch-sha','ci-run','migration-acceptance','owner-ruling'].includes(name)) out[name] = value;
     else fail(`Unknown option: --${name}`);
   }
   return out;
@@ -64,8 +64,83 @@ for (const event of events) {
   if (event.role === 'VERIFICATION' && event.hostId !== verificationHost) fail('Verification role contains another host');
 }
 
-const migrationDoneIndex = events.findIndex(e => e.role === 'MIGRATION' && e.eventType === 'MIGRATION_COMPLETE' && e.outcome === 'PASS');
-if (migrationDoneIndex < 0) fail('Missing PASS MIGRATION_COMPLETE');
+/**
+ * Migration acceptance basis.
+ *
+ * `host-pass` (the default) is the original contract: the migration host itself wrote a
+ * `MIGRATION_COMPLETE` event with outcome `PASS`.
+ *
+ * `owner-override` exists because the v2 rules added a case the original contract cannot
+ * express: a Mission whose migration host recorded a real `BLOCKED` for the
+ * product-consumption gate, which an Owner ruling then overrode by declaring the migration
+ * complete (see `Digital-City/mission-book/README.md` §7.2 and the dated Owner responses).
+ * The migration host never wrote `MIGRATION_COMPLETE`, and this script must never invent one:
+ * the blocker stays in the timeline and the episode records *why* completion was accepted.
+ *
+ * Everything after the basis is identical, so an owner-override episode is held to the same
+ * verification standard as a host-pass one.
+ */
+const ACCEPTANCE_MODES = ['host-pass', 'owner-override'];
+
+const migrationAcceptanceMode = args['migration-acceptance'] ?? 'host-pass';
+const ownerRuling = args['owner-ruling'];
+if (!ACCEPTANCE_MODES.includes(migrationAcceptanceMode)) fail(`Invalid --migration-acceptance: ${migrationAcceptanceMode}`);
+
+let migrationDoneIndex;
+let migrationAcceptance;
+if (migrationAcceptanceMode === 'host-pass') {
+  if (ownerRuling !== undefined) fail('--owner-ruling is only valid with --migration-acceptance owner-override');
+  migrationDoneIndex = events.findIndex(e => e.role === 'MIGRATION' && e.eventType === 'MIGRATION_COMPLETE' && e.outcome === 'PASS');
+  if (migrationDoneIndex < 0) fail('Missing PASS MIGRATION_COMPLETE');
+  migrationAcceptance = { mode: 'HOST_PASS' };
+} else {
+  if (!ownerRuling) fail('--migration-acceptance owner-override requires --owner-ruling');
+  if (!/^[A-Za-z0-9._/#-]{10,200}$/.test(ownerRuling)) fail('Invalid --owner-ruling reference');
+
+  // 1. the migration side must show a real blocker it did not resolve itself.
+  migrationDoneIndex = events.findIndex(e => e.role === 'MIGRATION' && e.eventType === 'MIGRATION_COMPLETE' && e.outcome === 'PASS');
+  if (migrationDoneIndex >= 0) fail('This inbox already contains a host PASS MIGRATION_COMPLETE; use --migration-acceptance host-pass');
+  const blocker = events
+    .map((e, i) => [e, i])
+    .filter(([e]) => e.role === 'MIGRATION' && ['BLOCKED', 'FAIL'].includes(e.outcome));
+  if (!blocker.length) fail('Owner-override requires a real BLOCKED/FAIL migration event recording the unresolved gate');
+  const [blockerEvent, blockerIndex] = blocker.at(-1);
+
+  // 2. the verification host must have recorded an OWNER_INTERVENTION, and
+  // 3. that intervention must point at the ruling being relied on.
+  const interventions = events
+    .map((e, i) => [e, i])
+    .filter(([e]) => e.role === 'VERIFICATION' && e.eventType === 'OWNER_INTERVENTION');
+  if (!interventions.length) fail('Owner-override requires an OWNER_INTERVENTION from the verification host');
+  const [interventionEvent, interventionIndex] = interventions.at(-1);
+  // The intervention must be *locatable* to the ruling being relied on. Two forms are
+  // accepted, because both are honest citations: the exact reference (`<path>#<anchor>`) in
+  // the summary or evidence, or the document path in the evidence plus the anchor named in
+  // the summary. A bare document reference with no anchor is NOT enough — the ruling has to
+  // be pinned, not gestured at.
+  const [rulingPath, rulingAnchor] = ownerRuling.split('#');
+  const searchable = [interventionEvent.summary, ...(interventionEvent.evidence ?? [])]
+    .filter((text) => typeof text === 'string');
+  const citesRuling = searchable.some((text) => text.includes(ownerRuling))
+    || (Boolean(rulingAnchor)
+      && searchable.some((text) => text.includes(rulingPath))
+      && searchable.some((text) => text.includes(rulingAnchor)));
+  if (!citesRuling) fail(`OWNER_INTERVENTION does not reference the owner ruling ${ownerRuling}`);
+
+  // 4. an independent verifier finding must exist, and it must postdate the blocker.
+  const finding = events.map((e, i) => [e, i]).find(([e]) => e.role === 'VERIFICATION' && e.eventType === 'VERIFIER_FINDING');
+  if (!finding) fail('Missing VERIFIER_FINDING from independent review');
+  if (finding[1] <= blockerIndex) fail('VERIFIER_FINDING must occur after the recorded migration blocker');
+  if (interventionIndex <= blockerIndex) fail('OWNER_INTERVENTION must occur after the recorded migration blocker');
+
+  migrationAcceptance = {
+    mode: 'OWNER_OVERRIDE',
+    ownerRuling,
+    migrationBlockerEventId: blockerEvent.eventId,
+    ownerInterventionEventId: interventionEvent.eventId,
+  };
+}
+
 const verifierFindingIndex = events.findIndex(e => e.role === 'VERIFICATION' && e.eventType === 'VERIFIER_FINDING');
 if (verifierFindingIndex < 0) fail('Missing VERIFIER_FINDING from independent review');
 const ciIndexes = events.map((e,i) => [e,i]).filter(([e]) => e.role === 'VERIFICATION' && e.eventType === 'CI_RESULT');
@@ -74,7 +149,7 @@ const [finalCi, finalCiIndex] = ciIndexes.at(-1);
 if (finalCi.outcome !== 'PASS') fail('Final verification CI_RESULT is not PASS');
 const verificationDoneIndex = events.findIndex((e,i) => i > finalCiIndex && e.role === 'VERIFICATION' && e.eventType === 'VERIFICATION_COMPLETE' && e.outcome === 'PASS');
 if (verificationDoneIndex < 0) fail('Missing PASS VERIFICATION_COMPLETE after final PASS CI_RESULT');
-if (verifierFindingIndex <= migrationDoneIndex) fail('VERIFIER_FINDING must occur after migration completion');
+if (migrationAcceptanceMode === 'host-pass' && verifierFindingIndex <= migrationDoneIndex) fail('VERIFIER_FINDING must occur after migration completion');
 
 const inboxDigestSha256 = createHash('sha256').update(inboxRaw).digest('hex');
 const episodeId = `${missionId}:${createHash('sha256').update(inboxDigestSha256 + ':' + branchFinalSha).digest('hex').slice(0,16)}`;
@@ -113,6 +188,7 @@ const episode = {
   },
   evidence: unique(events.flatMap(e => e.evidence)),
   ci: { run: String(ciRun), outcome: 'PASS' },
+  migrationAcceptance,
   learning: { eligible: true, authority: 'EXPERIENCE_ONLY' }
 };
 

@@ -334,11 +334,13 @@ test('enumeration is throttled even without a client reference, and an unparseab
   const r = rendezvousR();
   const invite = r.createInvite({ host_device_ref: 'dev-host' });
   // an unnamed caller shares one bucket; its over-limit answer stays the generic failure
+  let allowed = 0;
   let generic = 0;
   for (let n = 0; n < 12; n += 1) {
-    try { r.preview({ locator: invite.code }); } catch (error) { if (error.code === 'RENDEZVOUS_UNAVAILABLE' && error.generic === true) generic += 1; }
+    try { r.preview({ locator: invite.code }); allowed += 1; } catch (error) { if (error.code === 'RENDEZVOUS_UNAVAILABLE' && error.generic === true) generic += 1; }
   }
-  assert.equal(generic, 12, 'every unnamed lookup fails generically, and throttling is invisible');
+  assert.equal(allowed, 5, 'the unnamed bucket allows the configured five attempts');
+  assert.equal(generic, 7, 'and every later unnamed lookup still fails generically, revealing nothing');
   // a named caller is still told it is rate limited
   const named = rendezvousR();
   const other = named.createInvite({ host_device_ref: 'dev-host' });

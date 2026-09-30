@@ -22,7 +22,7 @@ async function themeBuild(input,{themeSandbox}={}){
  if(!['none','desktop'].includes(input.observationPreset??'none'))refuse('INVALID_OBSERVATION');
  if('injectFailure' in input&&typeof input.injectFailure!=='boolean')refuse('INVALID_INPUT');
  if(!themeSandbox)refuse('BUILD_STORAGE_UNAVAILABLE');
- const prefix='11-entertainment/01-entertainment-centre/theme-engine/';
+ const prefix='00-foundation/05-control-centre/theme-engine/';
  const designer=await moduleAt(prefix+'design/designer.mjs'),builder=await moduleAt(prefix+'build/builder.mjs');
  const preset={viewport:{width:1280,height:800},safe_region:{x:0,y:0,width:1280,height:800},critical_regions:[{x:0,y:0,width:800,height:700}]};
  let draft;try{draft=designer.prepareDraft({prompt:input.prompt,observation:'observation' in input?input.observation:input.observationPreset==='desktop'?preset:null});}catch(error){refuse(/OBSERVATION|SAFE_REGION/.test(error.message)?'INVALID_OBSERVATION':'INVALID_THEME_INPUT');}
@@ -92,7 +92,7 @@ async function evidence(input,operation){
  return{bundle,summary:c.describeBundle(bundle),scope:'Integrity and declared references only; claims are not externally verified.'};
 }
 async function theme(input){
- const prefix='11-entertainment/01-entertainment-centre/theme-engine/';
+ const prefix='00-foundation/05-control-centre/theme-engine/';
  const palette={base:'#0f1115',layer1:'#151922',layer2:'#1b2130',accent:'#4d93f8',accent2:'#7aa7ff',label:'#e8ecf3',...input.palette};
  if(!Object.values(palette).every(v=>typeof v==='string'&&/^#[0-9a-f]{6}$/i.test(v)))refuse('INVALID_PALETTE');
  const style=String(input.style??'research'),seed=String(input.seed??'utopia').slice(0,100);

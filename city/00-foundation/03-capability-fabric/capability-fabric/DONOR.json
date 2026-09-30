@@ -1,0 +1,168 @@
+{
+  "module": "capability-fabric",
+  "mission": "MB-002",
+  "cityPath": "city/00-foundation/03-capability-fabric/capability-fabric",
+  "district": "00-foundation",
+  "building": "03-capability-fabric",
+  "incubationRooms": [
+    "capability-fabric-lab"
+  ],
+  "cityOwner": "00/03 City Service Network — Capability Registry & Discovery",
+  "mode": "MIGRATION_ONLY",
+  "donors": [
+    {
+      "repository": "zhiheng-zhang-Mera/DS-Hns",
+      "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+      "sourcePaths": [
+        "app/core/capability-registry/index.cjs",
+        "app/core/plugin-manager/index.cjs",
+        "app/core/health-supervisor/index.cjs",
+        "app/core/contracts/capability.cjs",
+        "app/core/lockfile/index.cjs"
+      ]
+    },
+    {
+      "repository": "zhiheng-zhang-Mera/Codex-Boss",
+      "commit": "8df428eaa437a409368401e95194e40266b83080",
+      "sourcePaths": [
+        "src/shared/provider-contracts.ts",
+        "src/shared/provider-outcome.ts",
+        "src/shared/provider-state.ts",
+        "src/shared/capability-router.ts",
+        "electron/commander/runtime-registry.ts",
+        "electron/commander/role-router.ts"
+      ]
+    }
+  ],
+  "portedFiles": {
+    "app/core/capability-registry/index.cjs": [
+      "registry.mjs"
+    ],
+    "app/core/plugin-manager/index.cjs": [
+      "providers.mjs"
+    ],
+    "app/core/health-supervisor/index.cjs": [
+      "providers.mjs"
+    ],
+    "app/core/contracts/capability.cjs": [
+      "contracts.mjs"
+    ],
+    "app/core/lockfile/index.cjs": [
+      "lock.mjs"
+    ],
+    "src/shared/provider-contracts.ts": [
+      "contracts.mjs"
+    ],
+    "src/shared/provider-outcome.ts": [
+      "outcome.mjs"
+    ],
+    "src/shared/provider-state.ts": [
+      "contracts.mjs"
+    ],
+    "src/shared/capability-router.ts": [
+      "routing.mjs"
+    ],
+    "electron/commander/runtime-registry.ts": [
+      "routing.mjs"
+    ],
+    "electron/commander/role-router.ts": [
+      "routing.mjs"
+    ]
+  },
+  "adaptation": [
+    "CommonJS -> ESM JavaScript, and TypeScript -> ESM JavaScript. No donor code is executed: a provider's effect is supplied by the caller as `execute`, because a module in this tree must not run another project's code.",
+    "The donor's `register` allowed a second owner to claim a capability and only refused at resolution time. This module refuses at registration instead, naming the mistake where it is made; re-registration by the same owner is still an update.",
+    "`revoke(capabilityId, owner)` is added beside the donor's `revokeOwner(owner)` and returns the removed provider record, so a caller can report what went away.",
+    "The donor's `provider-contracts.ts` `AdapterOutcome` and `provider-outcome.ts` `NON_SEMANTIC_RUNTIME_CODES` were two separate vocabularies of the same thing; they are one vocabulary in `contracts.mjs`.",
+    "The donor's `detectGoalDrift` inlined its bilingual scope-change markers; they are extracted into the exported `SCOPE_CHANGE_MARKERS` table so the phrase data is visible and extendable without editing the algorithm.",
+    "The donor's `capability-router.ts` classified by `ModuleState`. Utopia's City manifest declares lifecycles, so `moduleStateForLifecycle` maps the manifest vocabulary onto the donor's states and `bridgeStateForLifecycles` reproduces the exact derivation the accepted Utopia V0.3 registry used.",
+    "A module reference the manifest does not name resolves to `UNKNOWN` (bridge state BRIDGE_PENDING) rather than the donor's `UNAVAILABLE`, because 'the map does not list this' is not the same claim as 'a deprecated owner withdrew it'. The V0.3 registry derived the same bridge state for this case.",
+    "The donor's health supervisor restarted a plugin through `manager.reload`. Here the ledger counts the attempt and reports the reaction; the caller performs the reload. The restart budget is still consumed before the attempt, as in the donor.",
+    "The lock document is JSON rather than the donor's YAML-shaped line format, because the donor's parser refused every deviation it did not understand and JSON gives the same strictness with no hand-written parser to drift. The strict rules are preserved: version shape, id shape, an owner per entry, absent-is-not-drift, refuse-to-write-empty, sorted rendering."
+  ],
+  "knownDifferences": [
+    "No file hashing anywhere in the lock, exactly as in the donor: DS-Hns `app/core/lockfile/index.cjs` imports no crypto at all and compares `id -> version` strings only. No digest verification was invented.",
+    "The Hns plugin/adapter/installer platform is deliberately NOT migrated: plugin-adapters (format detection, adapter registry, compatibility), plugin-compat, plugin-install, config-manager and the permission/host layers belong to 01/01 Customs (MB-011), 01/02 Runtime Compliance (MB-012) and 02/02 Worker Gateway (MB-003).",
+    "The Hns 30-name capability vocabulary in `contracts/capability.cjs` is product vocabulary (`computer-use`, `ui-stability`, `long-term-worker`, `dshns.*` provider ids). Only its *shape* — a closed vocabulary with a documented fallback per capability — is carried; the City declares its own capability names.",
+    "Codex-Boss `electron/capability/capability-broker.ts`, `authorization.ts` and `permission-contract.ts` are NOT migrated: they are the admission/authorization seam owned by MB-011/MB-012. The broker's `describes`-must-be-present rule and its 'no handle without a decision' property are preserved in this module's own terms (a provider must describe itself; the only way to reach a provider is `invoke`, which checks availability and the operation allowlist first).",
+    "There is no provider-discovery module, because the donor has none: the Boss 'discovery' vocabulary is repository/workbook discovery. Provider observation in the donor is `RuntimeRegistry.refreshHealth` and account/model probing, the latter being Electron-bound; this module's health probing covers the reusable half.",
+    "Codex-Boss `src/shared/provider-capabilities.ts` (the per-provider boolean capability profile with `canHandleObject` / `withinUploadLimit`) is NOT migrated: it exists to route *file attachments to web AI panes*, which is provider-window product behaviour, not city-global capability metadata.",
+    "Codex-Boss `src/shared/capability-gap.ts` is NOT migrated: its durable writer is the Boss engineering improvement loop, which is Engineering self-improvement and belongs to the Engineering Missions.",
+    "No persistence: the registry, the ledger and the invocation history are in memory, as in the donor's registry. `lock.mjs` is the only module that touches the filesystem, and it touches exactly one file."
+  ],
+  "parity": {
+    "vectorSource": "DS-Hns @ eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b + Codex-Boss @ 8df428eaa437a409368401e95194e40266b83080",
+    "vectors": [
+      "resolution is by capability name, never by provider identity",
+      "a second owner claiming a capability is refused with the owners named",
+      "the same owner re-registering its own capability is an update, not a conflict",
+      "a missing required capability is recorded as a miss and names the requester; an optional miss is recorded without a fault",
+      "unloading an owner revokes every capability it provided, and a later miss says REVOKED rather than MISSING",
+      "a provider that does not state what invoking it can do is refused",
+      "the lookup log is bounded and a read cannot mutate the registry",
+      "installed/enabled/loaded/healthy stay four independent facts with a derived label in a fixed order",
+      "a disabled provider is refused a load unless forced; a second load is already:true",
+      "a throwing health probe is UNHEALTHY and never escapes",
+      "an unasked or unparseable health answer is UNKNOWN, never HEALTHY",
+      "the health reaction order is healthy, unknown, fatal, soft, then the restart budget",
+      "the aggregate verdict is blocked on a fatal fault, degraded on any unhealthy provider, healthy otherwise",
+      "a runtime-layer fault classifies UNCLASSIFIED with confidence 0, runtimeAttributable true and penalizesSemanticProfile false",
+      "an explicit refusal inside a successful call is HARD_REFUSAL with penalizesSemanticProfile true",
+      "deterministic verification and format failures outrank provider-behaviour signals",
+      "an unobservable success is UNCLASSIFIED rather than a fabricated completion",
+      "goal drift is reported with its evidence and the goal is never rewritten",
+      "an evaluator revision is appended and the original evaluation is preserved",
+      "provider lifecycle is WAITING_PROVIDER (autoResume true) or PAUSED_PROVIDER (autoResume false); an unknown action is ACTIVE",
+      "an undefined retryAt is absent from the record, not zero",
+      "a capability whose owner is not PROMOTED/ACTIVE answers BRIDGE_PENDING and runs nothing",
+      "a deprecated owner makes the capability UNAVAILABLE",
+      "an operation outside the provider's allowlist is OPERATION_BLOCKED before any work runs",
+      "a completed invocation carries a digest of its canonical result",
+      "an unknown throw becomes ADAPTER_UNAVAILABLE and a typed error survives",
+      "a result over the size bound is refused as RESULT_TOO_LARGE",
+      "concurrency is bounded and a busy capability answers BUSY",
+      "an in-flight invocation becomes INTERRUPTED with GATEWAY_RESTARTED after a restart, and is not left RUNNING",
+      "a ranking may reorder the approved candidates, cannot add one, and a throw leaves the deterministic order untouched",
+      "drift is an exact owner/version set diff with added, removed and changed named",
+      "an absent lock is not drift; an empty lock is refused; enforcement is opt-in; an unparsable lock is invalid"
+    ]
+  },
+  "classification": {
+    "PARITY": [
+      "resolution by capability with priority order",
+      "same-priority ownership refusal",
+      "requirement-gate miss recording",
+      "four independent lifecycle facts with the derived-state order",
+      "health reaction ladder and bounded restart budget",
+      "runtime vs semantic outcome separation",
+      "goal-drift reporting",
+      "provider WAITING/PAUSED/ACTIVE with autoResume",
+      "hard eligibility excluding failed/disabled/recovering/unknown",
+      "ranking may only reorder the approved set",
+      "lock set-diff drift with absent-is-not-drift and refuse-empty"
+    ],
+    "PORT_ADAPTATION": [
+      "CommonJS/TypeScript -> ESM",
+      "registration-time ownership refusal instead of resolution-time",
+      "provider effect injected by the caller",
+      "City lifecycle vocabulary mapped onto the donor's routing states"
+    ],
+    "UTOPIA_EXTENSION": [
+      "one capability vocabulary instead of the donor's two",
+      "`revoke` returning the removed provider record",
+      "an exported scope-change marker table",
+      "a provider ledger whose reload is performed by the caller"
+    ],
+    "DEFERRED": [
+      "plugin/adapter format detection and the adapter registry (MB-011 Customs)",
+      "permission and authorization resolution (MB-012 Runtime Compliance)",
+      "external-format plugin hosting (MB-003 Worker Gateway)",
+      "Engine provider planning, session registries and the learning loop"
+    ]
+  },
+  "verification": {
+    "testFile": "tests/capability-fabric.test.mjs",
+    "testCount": 44,
+    "runner": "node --test via `node city/test-all.mjs`"
+  }
+}

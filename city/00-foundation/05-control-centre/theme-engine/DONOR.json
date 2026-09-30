@@ -1,0 +1,148 @@
+{
+  "module": "theme-engine",
+  "cityPath": "city/00-foundation/05-control-centre/theme-engine",
+  "district": "00-foundation",
+  "building": "05-control-centre",
+  "relocatedFrom": "city/11-entertainment/01-entertainment-centre/theme-engine",
+  "relocatedAtMission": "MB-009",
+  "relocationNote": "The donor provenance and promotion waves below are unchanged: this module's code was promoted from its incubator rooms into city/11-entertainment/01-entertainment-centre/theme-engine, and MB-009 relocated the same code, with no semantic change, to city/00-foundation/05-control-centre/theme-engine because Digital-City reassigned presentation/theming ownership from 11 Entertainment to 00/05 Control Centre. The historical promotion records under apps/rooms/promotions/ deliberately still name the original path, because that is where the promotion actually landed.",
+  "incubationRooms": [
+    "theme-engine-lab",
+    "theme-package-lab",
+    "theme-builder-lab"
+  ],
+  "waves": [
+    {
+      "wave": "D2",
+      "room": "theme-engine-lab",
+      "sourcePaths": [
+        "app/extensions/mega/theme/color.js",
+        "app/extensions/mega/theme/png.js"
+      ]
+    },
+    {
+      "wave": "D6",
+      "room": "theme-package-lab",
+      "sourcePaths": [
+        "app/extensions/mega/theme/contract.js",
+        "app/extensions/mega/theme/surface.js",
+        "app/extensions/mega/theme/validator.js",
+        "app/extensions/mega/theme/asset-factory.js"
+      ]
+    },
+    {
+      "wave": "D9",
+      "room": "theme-builder-lab",
+      "sourcePaths": [
+        "app/extensions/mega/theme/builder.js",
+        "app/extensions/mega/theme/designer.js",
+        "app/extensions/mega/theme/assets/planner.js",
+        "app/extensions/mega/theme/assets/generator.js",
+        "app/extensions/mega/theme/assets/processor.js",
+        "app/extensions/mega/theme/assets/validator.js",
+        "app/extensions/mega/theme/assets/fallback.js"
+      ]
+    }
+  ],
+  "repository": "zhiheng-zhang-Mera/DS-Hns",
+  "commit": "eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+  "sourcePaths": [
+    "app/extensions/mega/theme/color.js",
+    "app/extensions/mega/theme/png.js",
+    "app/extensions/mega/theme/contract.js",
+    "app/extensions/mega/theme/surface.js",
+    "app/extensions/mega/theme/validator.js",
+    "app/extensions/mega/theme/asset-factory.js",
+    "app/extensions/mega/theme/builder.js",
+    "app/extensions/mega/theme/designer.js",
+    "app/extensions/mega/theme/assets/planner.js",
+    "app/extensions/mega/theme/assets/generator.js",
+    "app/extensions/mega/theme/assets/processor.js",
+    "app/extensions/mega/theme/assets/validator.js",
+    "app/extensions/mega/theme/assets/fallback.js"
+  ],
+  "portedFiles": {
+    "app/extensions/mega/theme/color.js": "color/color.mjs",
+    "app/extensions/mega/theme/png.js": "raster/png.mjs",
+    "app/extensions/mega/theme/contract.js": "contract/contract.mjs",
+    "app/extensions/mega/theme/surface.js": "contract/surface.mjs",
+    "app/extensions/mega/theme/validator.js": "validation/validator.mjs",
+    "app/extensions/mega/theme/asset-factory.js": "assets/procedural/factory.mjs",
+    "app/extensions/mega/theme/builder.js": "build/builder.mjs",
+    "app/extensions/mega/theme/designer.js": "design/designer.mjs",
+    "app/extensions/mega/theme/assets/planner.js": "planning/planner.mjs",
+    "app/extensions/mega/theme/assets/generator.js": "assets/pipeline/generator.mjs",
+    "app/extensions/mega/theme/assets/processor.js": "assets/pipeline/processor.mjs",
+    "app/extensions/mega/theme/assets/validator.js": "assets/pipeline/validator.mjs",
+    "app/extensions/mega/theme/assets/fallback.js": "assets/pipeline/fallback.mjs"
+  },
+  "adaptation": [
+    "CommonJS modules converted to ESM with named exports.",
+    "readability() and the WCAG threshold constants were added so the contrast verdict lives in one place instead of being recomputed by each caller.",
+    "ramp() was added: the deterministic lightness ramp used by the incubator room now has a single home instead of living in the room handler.",
+    "buildSwatch() was added on top of the donor canvas helpers so a palette becomes an image deterministically.",
+    "The donor's permanent product nouns were not carried into Utopia's public API: hns_native -> owned_surface, official_shell -> external_shell, official_overlay -> owned_overlay, official_renderer -> protected_external_surface, the hns./official.* slot families -> surface./shell./overlay./external.*, and the CSS custom properties --hns-* -> --utopia-*. Every safety semantic (slot permissions, protected-surface refusal, declarative-only packages, asset confinement, contrast and state separability, overlay ceilings) is preserved.",
+    "The validator gained validateDocuments(): the same checks now run over in-memory documents as over a materialized package directory, so the incubator room can validate without writing a file.",
+    "The overlay strength ceilings moved into the validator, so a package's declared overlay plan is checked against the engineering limits rather than only the builder's own downgrade ladder.",
+    "ESM and existing Utopia vocabulary",
+    "Fixed metadata for deterministic intent/package",
+    "Caller-confined atomic output with no installation"
+  ],
+  "knownDifferences": [
+    "No theme application: this module produces and validates packages; nothing is applied to any UI.",
+    "No registry, lifecycle or recovery: the donor's orchestration layer is out of scope.",
+    "D9 adds offline intent, observed plans and sandbox package build. Image generation has an injected seam tested with fakes; no real model API. GLOBAL_THEME_APPLY=NO."
+  ],
+  "parity": {
+    "vectorSource": "DS-Hns app/extensions/mega/theme/color.js, png.js, contract.js, surface.js, validator.js and asset-factory.js @ eeb57ca5c2c56bdf2e58c1216c610b4b9fbc973b",
+    "vectors": [
+      "hex / rgb() / rgba() / percentage grammar including transparent and rejection cases",
+      "channel clamping, hex round-trip, alpha compositing",
+      "HSL conversion round-trip",
+      "WCAG contrast ratio (21:1 extremes) and readability levels",
+      "shade / mix / distance / isLight / bestOn",
+      "PNG encode -> independent decode round-trip for RGB and RGBA",
+      "PNG header reading and rejection of non-PNG input",
+      "swatch determinism, column layout and alpha preservation",
+      "the four ownership surfaces, their permissions and their input/access contracts",
+      "the write gate refuses the protected surface and refuses an asset kind a surface does not accept",
+      "a plan may name the protected surface but never claim to write it (including a nested target reference)",
+      "slot whitelist: unknown slot, structural slot and undeclared property are all refused",
+      "token schema: unknown token, invalid colour, invalid length, invalid number and empty asset values",
+      "manifest: required fields, slug id, forbidden parent/extends fields, supported apps and API version compatibility",
+      "declarative only: an executable file anywhere in the package is refused",
+      "asset confinement: a declared asset must exist in the package and may not leave it",
+      "readability and worker-state separability fail closed, not open",
+      "overlay ceilings: per-layer and stacked opacity, and input must pass through",
+      "procedural determinism: (palette, style, seed) renders byte-identical assets, and both palette and style change them",
+      "character assets keep real alpha (no painted rectangle)"
+    ]
+  },
+  "d9": {
+    "acceptedRoomCommit": "3ff7d805f0432d39499bee10741f54d3ec98f3de",
+    "classification": {
+      "PARITY": [
+        "Four frozen donor intent/token/slot vectors",
+        "Four asset request and safe surface vectors",
+        "Three original PNG SHA-256 and alpha/bounds vectors"
+      ],
+      "PORT_ADAPTATION": [
+        "ESM and existing Utopia vocabulary",
+        "Fixed metadata for deterministic intent/package",
+        "Caller-confined atomic output with no installation"
+      ],
+      "UTOPIA_EXTENSION": [
+        "Critical-region subtraction",
+        "Pixel-invalid model retry and fallback",
+        "Hard asset and package budgets",
+        "No legacy resurrection of disabled assets"
+      ],
+      "DEFERRED": [
+        "Real model API",
+        "Global theme apply",
+        "Registry lifecycle recovery",
+        "External renderer integration"
+      ]
+    }
+  }
+}

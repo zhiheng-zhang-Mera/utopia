@@ -1,0 +1,108 @@
+{
+  "module": "research-review",
+  "cityPath": "city/06-research/01-research-institute/research-review",
+  "district": "06-research",
+  "building": "01-research-institute",
+  "incubationRooms": [
+    "mb-007-research-review-lab"
+  ],
+  "mission": {
+    "missionId": "MB-007",
+    "book": "Digital-City/mission-book/MB-007-research-institute.md",
+    "role": "MIGRATION",
+    "cluster": "research review and adjudication, the A/B research levels, and the research capability registry"
+  },
+  "repository": "zhiheng-zhang-Mera/Codex-Boss",
+  "commit": "8df428eaa437a409368401e95194e40266b83080",
+  "sourcePaths": [
+    "src/shared/research-review.ts",
+    "src/shared/research-adjudicate.ts",
+    "src/shared/research-levela.ts",
+    "src/shared/research-levelb.ts",
+    "src/shared/research-capability-registry.ts"
+  ],
+  "portedFiles": {
+    "src/shared/research-review.ts": "review.mjs",
+    "src/shared/research-adjudicate.ts": "adjudicate.mjs",
+    "src/shared/research-levela.ts": "levela.mjs",
+    "src/shared/research-levelb.ts": "levelb.mjs",
+    "src/shared/research-capability-registry.ts": "capability-registry.mjs"
+  },
+  "adaptation": [
+    "TypeScript -> plain ESM JavaScript, one target file per donor file: research-review.ts -> review.mjs, research-adjudicate.ts -> adjudicate.mjs, research-levela.ts -> levela.mjs, research-levelb.ts -> levelb.mjs, research-capability-registry.ts -> capability-registry.mjs. contracts.mjs carries the frozen vocabularies, thresholds and value-shape factories, and index.mjs is the single export site.",
+    "The donor's interfaces (ReviewObjection, ReviewResponse, ReviewRound, PublicationState, ReviewerVote, ClaimEvidence, ProjectSignals, ExperimentSpec, CandidateQuestion, ResearchStudyProfile) become strict copy-on-construct factories in contracts.mjs. They enforce the declared field types and the frozen vocabularies and copy every array, and they never repair an invalid input. The donor's decision functions do NOT route caller input through them, so no verdict changes for an input the donor accepts; only validateCandidateQuestion and validateLevelAPlan are actual donor checks and they are reproduced exactly.",
+    "The donor's own shape checks are kept verbatim, with their messages and check order: validateCandidateQuestion (private in research-levelb.ts), validateLevelAPlan (exported by research-levela.ts) and isResearchCapabilityStatus (private in research-capability-registry.ts). Publishing the two private checks adds reachable surface, not behaviour.",
+    "src/shared/research-levela.ts imported the TYPE CandidateQuestion and the VALUE isFalsifiable from src/shared/research-levelb.ts. JavaScript has no type import, so the surviving edge is the value edge: levela.mjs does `import { isFalsifiable } from './levelb.mjs'` and uses it in the feasibility score. There is no reverse import.",
+    "buildExperimentSpec reads no clock. The donor defaulted createdAt to new Date().toISOString(); here the clock is an injected `now` option whose default is the deterministic EPOCH_TIMESTAMP sentinel (new Date(0).toISOString() = 1970-01-01T00:00:00.000Z). A host that wants donor-like stamps passes `now`, and an explicit input.createdAt still wins.",
+    "The donor's numeric thresholds and weights (2, 0, 5, 3, 0.5, 1, 2, 1, 10, 3, 42, 1, 2000) are named constants in contracts.mjs with the donor's exact values, so every comparison, clamp and default has one source of truth. No value, comparison, precedence or clamp was changed.",
+    "The donor had no ids and no I/O anywhere in these five files, so no id factory was needed: every exported function is a pure value transform."
+  ],
+  "knownDifferences": [
+    "No host runtime, no provider automation, no web-AI proposers, no research conductor and no storage: the donor's callers are out of scope, and this module supplies only the pure rules they used.",
+    "adjudicateClaim never reads ClaimEvidence.verifiedCitations, exactly like the donor, even though the donor's own doc comment says verified citations must not contradict. No citation ladder was added; the divergence between the donor comment and the donor code is recorded instead of resolved.",
+    "metaReview reads response.revisedSections.length with no guard, as the donor does. A response object that omits that array throws a TypeError instead of being treated as unrevised; the check is kept verbatim and the boundary is asserted in the suite.",
+    "validateLevelAPlan accepts an experiment whose replicationRuns is absent, because `undefined < 2` is false in the donor. That weak guard is kept: adding a typeof check would refuse a plan the donor accepts.",
+    "adjudicateClaim's `reasons.join('; ') || 'no evidence'` fallback is unreachable: an empty reason list always takes one of the two decisive-evidence branches. The literal is kept as the donor wrote it.",
+    "planResearchCapabilities initialises every capability to AVAILABLE and then assigns all sixteen, so AVAILABLE and FAILED never appear in a plan. The donor's dead initial value is kept and asserted rather than removed.",
+    "The donor's ResearchCapabilityRunRow interface declares capability/planned/outcome, but it holds no behaviour and the donor never exported or used it. It is not reproduced; isResearchCapabilityStatus is the refusal path that makes such an outcome checkable.",
+    "The capability planner keeps the donor's asymmetric profile reading: bindsCitations/hasFormalProtocol/hasQuantitativeExperiments are truthiness tests, architecture-diagram-builder is a Boolean(...) test, and evidence-adjudicator's hasMultipleReviewers is a strict === true test. The asymmetry is asserted, not smoothed over.",
+    "selectFalsifiableQuestion reports only the selected question in its reason and lists rejections separately; a candidate that is neither measurable nor falsifiable is rejected with the measurable reason. Both are donor behaviour and are pinned by tests.",
+    "Novelty review quotes a question's overlap using toLocaleLowerCase() and formats gate scores with toFixed(1), so a novelty score of 1.99 is refused with the message `novelty too low (2.0)`. The donor's formatting is kept and asserted.",
+    "No Evidence Engine behaviour was copied, wrapped, forked or re-exported: artifact hashing, claim statuses and the PASS/HOLD decision stay in the sibling evidence-engine module, because MB-007 forbids a second Evidence Engine implementation.",
+    "No delayed-learning and no Machine Intelligence research direction was added: the five donor files implement none, and a suite check asserts neither term appears in any module source."
+  ],
+  "parity": {
+    "vectorSource": "Codex-Boss src/shared/research-review.ts, src/shared/research-adjudicate.ts, src/shared/research-levela.ts, src/shared/research-levelb.ts, src/shared/research-capability-registry.ts @ 8df428eaa437a409368401e95194e40266b83080",
+    "vectors": [
+      "respondToObjections refuses a response whose objectionId is not an objection of the round with `Unknown objection <id>`, and validates the whole batch before merging anything",
+      "a response to an objection already answered replaces it at its index; a second response for the same objection in one batch replaces the first",
+      "reviewRoundSettled reports an objection with no response as open and never also as a violation, and reports violations in objection order",
+      "a major objection cannot be merely retained (`major objection <id> cannot be merely retained`) and a blank or missing reply is `objection <id> has no response`",
+      "metaReview on an unsettled round returns REVISE with the violations followed by the literal `open objections remain`, even when nothing is open",
+      "metaReview returns APPROVED with no reasons only for a settled round with at least one response carrying a revised section; otherwise REVISE with `no sections revised`",
+      "publicationReady reports the four gates in the fixed order: research contract missing, sufficiency gate failed, review round unsettled, meta-review not approved",
+      "adjudicateClaim counts only votes whose claimId matches the evidence claim, and a non-supporting stance never concurs",
+      "decisive evidence means statisticSupported AND independentReplication; without it no number of votes adopts, and the reasons join in the order statistic, replication",
+      "with decisive evidence, supports >= requiredVotes (default 1) adopts and the reason reads `<supports>/<votes> reviewers concur`; fewer is `requires human review`",
+      "the primary metric is read from the evidence claim and verifiedCitations is never read",
+      "isFalsifiable is `measurable && falsifiable`, so a candidate that is neither is rejected with the measurable reason, and every rejection is recorded",
+      "selectFalsifiableQuestion ranks by (noveltyScore ?? 0) + (feasibilityScore ?? 0) with a stable sort, so an exact tie keeps the earlier candidate",
+      "with nothing ready the reason is `no candidates` for an empty list and `no falsifiable candidate` when candidates were rejected",
+      "the candidate check runs before the measurability rejection, so an invalid unmeasurable candidate throws rather than being recorded as rejected",
+      "novelty review adds max(0, 3 - overlap), subtracts 1 when a test harness exists and the question overlaps, adds 1 for a multi-language surface, and adds noveltyScore * 0.5 plus the bias",
+      "novelty review adds 2 for measurable + falsifiable and subtracts 1 when the repo has no test harness, then clamps both scores into [0, 5]",
+      "levelAGate refuses novelty below 2 first, then feasibility below 2, formatting the reported score to one decimal place",
+      "buildExperimentSpec clamps replicationRuns into [2, 10] with default 3, always sets purpose EXPERIMENT and an empty command, defaults the seed to 42, and prefers an explicit createdAt over the injected clock",
+      "the capability plan carries all sixteen ids in registry order, marks NEEDED exactly when the trigger matches and NOT_NEEDED otherwise, and never leaves a capability at AVAILABLE or FAILED",
+      "the always-on capabilities are literature-scout, section-planner, section-writer, skeptical-reviewer and latex-compiler",
+      "isResearchCapabilityStatus accepts only the four donor statuses and refuses everything else instead of coercing it"
+    ]
+  },
+  "classification": {
+    "PARITY": [
+      "review loop responses, settled/violation reporting and the two meta-review verdicts",
+      "the four publication gates and their exact missing strings",
+      "evidence-over-vote adjudication with its precedence and reason strings",
+      "the measurable + falsifiable rule and the rejection reasons",
+      "Level-A novelty/feasibility arithmetic, the 2.0 gate and the [0, 5] clamp",
+      "Level-A plan validation messages and boundaries",
+      "the experiment spec defaults, the [2, 10] replication clamp and seed 42",
+      "the capability registry vocabulary, trigger asymmetry and NEEDED/NOT_NEEDED plan"
+    ],
+    "PORT_ADAPTATION": [
+      "TypeScript -> plain ESM JavaScript",
+      "donor interfaces become copy-on-construct factories in contracts.mjs",
+      "the clock is injected and defaults to the deterministic epoch sentinel",
+      "the donor's private validators are published as the module's validation gate",
+      "numeric thresholds and weights become named constants with the donor's values"
+    ],
+    "UTOPIA_EXTENSION": [],
+    "DEFERRED": [
+      "host runtime and conductor callers",
+      "provider automation and web-AI proposers",
+      "persistence and audit storage",
+      "citation-ladder adjudication (the donor declared verifiedCitations and never implemented it)",
+      "ResearchCapabilityRunRow execution outcomes"
+    ]
+  }
+}

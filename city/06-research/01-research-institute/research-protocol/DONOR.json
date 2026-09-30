@@ -1,0 +1,123 @@
+{
+  "module": "research-protocol",
+  "cityPath": "city/06-research/01-research-institute/research-protocol",
+  "district": "06-research",
+  "building": "01-research-institute",
+  "incubationRooms": [
+    "mb-007-research-protocol-lab"
+  ],
+  "waves": [
+    {
+      "wave": "MB-007",
+      "room": "mb-007-research-protocol-lab",
+      "sourcePaths": [
+        "src/shared/research-ir.ts",
+        "src/shared/research-protocol.ts",
+        "src/shared/research-contract.ts",
+        "src/shared/research-roles.ts",
+        "src/shared/research-command.ts"
+      ]
+    }
+  ],
+  "mission": {
+    "missionId": "MB-007",
+    "book": "Digital-City/mission-book/MB-007-research-institute.md",
+    "role": "MIGRATION",
+    "cluster": "ResearchIR and protocol freeze, the research contract, and the research role/command vocabulary"
+  },
+  "repository": "zhiheng-zhang-Mera/Codex-Boss",
+  "commit": "8df428eaa437a409368401e95194e40266b83080",
+  "sourcePaths": [
+    "src/shared/research-ir.ts",
+    "src/shared/research-protocol.ts",
+    "src/shared/research-contract.ts",
+    "src/shared/research-roles.ts",
+    "src/shared/research-command.ts"
+  ],
+  "referenceTypes": [
+    "src/shared/research-ir.ts (ResearchState, ResearchIR) — the only import in the donor set, and only as a type"
+  ],
+  "portedFiles": {
+    "src/shared/research-ir.ts": "ir.mjs",
+    "src/shared/research-protocol.ts": "protocol.mjs",
+    "src/shared/research-contract.ts": "contract.mjs",
+    "src/shared/research-roles.ts": "roles.mjs",
+    "src/shared/research-command.ts": "command.mjs",
+    "src/shared/research-ir.ts + research-protocol.ts + research-contract.ts + research-roles.ts + research-command.ts (declared vocabularies and value-shape validators)": "contracts.mjs",
+    "src/shared/research-ir.ts + research-protocol.ts + research-contract.ts + research-roles.ts + research-command.ts (one export site)": "index.mjs"
+  },
+  "adaptation": [
+    "TypeScript -> plain ESM JavaScript, Node 24, no dependencies. Every donor function and constant keeps its name, its string literals, its default values and its ordering; the file split mirrors the donor's own file boundaries (`ir.mjs`, `protocol.mjs`, `contract.mjs`, `roles.mjs`, `command.mjs`) with `contracts.mjs` holding the frozen vocabularies and the value shapes.",
+    "The donor's type-only declarations become frozen runtime vocabularies in `contracts.mjs`: the ResearchState union (16 main states + 4 control states) is RESEARCH_MAIN_STATES / RESEARCH_CONTROL_STATES / RESEARCH_STATES, and the inline unions become AUTONOMY_MODES, PROVIDER_POLICIES, BASELINE_PROVENANCE_KINDS, CITATION_POLICIES, RESEARCH_ROLE_NAMES, RESEARCH_ARTIFACT_KINDS, RESEARCH_PURPOSES. The donor's already-named arrays (RESEARCH_MAIN_STATES, AUTO_FIXABLE_FIELDS, FROZEN_FIELDS) are copied member for member in the donor's order.",
+    "All value shapes are copy-on-construct factories and every one of them is the single validation gate: `researchBudget`, `researchScope`, `researchIR`, `researchProtocol`, `protocolAmendment`, `researchContract`, `researchCommandSpec`. Each validates against the donor's own rules (same conditions, same order, same error text), then returns a new object; a factory never repairs invalid input into valid input.",
+    "The donor's standalone validators keep their signatures and stay void: `validateResearchIR`, `validateAmendment`, `validateCommandSpec`. In the donor they were called imperatively before using a value; here they delegate to the matching factory, so the gate and the validator cannot disagree.",
+    "`research-roles.ts`'s two private records (`STAGE_ROLE`, `STAGE_ARTIFACT`) become frozen objects with the donor's exact 20 entries; `RESEARCH_ROLES` becomes `RESEARCH_ROLE_NAMES` and the `ResearchArtifactKind` union becomes `RESEARCH_ARTIFACT_KINDS`, both in the donor's declaration order.",
+    "Injectables and defaults: `hashProtocol(protocol, hash)` keeps the injected digest (the donor had no built-in hasher); `stageArtifact(input, now = new Date(0).toISOString())` keeps the donor's deterministic epoch default verbatim. The module reads no clock, generates no id, opens no file, and touches no environment.",
+    "`inferBaselineProvenance` keeps the donor's two heuristic token lists, their order, and the three exact reason strings, including the fallback 0.5 with explicit provenance and the declared-but-unusable fallback to `implementation-declared`."
+  ],
+  "knownDifferences": [
+    "No research supervisor, no run persistence, no protocol store, no provider call and no experiment execution: those are explicitly out of scope. This module is pure; it decides and describes, and the existing `evidence-engine` module owns evidence, which is never re-implemented or re-exported here.",
+    "`researchContract` is a new validation rung the donor did not have: the donor accepted any object and failed later inside a section prompt or an audit, and there was no `validateResearchContract`. UTOPIA validates the declared shape at the module boundary with named messages. Inputs the donor would have accepted and then mishandled are now refused; a well-formed contract is accepted and behaves identically.",
+    "`researchProtocol` is likewise a new shape gate for the frozen protocol document (five scientific-core fields must be strings). The donor had no protocol validator at all. `scientificCore` and `diffProtocol` deliberately keep the donor's lenient reading and do not call it.",
+    "`executableAllowed` keeps the donor's `toLocaleLowerCase()` call, so the allow-list comparison follows the host locale exactly as the donor's did; no locale is forced and none is read from the environment.",
+    "`research-ir.ts`'s `ResearchIR` fields the donor never validates (`protocolHash`, `researchQuestions`, `hypotheses`, `createdAt`, `updatedAt`) are copied rather than judged, and `researchQuestions`/`hypotheses` default to `[]` when absent, matching how every donor consumer reads them.",
+    "`validateResearchIR`, `validateAmendment` and `validateCommandSpec` return nothing (the donor returned `void`); the factories are what return the validated copy.",
+    "No ported file imports anything outside this directory and none imports `evidence-engine`."
+  ],
+  "parity": {
+    "vectorSource": "Codex-Boss src/shared/research-ir.ts, research-protocol.ts, research-contract.ts, research-roles.ts, research-command.ts @ 8df428eaa437a409368401e95194e40266b83080",
+    "vectors": [
+      "RESEARCH_MAIN_STATES is the donor's 16 states in plan order, followed by the control states RECOVERING / WAITING_FOR_PROVIDER / WAITING_FOR_USER / FAILED",
+      "RESEARCH_NEXT is the donor table exactly, keyed in vocabulary order, with READY->READY, FAILED->FAILED and each control state returning to SCOPING",
+      "nextResearchState is null for FAILED and READY, null for a control state unless allowControl is true, and the table lookup otherwise",
+      "canAdvance is false only for FAILED, READY, WAITING_FOR_PROVIDER and WAITING_FOR_USER",
+      "the IR gate refuses with exactly: Invalid research IR id / Research goal must be 1–20000 characters / Research requires a workspace / Invalid allowedDomains / Research requires 1–5 reviewers / Invalid autonomy mode / Invalid research budget / Invalid research state / Invalid pending research stage",
+      "a pendingStage must be a main state; a control state is a valid `state` but never a valid `pendingStage`",
+      "canonicalStableProtocol sorts keys recursively for objects, maps arrays in order, and delegates leaves to JSON.stringify",
+      "hashProtocol hashes the canonical text through the injected digest",
+      "scientificCore is the five fixed keys plus `exclusion-rule` only when the protocol's exclusionRule is truthy",
+      "diffProtocol reports a silent change only for a frozen field the candidate core defines and that differs; changedMechanical is always empty",
+      "the amendment gate refuses with exactly: Amendment requires an id / Amendment requires the frozen protocol hash / Amendment requires changes / Amendment touches non-frozen field: <field> / Amendment change requires a reason",
+      "inferBaselineProvenance honours a finite declared baseline, defaults an unknown source to implementation-declared, matches proportion tokens case-insensitively to 0.5/random-chance, error tokens to 0/host-heuristic, and otherwise keeps 0.5/host-heuristic with the donor's reason text",
+      "a section prompt is the donor's exact template, joins hypotheses with '; ', and requires a claim when the claim statement contains the section name or the section name contains 'method'",
+      "violatesContract refuses with 'empty section', then 'section must not rewrite the frozen research goal' for the four donor patterns, case-insensitively",
+      "the sufficiency gate requires the 24-character evidence prefix or the claim id in evidenceRefs, runsPerHypothesis × max(1, hypotheses.length) executed experiments while printing the unclamped product, one traceable citation unless the policy is manual, and one completed review; open criticism is retained in notes and never blocks",
+      "every one of the 20 stages routes to the donor role and expects the donor artifact kind; an unknown stage yields undefined rather than a refusal",
+      "stageArtifact derives its id as '<stage lowercased>:<now with : and . replaced by ->', truncates the summary to 500 characters, defaults evidenceRefs to [] and defaults now to the deterministic 1970-01-01T00:00:00.000Z epoch",
+      "the command gate refuses with exactly: Research command requires an executable / Research executable must be a bare path/name (no shell metacharacters) / Invalid research args / Research command requires a cwd / Invalid research purpose / Invalid research timeout / Invalid expected outputs, with args capped at 100 items of 4000 characters, timeoutMs between 1000 and 3600000, and expectedOutputs capped at 20 items of 500 characters",
+      "executableAllowed strips a leading path and a .exe/.cmd/.bat suffix, compares lower-cased against the donor's 11-name allow-list, and is NOT part of the command gate"
+    ]
+  },
+  "classification": {
+    "PARITY": [
+      "research state vocabularies and the transition graph",
+      "nextResearchState / canAdvance",
+      "the IR validation gate and its message set",
+      "canonical JSON and the injected freeze hash",
+      "scientific core and the silent-mutation verdict",
+      "the amendment gate and its frozen-field rule",
+      "baseline provenance heuristics",
+      "contract-bound section prompts and the goal-rewrite refusal",
+      "the sufficiency audit and its accounting",
+      "the stage -> role / artifact tables and the typed artifact skeleton",
+      "the command-spec gate and the executable allow-list"
+    ],
+    "PORT_ADAPTATION": [
+      "TypeScript -> ESM JavaScript with the donor file split",
+      "runtime types become plain value shapes with factories as the single gate",
+      "one contracts.mjs owns the frozen vocabularies and the value shapes",
+      "validators stay void and delegate to their factory",
+      "injected digest and the donor's deterministic epoch default"
+    ],
+    "UTOPIA_EXTENSION": [
+      "the frozen vocabulary arrays themselves (RESEARCH_STATES, RESEARCH_CONTROL_STATES, AUTONOMY_MODES, PROVIDER_POLICIES, BASELINE_PROVENANCE_KINDS, DECLARABLE_BASELINE_SOURCES, CITATION_POLICIES, RESEARCH_ROLE_NAMES, RESEARCH_ARTIFACT_KINDS, RESEARCH_PURPOSES) — the donor expressed these only as TypeScript union types or as private records, and a frozen vocabulary module was requested explicitly; no member or order is new"
+    ],
+    "DEFERRED": [
+      "the research supervisor and its autopilot flow",
+      "protocol.json persistence and the amendment file store",
+      "provider calls and web-AI review",
+      "experiment execution, metric collection and METRICS_META ingestion",
+      "paper expansion and manuscript writing"
+    ]
+  }
+}

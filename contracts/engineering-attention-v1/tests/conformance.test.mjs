@@ -1,7 +1,7 @@
-ï»¿// EM-005 conformance suite â€” attention bridge and current + recent-device delivery.
+// EM-005 conformance suite ¡ª attention bridge and current + recent-device delivery.
 //
 // Acceptance: one attention_id creates one logical question despite multiple projections; the current
-// interaction device is always included when eligible/online; only 2â€“3 recent eligible devices receive
+// interaction device is always included when eligible/online; only 2¨C3 recent eligible devices receive
 // auxiliary projections, ranked by real user interaction recency; first valid acknowledgement wins
 // globally; reconnect/refresh/repeated delivery never rings again; quiet policy suppresses sound but
 // keeps the notification; informational events do not ring by default; and a response routes back to
@@ -275,4 +275,105 @@ test('withdrawal closes a question, and the envelope is strict', () => {
   const { bridge: fresh } = openBridge();
   assert.equal(fresh.projectionsFor('device-recent-1').length, 1);
   assert.equal(fresh.projectionsFor('device-unprojected').length, 0);
+});
+
+/* --------------------------------- 7. regressions (Correction, host Alien) */
+// Every refusal is paired with the legitimate neighbour that must still pass.
+
+import { MAX_CLOCK_SKEW_MS, RECENT_WINDOW_MS, createAttentionBridge as makeBridge } from '../index.mjs';
+
+test('attention fields named after Object.prototype members are refused', () => {
+  for (const name of Object.getOwnPropertyNames(Object.prototype)) {
+    const probe = Object.defineProperty({ ...attention() }, name, { value: 'SMUGGLED', enumerable: true, configurable: true, writable: true });
+    assert.equal(validateAttentionEnvelope(probe).ok, false, `attention.${name} must not be canonical`);
+  }
+  const hidden = { ...attention() };
+  Object.defineProperty(hidden, 'transport', { value: 'RF', enumerable: false, configurable: true, writable: true });
+  assert.equal(validateAttentionEnvelope(hidden).ok, false, 'a non-enumerable own field must be refused too');
+  // neighbours: an ordinary unknown field is still refused, and a clean envelope is still accepted
+  assert.equal(validateAttentionEnvelope({ ...attention(), transport: 'RF' }).ok, false);
+  assert.equal(validateAttentionEnvelope(attention()).ok, true);
+  assert.equal(validateAttentionEnvelope(attention()).errors.length, 0);
+  assert.equal({}.SMUGGLED, undefined, 'no prototype pollution');
+});
+
+test('a "recent" device is bounded on both sides, and never duplicated', () => {
+  const farFuture = device('device-future', 0, { last_interacted_at: ISO(T0 + 10 * 365 * 24 * 3600 * 1000) });
+  const abandoned = device('device-abandoned', 0, { last_interacted_at: ISO(T0 - 5 * 365 * 24 * 3600 * 1000) });
+  const list = [device('device-current', 1), device('device-phone', 2), abandoned, farFuture];
+  const ranked = rankRecentDevices(list, { currentDeviceRef: 'device-current', nowMs: T0 });
+  assert.deepEqual([...ranked], ['device-phone'], 'an abandoned or future-dated device is not a recent device');
+  assert.equal(RECENT_WINDOW_MS > 0, true);
+  assert.equal(MAX_CLOCK_SKEW_MS > 0, true);
+  // a duplicate device entry produces one projection, not two
+  assert.deepEqual([...rankRecentDevices([device('device-dupe', 1), device('device-dupe', 1)], { currentDeviceRef: null, nowMs: T0, count: 2 })], ['device-dupe']);
+  // neighbours: devices inside the window are still ranked, and the count bounds are unchanged
+  assert.equal(rankRecentDevices(devices(), { currentDeviceRef: 'device-current', count: 3, nowMs: T0 }).length, 3);
+  expectCode(() => rankRecentDevices(devices(), { count: 5, nowMs: T0 }), 'RECENT_DEVICE_LIMIT');
+  assert.deepEqual([...rankRecentDevices(devices(), { currentDeviceRef: 'device-current', count: 3 })].length, 3, 'without a clock the window is not applied');
+});
+
+test('a different question under a live attention id is refused', () => {
+  const bridge = makeBridge({ clock: () => T0 });
+  bridge.open(attention(), { currentDeviceRef: 'device-current', devices: devices() });
+  const originalQuestion = bridge.get('attention-1').question;
+  const same = bridge.open(attention(), { currentDeviceRef: 'device-current', devices: devices() });
+  assert.equal(same.opened, false);
+  assert.equal(same.reason, 'ALREADY_OPEN');
+  // the same id carrying a different question must not be silently discarded
+  const error = expectCode(() => bridge.open(attention({ question: 'a completely different question' }), { currentDeviceRef: 'device-current', devices: devices() }), 'INVALID_ATTENTION');
+  assert.equal(error.message.includes('different question'), true);
+  assert.equal(bridge.get('attention-1').question, originalQuestion, 'the original question is untouched');
+  // neighbours: a genuinely new id still opens
+  assert.equal(bridge.open(attention({ attention_id: 'attention-2' }), { currentDeviceRef: 'device-current', devices: devices() }).opened, true);
+});
+
+test('a malformed instant cannot half-apply a transition', () => {
+  const bridge = makeBridge({ clock: () => T0 });
+  bridge.open(attention(), { currentDeviceRef: 'device-current', devices: devices() });
+  expectCode(() => bridge.acknowledge('attention-1', { deviceRef: 'device-current', at: 'nonsense' }), 'INVALID_ATTENTION');
+  assert.equal(bridge.get('attention-1').status, 'PENDING', 'the refusal is total');
+  assert.equal(bridge.get('attention-1').acknowledgement.acknowledged_by, null);
+  expectCode(() => bridge.acknowledge('attention-1', { deviceRef: 'device-current', at: 1e21 }), 'INVALID_ATTENTION');
+  assert.equal(bridge.get('attention-1').status, 'PENDING');
+  const withdrawn = makeBridge({ clock: () => T0 });
+  withdrawn.open(attention(), { currentDeviceRef: 'device-current', devices: devices() });
+  expectCode(() => withdrawn.withdraw('attention-1', { at: 'nonsense' }), 'INVALID_ATTENTION');
+  assert.equal(withdrawn.get('attention-1').status, 'PENDING');
+  // neighbours: honest transitions still apply, and an honest retry after a refusal works
+  const acked = bridge.acknowledge('attention-1', { deviceRef: 'device-current', at: T0 + 1000 });
+  assert.equal(acked.acknowledged, true);
+  assert.equal(bridge.get('attention-1').status, 'ACKNOWLEDGED');
+  assert.equal(withdrawn.withdraw('attention-1', { at: T0 }).withdrawn, true);
+});
+
+test('a response routes exactly once', () => {
+  const bridge = makeBridge({ clock: () => T0 });
+  bridge.open(attention(), { currentDeviceRef: 'device-current', devices: devices() });
+  bridge.acknowledge('attention-1', { deviceRef: 'device-recent-1', at: T0 });
+  const routed = bridge.respond('attention-1', { deviceRef: 'device-recent-1', response: { granted: true }, at: T0 });
+  assert.equal(routed.routed_to_connector, true);
+  assert.equal(routed.connector_ref, 'connector-1');
+  // the same device re-routing used to succeed and silently replace what the connector already had
+  expectCode(() => bridge.respond('attention-1', { deviceRef: 'device-recent-1', response: { granted: false }, at: T0 }), 'RESPONSE_ALREADY_ROUTED');
+  assert.deepEqual(bridge.get('attention-1').response, { granted: true }, 'the routed response is not replaceable');
+  // neighbours: another device is still refused, and an unacknowledged question still refuses a response
+  expectCode(() => bridge.respond('attention-1', { deviceRef: 'device-recent-2' }), 'ALREADY_ANSWERED');
+  const fresh = makeBridge({ clock: () => T0 });
+  fresh.open(attention(), { currentDeviceRef: 'device-current', devices: devices() });
+  expectCode(() => fresh.respond('attention-1', { deviceRef: 'device-current' }), 'ALREADY_ANSWERED');
+});
+test('a response that cannot be stored is refused before the routing is committed', () => {
+  const bridge = makeBridge({ clock: () => T0 });
+  bridge.open(attention(), { currentDeviceRef: 'device-current', devices: devices() });
+  bridge.acknowledge('attention-1', { deviceRef: 'device-current', at: T0 });
+  let refused = false;
+  try { bridge.respond('attention-1', { deviceRef: 'device-current', response: { fn: () => 1 }, at: T0 }); } catch { refused = true; }
+  assert.equal(refused, true, 'an unstorable response is refused');
+  assert.equal(bridge.get('attention-1').response_routed ?? false, false, 'the routing was not committed');
+  assert.equal(bridge.get('attention-1').response ?? null, null);
+  // neighbours: a storable response still routes exactly once
+  const routed = bridge.respond('attention-1', { deviceRef: 'device-current', response: { granted: true }, at: T0 });
+  assert.equal(routed.routed_to_connector, true);
+  assert.deepEqual(bridge.get('attention-1').response, { granted: true });
 });

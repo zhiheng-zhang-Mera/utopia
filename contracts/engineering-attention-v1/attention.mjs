@@ -31,14 +31,50 @@ export class AttentionError extends Error {
 const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const isText = value => typeof value === 'string' && value.trim().length > 0;
 const clone = value => (value === undefined ? undefined : structuredClone(value));
-export const isIsoInstant = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+export const isIsoInstantShape = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+/** Shape is not enough: an impossible instant parses to NaN, and every NaN comparison is false. */
+export const isIsoInstant = value => {
+  if (!isIsoInstantShape(value)) return false;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) && new Date(parsed).toISOString().slice(0, 19) === value.slice(0, 19);
+};
+
+/**
+ * "Recent device" means the user actually operates it now. Ranking alone was not a bound: a device
+ * untouched for years ranked as an auxiliary alert target, and one dated in the future ranked first
+ * forever, so an alert could be sent to devices the user no longer holds.
+ */
+export const RECENT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+/** Tolerance for a peer clock running ahead of ours. */
+export const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
 
 /** Callers may hand in either a millisecond instant or an ISO string; the record always stores ISO. */
 const atOf = value => {
   if (value === null || value === undefined) return null;
-  if (typeof value === 'number' && Number.isFinite(value)) return new Date(value).toISOString();
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const parsed = new Date(value);
+    // An out-of-range millisecond value used to escape as an untyped RangeError from toISOString.
+    if (!Number.isFinite(parsed.getTime())) throw new AttentionError('INVALID_ATTENTION', 'instant ' + String(value) + ' is out of range');
+    return parsed.toISOString();
+  }
   if (isIsoInstant(value)) return value;
   throw new AttentionError('INVALID_ATTENTION', 'instant ' + String(value) + ' is not an ISO-8601 UTC instant');
+};
+
+/** Stable content digest, so "the same question" is decided by what it says, not by its id. */
+const canonicalOf = item => {
+  if (Array.isArray(item)) return '[' + item.map(canonicalOf).join(',') + ']';
+  if (item !== null && typeof item === 'object') return '{' + Object.keys(item).sort().map(key => JSON.stringify(key) + ':' + canonicalOf(item[key])).join(',') + '}';
+  return JSON.stringify(item) ?? 'undefined';
+};
+export const contentDigest = value => {
+  const text = canonicalOf(value);
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, '0');
 };
 
 export const ATTENTION_ENVELOPE_SPEC = Object.freeze({
@@ -55,7 +91,9 @@ export const ATTENTION_ENVELOPE_SPEC = Object.freeze({
 export function validateAttentionEnvelope(envelope) {
   const errors = [];
   if (!isPlainObject(envelope)) return { ok: false, errors: ['attention must be an object'] };
-  for (const key of Object.keys(envelope)) if (!(key in ATTENTION_ENVELOPE_SPEC)) errors.push(`attention.${key} is not part of the canonical contract`);
+  // key in SPEC walks the prototype chain, so any own field named after an Object.prototype member
+  // was accepted as canonical. Only own keys count, and Reflect.ownKeys closes the non-enumerable case.
+  for (const key of Reflect.ownKeys(envelope)) if (!Object.hasOwn(ATTENTION_ENVELOPE_SPEC, key)) errors.push(`attention.${String(key)} is not part of the canonical contract`);
   for (const [key, rule] of Object.entries(ATTENTION_ENVELOPE_SPEC)) {
     const present = Object.hasOwn(envelope, key);
     if (!present) { if (rule.required) errors.push(`attention.${key} is required`); continue; }
@@ -82,21 +120,29 @@ export function assertAttentionEnvelope(envelope) {
  * month is not "recently operated", and the invariant exists so the alert reaches the devices the user
  * actually touches.
  */
-export function rankRecentDevices(devices = [], { currentDeviceRef = null, count = MAX_RECENT_DEVICES } = {}) {
+export function rankRecentDevices(devices = [], { currentDeviceRef = null, count = MAX_RECENT_DEVICES, nowMs = null } = {}) {
   if (!Array.isArray(devices)) throw new AttentionError('INVALID_POLICY', 'devices must be an array');
   if (!Number.isSafeInteger(count) || count < MIN_RECENT_DEVICES || count > MAX_RECENT_DEVICES) {
     throw new AttentionError('RECENT_DEVICE_LIMIT', `recent device count must be between ${MIN_RECENT_DEVICES} and ${MAX_RECENT_DEVICES}`);
   }
+  const windowEnd = typeof nowMs === 'number' && Number.isFinite(nowMs) ? nowMs + MAX_CLOCK_SKEW_MS : null;
   const ranked = devices
     .filter(device => isPlainObject(device) && isText(device.device_ref))
     .filter(device => device.device_ref !== currentDeviceRef)
     .filter(device => device.online === true && device.eligible === true)
     .filter(device => isIsoInstant(device.last_interacted_at))
+    // Bounded on both sides: an interaction older than the window is not recent, and one dated beyond
+    // the clock-skew tolerance is not "the most recent" - it is unverifiable.
+    .filter(device => windowEnd === null || Date.parse(device.last_interacted_at) <= windowEnd)
+    .filter(device => windowEnd === null || windowEnd - Date.parse(device.last_interacted_at) <= RECENT_WINDOW_MS + MAX_CLOCK_SKEW_MS)
     .sort((left, right) => {
       const byRecency = Date.parse(right.last_interacted_at) - Date.parse(left.last_interacted_at);
       return byRecency !== 0 ? byRecency : left.device_ref.localeCompare(right.device_ref);
     });
-  return Object.freeze(ranked.slice(0, count).map(device => device.device_ref));
+  // One question produces one projection per device: a repeated device entry used to project twice.
+  const seen = new Set();
+  const unique = ranked.filter(device => (seen.has(device.device_ref) ? false : (seen.add(device.device_ref), true)));
+  return Object.freeze(unique.slice(0, count).map(device => device.device_ref));
 }
 
 /** Sound policy: quiet, full-screen or protected use suppresses sound, never the notification. */
@@ -131,14 +177,21 @@ export function createAttentionBridge({ clock = () => null, policy = {} } = {}) 
     open(attention, { currentDeviceRef, devices = [], at = clock() } = {}) {
       assertAttentionEnvelope(attention);
       if (events.has(attention.attention_id)) {
-        // Re-opening the same attention id is a re-delivery, not a second question.
-        return { event: clone(events.get(attention.attention_id)), opened: false, reason: 'ALREADY_OPEN' };
+        // Re-opening the same attention id with the same question is a re-delivery, not a second
+        // question - but a different question under a live id must not be silently discarded.
+        const existing = events.get(attention.attention_id);
+        const sameQuestion = Object.keys(ATTENTION_ENVELOPE_SPEC).every(key => existing[key] === attention[key]);
+        if (sameQuestion) return { event: clone(existing), opened: false, reason: 'ALREADY_OPEN' };
+        throw new AttentionError('INVALID_ATTENTION', 'attention ' + attention.attention_id + ' is already open as a different question');
       }
       const current = devices.find(device => device.device_ref === currentDeviceRef);
       if (!current || current.online !== true || current.eligible !== true) {
         throw new AttentionError('CURRENT_DEVICE_NOT_ELIGIBLE', `the current interaction device ${String(currentDeviceRef)} is not online and eligible`);
       }
-      const recent = rankRecentDevices(devices, { currentDeviceRef, count: settings.recentDeviceCount });
+      // The recency window is anchored to the moment the question opens; with no clock the ranking
+      // still works but no window is claimed.
+      const openedAtInstant = atOf(at);
+      const recent = rankRecentDevices(devices, { currentDeviceRef, count: settings.recentDeviceCount, nowMs: openedAtInstant === null ? null : Date.parse(openedAtInstant) });
       const projections = [];
       const currentIsQuiet = soundAllowed(current, { ringInformational: settings.ringInformational, blocking: attention.blocking }) === false;
       projections.push({
@@ -177,7 +230,7 @@ export function createAttentionBridge({ clock = () => null, policy = {} } = {}) 
         acknowledgement: { status: 'PENDING', acknowledged_by: null, at: null },
         projections,
         recent_device_count: recent.length,
-        opened_at: atOf(at),
+        opened_at: openedAtInstant,
       };
       events.set(attention.attention_id, record);
       // of the same epoch (reconnect, refresh, retry) is suppressed. Pre-marking would make the first
@@ -211,8 +264,11 @@ export function createAttentionBridge({ clock = () => null, policy = {} } = {}) 
       }
       // Acknowledging from a non-actionable projection is allowed only if that device was projected;
       // the actionable device is not privileged, because any projected device may answer.
+      // The instant is validated before any mutation: it used to be parsed inside the return
+      // expression, so a malformed timestamp closed the question and then reported a failure.
+      const acknowledgedAt = atOf(at);
       event.status = 'ACKNOWLEDGED';
-      event.acknowledgement = { status: 'ACKNOWLEDGED', acknowledged_by: deviceRef, at: atOf(at) };
+      event.acknowledgement = { status: 'ACKNOWLEDGED', acknowledged_by: deviceRef, at: acknowledgedAt };
       for (const entry of event.projections) {
         // Remaining projections stop ringing and stop being actionable; the audit keeps them.
         if (entry.device_ref !== deviceRef) {
@@ -225,13 +281,14 @@ export function createAttentionBridge({ clock = () => null, policy = {} } = {}) 
           entry.actionable = false;
         }
       }
-      return { acknowledged: true, duplicate: false, rangAgain: false, answeredBy: deviceRef, at: atOf(at) };
+      return { acknowledged: true, duplicate: false, rangAgain: false, answeredBy: deviceRef, at: acknowledgedAt };
     },
 
     /** Withdraw the whole question (for example because the job reached a terminal state). */
     withdraw(attentionId, { reason = 'WITHDRAWN', at = clock() } = {}) {
       const event = requireEvent(attentionId);
       if (event.status !== 'PENDING') return { withdrawn: false, status: event.status };
+      const withdrawnAt = atOf(at);
       event.status = 'WITHDRAWN';
       event.withdrawal_reason = reason;
       for (const entry of event.projections) {
@@ -240,7 +297,7 @@ export function createAttentionBridge({ clock = () => null, policy = {} } = {}) 
         entry.notification_visible = false;
         entry.withdrawn_reason = reason;
       }
-      return { withdrawn: true, status: event.status, at: atOf(at) };
+      return { withdrawn: true, status: event.status, at: withdrawnAt };
     },
 
     /**
@@ -251,11 +308,18 @@ export function createAttentionBridge({ clock = () => null, policy = {} } = {}) 
       const projection = event.projections.find(entry => entry.device_ref === deviceRef);
       if (!projection) throw new AttentionError('NOT_PROJECTED_TO_DEVICE', `${attentionId} is not projected to ${String(deviceRef)}`);
       if (event.status !== 'ACKNOWLEDGED') throw new AttentionError('ALREADY_ANSWERED', `${attentionId} is ${event.status}; only an acknowledged question can carry a response`);
-      if (event.acknowledgement.acknowledged_by !== deviceRef && event.response_routed) {
-        throw new AttentionError('ALREADY_ANSWERED', `the response was already routed by ${event.acknowledgement.acknowledged_by}`);
+      const routedAt = atOf(at);
+      // Exactly one response routes. A repeat used to succeed and silently replace what the connector
+      // had already received, which is why RESPONSE_ALREADY_ROUTED exists in the code vocabulary.
+      if (event.response_routed) {
+        if (event.acknowledgement.acknowledged_by === deviceRef) throw new AttentionError('RESPONSE_ALREADY_ROUTED', 'the response for ' + attentionId + ' was already routed; it cannot be replaced');
+        throw new AttentionError('ALREADY_ANSWERED', 'the response was already routed by ' + event.acknowledgement.acknowledged_by);
       }
+      // Cloned before the routing is committed: an unstorable response used to throw after
+      // response_routed had been set, leaving the question routed with no stored answer.
+      const storedResponse = clone(response);
       event.response_routed = true;
-      event.response = clone(response);
+      event.response = storedResponse;
       return {
         attention_id: attentionId,
         job_ref: event.job_ref,
@@ -263,7 +327,7 @@ export function createAttentionBridge({ clock = () => null, policy = {} } = {}) 
         answered_by_device_ref: deviceRef,
         // The interaction device is not the route target: the originating connector is.
         routed_to_connector: true,
-        at: atOf(at),
+        at: routedAt,
       };
     },
 

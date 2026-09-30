@@ -83,4 +83,43 @@ class ActionsTest {
   assertEquals(listOf("A-new","A-old"),parsed.map { it.actionId })
   assertTrue(parsed.first().hasProgress)
  }
+ // The two tests above call parseActions/parseTargets directly, which is exactly how the
+ // blocking Android defect escaped this suite: the list never came through the envelope read.
+ // These read the real wire shape instead.
+ @Test fun actionListIsReadFromTheFlatEnvelopeItself() {
+  val envelope=JSONObject("""{"apiVersion":0,"schemaVersion":0,"actions":[
+   {"actionId":"A-fdfe1adc","requestedIntent":"add buy milk to my checklist","route":"ROOM",
+    "backendRef":{"kind":"ROOM","id":"checklist","roomId":"checklist","operationId":"add-item"},
+    "target":{"id":"checklist","label":"Checklist Room","operation":"add-item"},
+    "status":"UNAVAILABLE","progress":0,"resultRef":null,"error":{"code":"NODE_UNAVAILABLE","message":"no node"}},
+   {"actionId":"A-0002","route":"CAPABILITY","status":"SUCCEEDED","progress":100}]}""")
+  val parsed=parseActionList(envelope)
+  assertEquals(2,parsed.size)
+  assertEquals(listOf("A-fdfe1adc","A-0002"),parsed.map { it.actionId })
+  assertEquals("UNAVAILABLE",parsed.first().status)
+  assertEquals("NODE_UNAVAILABLE",parsed.first().errorCode)
+ }
+ @Test fun actionListIsEmptyRatherThanUnreadableWhenTheGatewayHasNoActions() {
+  assertEquals(emptyList<ActionSummary>(),parseActionList(JSONObject("""{"apiVersion":0,"schemaVersion":0,"actions":[]}""")))
+ }
+ @Test fun targetListIsReadFromTheFlatEnvelopeItself() {
+  val envelope=JSONObject("""{"apiVersion":0,"schemaVersion":0,"targets":[
+   {"route":"ROOM","target":"hash","operation":"hash.hash-file","label":"Hash Room — hash a file",
+    "description":"SHA-256 of a local file.","mutating":false,"sideEffect":false,"available":true,"unavailableReason":null,"example":"hash C:\\tmp\\a.txt"},
+   {"route":"CITY_TASK","target":"city.task","operation":"WAIT","label":"City task — WAIT",
+    "description":"Runs a safe task.","mutating":true,"sideEffect":true,"available":false,"unavailableReason":"no online node"}]}""")
+  val parsed=parseTargetList(envelope)
+  assertEquals(2,parsed.size)
+  assertEquals(listOf("ROOM","CITY_TASK"),parsed.map { it.route })
+  assertFalse(parsed.first().sideEffect)
+  assertTrue(parsed.last().sideEffect)
+  assertFalse(parsed.last().available)
+  assertEquals("no online node",parsed.last().unavailableReason)
+ }
+ @Test fun arrayMembersAreNeverReadWithTheObjectReader() {
+  // `payload()` is an object reader; using it on `actions`/`targets` throws for the real
+  // envelope. This pins the reader that must be used for those two members.
+  assertTrue(runCatching { payload(JSONObject("""{"actions":[]}"""),"actions") }.isFailure)
+  assertTrue(runCatching { payload(JSONObject("""{"targets":[]}"""),"targets") }.isFailure)
+ }
 }

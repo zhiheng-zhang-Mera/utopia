@@ -94,7 +94,21 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         if(await serveWeb(res,path))return;
         fail(404,'Not found');
       }
-      if(path==='/api/v0/health'){res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify(envelope({status:'healthy'})));return;}
+      // Health has to be able to say "degraded". It used to be the constant `healthy`, so a
+      // supervisor polling this endpoint could not see a dead Room Hub even though the product
+      // surfaces were telling the truth about it.
+      //
+      // The status code stays 200 on purpose: the Gateway itself is serving, and a 503 here
+      // would make every "is the process up?" probe misreport a healthy process as absent. The
+      // degradation is stated explicitly instead, in `status` and in `components`.
+      if(path==='/api/v0/health'){
+        const roomState=await rooms.probe();
+        const components={gateway:{state:'READY'},rooms:{state:roomState.available?'READY':'UNAVAILABLE',reason:roomState.available?null:roomState.reason,hubUrl:roomState.hubUrl}};
+        const degraded=Object.values(components).some(c=>c.state!=='READY');
+        res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
+        res.end(JSON.stringify(envelope({status:degraded?'degraded':'healthy',components})));
+        return;
+      }
       const nodeRoute=path.startsWith('/api/v0/node/');
       const publicPairing=path==='/api/v0/pairing/info'||path==='/api/v0/pairing/exchange';
       if(!publicPairing)auth(req,nodeRoute);version(req);

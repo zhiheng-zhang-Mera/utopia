@@ -78,7 +78,22 @@ class CityClient(context: Context, private val host: String, private val token: 
  fun rooms(done: (JSONObject) -> Unit) { submit { deliver(row("rooms"),done) } }
  fun actions(limit: Int, done: (JSONObject) -> Unit) { submit { deliver(row("actions?limit="+limit.coerceIn(1,200)),done) } }
  fun actionDetail(actionId: String, done: (JSONObject) -> Unit) { submit { deliver(row("actions/"+java.net.URLEncoder.encode(actionId,"UTF-8")),done) } }
- fun ask(text: String, selection: JSONObject?, confirm: Boolean, done: (JSONObject) -> Unit) { submit { val body=JSONObject().put("text",text);if(selection!=null)body.put("selection",selection);if(confirm)body.put("confirm",true);deliver(row("ask",body),done) } }
+ /**
+  * POST /api/v0/ask.
+  *
+  * `idempotencyKey` identifies ONE user action: retrying the same action with the same key
+  * makes the gateway replay its first Action instead of executing again. A new action must
+  * carry a new key.
+  */
+ fun ask(text: String, selection: JSONObject?, confirm: Boolean, idempotencyKey: String?, done: (JSONObject) -> Unit) {
+  submit {
+   val body=JSONObject().put("text",text)
+   if(selection!=null)body.put("selection",selection)
+   if(confirm)body.put("confirm",true)
+   if(!idempotencyKey.isNullOrBlank())body.put("idempotencyKey",idempotencyKey)
+   deliver(row("ask",body),done)
+  }
+ }
  fun askTargets(done: (JSONObject) -> Unit) { submit { deliver(row("ask/targets"),done) } }
  fun cancel(id: String) { submit { try { request("tasks/$id/cancel", JSONObject()); refresh() } catch (e: Exception) { publish(if (socketOnline) "ONLINE" else "OFFLINE", e.message ?: "Cancel failed") } } }
  fun close() { closed = true; runCatching { connectivity.unregisterNetworkCallback(callback) }; socket?.cancel(); executor.shutdownNow(); http.dispatcher.cancelAll(); http.connectionPool.evictAll() }

@@ -137,6 +137,18 @@ fun parseActionDetail(row: JSONObject): ActionDetail {
 
 fun parseActions(rows: List<JSONObject>): List<ActionSummary> = rows.map { parseActionSummary(it) }
 
+/**
+ * Read the Action list straight out of the flat v0 envelope.
+ *
+ * `GET /api/v0/actions` returns `{apiVersion, schemaVersion, actions:[…]}` — `actions` **is**
+ * the array. Unwrapping the envelope with an object reader and then looking for a second
+ * `"actions"` member made the Android Action screen unreadable against a demonstrably correct
+ * gateway response, and the unit tests missed it because they called `parseActions` directly
+ * and never exercised the envelope read. This function exists so the envelope read itself is
+ * testable in one place.
+ */
+fun parseActionList(envelope: JSONObject): List<ActionSummary> = parseActions(arrayObjects(envelope.optJSONArray("actions")))
+
 /** A route target, and the shape of every Ask candidate (contract §3). */
 data class TargetOption(
  val route: String,
@@ -168,6 +180,17 @@ fun parseTarget(row: JSONObject): TargetOption = TargetOption(
 )
 
 fun parseTargets(rows: List<JSONObject>): List<TargetOption> = rows.map { parseTarget(it) }
+
+/** Read the manual target list from `{…, targets:[…]}` — see [parseActionList]. */
+fun parseTargetList(envelope: JSONObject): List<TargetOption> = parseTargets(arrayObjects(envelope.optJSONArray("targets")))
+
+/**
+ * A key that identifies one user action, sent as the gateway's `idempotencyKey`.
+ *
+ * The same action retried reuses its key, so the gateway replays its first Action instead of
+ * executing twice; a different action must mint a new key.
+ */
+fun newIdempotencyKey(): String = "android-" + java.util.UUID.randomUUID().toString()
 
 // AskResult.status vocabulary (contract §3). Exhaustive; anything else is surfaced verbatim.
 val ASK_RESOLVED = "RESOLVED"

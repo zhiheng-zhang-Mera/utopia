@@ -365,7 +365,7 @@ export function createActions({ store, rooms, bridge, cityTasks, host = 'utopia-
     const resultRef = task.state === 'COMPLETED'
       ? { kind: 'CITY_TASK_RESULT', id: task.id, digest: null, summary: `City task ${task.type} completed.` }
       : null;
-    if (status === action.status && progress === action.progress) return action;
+    if (status === action.status && progress === action.progress && action.provenance.cityTaskState === task.state) return action;
     return persist({
       ...action,
       status,
@@ -375,6 +375,9 @@ export function createActions({ store, rooms, bridge, cityTasks, host = 'utopia-
       updatedAt: now(),
       provenance: {
         ...action.provenance,
+        // Keep the observed City Control state in step with the task, so provenance does not
+        // keep claiming QUEUED after the task has completed.
+        cityTaskState: task.state,
         history: [...action.provenance.history, { at: now(), status, note: `observed City task state ${task.state}` }],
       },
     });
@@ -383,6 +386,18 @@ export function createActions({ store, rooms, bridge, cityTasks, host = 'utopia-
   function findByIdempotencyKey(key) {
     if (!key) return null;
     return store.list('actions').find((action) => action.idempotencyKey === key) ?? null;
+  }
+
+  /** Order-independent fingerprint of the request an idempotency key is bound to. */
+  function fingerprintOf({ route, target, operation, input }) {
+    const stable = (value) => {
+      if (Array.isArray(value)) return value.map(stable);
+      if (value && typeof value === 'object') {
+        return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])]));
+      }
+      return value;
+    };
+    return JSON.stringify(stable({ route, target, operation: operation ?? '', input: input ?? {} }));
   }
 
   async function runRoom(request, action) {
@@ -491,14 +506,26 @@ export function createActions({ store, rooms, bridge, cityTasks, host = 'utopia-
   /** Create (or replay) one Action. This is the only entry point. */
   async function create(request) {
     const idempotencyKey = typeof request?.idempotencyKey === 'string' && request.idempotencyKey.length <= 200 ? request.idempotencyKey : null;
-    const replay = findByIdempotencyKey(idempotencyKey);
-    if (replay) return { action: reconcile(replay), replayed: true };
 
     const intent = text(request?.intent ?? '', 'intent', { max: 1000, required: false });
     const route = String(request?.route ?? '');
     if (!ACTION_ROUTES.includes(route)) throw invalid('INVALID_ROUTE', `route must be one of ${ACTION_ROUTES.join(', ')}`);
     const target = text(request?.target ?? '', 'target', { max: 200 });
     const operation = text(request?.operation ?? '', 'operation', { max: 120 });
+    const fingerprint = fingerprintOf({ route, target, operation, input: request?.input });
+
+    const replay = findByIdempotencyKey(idempotencyKey);
+    if (replay) {
+      // A key identifies ONE request. Silently returning the first Action for a different
+      // request would let a caller believe a different thing happened than really did.
+      if (replay.requestFingerprint && replay.requestFingerprint !== fingerprint) {
+        throw invalid(
+          'IDEMPOTENCY_KEY_REUSED',
+          `idempotencyKey ${idempotencyKey} is already bound to ${replay.route} ${replay.target?.id ?? '?'}${replay.target?.operation ? `:${replay.target.operation}` : ''}; use a new key for a different request`,
+        );
+      }
+      return { action: reconcile(replay), replayed: true };
+    }
 
     const actionId = `A-${randomUUID()}`;
     let action = {
@@ -517,6 +544,7 @@ export function createActions({ store, rooms, bridge, cityTasks, host = 'utopia-
       resultRef: null,
       error: null,
       idempotencyKey,
+      requestFingerprint: fingerprint,
       provenance: {
         source: 'utopia.dev-gateway',
         host,

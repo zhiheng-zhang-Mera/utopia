@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.sp
    if (!listFence.accepts(ticket)) return@actions
    busy = false
    if (response.has("errorCode")) failure = response.optString("error") else {
-    val parsed = runCatching { arrayObjects(payload(response, "actions").optJSONArray("actions")).map { parseActionSummary(it) } }.getOrElse { null }
+    val parsed = runCatching { parseActionList(response) }.getOrElse { null }
     if (parsed == null) failure = "The gateway returned an unreadable Action list." else actions = parsed
    }
   }

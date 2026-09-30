@@ -46,7 +46,7 @@ const inTerminal = () => Boolean(host?.querySelector?.('[data-terminal]'));
 
 const state = {
   rooms: { data: null, busy: false, error: '', open: null, note: '' },
-  ask: { input: '', busy: false, result: null, targets: [], error: '', confirmed: false, note: '' },
+  ask: { input: '', busy: false, result: null, targets: [], error: '', confirmed: false, note: '', pendingFor: null, pendingKey: null },
   actions: { data: null, busy: false, error: '', detail: null, selected: null, limit: DEFAULT_ACTION_LIMIT },
 };
 let call = null;
@@ -318,15 +318,37 @@ async function ensureTargets() {
   } catch (error) { state.ask.error = error?.message || String(error); }
 }
 
+/**
+ * A key for one user action.
+ *
+ * `crypto.randomUUID` needs a secure context and the product is served over plain HTTP on the
+ * LAN, so this uses `getRandomValues`, which does not.
+ */
+function newIdempotencyKey() {
+  const bytes = new Uint8Array(16);
+  if (globalThis.crypto?.getRandomValues) globalThis.crypto.getRandomValues(bytes);
+  else for (let i = 0; i < bytes.length; i += 1) bytes[i] = Math.floor(Math.random() * 256);
+  return `web-${[...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('')}`;
+}
+
 async function submitAsk(body) {
   const askState = state.ask;
   if (askState.busy) return;
+  // The same action retried (after a timeout, say) reuses its key so the gateway replays
+  // instead of executing twice; a changed action mints a new key so the user can legitimately
+  // ask for the same thing again.
+  const signature = JSON.stringify(body);
+  if (askState.pendingFor !== signature) {
+    askState.pendingFor = signature;
+    askState.pendingKey = newIdempotencyKey();
+  }
   askState.busy = true; askState.error = ''; askState.note = '';
   try {
-    const result = await ask(body);
+    const result = await ask({ ...body, idempotencyKey: askState.pendingKey });
     if (!result) { askState.error = t('terminal.ask.malformed'); return; }
     askState.result = result;
     askState.confirmed = body.confirm === true;
+    askState.pendingFor = null; askState.pendingKey = null;
     if (result.status === 'UNMATCHED' && !list(result.candidates).length) await ensureTargets();
   } catch (error) { askState.error = error?.message || String(error); } finally {
     askState.busy = false;
@@ -430,7 +452,7 @@ const controller = {
       const record = node('ask-record');
       if (record) record.hidden = !record.hidden;
     } else if (action === 'ask-clear') {
-      state.ask = { input: '', busy: false, result: null, targets: state.ask.targets, error: '', confirmed: false, note: '' };
+      state.ask = { input: '', busy: false, result: null, targets: state.ask.targets, error: '', confirmed: false, note: '', pendingFor: null, pendingKey: null };
       controller.render();
     }
   },

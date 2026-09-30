@@ -81,9 +81,12 @@ if ($stillBusy.Count -gt 0) {
 
 $gateway = Start-Process -FilePath $node -ArgumentList 'services/dev-gateway/main.mjs' -WorkingDirectory $root -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $runtime 'gateway.log') -RedirectStandardError (Join-Path $runtime 'gateway-error.log')
 try {
+    # Readiness here means "the Gateway answered", not "everything is healthy": the Room Hub
+    # is started below, so during this poll the health status is legitimately `degraded`.
+    # The Hub gets its own readiness check afterwards.
     $healthy = $false
     for ($i=0; $i -lt 30; $i++) {
-        try { $health = Invoke-RestMethod "$env:CITY_URL/api/v0/health"; if ($health.status -eq 'healthy') { $healthy = $true; break } } catch {}
+        try { $health = Invoke-RestMethod "$env:CITY_URL/api/v0/health"; if ($health.status) { $healthy = $true; break } } catch {}
         Start-Sleep -Milliseconds 200
     }
     if (!$healthy -or $gateway.HasExited) { throw 'Gateway did not start. Inspect .runtime/gateway-error.log.' }

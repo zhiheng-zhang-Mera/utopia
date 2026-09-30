@@ -26,16 +26,22 @@ import org.json.JSONObject
  var targets by remember { mutableStateOf<List<TargetOption>?>(null) }
  var targetsBusy by remember { mutableStateOf(false) }
  var targetsFailure by remember { mutableStateOf<String?>(null) }
+ var pendingKey by remember { mutableStateOf<String?>(null) }
+ var pendingFor by remember { mutableStateOf<String?>(null) }
  fun send(selection: JSONObject?, confirm: Boolean) {
   if (client == null || busy || text.isBlank()) return
   askFence.invalidate();val ticket = askFence.ticket() ?: return
   busy = true;failure = null
-  client.ask(text.trim(), selection, confirm) { response ->
+  // One key per user action: a retry of the same action replays at the gateway instead of
+  // executing twice, while a changed action gets a new key.
+  val signature = text.trim() + "|" + (selection?.toString() ?: "") + "|" + confirm
+  if (pendingFor != signature) { pendingFor = signature; pendingKey = newIdempotencyKey() }
+  client.ask(text.trim(), selection, confirm, pendingKey) { response ->
    if (!askFence.accepts(ticket)) return@ask
    busy = false
    if (response.has("errorCode")) failure = response.optString("error") else {
     val parsed = runCatching { parseAskResult(payload(response, "ask")) }.getOrElse { null }
-    if (parsed == null) failure = "The gateway returned an unreadable Ask response." else result = parsed
+    if (parsed == null) failure = "The gateway returned an unreadable Ask response." else { result = parsed; pendingFor = null; pendingKey = null }
    }
   }
  }
@@ -46,7 +52,7 @@ import org.json.JSONObject
   client.askTargets { response ->
    if (!targetFence.accepts(ticket)) return@askTargets
    targetsBusy = false
-   if (response.has("errorCode")) targetsFailure = response.optString("error") else targets = runCatching { parseTargets(arrayObjects(payload(response, "targets").optJSONArray("targets"))) }.getOrElse { null }.also { if (it == null) targetsFailure = "The gateway returned an unreadable target list." }
+   if (response.has("errorCode")) targetsFailure = response.optString("error") else targets = runCatching { parseTargetList(response) }.getOrElse { null }.also { if (it == null) targetsFailure = "The gateway returned an unreadable target list." }
   }
  }
  Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {

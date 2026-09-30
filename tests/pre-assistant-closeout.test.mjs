@@ -315,3 +315,95 @@ test('scope: no BOSS or HNS route can be created, by any path', async () => {
     assert.ok(targets.body.targets.every((target) => !/boss|hns/i.test(JSON.stringify(target))));
   }, { roomHubUrl: 'http://127.0.0.1:1' });
 });
+
+test('T1.1: health reflects real readiness instead of being a constant', async () => {
+  // Healthy host.
+  await withStack(async ({ json }) => {
+    const health = await json('health');
+    assert.equal(health.body.status, 'healthy');
+    assert.equal(health.body.components.gateway.state, 'READY');
+    assert.equal(health.body.components.rooms.state, 'READY');
+    assert.match(health.body.components.rooms.hubUrl, /^http:\/\/127\.0\.0\.1:/);
+  });
+  // Same product, dead Room Hub: the status must say so.
+  await withStack(async ({ json }) => {
+    const health = await json('health');
+    assert.equal(health.body.status, 'degraded', 'a supervisor must be able to see the degradation');
+    assert.equal(health.body.components.gateway.state, 'READY');
+    assert.equal(health.body.components.rooms.state, 'UNAVAILABLE');
+    assert.match(health.body.components.rooms.reason, /not reachable|did not answer/i);
+    assert.equal(health.body.components.rooms.hubUrl, null);
+  }, { roomHubUrl: 'http://127.0.0.1:1' });
+});
+
+test('T2: an idempotency key is bound to one request', async () => {
+  await withStack(async ({ json, hubApi }) => {
+    const first = await json('actions', {
+      intent: 'add keyed item to my checklist',
+      route: 'ROOM',
+      target: 'checklist',
+      operation: 'checklist.add-item',
+      input: { itemText: 'keyed item' },
+      idempotencyKey: 'bound-key-1',
+    });
+    assert.equal(first.body.action.status, 'SUCCEEDED');
+
+    // Same key, same request -> replay, no second execution.
+    const replay = await json('actions', {
+      intent: 'add keyed item to my checklist',
+      route: 'ROOM',
+      target: 'checklist',
+      operation: 'checklist.add-item',
+      input: { itemText: 'keyed item' },
+      idempotencyKey: 'bound-key-1',
+    });
+    assert.equal(replay.status, 200);
+    assert.equal(replay.body.action.actionId, first.body.action.actionId);
+
+    // Same key, DIFFERENT request -> refused, never a silent replay of something else.
+    const reused = await json('actions', {
+      intent: 'add a different item to my checklist',
+      route: 'ROOM',
+      target: 'checklist',
+      operation: 'checklist.add-item',
+      input: { itemText: 'a different item' },
+      idempotencyKey: 'bound-key-1',
+    });
+    assert.equal(reused.status, 400);
+    assert.equal(reused.body.errorCode, 'IDEMPOTENCY_KEY_REUSED');
+
+    const lists = await hubApi('/local-rooms/v1/checklist/checklists');
+    const items = lists.checklists.flatMap((list) => list.items).map((item) => item.text);
+    assert.equal(items.filter((text) => text === 'keyed item').length, 1, 'no duplicate execution on replay');
+    assert.equal(items.filter((text) => text === 'a different item').length, 0, 'the reused key must not execute');
+  });
+});
+
+test('T2: City task provenance follows the real task state', async () => {
+  await withStack(async ({ json, node }) => {
+    await node('register', {
+      id: 'closeout-node-2',
+      displayName: 'Closeout reference node',
+      metadata: { platform: 'test' },
+      capabilities: ['task.execute.safe', 'filesystem.temp'],
+    });
+    const created = await json('actions', {
+      intent: 'run a safe task of type HASH_TEMP_ARTIFACT',
+      route: 'CITY_TASK',
+      target: 'city.task',
+      operation: 'HASH_TEMP_ARTIFACT',
+      input: {},
+      idempotencyKey: 'city-task-provenance',
+    });
+    assert.equal(created.body.action.provenance.cityTaskState, 'QUEUED');
+
+    const taskId = created.body.action.backendRef.taskId;
+    await node('claim', { id: 'closeout-node-2' });
+    await node('report', { id: 'closeout-node-2', taskId, state: 'RUNNING', progress: 50 });
+    await node('report', { id: 'closeout-node-2', taskId, state: 'COMPLETED', progress: 100, result: { ok: true } });
+
+    const done = await json(`actions/${created.body.action.actionId}`);
+    assert.equal(done.body.action.status, 'SUCCEEDED');
+    assert.equal(done.body.action.provenance.cityTaskState, 'COMPLETED', 'provenance must not keep claiming QUEUED');
+  });
+});

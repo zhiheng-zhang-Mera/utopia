@@ -20,9 +20,10 @@ Utopia/city/      = 当前实际的城市模块实现层
 | 孵化身份 | 记录位置 | 含义 |
 | --- | --- | --- |
 | Room Pack 孵化房间 | `apps/rooms/promotions/<room>.json` | `apps/rooms/rooms/<room>/` 下真实存在过一个房间，本地验收后才晋升 |
-| mission-book 迁移孵化 | module 上的 `mission` 块 + `Digital-City/mission-book/reports/<MISSION_ID>/` | `Digital-City/mission-book` 是另一套由 Owner 定义的施工控制面：它在 `mission/<MISSION_ID>-<slug>` 分支上直接把代码落到 `city/`，并由**另一台**主机独立验证后才合并 |
+| mission-book 迁移孵化 | module 上的 `mission` 块 + `DONOR.json` + `Digital-City/mission-book/reports/<MISSION_ID>/` | `Digital-City/mission-book` 是另一套由 Owner 定义的施工控制面：它在 `mission/<MISSION_ID>-<slug>` 分支上直接把代码落到 `city/`，并由**另一台**主机独立验证后才合并 |
+| mission-book 项目任务孵化 | module 上的 `mission` 块 + `PROVENANCE.json` + `Digital-City/mission-book/reports/<TASK_ID>/` | 同一控制面下的异步 `BA-`/`RF-`/`GAI-`/`EM-` 任务池；属于 Owner 定义的全新施工，没有 donor，落在 `<programme>/<TASK_ID>-<slug>` 分支上并由另一台主机独立验证 |
 
-mission 形式的孵化 id 形如 `mb-<mission>-<module>-lab`。`city/tests/manifest.test.mjs` 会拒绝：声称该形式却没有对应 `mission` 块的模块，以及清单条目与该模块自己的 `DONOR.json` 不一致的模块。同一个 module 内不得混用两种身份：mission 迁移不是 Room Pack 晋升，混写会让房间晋升记录失去可验证性。
+mission 形式的孵化 id 形如 `mb-<task>-<module>-lab`。`city/tests/manifest.test.mjs` 会拒绝：声称该形式却没有对应 `mission` 块的模块，以及清单条目与该模块自己的溯源文件（迁移是 `DONOR.json`，项目任务是 `PROVENANCE.json`）不一致的模块。同一个 module 内不得混用这些身份：mission-book 任务不是 Room Pack 晋升，混写会让房间晋升记录失去可验证性。项目任务为何必须记 `donor: null` 而不是写一个 donor，见 §4。
 
 ---
 
@@ -250,3 +251,19 @@ MB-003（donor 为 `Codex-Boss @ 8df428e` 与 `DS-Hns @ eeb57ca`）在既有的 
 ### 冻结，与 mission-book 的消费要求
 
 §5 冻结产品面，是为了不让某个 city module 悄悄改掉 Android 与 Web 依赖的协议。而 mission-book 迁移有一个更晚的要求：MB-003 必须被某个既有 task/control 流程真实消费。两者的调和方式仅限如下：当 mission-book 要求时消费接线可以进入 `services/**`，且必须是等价重构——City Control Protocol、Gateway API v0 形状、Runtime Node 任务状态名、事件名与 payload 形状、Android 协议契约都不得改变。因此 `services/capability-bridge/bridge.mjs` 的按能力降级判定改由迁移后的 `provider-resilience` 熔断器作出，而 Utopia 自己的策略（阈值 1、两个 provider 技术性错误码）作为数据传入。
+
+## 9. RF-002 配对与信任——设备节点互联层那栋楼
+
+`Digital-City/mission-book` 后来从单一的迁移队列重整为四个异步项目（`BA-`、`RF-`、`GAI-`、`EM-`），由 `CROSS_PROGRAMME_EXECUTION_CONTRACT.md` 统一调度。这些任务与当年的迁移 mission 一样把代码落到 `city/` 下，但它们是**全新施工**：没有 donor，因此适用 §1 的第三种孵化身份。
+
+RF-002 声明了城市地图早已保留的那栋楼——「城市节点网 City Node Network — Device Node Fabric」，其产权声明覆盖节点/设备主体身份、成员关系与信任：
+
+| Module | 溯源 | 提供什么 |
+| --- | --- | --- |
+| `pairing-trust` | 全新施工（`PROVENANCE.json`，`donor: null`） | 所有加入入口共同收敛到的唯一配对/信任状态机：会话阶段与合法迁移、绑定稳定指纹的临时密钥交换、带可选非权威 MAC 证据的面向人的设备预览、带重放防护的一次性 Owner 确认、过期/取消/拒绝/失败清理、把信任角色当分类而非授权、凭据轮换、撤销、丢失设备撤销、隔离与重新配对、重连再校验，以及一份只证明状态迁移、不携带密钥材料的审计日志 |
+
+其孵化房间为 `mb-rf-002-pairing-trust-lab`，生命周期为 `PROMOTED`，且不声明任何能力：信任是分类，因此该 module 和 `01-city-core` 一样不进能力注册表。
+
+### 冻结，与项目任务的消费要求
+
+§5 冻结产品面。RF-002 是组件任务，不接任何消费者：天然接缝在 `services/dev-gateway/pairing.mjs` 与 `discovery.mjs`，它们今天实现的是一条 descriptor/二维码/短码流程，既没有会话状态机也没有信任记录。`PROVENANCE.json` 记录了这个接缝，并按 `CROSS_PROGRAMME_EXECUTION_CONTRACT.md` §5 推迟到 Remote Fabric 合并工程书——推迟不等于成功。

@@ -38,6 +38,7 @@ const EXPECTED_MODULES = [
   'city/00-foundation/01-city-core/task-lifecycle',
   'city/00-foundation/01-city-core/fleet-routing',
   'city/00-foundation/01-city-core/audit-ledger',
+  'city/00-foundation/02-city-node-network/pairing-trust',
   'city/00-foundation/03-capability-fabric/capability-fabric',
   'city/00-foundation/05-control-centre/theme-engine',
   'city/02-engineering/01-project-foreman/project-foreman',
@@ -134,18 +135,29 @@ test('the manifest and the city tree agree on what exists', async () => {
 });
 
 /**
- * Two incubation identities are recognised by this tree, and they must never blur:
+ * Three incubation identities are recognised by this tree, and they must never blur:
  *
  *   - a Room Pack incubator room, recorded as `apps/rooms/promotions/<id>.json`;
- *   - a mission-book migration incubator, whose id is `mb-<MISSION_ID>-<module>-lab`
- *     and which must ALSO carry a `mission` block.
+ *   - a mission-book **migration** incubator, whose id is `mb-<MISSION_ID>-<module>-lab`,
+ *     which must ALSO carry a `mission` block and a matching `DONOR.json`;
+ *   - a mission-book **programme-task** incubator, whose id is `mb-<TASK_ID>-<module>-lab`
+ *     for the BA/RF/GAI/EM task pool, which must carry a `mission` block and a matching
+ *     `PROVENANCE.json` but must NOT claim a donor.
  *
  * Digital-City/mission-book is a separate Owner-defined control plane: it lands code
- * directly under city/ on a mission branch, accepted by a second host, instead of
- * incubating a live Room first. Recording that honestly is the point of this test —
- * without it, a mission migration could claim a room that never existed and the
- * provenance would be unverifiable.
+ * directly under city/ on its own task branch, accepted by a second host, instead of
+ * incubating a live Room first. Recording that honestly is the point of these tests —
+ * without them, a mission migration could claim a room that never existed and the
+ * provenance would be unverifiable, and a programme task could claim a donor it never had.
  */
+
+/** Mission-book task id shapes. */
+const MIGRATION_TASK_ID = /^MB-[0-9]{3}$/;
+const PROGRAMME_TASK_ID = /^(?:BA|RF|GAI|EM)-[0-9]{3}$/;
+
+/** A mission-book incubator room id: `mb-` + an optional programme prefix + digits + module + `-lab`. */
+const MISSION_ROOM_ID = /^mb-(?:[a-z]{2,4}-)?[0-9]{3}-[a-z0-9-]+-lab$/;
+
 test('mission-book incubators are named and provenanced, and Room Pack incubators are not disguised', async () => {
   const manifest = await loadManifest();
   const modules = flattenModules(manifest);
@@ -162,32 +174,63 @@ test('mission-book incubators are named and provenanced, and Room Pack incubator
     }
     assert.equal(missionRooms.length, rooms.length, `${module.id} must not mix a mission incubator with a Room Pack room`);
     assert.ok(module.mission && typeof module.mission.missionId === 'string', `${module.id} names its mission`);
-    assert.match(
-      module.mission.missionId,
-      /^MB-[0-9]{3}$/,
-      `${module.id} mission id looks like MB-xxx`,
+    const taskId = module.mission.missionId;
+    assert.ok(
+      MIGRATION_TASK_ID.test(taskId) || PROGRAMME_TASK_ID.test(taskId),
+      `${module.id} mission id ${taskId} is a mission-book task id`,
     );
-    const prefix = module.mission.missionId.toLowerCase();
+    const prefix = taskId.toLowerCase();
     for (const room of missionRooms) {
-      assert.match(room, /^mb-[0-9]{3}-[a-z0-9-]+-lab$/, `${module.id} mission incubator room id shape`);
-      assert.ok(room.startsWith(`${prefix}-`), `${module.id} room ${room} must start with its mission id ${prefix}`);
+      assert.match(room, MISSION_ROOM_ID, `${module.id} mission incubator room id shape`);
+      assert.ok(room.includes(prefix), `${module.id} room ${room} must name its task id ${prefix}`);
       assert.ok(room.includes(module.id), `${module.id} room ${room} must name the module it incubated`);
     }
     assert.ok(typeof module.mission.cluster === 'string' && module.mission.cluster.length > 0, `${module.id} names its mission cluster`);
   }
+});
 
-  // The on-disk provenance must agree with the manifest, so the manifest cannot
-  // claim an incubation the module's own DONOR.json does not record.
-  for (const { module } of missionModules) {
-    const donorPath = join(CITY_ROOT, module.path.replace(/^city\//, ''), 'DONOR.json');
-    const donor = JSON.parse(await readFile(donorPath, 'utf8'));
-    assert.equal(donor.module, module.id, `${module.id} DONOR.json names the module`);
-    assert.equal(donor.cityPath, module.path, `${module.id} DONOR.json records the same city path`);
-    assert.deepEqual(donor.incubationRooms, moduleIncubationRooms(module), `${module.id} DONOR.json agrees on the incubator`);
-    assert.equal(donor.commit, module.donor.commit, `${module.id} DONOR.json agrees on the donor commit`);
-    assert.equal(donor.repository, module.donor.repository, `${module.id} DONOR.json agrees on the donor repository`);
-    assert.equal(donor.mission?.missionId, module.mission.missionId, `${module.id} DONOR.json agrees on the mission id`);
-    assert.equal(donor.mission?.cluster, module.mission.cluster, `${module.id} DONOR.json agrees on the cluster`);
+test('a mission-book migration incubator proves a donor; a programme-task incubator proves it has none', async () => {
+  const manifest = await loadManifest();
+  const modules = flattenModules(manifest);
+
+  for (const { module } of modules) {
+    const missionRooms = moduleIncubationRooms(module).filter((room) => room.startsWith('mb-'));
+    if (missionRooms.length === 0) continue;
+    const moduleRoot = join(CITY_ROOT, module.path.replace(/^city\//, ''));
+
+    if (MIGRATION_TASK_ID.test(module.mission.missionId)) {
+      // A migration was ported from a pinned donor, and the on-disk provenance must agree
+      // with the manifest, so the manifest cannot claim an incubation DONOR.json denies.
+      const donor = JSON.parse(await readFile(join(moduleRoot, 'DONOR.json'), 'utf8'));
+      assert.equal(donor.module, module.id, `${module.id} DONOR.json names the module`);
+      assert.equal(donor.cityPath, module.path, `${module.id} DONOR.json records the same city path`);
+      assert.deepEqual(donor.incubationRooms, moduleIncubationRooms(module), `${module.id} DONOR.json agrees on the incubator`);
+      assert.equal(donor.commit, module.donor.commit, `${module.id} DONOR.json agrees on the donor commit`);
+      assert.equal(donor.repository, module.donor.repository, `${module.id} DONOR.json agrees on the donor repository`);
+      assert.equal(donor.mission?.missionId, module.mission.missionId, `${module.id} DONOR.json agrees on the mission id`);
+      assert.equal(donor.mission?.cluster, module.mission.cluster, `${module.id} DONOR.json agrees on the cluster`);
+      continue;
+    }
+
+    // A programme task is new Owner-defined construction. It must not claim a donor, and
+    // PROVENANCE.json — not DONOR.json — is the file that carries its provenance.
+    assert.ok(
+      module.donor === null || module.donor === undefined,
+      `${module.id} is new construction and must not declare a donor`,
+    );
+    assert.ok(
+      typeof module.mission.programme === 'string' && module.mission.programme.length > 0,
+      `${module.id} names the programme that owns it`,
+    );
+    const provenance = JSON.parse(await readFile(join(moduleRoot, 'PROVENANCE.json'), 'utf8'));
+    assert.equal(provenance.module, module.id, `${module.id} PROVENANCE.json names the module`);
+    assert.equal(provenance.cityPath, module.path, `${module.id} PROVENANCE.json records the same city path`);
+    assert.deepEqual(provenance.incubationRooms, moduleIncubationRooms(module), `${module.id} PROVENANCE.json agrees on the incubator`);
+    assert.equal(provenance.mission?.missionId, module.mission.missionId, `${module.id} PROVENANCE.json agrees on the task id`);
+    assert.equal(provenance.mission?.cluster, module.mission.cluster, `${module.id} PROVENANCE.json agrees on the cluster`);
+    assert.equal(provenance.mission?.programme, module.mission.programme, `${module.id} PROVENANCE.json agrees on the programme`);
+    assert.equal(provenance.donor, null, `${module.id} PROVENANCE.json records that there is no donor`);
+    assert.equal(provenance.newConstruction, true, `${module.id} PROVENANCE.json records that it is new construction`);
   }
 });
 

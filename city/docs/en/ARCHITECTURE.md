@@ -18,19 +18,21 @@ wish list: a module is only written as `ACTIVE` / `PROMOTED` once it was incubat
 inside the Room Pack, accepted locally and formally promoted. `DEFERRED` work is
 never written as `ACTIVE`.
 
-Two incubation identities are recognised, and they must never blur:
+Three incubation identities are recognised, and they must never blur:
 
 | Identity | Recorded as | What it means |
 | --- | --- | --- |
 | Room Pack incubator | `apps/rooms/promotions/<room>.json` | a live room under `apps/rooms/rooms/<room>/` was accepted locally, then promoted |
-| mission-book migration incubator | a `mission` block on the module, plus `Digital-City/mission-book/reports/<MISSION_ID>/` | `Digital-City/mission-book` is a separate, Owner-defined control plane: it lands code directly under `city/` on a `mission/<MISSION_ID>-<slug>` branch, and a second, different host verifies it before merge |
+| mission-book migration incubator | a `mission` block on the module, a `DONOR.json`, plus `Digital-City/mission-book/reports/<MISSION_ID>/` | `Digital-City/mission-book` is a separate, Owner-defined control plane: it lands code directly under `city/` on a `mission/<MISSION_ID>-<slug>` branch, and a second, different host verifies it before merge |
+| mission-book programme-task incubator | a `mission` block on the module, a `PROVENANCE.json`, plus `Digital-City/mission-book/reports/<TASK_ID>/` | the same control plane's asynchronous `BA-`/`RF-`/`GAI-`/`EM-` task pool; new Owner-defined construction with no donor, landed on a `<programme>/<TASK_ID>-<slug>` branch and verified by a different host |
 
-A mission-derived incubator id has the form `mb-<mission>-<module>-lab`.
+A mission-derived incubator id has the form `mb-<task>-<module>-lab`.
 `city/tests/manifest.test.mjs` refuses a module that claims one without a matching
 `mission` block, and refuses a module whose manifest entry disagrees with its own
-`DONOR.json`. The two identities may not be mixed inside one module: a mission
-migration is not a Room Pack promotion, and saying otherwise would make the room
-promotion records unverifiable.
+provenance file — `DONOR.json` for a migration, `PROVENANCE.json` for a programme task.
+The identities may not be mixed inside one module: a mission-book task is not a Room Pack
+promotion, and saying otherwise would make the room promotion records unverifiable. See §4
+for why a programme task must record `donor: null` rather than a donor.
 
 ---
 
@@ -327,3 +329,31 @@ runtime node task state names, event names, payload shapes and the Android contr
 unchanged. `services/capability-bridge/bridge.mjs` therefore decides per-capability
 degradation through the migrated `provider-resilience` breaker, with Utopia's policy (one
 failure threshold, two provider-technical error codes) supplied as data.
+
+## 9. RF-002 Pairing & Trust — the Device Node Fabric building
+
+`Digital-City/mission-book` was later restructured from a single migration queue into four
+asynchronous programmes (`BA-`, `RF-`, `GAI-`, `EM-`) scheduled by
+`CROSS_PROGRAMME_EXECUTION_CONTRACT.md`. Those tasks land code under `city/` exactly the way
+the migration missions did, but they are **new construction**: no donor exists, so there is
+nothing to pin and the third incubation identity of §1 applies.
+
+RF-002 declares the building the published City map already reserved as *City Node Network —
+Device Node Fabric*, whose declared ownership covers node/device principal identity,
+membership and trust:
+
+| Module | Provenance | What it provides |
+| --- | --- | --- |
+| `pairing-trust` | new construction (`PROVENANCE.json`, `donor: null`) | one versioned pairing/trust state machine every join entry point converges on: session phases and legal transitions, ephemeral key exchange bound to stable fingerprints, a human-readable device preview with optional non-authoritative MAC evidence, one-time Owner confirmation with replay protection, expiry/cancel/reject/fail cleanup, trust roles as classifications rather than grants, credential rotation, revoke, lost-device revoke, quarantine and re-pair, reconnect revalidation, and an audit log that proves transitions without carrying key material |
+
+Its incubation room is `mb-rf-002-pairing-trust-lab`, its lifecycle is `PROMOTED`, and it
+declares no capability: trust is a classification, so the module stays out of the capability
+registry the same way `01-city-core` does.
+
+### The freeze, and programme-task consumption
+
+§5 freezes the product surfaces. RF-002 is a component task and wires no consumer: the
+natural seam is `services/dev-gateway/pairing.mjs` and `discovery.mjs`, which today implement
+a descriptor/QR/short-code flow with no session state machine and no trust record.
+`PROVENANCE.json` records the seam, deferred to the Remote Fabric merge workbook as
+`CROSS_PROGRAMME_EXECUTION_CONTRACT.md` §5 requires — deferral is not success.

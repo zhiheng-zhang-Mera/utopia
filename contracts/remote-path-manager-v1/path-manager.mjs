@@ -4,7 +4,7 @@
 // bytes travelled over a LAN socket, a NAT-traversed pair, a public address or a relay: transport specifics
 // live behind the injected `TransportAdapterPort`, so swapping adapters changes no caller code.
 //
-// Paths are chosen in a fixed preference order â€” local direct, Internet direct, NAT traversal, relay â€” and a
+// Paths are chosen in a fixed preference order â€?local direct, Internet direct, NAT traversal, relay â€?and a
 // path is adopted only if it is BOTH authenticated and encrypted. LAN is held to exactly the same
 // requirement, so an unauthenticated neighbour cannot be adopted just because it is nearby. Relay is a
 // forwarder of opaque end-to-end protected payloads: it can never authorize a peer, never sees plaintext and
@@ -108,6 +108,12 @@ export function createPathManager({ adapters = {}, clock = () => new Date().toIS
   if (typeof clock !== 'function') throw new PathManagerError('INVALID_CLOCK', 'clock must be a function returning an ISO-8601 UTC instant');
   const config = { ...DEFAULT_PATH_POLICY, ...(isPlainObject(policy) ? policy : {}) };
   if (!Array.isArray(config.preference) || config.preference.length === 0) throw new PathManagerError('INVALID_ADAPTER', 'the preference list must be a non-empty array');
+  // A repeated class would probe and connect the same transport once per entry.
+  if (new Set(config.preference).size !== config.preference.length) throw new PathManagerError('INVALID_ADAPTER', 'the preference list must not repeat a transport class');
+  // A probe budget is a positive, bounded number of milliseconds.
+  if (!Number.isSafeInteger(config.max_probe_ms) || config.max_probe_ms < 1 || config.max_probe_ms > 60000) {
+    throw new PathManagerError('INVALID_ADAPTER', 'max_probe_ms must be an integer between 1 and 60000');
+  }
   for (const transport_class of config.preference) {
     if (!TRANSPORT_CLASSES.includes(transport_class)) throw new PathManagerError('INVALID_ADAPTER', `unknown transport class ${transport_class} in the preference list`);
   }
@@ -149,6 +155,10 @@ export function createPathManager({ adapters = {}, clock = () => new Date().toIS
     if (!isPlainObject(trust) || trust.trust_state !== 'TRUSTED' || !isText(trust.device_id)) {
       throw new PathManagerError('TRUST_REQUIRED', 'a path may only be opened to a peer whose RF-002 trust state is TRUSTED');
     }
+    // A peer/trust record is a reference set, not a place for credentials: they are forwarded verbatim to
+    // the adapter, so secret-shaped fields must not travel with them.
+    const leaked = findSecretFields(trust, 'trust');
+    if (leaked.length > 0) throw new PathManagerError('TRUST_REQUIRED', 'a trust record may not carry secret material: ' + leaked.join(', '));
     return trust;
   };
 
@@ -228,6 +238,9 @@ export function createPathManager({ adapters = {}, clock = () => new Date().toIS
     }
     // A relay is a forwarder: it may not claim to have authorized the peer or seen plaintext.
     if (transport_class === 'RELAY' && (raw.peer_authorized === true || raw.plaintext_access === true || raw.authorizes === true)) {
+      // The transport was already connected: close it before refusing, so a refused relay leaves no open
+      // transport behind.
+      try { if (typeof adapter.close === 'function') adapter.close({ path_ref: raw.path_ref }); } catch { /* nothing to close */ }
       note('RELAY_AUTHORIZATION_REFUSED', at, { path_ref: raw.path_ref });
       throw new PathManagerError('RELAY_CANNOT_AUTHORIZE', 'a relay forwards protected payloads; it never authorizes a peer or sees plaintext', { transport_class });
     }
@@ -255,6 +268,12 @@ export function createPathManager({ adapters = {}, clock = () => new Date().toIS
       selected_reason: reason,
       adapter,
     };
+    // A path reference is not a capability handle to be overwritten: two paths may not share one ref, or
+    // onPathLost/close would act on the wrong session.
+    if (paths.has(path.path_ref)) {
+      try { if (typeof adapter.close === 'function') adapter.close({ path_ref: path.path_ref }); } catch { /* nothing to close */ }
+      return { ok: false, code: 'DUPLICATE_PATH_REF', detail: 'path reference ' + path.path_ref + ' is already registered', transport_class };
+    }
     paths.set(path.path_ref, path);
     return { ok: true, path };
   };
@@ -276,6 +295,8 @@ export function createPathManager({ adapters = {}, clock = () => new Date().toIS
     connect({ peer, trust, session_intent = 'NONE', exclusive_action_key = null, at: when } = {}) {
       const trusted = requireTrust(trust);
       if (!isText(peer?.device_id)) throw new PathManagerError('INVALID_PEER', 'a peer needs a device_id');
+      const peerLeak = findSecretFields(peer, 'peer');
+      if (peerLeak.length > 0) throw new PathManagerError('INVALID_PEER', 'a peer record may not carry secret material: ' + peerLeak.join(', '));
       if (!['NONE', 'EXCLUSIVE'].includes(session_intent)) throw new PathManagerError('INVALID_REQUEST', 'session_intent must be NONE or EXCLUSIVE');
       if (session_intent === 'EXCLUSIVE' && !isText(exclusive_action_key)) throw new PathManagerError('ACTION_KEY_REQUIRED', 'an exclusive session needs an action key so a failover retry cannot duplicate a side effect');
       const at = requireInstant(when ?? now(), 'at');
@@ -322,6 +343,8 @@ export function createPathManager({ adapters = {}, clock = () => new Date().toIS
         installation_id: peer.installation_id ?? null,
         exclusive_action_key: session_intent === 'EXCLUSIVE' ? exclusive_action_key : null,
         path: adopted,
+        // The trust the session was opened with, reused on migration instead of a fabricated record.
+        trust: clone(trusted),
         commands: [],
         migrated: false,
         opened_at: at,
@@ -353,7 +376,8 @@ export function createPathManager({ adapters = {}, clock = () => new Date().toIS
         if (transport_class === previous.transport_class && attempted.length === 0) { attempted.push({ transport_class, tried: false, reason: 'CURRENT_PATH' }); continue; }
         const adapter = adapterFor(transport_class);
         if (adapter === null || (transport_class === 'RELAY' && config.allow_relay !== true)) { attempted.push({ transport_class, tried: false, reason: 'NO_ADAPTER' }); continue; }
-        const opened = openPath({ peer: { device_id: session.device_id, installation_id: session.installation_id }, trust: { device_id: session.device_id, trust_state: 'TRUSTED' }, transport_class, at, reason: 'MIGRATED' });
+        // The session's own recorded trust, not a synthetic 'TRUSTED' record invented at migration time.
+        const opened = openPath({ peer: { device_id: session.device_id, installation_id: session.installation_id }, trust: clone(session.trust ?? { device_id: session.device_id, trust_state: 'TRUSTED' }), transport_class, at, reason: 'MIGRATED' });
         if (opened.ok !== true) { attempted.push({ transport_class, tried: true, adopted: false, reason: opened.code }); continue; }
         attempted.push({ transport_class, tried: true, adopted: true });
         if (previous.adapter && typeof previous.adapter.close === 'function') {
@@ -362,6 +386,8 @@ export function createPathManager({ adapters = {}, clock = () => new Date().toIS
         paths.delete(previous.path_ref);
         session.path = opened.path;
         session.migrated = true;
+        // A migrated session has a live path again: the loss flag was recorded, so it must be cleared.
+        session.path_lost = false;
         session.commands_replayed = false;
         note('PATH_MIGRATED', at, { session_ref, from: previous.transport_class, to: transport_class, reason });
         return freeze({
@@ -399,6 +425,11 @@ export function createPathManager({ adapters = {}, clock = () => new Date().toIS
         throw new PathManagerError('ACTION_KEY_REQUIRED', 'an exclusive session requires the action key on every side-effecting command');
       }
       const at = requireInstant(when ?? now(), 'at');
+      // onPathLost recorded session.path_lost and nothing read it, so a send after the path was declared
+      // lost still called the adapter and reported sent: true.
+      if (session.path_lost === true) {
+        throw new PathManagerError('NO_USABLE_PATH', 'the path for this session was reported lost; migrate before sending');
+      }
       const duplicate = session.commands.find(entry => entry.command_ref === command_ref && entry.action_key === action_key);
       if (duplicate) {
         return freeze({

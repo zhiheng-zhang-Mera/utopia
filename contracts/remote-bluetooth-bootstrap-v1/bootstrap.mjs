@@ -54,6 +54,11 @@ const instantOf = (ms, field) => {
   if (!Number.isFinite(value.getTime())) throw new BluetoothBootstrapError('INVALID_BOOTSTRAP', field + ' is out of range');
   return value.toISOString();
 };
+/** Exactly the fields a bootstrap payload may carry; anything else is refused. */
+export const BOOTSTRAP_PAYLOAD_FIELDS = Object.freeze([
+  'bootstrap_version', 'device_id', 'installation_ref', 'fingerprint', 'ip_candidates', 'nonce',
+  'advertised_at', 'expires_at', 'entry_point', 'grants_trust', 'is_trust', 'mac_is_authority',
+]);
 export const DEVICE_ID_PATTERN = /^dev-[0-9a-f]{32}$/;
 export const FINGERPRINT_PATTERN = /^sha256:[0-9a-f]{64}$/;
 const IP_PATTERN = /^(?:\d{1,3}\.){3}\d{1,3}$|^[0-9a-f:]{3,45}$/i;
@@ -79,6 +84,8 @@ export const BLUETOOTH_TRANSPORT_PORT = Object.freeze({
 });
 
 export function createBluetoothTransportDouble({ payload = null, advertisements = [] } = {}) {
+  // Copied on the way in: holding the caller's array meant a later mutation changed what a scan returns.
+  const scripted = Array.isArray(advertisements) ? structuredClone(advertisements) : [];
   const scans = [];
   return Object.freeze({
     describe: () => ({ transport: 'BLE', bootstrap_only: true, carries_trust: false, payload_bytes_bounded: true }),
@@ -87,9 +94,9 @@ export function createBluetoothTransportDouble({ payload = null, advertisements 
       if (!Number.isSafeInteger(maxRounds) || maxRounds < 1 || maxRounds > MAX_SCAN_ROUNDS) {
         throw new BluetoothBootstrapError('UNBOUNDED_SCAN_REFUSED', `maxRounds must be between 1 and ${MAX_SCAN_ROUNDS}`);
       }
-      const bounded = advertisements.slice(0, maxRounds);
+      const bounded = scripted.slice(0, maxRounds);
       scans.push({ round, emitted: bounded.length });
-      return { advertisements: bounded.map(entry => structuredClone(entry)), truncated: advertisements.length > bounded.length };
+      return { advertisements: bounded.map(entry => structuredClone(entry)), truncated: scripted.length > bounded.length };
     },
     exchange: ({ advertisement_ref }) => ({ advertisement_ref, payload: payload ? structuredClone(payload) : null }),
     __scans: scans,
@@ -148,6 +155,9 @@ export function createBluetoothBootstrap({ adapter, clock = () => null } = {}) {
      */
     receive(payload, { at = clock() } = {}) {
       if (!isBareObject(payload) || !isText(payload.device_id)) throw new BluetoothBootstrapError('INVALID_BOOTSTRAP', 'a bootstrap payload must be a plain own-property object');
+      // Strict shape: a transport- or caller-specific extension (including a prototype-named key) is
+      // not part of a bootstrap payload, so admitting it silently is not an option.
+      for (const key of Reflect.ownKeys(payload)) if (!BOOTSTRAP_PAYLOAD_FIELDS.includes(key)) throw new BluetoothBootstrapError('INVALID_BOOTSTRAP', 'payload.' + String(key) + ' is not part of a bootstrap payload');
       if (payload.bootstrap_version !== BLUETOOTH_BOOTSTRAP_VERSION) throw new BluetoothBootstrapError('INVALID_BOOTSTRAP', `bootstrap_version ${JSON.stringify(payload.bootstrap_version)} is not supported`);
       if (!DEVICE_ID_PATTERN.test(payload.device_id) || !FINGERPRINT_PATTERN.test(payload.fingerprint)) throw new BluetoothBootstrapError('INVALID_BOOTSTRAP', 'the payload must carry a device id and a fingerprint');
       if (payload.grants_trust === true || payload.is_trust === true) throw new BluetoothBootstrapError('BLUETOOTH_IS_NOT_TRUST', 'a bootstrap payload may not claim trust');
@@ -180,6 +190,7 @@ export function createBluetoothBootstrap({ adapter, clock = () => null } = {}) {
         device_id: payload.device_id,
         installation_ref: payload.installation_ref ?? null,
         fingerprint: payload.fingerprint,
+        nonce: payload.nonce,
         ip_candidates: [...payload.ip_candidates],
         expires_at: payload.expires_at,
         state: 'RECEIVED',
@@ -213,6 +224,9 @@ export function createBluetoothBootstrap({ adapter, clock = () => null } = {}) {
       if (record.handed_off) throw new BluetoothBootstrapError('HANDOFF_ALREADY_DONE', `${bootstrapRef} already handed off`);
       // Expiry is re-checked at handoff: the window is short, and a bootstrap received before it lapsed
       // must not become usable long after. EXPIRED was declared vocabulary that nothing ever reached.
+      if (at !== null && at !== undefined && !(typeof at === 'number' && Number.isFinite(at)) && !isIsoInstant(at)) {
+        throw new BluetoothBootstrapError('INVALID_BOOTSTRAP', 'at must be an ISO-8601 UTC instant');
+      }
       const handoffMs = typeof at === 'number' ? at : Date.parse(at);
       if (Number.isFinite(handoffMs) && Date.parse(record.expires_at) <= handoffMs) {
         record.state = 'EXPIRED';

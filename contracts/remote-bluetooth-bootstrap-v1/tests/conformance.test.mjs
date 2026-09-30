@@ -210,3 +210,23 @@ test('a payload must carry a real nonce, real candidates and its own fields', ()
   assert.equal(ok.accepted, true);
   assert.deepEqual([...ok.ip_candidates], ['192.168.1.20', '10.0.0.5']);
 });
+test('a bootstrap payload is strict, and replay protection is auditable', () => {
+  // a transport- or caller-specific extension is not part of a bootstrap payload
+  expectCode(() => bootR().receive(payloadR({ mac: 'aa:bb:cc:dd:ee:ff' })), 'INVALID_BOOTSTRAP');
+  expectCode(() => bootR().receive(payloadR({ ble_name: 'peer' })), 'INVALID_BOOTSTRAP');
+  expectCode(() => bootR().receive(payloadR({ trusted: true })), 'INVALID_BOOTSTRAP');
+  expectCode(() => bootR().receive(payloadR({ constructor: 'x' })), 'INVALID_BOOTSTRAP');
+  // a nonce that is not text cannot be single-use, and the getter case must not mint several bootstraps
+  const trickster = { get nonce() { return { fresh: true }; } };
+  expectCode(() => bootR().receive({ ...payloadR(), nonce: trickster.nonce }), 'INVALID_BOOTSTRAP');
+  // neighbours: a clean payload is accepted, and the nonce it used is retained on the record
+  const live = bootR();
+  const received = live.receive(payloadR({ nonce: 'audit-nonce' }));
+  assert.equal(received.accepted, true);
+  assert.equal(live.state(received.bootstrap_ref).state, 'RECEIVED');
+  const replay = live.receive(payloadR({ nonce: 'audit-nonce' }));
+  assert.equal(replay.code, 'BOOTSTRAP_REPLAYED');
+  // the handoff clock is validated rather than echoed
+  expectCode(() => live.handoffToIp(received.bootstrap_ref, { trust: trustedR(), verifiedFingerprint: FPR, at: 'nonsense' }), 'INVALID_BOOTSTRAP');
+  assert.equal(live.handoffToIp(received.bootstrap_ref, { trust: trustedR(), verifiedFingerprint: FPR, at: T0R + 1000 }).verified_over_new_path, true);
+});

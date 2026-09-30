@@ -1,0 +1,23 @@
+// GAI-004 — API channel + explicit consent + budget policy.
+export {
+  API_CHANNEL_CONTRACT_VERSION,
+  API_PROTOCOLS,
+  CONSENT_KINDS,
+  CONSENT_VERDICTS,
+  ADMISSION_VERDICTS,
+  BUDGET_VERDICTS,
+  API_FAULT_CODES,
+  RETRYABLE_FAULTS,
+  CONSENT_RECORD_SPEC,
+  API_SWITCH_PROPOSAL_SPEC,
+  API_SWITCH_PROPOSAL_INPUT_SPEC,
+  DEFAULT_BUDGET_POLICY,
+  API_CHANNEL_CODES,
+  ApiChannelError,
+  createApiChannel,
+  usageFromResponse,
+  findSecretFields,
+  redact,
+  looksLikeSecretValue,
+  isIsoInstant,
+} from './api-channel.mjs';

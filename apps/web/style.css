@@ -5,3 +5,17 @@
 .lang-row{display:flex;gap:10px;flex-wrap:wrap;margin:6px 0 4px}.lang-option{border:1px solid #cfdccb;background:#fff;color:#22392f;padding:11px 20px}.lang-option.selected{background:#c8eea1;border-color:#a9cd7e;color:#1a382e;font-weight:650}
 
 #service-editor label{display:block;margin:12px 0}#service-editor input:not([type=checkbox]),#service-editor textarea,#service-editor select{box-sizing:border-box;width:100%;max-width:760px;padding:12px;border:1px solid #c5d4c9;border-radius:8px;background:#fff;font:inherit}#service-history .row{width:100%;text-align:left;margin:8px 0;overflow-wrap:anywhere}#service-history small{display:block;white-space:normal}#service-editor details{margin:16px 0}#service-state{margin-left:12px}#services-shell .grid{margin-bottom:20px}
+
+/* Universal Personal Terminal (T1–T3) */
+.nav-group{display:grid;gap:10px;padding-top:12px;border-top:1px solid #2c4a46}.nav-group-label{margin:0 0 2px;padding:0 18px;font-size:10px;letter-spacing:2px;color:#8aa39c;text-transform:uppercase}
+.ask-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:26px 0 0;padding:18px 20px;border:1px solid #dce4d9;background:#fff;border-radius:16px}.ask-bar label{color:#526a5a;font-size:12px;letter-spacing:1.6px;text-transform:uppercase}.ask-bar .ask-input{display:inline-block;margin:0;flex:1 1 260px;width:auto;max-width:none}.ask-bar p{margin:0;flex:1 1 100%}
+.link-button{display:inline-block;text-decoration:none;border-radius:10px;padding:13px 18px;font:inherit}
+.terminal-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:14px 0 4px}
+.terminal-card{text-align:left;display:block;width:100%}.terminal-card p{margin:8px 0}.terminal-card small{display:block;margin-top:6px}
+.terminal-room-grid{margin-top:16px}.terminal-room{display:flex;flex-direction:column}.terminal-room p{margin:12px 0}
+.terminal-frame{width:100%;height:min(70vh,760px);border:1px solid #dce4d9;border-radius:12px;background:#fff;margin-top:16px}
+.terminal-error{color:#a54432;font-size:13px}.terminal-note{border-left:3px solid #b59868;padding-left:12px}
+.terminal-confirm{margin:14px 0;padding:16px;border:1px solid #e2d6bd;background:#fdf9ef;border-radius:12px}.terminal-confirm p{margin:8px 0}
+.terminal-action{width:100%;text-align:left;align-items:flex-start}.terminal-action.selected{border-color:#a9cd7e;background:#f4f9ee}.terminal-action-main{display:block;overflow-wrap:anywhere;padding-right:12px}.terminal-action-main small{display:block;white-space:normal;margin-top:6px}
+.terminal-history{margin:0;padding-left:20px}.terminal-history li{margin-bottom:8px}
+.home-rooms{margin:16px 0}.home-room{text-align:left;display:block;width:100%}.home-room p{margin:10px 0}

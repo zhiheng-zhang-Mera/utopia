@@ -6,7 +6,9 @@ export class Store {
   constructor(dir) {
     mkdirSync(dir,{recursive:true});
     this.db = new DatabaseSync(join(dir,'city.sqlite'));
-    this.db.exec('PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS meta(version INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS tasks(id TEXT PRIMARY KEY, json TEXT NOT NULL); CREATE TABLE IF NOT EXISTS nodes(id TEXT PRIMARY KEY,json TEXT NOT NULL); CREATE TABLE IF NOT EXISTS events(seq INTEGER PRIMARY KEY AUTOINCREMENT,json TEXT NOT NULL);');
+    // `actions` is the product-level Action facade (T2 of the pre-assistant closeout). It
+    // adapts the existing backends; it never replaces the tasks/nodes/invocations tables.
+    this.db.exec('PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS meta(version INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS tasks(id TEXT PRIMARY KEY, json TEXT NOT NULL); CREATE TABLE IF NOT EXISTS nodes(id TEXT PRIMARY KEY,json TEXT NOT NULL); CREATE TABLE IF NOT EXISTS events(seq INTEGER PRIMARY KEY AUTOINCREMENT,json TEXT NOT NULL); CREATE TABLE IF NOT EXISTS actions(id TEXT PRIMARY KEY, json TEXT NOT NULL);');
     const meta=this.db.prepare('SELECT version FROM meta').get();
     if(meta && meta.version!==0) throw new Error('Unsupported stored schema version');
     if(!meta) this.db.prepare('INSERT INTO meta VALUES(0)').run();

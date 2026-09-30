@@ -1,5 +1,6 @@
 import http from 'node:http';
 import {resolve} from 'node:path';
+import {hostname} from 'node:os';
 import {createBridge} from '../capability-bridge/bridge.mjs';
 import {MAX_REQUEST_BYTES,refuse} from '../../contracts/capability-bridge-v1/protocol.mjs';
 import { readFile } from 'node:fs/promises';
@@ -10,6 +11,13 @@ import { Pairing } from './pairing.mjs';
 import { validateTelemetry } from '../../contracts/pairing-v1/descriptor.mjs';
 import { startDiscovery } from './discovery.mjs';
 import { envelope, terminal, validateCommand } from '../../contracts/city-control-v0/protocol.mjs';
+// Product closeout (T1–T3): the Room Pack, the canonical Action facade and the
+// deterministic Ask / Do router. The Room Hub is reached over loopback only; nothing here
+// exposes its port, and no route in this phase can reach Boss or Hns.
+import { createRoomPack } from './rooms.mjs';
+import { createActions } from './actions.mjs';
+import { buildTargets, handleAsk } from './intents.mjs';
+import { serveWeb } from './static.mjs';
 // City Core (MB-001 cluster C). The "can this node accept this work?" decision is
 // owned by the migrated fleet-routing module instead of being re-derived inline
 // here. Utopia's own policy travels as data (REQUIRED_TASK_CAPABILITIES and
@@ -29,7 +37,7 @@ export const REQUIRED_TASK_CAPABILITIES=['task.execute.safe','filesystem.temp'];
 // The Core's node shape, filled from the gateway's own liveness truth. A node that is
 // not online is OFFLINE, and the Core refuses an OFFLINE node whatever it lists.
 const claimNodeFor=n=>({nodeId:n.id,state:n.online?'READY':'OFFLINE',capabilities:n.capabilities,lastHeartbeatAt:Date.parse(n.lastHeartbeatAt)||0,seq:0});
-export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',token,nodeToken,heartbeatTimeout=8000,pairingClock=Date.now,pairingTtlMs=300000,discoveryEnabled=false}) {
+export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',token,nodeToken,heartbeatTimeout=8000,pairingClock=Date.now,pairingTtlMs=300000,discoveryEnabled=false,roomHubUrl=process.env.CITY_ROOMS_URL,roomsDisabled=process.env.CITY_ROOMS_DISABLED==='1',hostId=process.env.CITY_HOST_ID,roomFetch}) {
   if(!token||!nodeToken||token===nodeToken) throw new Error('Separate control and node tokens are required');
   if(host==='0.0.0.0'||host==='::') throw new Error('Configure an explicit loopback or LAN interface');
   const store=new Store(dir); const wss=new WebSocketServer({noServer:true}); let closed=false;
@@ -56,6 +64,24 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   const auth=(req,node=false)=>{const raw=req.headers.authorization||'';if(!equals(raw,'Bearer '+(node?nodeToken:token)))fail(401,'Invalid pairing token');};
   const version=req=>{if(req.headers['x-city-api-version']!=='0'||req.headers['x-city-schema-version']!=='0')fail(409,'Protocol mismatch: apiVersion=0 and schemaVersion=0 required');};
   const bridge=createBridge(store,emit,{artifactRoot:resolve(dir,'theme-packages')});
+  // Product closeout (T1–T3). The Room Hub is reached over loopback only, and the Action
+  // facade is the single user-facing record over Rooms, capabilities and City tasks.
+  const rooms=createRoomPack({baseUrl:roomHubUrl,disabled:roomsDisabled,fetchImpl:roomFetch});
+  // Is some real node currently able to accept the work Utopia places? Decided by the
+  // migrated fleet-routing module, exactly as `/api/v0/node/claim` decides it.
+  const cityAvailability=()=>{
+    const able=store.list('nodes').some(n=>acceptsWork(claimNodeFor(n),{requiredCapabilities:REQUIRED_TASK_CAPABILITIES})===true);
+    return able?{available:true,reason:null}:{available:false,reason:'no online node advertises task.execute.safe and filesystem.temp'};
+  };
+  const cityTasks={
+    terminal,
+    get:id=>store.get('tasks',id),
+    availability:cityAvailability,
+    create:type=>store.atomic(()=>{const t={id:'Q-'+randomUUID(),type,domain:'system',state:'QUEUED',createdAt:now(),updatedAt:now(),assignedNodeId:null,progress:0,lastCheckpoint:null,result:null,error:null};store.put('tasks',t);emit('COMMAND_ACCEPTED',t.id);emit('TASK_CREATED',t.id);return t;}),
+  };
+  const actions=createActions({store,rooms,bridge,cityTasks,host:hostId||hostname()});
+  // Every routable target with its own truthful availability. Nothing here is BOSS/HNS.
+  const askTargets=async()=>{const roomState=await rooms.probe();return buildTargets({roomState,capabilities:bridge.registry(),cityAvailability:cityAvailability(),roomsAvailable:roomState.available});};
   const body=async (req,limit=16384)=>{let size=0;const chunks=[];for await(const c of req){size+=c.length;if(size>limit){if(limit===MAX_REQUEST_BYTES)refuse('INPUT_TOO_LARGE',413);fail(413,'Request too large');}chunks.push(c);}try{return JSON.parse(Buffer.concat(chunks).toString('utf8')||'{}');}catch{if(limit===MAX_REQUEST_BYTES)refuse('INVALID_JSON');fail(400,'Invalid JSON');}};
   const required=(table,id)=>store.get(table,id)||fail(404,'Not found');
   const snapshot=()=>envelope({status:'ONLINE',updatedAt:now(),cityId:store.cityId,displayName:'Utopia · Alien',descriptor:pairing.descriptor(),discovery:discoveryState,nodes:store.list('nodes'),tasks:store.list('tasks'),events:store.events(),capabilities:bridge.registry(),invocations:bridge.list()});
@@ -63,11 +89,26 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
     try {
       const path=new URL(req.url,'http://city').pathname;
       if(!path.startsWith('/api/')){
-        const file={'/':'index.html','/pairing':'index.html','/app.js':'app.js','/services.js':'services.js','/style.css':'style.css','/i18n/en.js':'i18n/en.js','/i18n/zh-CN.js':'i18n/zh-CN.js','/i18n/index.js':'i18n/index.js','/devices.js':'devices.js','/pairing.js':'pairing.js'}[path];if(!file)fail(404,'Not found');
-        const data=await readFile(new URL('../../apps/web/'+file,import.meta.url));
-        res.writeHead(200,{'Content-Type':file.endsWith('.html')?'text/html':file.endsWith('.js')?'text/javascript':'text/css','Cache-Control':'no-store','Referrer-Policy':'no-referrer'});res.end(data);return;
+        // The Web control surface is served from apps/web with containment checking, so a
+        // new product page does not require a transport change.
+        if(await serveWeb(res,path))return;
+        fail(404,'Not found');
       }
-      if(path==='/api/v0/health'){res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify(envelope({status:'healthy'})));return;}
+      // Health has to be able to say "degraded". It used to be the constant `healthy`, so a
+      // supervisor polling this endpoint could not see a dead Room Hub even though the product
+      // surfaces were telling the truth about it.
+      //
+      // The status code stays 200 on purpose: the Gateway itself is serving, and a 503 here
+      // would make every "is the process up?" probe misreport a healthy process as absent. The
+      // degradation is stated explicitly instead, in `status` and in `components`.
+      if(path==='/api/v0/health'){
+        const roomState=await rooms.probe();
+        const components={gateway:{state:'READY'},rooms:{state:roomState.available?'READY':'UNAVAILABLE',reason:roomState.available?null:roomState.reason,hubUrl:roomState.hubUrl}};
+        const degraded=Object.values(components).some(c=>c.state!=='READY');
+        res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
+        res.end(JSON.stringify(envelope({status:degraded?'degraded':'healthy',components})));
+        return;
+      }
       const nodeRoute=path.startsWith('/api/v0/node/');
       const publicPairing=path==='/api/v0/pairing/info'||path==='/api/v0/pairing/exchange';
       if(!publicPairing)auth(req,nodeRoute);version(req);
@@ -81,6 +122,16 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       else if(req.method==='GET' && /^\/api\/v0\/capabilities\/[^/]+$/.test(path))out=bridge.registry().find(c=>c.capabilityId===decodeURIComponent(path.split('/').at(-1)))||refuse('CAPABILITY_NOT_FOUND',404);
       else if(req.method==='POST' && /^\/api\/v0\/capabilities\/[^/]+\/invoke$/.test(path))out=await bridge.invoke(decodeURIComponent(path.split('/').at(-2)),await body(req,MAX_REQUEST_BYTES));
       else if(req.method==='GET' && path==='/api/v0/city')out=snapshot();
+      // --- Pre-assistant product closeout (T1–T3) --------------------------------
+      // Rooms: truthful availability plus the catalog, through the authenticated path.
+      else if(req.method==='GET' && path==='/api/v0/rooms')out={rooms:await rooms.probe()};
+      // Canonical Action facade. Repeating an idempotency key replays, never re-executes.
+      else if(req.method==='GET' && path==='/api/v0/actions')out={actions:actions.list(new URL(req.url,'http://city').searchParams.get('limit')??undefined)};
+      else if(req.method==='GET' && /^\/api\/v0\/actions\/[^/]+$/.test(path))out={action:actions.get(decodeURIComponent(path.split('/').at(-1)))||refuse('ACTION_NOT_FOUND',404)};
+      else if(req.method==='POST' && path==='/api/v0/actions')out=await actions.create(await body(req));
+      // Deterministic Ask / Do. There is no model in this path and no BOSS/HNS route.
+      else if(req.method==='GET' && path==='/api/v0/ask/targets')out={targets:await askTargets()};
+      else if(req.method==='POST' && path==='/api/v0/ask')out={ask:await handleAsk(await body(req),{actions,targets:await askTargets(),roomState:await rooms.probe()})};
       else if(req.method==='GET' && path==='/api/v0/nodes')out={nodes:store.list('nodes')};
       else if(req.method==='GET' && path==='/api/v0/tasks')out={tasks:store.list('tasks')};
       else if(req.method==='GET' && path==='/api/v0/events')out={events:store.events()};

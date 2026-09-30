@@ -1,4 +1,4 @@
-ï»¿// GAI-003 conformance suite â€” General AI Web channel.
+// GAI-003 conformance suite ¡ª General AI Web channel.
 //
 // Acceptance: Web is the default execution channel; persistent profile/login survives an allowed
 // restart/reopen where the platform permits it; channel state is honest and typed; execution is refused in
@@ -195,4 +195,58 @@ test('real-provider acceptance is recorded, never fabricated', () => {
   assert.equal(new Set(WEB_CHANNEL_CODES).size, WEB_CHANNEL_CODES.length);
   assert.equal(new WebChannelError('X', 'y').status, 409);
   assert.equal(GENERAL_AI_WEB_CHANNEL_CONTRACT.provider_page_knowledge_location, 'BELOW_THE_ADAPTER');
+});
+
+/* --------------------------------- 8. regressions (Correction, host Alien) */
+// Every refusal is paired with the legitimate neighbour that must still pass.
+
+import { createWebChannel as makeChannel, createWebChannelAdapterDouble as makeAdapter, isIsoInstant as instantOk, findForbiddenPersistedFields as scanForbidden } from '../index.mjs';
+
+const handlesFor = refs => new Map(refs.map(ref => [ref, { handle_ref: ref }]));
+const harness = (refs = ['handle-A', 'handle-B']) => {
+  const handles = handlesFor(refs);
+  const adapter = makeAdapter({ state: 'READY' });
+  return { adapter, channel: makeChannel({ adapter, handleStore: { resolveHandle: ref => handles.get(ref) || null }, clock: () => null }) };
+};
+
+test('a restore may not take over a live session', () => {
+  const { channel } = harness();
+  const live = channel.open({ providerRef: 'provider-alpha', profileHandleRef: 'handle-A' });
+  const error = expectCode(() => channel.restore({ web_channel_version: 1, session_ref: live.session_ref, provider_ref: 'provider-beta', account_ref: 'account-someone-else', profile_handle_ref: 'handle-B', conversation_refs: ['conversation-from-another-account'] }), 'INVALID_WEB_REQUEST');
+  assert.equal(error.message.includes('already live'), true);
+  assert.equal(channel.persist(live.session_ref).provider_ref, 'provider-alpha', 'the live session keeps its own provider');
+  assert.equal(channel.persist(live.session_ref).profile_handle_ref, 'handle-A');
+  assert.deepEqual([...channel.conversations(live.session_ref)], []);
+  // neighbours: a restore onto an unused ref still works, and it reports the session it created
+  const restored = channel.restore({ web_channel_version: 1, session_ref: 'web-session-9', profile_handle_ref: 'handle-B', conversation_refs: ['conversation-9'] });
+  assert.equal(restored.restored, true);
+  assert.equal(restored.session_ref, 'web-session-9');
+  assert.deepEqual([...channel.conversations('web-session-9').map(entry => entry.session_ref)], ['web-session-9']);
+});
+
+test('a persisted state must be this module version and cannot hide raw browser state', () => {
+  const { channel } = harness();
+  expectCode(() => channel.restore({ web_channel_version: 999, session_ref: 's-1', profile_handle_ref: 'handle-A', conversation_refs: [] }), 'INVALID_WEB_REQUEST');
+  expectCode(() => channel.restore({ session_ref: 's-2', profile_handle_ref: 'handle-A', conversation_refs: [] }), 'INVALID_WEB_REQUEST');
+  const sneaky = { web_channel_version: 1, session_ref: 's-3', profile_handle_ref: 'handle-A', conversation_refs: [] };
+  Object.defineProperty(sneaky, 'cookies', { value: 'RAW-COOKIE-BYTES', enumerable: false, configurable: true, writable: true });
+  assert.deepEqual([...scanForbidden(sneaky)], ['state.cookies'], 'a non-enumerable own cookie field is still raw browser state');
+  expectCode(() => channel.restore(sneaky), 'RAW_COOKIE_IN_CITY_STATE');
+  // neighbours: the enumerable form is refused too, and a clean version-1 state is accepted
+  expectCode(() => channel.restore({ web_channel_version: 1, session_ref: 's-4', profile_handle_ref: 'handle-A', conversation_refs: [], cookies: 'RAW' }), 'RAW_COOKIE_IN_CITY_STATE');
+  assert.equal(harness().channel.restore({ web_channel_version: 1, session_ref: 's-5', profile_handle_ref: 'handle-A', conversation_refs: [] }).restored, true);
+});
+
+test('a persisted instant must be a real instant', () => {
+  const { channel } = harness();
+  expectCode(() => channel.restore({ web_channel_version: 1, session_ref: 's-6', profile_handle_ref: 'handle-A', conversation_refs: [], opened_at: 'nonsense' }), 'INVALID_WEB_REQUEST');
+  expectCode(() => channel.restore({ web_channel_version: 1, session_ref: 's-7', profile_handle_ref: 'handle-A', conversation_refs: [], opened_at: 1e21 }), 'INVALID_WEB_REQUEST');
+  expectCode(() => harness().channel.open({ providerRef: 'provider-alpha', profileHandleRef: 'handle-A', at: 'nonsense' }), 'INVALID_WEB_REQUEST');
+  expectCode(() => harness().channel.open({ providerRef: 'provider-alpha', profileHandleRef: 'handle-A', at: '2026-13-45T99:99:99Z' }), 'INVALID_WEB_REQUEST');
+  // neighbours: real instants are accepted and stored, and unresolved handles are still AUTH_REQUIRED
+  const opened = harness().channel.open({ providerRef: 'provider-alpha', profileHandleRef: 'handle-A', at: '2026-09-30T12:00:00.000Z' });
+  assert.equal(opened.opened_at, '2026-09-30T12:00:00.000Z');
+  assert.equal(instantOk('2026-13-45T99:99:99Z'), false);
+  assert.equal(instantOk('2026-09-30T12:00:00Z'), true);
+  assert.equal(harness().channel.restore({ web_channel_version: 1, session_ref: 's-8', profile_handle_ref: 'handle-missing', conversation_refs: [] }).state, 'AUTH_REQUIRED');
 });

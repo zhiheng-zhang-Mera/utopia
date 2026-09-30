@@ -33,17 +33,47 @@ export class WebChannelError extends Error {
 const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const isText = value => typeof value === 'string' && value.trim().length > 0;
 const clone = value => (value === undefined ? undefined : structuredClone(value));
-export const isIsoInstant = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+const isIsoInstantShape = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+/** Shape is not enough: an impossible instant parses to NaN, and a NaN comparison is always false. */
+export const isIsoInstant = value => {
+  if (!isIsoInstantShape(value)) return false;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) && new Date(parsed).toISOString().slice(0, 19) === value.slice(0, 19);
+};
+
+/** An instant recorded in City state must be a real instant, not caller-shaped text. */
+const atOf = (value, field) => {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const parsed = new Date(value);
+    if (!Number.isFinite(parsed.getTime())) throw new WebChannelError('INVALID_WEB_REQUEST', field + ' is out of range');
+    return parsed.toISOString();
+  }
+  if (isIsoInstant(value)) return value;
+  throw new WebChannelError('INVALID_WEB_REQUEST', field + ' must be an ISO-8601 UTC instant');
+};
 
 /** Raw browser state that must never enter persisted City state. */
 export const FORBIDDEN_PERSISTED_FIELDS = Object.freeze(['cookies', 'cookie', 'raw_cookies', 'storage_state', 'session_storage', 'local_storage', 'tokens', 'token', 'password', 'credentials', 'profile_bytes']);
-export function findForbiddenPersistedFields(value, path = 'state', found = []) {
-  if (Array.isArray(value)) { value.forEach((item, index) => findForbiddenPersistedFields(item, `${path}[${index}]`, found)); return found; }
+/**
+ * Raw browser state must never enter City state. Object.entries sees only enumerable own keys, so a
+ * non-enumerable own cookies field passed the restore scan and was persisted; Reflect.ownKeys sees
+ * every own key. The walk covers caller-supplied data, so it is cycle-safe.
+ */
+export function findForbiddenPersistedFields(value, path = 'state', found = [], seen = new WeakSet()) {
+  if (Array.isArray(value)) {
+    if (seen.has(value)) return found;
+    seen.add(value);
+    value.forEach((item, index) => findForbiddenPersistedFields(item, `${path}[${index}]`, found, seen));
+    return found;
+  }
   if (!isPlainObject(value)) return found;
-  for (const [key, child] of Object.entries(value)) {
-    const childPath = `${path}.${key}`;
-    if (FORBIDDEN_PERSISTED_FIELDS.includes(key)) found.push(childPath);
-    findForbiddenPersistedFields(child, childPath, found);
+  if (seen.has(value)) return found;
+  seen.add(value);
+  for (const key of Reflect.ownKeys(value)) {
+    const childPath = `${path}.${String(key)}`;
+    if (typeof key === 'string' && FORBIDDEN_PERSISTED_FIELDS.includes(key)) found.push(childPath);
+    findForbiddenPersistedFields(value[key], childPath, found, seen);
   }
   return found;
 }
@@ -140,7 +170,7 @@ export function createWebChannel({ adapter, handleStore, clock = () => null } = 
         profile_handle_ref: profileHandleRef,
         conversation_refs: [],
         state: health.state,
-        opened_at: at ?? null,
+        opened_at: atOf(at, 'opened_at'),
         raw_cookies_in_state: false,
       };
       sessions.set(sessionRef, session);
@@ -245,8 +275,16 @@ export function createWebChannel({ adapter, handleStore, clock = () => null } = 
     /** Restore after an allowed restart: a handle that still resolves restores; one that does not, re-auths. */
     restore(persisted) {
       if (!isPlainObject(persisted) || !isText(persisted.profile_handle_ref)) throw new WebChannelError('INVALID_WEB_REQUEST', 'a persisted web channel state is required');
+      // A persisted state from another schema version is not this module's state.
+      if (persisted.web_channel_version !== WEB_CHANNEL_VERSION) throw new WebChannelError('INVALID_WEB_REQUEST', `persisted web_channel_version must be ${WEB_CHANNEL_VERSION}`);
       const forbidden = findForbiddenPersistedFields(persisted);
       if (forbidden.length) throw new WebChannelError('RAW_COOKIE_IN_CITY_STATE', `${forbidden.join(', ')} must never be restored from City state`);
+      // Restoring must never claim a session_ref that is already live: a persisted state from another
+      // provider or account could otherwise take over a running session, which is exactly the
+      // cross-provider corruption the programme forbids.
+      if (isText(persisted.session_ref) && sessions.has(persisted.session_ref)) {
+        throw new WebChannelError('INVALID_WEB_REQUEST', `session ${persisted.session_ref} is already live; close it before restoring over it`);
+      }
       let resolved = null;
       try { resolved = handleStore.resolveHandle(persisted.profile_handle_ref); } catch { resolved = null; }
       if (!resolved) {
@@ -264,7 +302,7 @@ export function createWebChannel({ adapter, handleStore, clock = () => null } = 
         profile_handle_ref: persisted.profile_handle_ref,
         conversation_refs: [...(recovery.conversation_refs ?? [])],
         state: health.state,
-        opened_at: persisted.opened_at ?? null,
+        opened_at: atOf(persisted.opened_at, 'opened_at'),
         raw_cookies_in_state: false,
         restored: true,
       });
@@ -274,7 +312,7 @@ export function createWebChannel({ adapter, handleStore, clock = () => null } = 
     /** Conversation/thread references captured for a session, which is how a chat is reopened. */
     conversations(sessionRef) {
       const session = requireSession(sessionRef);
-      return Object.freeze(session.conversation_refs.map(conversationRef => Object.freeze({ conversation_ref: conversationRef, session_ref: session.sessionRef ?? sessionRef, reopenable: true })));
+      return Object.freeze(session.conversation_refs.map(conversationRef => Object.freeze({ conversation_ref: conversationRef, session_ref: session.session_ref ?? sessionRef, reopenable: true })));
     },
   };
 

@@ -59,15 +59,63 @@ export class FabricError extends Error {
   }
 }
 
-const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+const isPlainObject = value => {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+};
 const isText = value => typeof value === 'string' && value.trim().length > 0;
 const clone = value => (value === undefined ? undefined : structuredClone(value));
 const freeze = value => {
-  if (value === null || typeof value !== 'object') return value;
-  for (const child of Object.values(value)) freeze(child);
-  return Object.freeze(value);
+  const seen = new WeakSet();
+  const walk = node => {
+    if (node === null || typeof node !== 'object') return node;
+    if (seen.has(node)) return node;
+    seen.add(node);
+    for (const child of Object.values(node)) walk(child);
+    return Object.freeze(node);
+  };
+  return walk(value);
 };
 export const isIsoInstant = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+
+/** Shape is not enough: a shape-valid but impossible instant parses to NaN. */
+const INSTANT_PARTS = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?Z$/;
+/** The shape regex accepts a calendar-impossible date, so every component must survive a round trip. */
+const isRealInstant = value => {
+  if (!isIsoInstant(value)) return false;
+  const parts = INSTANT_PARTS.exec(value);
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return false;
+  return date.getUTCFullYear() === Number(parts[1])
+    && date.getUTCMonth() + 1 === Number(parts[2])
+    && date.getUTCDate() === Number(parts[3])
+    && date.getUTCHours() === Number(parts[4])
+    && date.getUTCMinutes() === Number(parts[5])
+    && date.getUTCSeconds() === Number(parts[6]);
+};
+
+/** A caller-supplied instant is validated exactly like the injected clock. */
+const callerInstant = (value, label = 'at') => {
+  if (!isRealInstant(value)) throw new FabricError('INVALID_REQUEST', `${label} must be an ISO-8601 UTC instant such as 2026-01-01T00:00:00Z, got ${String(value)}`);
+  return value;
+};
+const requireText = (value, label) => {
+  if (!isText(value)) throw new FabricError('INVALID_REQUEST', `${label} must be nonempty text when given`);
+  return value;
+};
+const requireResourceClass = value => {
+  if (!RESOURCE_CLASSES.includes(value)) throw new FabricError('INVALID_REQUEST', `resource_class must be one of ${RESOURCE_CLASSES.join(', ')}`, { resource_class: value ?? null, canonical: false });
+  return value;
+};
+const requireNonNegativeInteger = (value, label) => {
+  if (!Number.isSafeInteger(value) || value < 0) throw new FabricError('INVALID_REQUEST', `${label} must be a non-negative integer`);
+  return value;
+};
+const requirePositiveInteger = (value, label) => {
+  if (!Number.isSafeInteger(value) || value <= 0) throw new FabricError('INVALID_REQUEST', `${label} must be a positive integer`);
+  return value;
+};
 
 /** The transport adapter contract: a mock and a real adapter must both satisfy exactly this. */
 export const TRANSPORT_ADAPTER = Object.freeze({
@@ -110,9 +158,17 @@ export function intersectPolicy({ ownerUser = null, callerAssistant = null, devi
     trusted_device_is_permission: false,
     foreground_is_permission: false,
     permission_is_intersectional: true,
-    denial_reason: denied.length === 0 ? null : `MISSING_${denied[0]}`,
+    denial_reason: denied.length === 0 ? null : DENIAL_REASON_BY_AXIS[denied[0]],
   });
 }
+
+/** The reason emitted for the first denied axis, drawn from the exported DENIAL_REASONS vocabulary. */
+const DENIAL_REASON_BY_AXIS = Object.freeze({
+  OWNER_USER: 'NO_OWNDER_USER_GRANT',
+  CALLER_ASSISTANT: 'CALLER_NOT_PERMITTED',
+  DEVICE_CAPABILITY: 'DEVICE_CAPABILITY_MISSING',
+  TASK_ACTION_GRANT: 'TASK_ACTION_GRANT_MISSING',
+});
 
 export const DEFAULT_FABRIC_POLICY = Object.freeze({
   policy_ref: 'policy:rf-fabric-default',
@@ -125,9 +181,24 @@ export function createFabricApi({ transport, policy = null, clock = () => new Da
   if (!isPlainObject(transport) || typeof transport.discover !== 'function' || typeof transport.connect !== 'function') {
     throw new FabricError('INVALID_ADAPTER', 'a FabricTransportAdapter with discover() and connect() is required');
   }
+  const missingPorts = TRANSPORT_ADAPTER.methods.filter(method => typeof transport[method] !== 'function');
+  if (missingPorts.length > 0) {
+    throw new FabricError('INVALID_ADAPTER', `the transport adapter does not implement ${missingPorts.join(', ')}`, { missing_methods: freeze(missingPorts) });
+  }
   if (typeof clock !== 'function') throw new FabricError('INVALID_CLOCK', 'clock must be a function returning an ISO-8601 UTC instant');
   if (policy !== null && typeof policy.evaluate !== 'function') throw new FabricError('INVALID_POLICY', 'a policy port must expose evaluate()');
-  const config = { ...DEFAULT_FABRIC_POLICY, ...(isPlainObject(policy?.config) ? policy.config : {}) };
+  if (policy !== null && policy.config !== undefined && !isPlainObject(policy.config)) {
+    throw new FabricError('INVALID_POLICY', 'policy.config must be an object when given');
+  }
+  const config = { ...DEFAULT_FABRIC_POLICY, ...(policy?.config ?? {}) };
+  if (config.api_version !== FABRIC_API_VERSION) {
+    throw new FabricError('INVALID_POLICY', `policy.config.api_version ${String(config.api_version)} is not ${FABRIC_API_VERSION}`, { api_version: config.api_version ?? null, expected: FABRIC_API_VERSION });
+  }
+  for (const key of ['require_foreground_for', 'exclusive_foreground_for']) {
+    if (!Array.isArray(config[key]) || config[key].some(entry => !RESOURCE_CLASSES.includes(entry))) {
+      throw new FabricError('INVALID_POLICY', `policy.config.${key} must be a list of canonical resource classes`, { invalid_field: key });
+    }
+  }
   const sessions = new Map();
   const subscriptions = new Map();
   const streams = new Map();
@@ -138,8 +209,17 @@ export function createFabricApi({ transport, policy = null, clock = () => new Da
 
   const now = () => {
     const produced = clock();
-    if (!isIsoInstant(produced)) throw new FabricError('INVALID_CLOCK', 'clock() must return an ISO-8601 UTC instant');
+    if (!isRealInstant(produced)) throw new FabricError('INVALID_CLOCK', 'clock() must return an ISO-8601 UTC instant');
     return produced;
+  };
+
+  /** An adapter failure is a transport fact, not an untyped escape: TRANSPORT_FAILED is a declared code. */
+  const callTransport = (method, args, label) => {
+    try {
+      return transport[method](args);
+    } catch (error) {
+      throw new FabricError('TRANSPORT_FAILED', `${label} failed in the transport: ${error?.message ?? String(error)}`, { transport_method: method, cause: error?.message ?? String(error), executed: false });
+    }
   };
 
   const note = (event, at, detail = {}) => {
@@ -148,9 +228,12 @@ export function createFabricApi({ transport, policy = null, clock = () => new Da
   };
 
   const evaluatePolicy = request => {
-    const raw = policy === null
-      ? { owner_user: true, caller_assistant: true, device_capability: true, task_action_grant: true }
-      : policy.evaluate(clone(request));
+    // A Fabric with no policy port cannot evaluate the intersection, and the absence of a policy is
+    // not a grant: otherwise installing nothing would silently allow every capability.
+    if (policy === null) {
+      throw new FabricError('INVALID_POLICY', 'no policy port is installed, so the permission intersection cannot be evaluated', { policy_port_installed: false, granted: false, evaluated: false });
+    }
+    const raw = policy.evaluate(clone(request));
     return intersectPolicy({
       ownerUser: raw?.owner_user === true,
       callerAssistant: raw?.caller_assistant === true,
@@ -159,6 +242,16 @@ export function createFabricApi({ transport, policy = null, clock = () => new Da
       session: request.session?.state ?? null,
       presence: request.presence_state ?? null,
     });
+  };
+
+  /** A session authorizes its own device only: a session for another device is not a credential for this one. */
+  const requireSessionFor = (session_ref, device_ref) => {
+    const session = sessions.get(session_ref) ?? null;
+    if (session === null) return null;
+    if (session.device_ref !== device_ref) {
+      throw new FabricError('INVALID_REQUEST', `session ${session_ref} belongs to ${session.device_ref}, not ${device_ref}`, { session_ref, session_device_ref: session.device_ref, device_ref, session_bound_to_subject: false });
+    }
+    return session;
   };
 
   const requireDevice = device_ref => {
@@ -179,8 +272,8 @@ export function createFabricApi({ transport, policy = null, clock = () => new Da
 
     /** Discovery returns canonical references; it carries no transport detail and no permission. */
     discover({ query = {}, at: when } = {}) {
-      const at = when ?? now();
-      const found = transport.discover({ query: clone(query) });
+      const at = when === undefined || when === null ? now() : callerInstant(when);
+      const found = callTransport('discover', { query: clone(query) }, 'discover');
       note('DISCOVERED', at, { count: Array.isArray(found) ? found.length : 0 });
       return freeze({
         contract_version: FABRIC_API_VERSION,
@@ -199,15 +292,20 @@ export function createFabricApi({ transport, policy = null, clock = () => new Da
     },
 
     pair({ device_ref, invitation_ref = null, at: when } = {}) {
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       requireDevice(device_ref);
       if (typeof transport.pair !== 'function') throw new FabricError('NOT_SUPPORTED_BY_VERSION', 'this adapter does not implement pair()');
-      const result = transport.pair({ device_ref, invitation_ref });
+      const result = callTransport('pair', { device_ref, invitation_ref }, 'pair');
+      // Trust is what the trust protocol reports, never what the boundary invents.
+      const trustState = result?.trust_state;
+      if (!isText(trustState)) {
+        throw new FabricError('TRANSPORT_FAILED', 'the transport did not report a pairing/trust state', { device_ref, trust_state: null, pairing_recorded: false });
+      }
       note('PAIRED', at, { device_ref });
       return freeze({
         contract_version: FABRIC_API_VERSION,
         device_ref,
-        trust_state: result?.trust_state ?? 'TRUSTED',
+        trust_state: trustState,
         pairing_ref: result?.pairing_ref ?? null,
         grants_permission: false,
         grants_task_ownership: false,
@@ -217,11 +315,21 @@ export function createFabricApi({ transport, policy = null, clock = () => new Da
 
     /** Connect returns a session. A session is connectivity, never permission. */
     connect({ device_ref, capability_id = null, at: when } = {}) {
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       requireDevice(device_ref);
-      const result = transport.connect({ device_ref, capability_id });
+      const result = callTransport('connect', { device_ref, capability_id }, 'connect');
+      // Authenticated encryption is required by default, not asserted by default: an adapter that
+      // reports otherwise must not yield a session that claims authenticated and encrypted.
+      if (result?.authenticated === false || result?.encrypted === false) {
+        throw new FabricError('TRANSPORT_FAILED', `the transport did not establish an authenticated, encrypted session with ${device_ref}`, { device_ref, authenticated: result?.authenticated ?? null, encrypted: result?.encrypted ?? null, session_created: false });
+      }
       counter += 1;
-      const session_ref = result?.session_ref ?? `session:${counter}`;
+      const session_ref = result?.session_ref === undefined || result?.session_ref === null
+        ? `session:${counter}`
+        : requireText(result.session_ref, 'session_ref');
+      if (sessions.has(session_ref)) {
+        throw new FabricError('INVALID_ADAPTER', `the transport reused session identifier ${session_ref}`, { session_ref, existing_device_ref: sessions.get(session_ref).device_ref, duplicate_identifier: true });
+      }
       const session = {
         session_ref,
         device_ref,
@@ -244,7 +352,7 @@ export function createFabricApi({ transport, policy = null, clock = () => new Da
 
     /** Canonical identity resolution: upper layers must not invent their own device namespace. */
     resolveDevice({ device_ref, competing_namespace = null, at: when } = {}) {
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       if (competing_namespace !== null) {
         throw new FabricError('COMPETING_IDENTITY_NAMESPACE', 'upper layers must reference the canonical RF device identity rather than minting their own', {
           device_ref, competing_namespace, canonical_namespace: 'REMOTE_FABRIC_DEVICE',
@@ -264,9 +372,9 @@ export function createFabricApi({ transport, policy = null, clock = () => new Da
     },
 
     listCapabilities({ device_ref, at: when } = {}) {
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       requireDevice(device_ref);
-      const capabilities = typeof transport.listCapabilities === 'function' ? transport.listCapabilities({ device_ref }) : [];
+      const capabilities = typeof transport.listCapabilities === 'function' ? callTransport('listCapabilities', { device_ref }, 'listCapabilities') : [];
       note('CAPABILITIES_LISTED', at, { device_ref, count: Array.isArray(capabilities) ? capabilities.length : 0 });
       return freeze({
         contract_version: FABRIC_API_VERSION,
@@ -288,23 +396,32 @@ export function createFabricApi({ transport, policy = null, clock = () => new Da
      * foreground-sensitive resource, the device-local foreground/confirmation requirement.
      */
     invoke({ device_ref, capability_id, capability_version = 1, resource_class = null, session_ref = null, action_ref = null, arguments_ref = null, at: when } = {}) {
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       requireDevice(device_ref);
       if (!isText(capability_id)) throw new FabricError('INVALID_REQUEST', 'capability_id is required');
-      const advertised = typeof transport.listCapabilities === 'function' ? (transport.listCapabilities({ device_ref }) ?? []) : [];
+      const advertised = typeof transport.listCapabilities === 'function' ? (callTransport('listCapabilities', { device_ref }, 'listCapabilities') ?? []) : [];
       const match = advertised.find(capability => capability.capability_id === capability_id);
       if (!match) {
         throw new FabricError('CAPABILITY_NOT_ADVERTISED', `${device_ref} does not advertise ${capability_id}`, { device_ref, capability_id, advertised: false, executed: false });
       }
-      if (match.capability_version !== undefined && match.capability_version !== capability_version) {
-        throw new FabricError('NOT_SUPPORTED_BY_VERSION', `capability ${capability_id} is advertised at version ${match.capability_version}`, {
-          device_ref, capability_id, requested_version: capability_version, advertised_version: match.capability_version, coerced: false,
+      const advertisedVersion = match.capability_version ?? 1;
+      if (advertisedVersion !== capability_version) {
+        throw new FabricError('NOT_SUPPORTED_BY_VERSION', `capability ${capability_id} is advertised at version ${advertisedVersion}`, {
+          device_ref, capability_id, requested_version: capability_version, advertised_version: advertisedVersion, coerced: false,
         });
       }
-      const session = session_ref === null ? null : sessions.get(session_ref) ?? null;
-      const presence = typeof transport.getPresence === 'function' ? transport.getPresence({ device_ref }) : null;
+      const declaredResourceClass = resource_class === null || resource_class === undefined ? null : requireResourceClass(resource_class);
+      const advertisedResourceClass = match.resource_class === undefined ? null : match.resource_class;
+      if (advertisedResourceClass !== null && declaredResourceClass !== null && advertisedResourceClass !== declaredResourceClass) {
+        throw new FabricError('INVALID_REQUEST', `the advertisement declares resource class ${advertisedResourceClass}, not ${declaredResourceClass}`, { device_ref, capability_id, advertised_resource_class: advertisedResourceClass, requested_resource_class: declaredResourceClass });
+      }
+      // The advertisement is authoritative when the caller is silent, so a foreground-sensitive
+      // capability cannot be invoked without its device-local requirement merely by omitting the class.
+      const effectiveResourceClass = declaredResourceClass ?? advertisedResourceClass;
+      const session = session_ref === null ? null : requireSessionFor(session_ref, device_ref);
+      const presence = typeof transport.getPresence === 'function' ? callTransport('getPresence', { device_ref }, 'getPresence') : null;
       const decision = evaluatePolicy({
-        device_ref, capability_id, resource_class, action_ref,
+        device_ref, capability_id, resource_class: effectiveResourceClass, action_ref,
         session, presence_state: presence?.state ?? null,
       });
       if (!decision.granted) {
@@ -317,27 +434,37 @@ export function createFabricApi({ transport, policy = null, clock = () => new Da
         });
       }
 
-      // Foreground-sensitive resources: device-local policy may demand foreground ownership or confirmation.
-      if (resource_class !== null && config.require_foreground_for.includes(resource_class)) {
-        const exclusive = config.exclusive_foreground_for.includes(resource_class);
+      // A capability whose advertisement declares that it needs local confirmation needs it however the
+      // caller labelled the resource: the advertisement is authoritative, not the request.
+      if (match.requires_user_confirmation === true) {
+        throw new FabricError('USER_CONFIRMATION_REQUIRED', `${capability_id} requires local user confirmation on ${device_ref}`, {
+          device_ref, capability_id, resource_class: effectiveResourceClass, confirmation_required: true, delivered_locally: true, executed: false,
+        });
+      }
+      // Foreground-sensitive resources: device-local policy may demand foreground ownership.
+      let foregroundRequired = false;
+      let foregroundOwner = null;
+      if (effectiveResourceClass !== null && config.require_foreground_for.includes(effectiveResourceClass)) {
+        foregroundRequired = true;
+        const exclusive = config.exclusive_foreground_for.includes(effectiveResourceClass);
         const owner = foregroundOwners.get(device_ref) ?? null;
+        foregroundOwner = owner;
+        if (exclusive && action_ref === null) {
+          throw new FabricError('INVALID_REQUEST', 'an exclusive foreground resource needs the action that owns it', { device_ref, resource_class: effectiveResourceClass, action_ref: null, exclusive: true, executed: false });
+        }
         if (exclusive && owner !== null && owner !== action_ref) {
           throw new FabricError('FOREGROUND_CONFLICT', `${device_ref} grants exclusive foreground to ${owner}`, {
-            device_ref, resource_class, foreground_owner: owner, requested_by: action_ref, fabric_decides_ownership: false,
+            device_ref, resource_class: effectiveResourceClass, foreground_owner: owner, requested_by: action_ref, fabric_decides_ownership: false,
           });
-        }
-        if (match.requires_user_confirmation === true) {
-          throw new FabricError('USER_CONFIRMATION_REQUIRED', `${capability_id} requires local user confirmation on ${device_ref}`, {
-            device_ref, capability_id, resource_class, confirmation_required: true, delivered_locally: true, executed: false,
-          });
-        }
-        if (owner === null && action_ref !== null) {
-          foregroundOwners.set(device_ref, action_ref);
-          if (exclusive) foregroundOwners.set(device_ref, action_ref);
         }
       }
 
-      const result = transport.invoke({ device_ref, capability_id, capability_version, session_ref, action_ref, arguments_ref });
+      const result = callTransport('invoke', { device_ref, capability_id, capability_version, session_ref, action_ref, arguments_ref }, 'invoke');
+      // A foreground claim exists only for an invocation that was actually made: a transport failure
+      // must not leave the exclusive foreground held by an action that never ran.
+      if (foregroundRequired && foregroundOwner === null && action_ref !== null) {
+        foregroundOwners.set(device_ref, action_ref);
+      }
       note('INVOKED', at, { device_ref, capability_id });
       return freeze({
         contract_version: FABRIC_API_VERSION,
@@ -357,7 +484,7 @@ export function createFabricApi({ transport, policy = null, clock = () => new Da
 
     /** Release an exclusive foreground claim held under the device-local policy. */
     releaseForeground({ device_ref, action_ref = null, at: when } = {}) {
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       requireDevice(device_ref);
       const owner = foregroundOwners.get(device_ref) ?? null;
       if (owner === null) return freeze({ contract_version: FABRIC_API_VERSION, device_ref, released: false, reason: 'NOT_HELD', at });
@@ -370,38 +497,58 @@ export function createFabricApi({ transport, policy = null, clock = () => new Da
     },
 
     subscribe({ device_ref, topic, from_sequence = 1, at: when } = {}) {
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       requireDevice(device_ref);
       if (!isText(topic)) throw new FabricError('INVALID_REQUEST', 'topic is required');
+      const resumeFrom = requireNonNegativeInteger(from_sequence, 'from_sequence');
       counter += 1;
       const subscription_ref = `subscription:${counter}`;
-      subscriptions.set(subscription_ref, { subscription_ref, device_ref, topic, from_sequence, created_at: at });
-      if (typeof transport.subscribe === 'function') transport.subscribe({ device_ref, topic, from_sequence });
+      subscriptions.set(subscription_ref, { subscription_ref, device_ref, topic, from_sequence: resumeFrom, created_at: at });
+      if (typeof transport.subscribe === 'function') callTransport('subscribe', { device_ref, topic, from_sequence: resumeFrom }, 'subscribe');
       note('SUBSCRIBED', at, { device_ref, topic });
       return freeze({
         contract_version: FABRIC_API_VERSION,
         subscription_ref,
         device_ref,
         topic,
-        from_sequence,
+        from_sequence: resumeFrom,
         is_rpc: false,
         reconnectable: true,
         at,
       });
     },
 
-    openStream({ device_ref, capability_id, stream_kind = 'TOKEN', window = 4, session_ref = null, at: when } = {}) {
-      const at = when ?? now();
+    openStream({ device_ref, capability_id, stream_kind = 'TOKEN', window = 4, session_ref = null, action_ref = null, at: when } = {}) {
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       requireDevice(device_ref);
       if (!isText(capability_id)) throw new FabricError('INVALID_REQUEST', 'capability_id is required');
-      const decision = evaluatePolicy({ device_ref, capability_id, resource_class: null, session: session_ref === null ? null : sessions.get(session_ref) ?? null });
+      const streamWindow = requirePositiveInteger(window, 'window');
+      // A stream executes a capability, so it runs the same gates as invoke: an unadvertised capability,
+      // a device-local confirmation requirement and the foreground rule all apply on this path too.
+      const advertised = typeof transport.listCapabilities === 'function' ? (callTransport('listCapabilities', { device_ref }, 'listCapabilities') ?? []) : [];
+      const match = advertised.find(capability => capability.capability_id === capability_id);
+      if (!match) {
+        throw new FabricError('CAPABILITY_NOT_ADVERTISED', `${device_ref} does not advertise ${capability_id}`, { device_ref, capability_id, advertised: false, opened: false });
+      }
+      const streamResourceClass = match.resource_class === undefined ? null : match.resource_class;
+      if (match.requires_user_confirmation === true) {
+        throw new FabricError('USER_CONFIRMATION_REQUIRED', `${capability_id} requires local user confirmation on ${device_ref}`, { device_ref, capability_id, resource_class: streamResourceClass, confirmation_required: true, delivered_locally: true, opened: false });
+      }
+      if (streamResourceClass !== null && config.require_foreground_for.includes(streamResourceClass)) {
+        const owner = foregroundOwners.get(device_ref) ?? null;
+        if (config.exclusive_foreground_for.includes(streamResourceClass) && owner !== null && owner !== action_ref) {
+          throw new FabricError('FOREGROUND_CONFLICT', `${device_ref} grants exclusive foreground to ${owner}`, { device_ref, resource_class: streamResourceClass, foreground_owner: owner, requested_by: action_ref, fabric_decides_ownership: false });
+        }
+      }
+      const session = session_ref === null ? null : requireSessionFor(session_ref, device_ref);
+      const decision = evaluatePolicy({ device_ref, capability_id, resource_class: streamResourceClass, action_ref, session });
       if (!decision.granted) {
         throw new FabricError('POLICY_DENIED', `the policy intersection denied a stream for ${capability_id}`, { device_ref, capability_id, denied_axes: decision.denied_axes, decision, executed: false });
       }
       counter += 1;
       const stream_ref = `stream:${counter}`;
-      streams.set(stream_ref, { stream_ref, device_ref, capability_id, stream_kind, window, state: 'OPEN', created_at: at });
-      if (typeof transport.openStream === 'function') transport.openStream({ device_ref, capability_id, stream_kind, window });
+      streams.set(stream_ref, { stream_ref, device_ref, capability_id, stream_kind, window: streamWindow, state: 'OPEN', created_at: at });
+      if (typeof transport.openStream === 'function') callTransport('openStream', { device_ref, capability_id, stream_kind, window: streamWindow }, 'openStream');
       note('STREAM_OPENED', at, { device_ref, capability_id });
       return freeze({
         contract_version: FABRIC_API_VERSION,
@@ -418,9 +565,9 @@ export function createFabricApi({ transport, policy = null, clock = () => new Da
 
     /** Presence is reachability metadata and is explicitly not permission. */
     getPresence({ device_ref, at: when } = {}) {
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       requireDevice(device_ref);
-      const presence = typeof transport.getPresence === 'function' ? transport.getPresence({ device_ref }) : null;
+      const presence = typeof transport.getPresence === 'function' ? callTransport('getPresence', { device_ref }, 'getPresence') : null;
       return freeze({
         contract_version: FABRIC_API_VERSION,
         device_ref,
@@ -434,12 +581,17 @@ export function createFabricApi({ transport, policy = null, clock = () => new Da
     },
 
     revokeDevice({ device_ref, reason = 'USER_REVOKED', at: when } = {}) {
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       if (!isText(device_ref)) throw new FabricError('INVALID_REQUEST', 'device_ref is required');
       revoked.add(device_ref);
       for (const [session_ref, session] of sessions) if (session.device_ref === device_ref) sessions.delete(session_ref);
       for (const [stream_ref, stream] of streams) if (stream.device_ref === device_ref) stream.state = 'REVOKED';
-      if (typeof transport.disconnect === 'function') transport.disconnect({ device_ref });
+      const foregroundReleased = foregroundOwners.delete(device_ref);
+      if (typeof transport.disconnect === 'function') callTransport('disconnect', { device_ref }, 'disconnect');
+      // Presence belongs to the transport, so whether it was cleared is measured after asking the
+      // transport rather than asserted: a hardcoded true would hide a transport that still reports ONLINE.
+      const presenceAfter = typeof transport.getPresence === 'function' ? callTransport('getPresence', { device_ref }, 'getPresence') : null;
+      const presenceStateAfter = presenceAfter?.state ?? 'UNKNOWN';
       note('DEVICE_REVOKED', at, { device_ref, reason });
       return freeze({
         contract_version: FABRIC_API_VERSION,
@@ -447,7 +599,9 @@ export function createFabricApi({ transport, policy = null, clock = () => new Da
         revoked: true,
         reason,
         sessions_closed: true,
-        presence_cleared: true,
+        foreground_released: foregroundReleased,
+        presence_cleared: !['ONLINE', 'BUSY', 'DEGRADED'].includes(presenceStateAfter),
+        presence_state_after: presenceStateAfter,
         permission_granted: false,
         requires_revocation_not_just_disconnect: true,
         at,
@@ -455,11 +609,14 @@ export function createFabricApi({ transport, policy = null, clock = () => new Da
     },
 
     disconnect({ device_ref, session_ref = null, at: when } = {}) {
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       requireDevice(device_ref);
-      if (session_ref !== null) sessions.delete(session_ref);
+      if (session_ref !== null) {
+        requireSessionFor(session_ref, device_ref);
+        sessions.delete(session_ref);
+      }
       else for (const [key, session] of sessions) if (session.device_ref === device_ref) sessions.delete(key);
-      if (typeof transport.disconnect === 'function') transport.disconnect({ device_ref });
+      if (typeof transport.disconnect === 'function') callTransport('disconnect', { device_ref }, 'disconnect');
       note('DISCONNECTED', at, { device_ref });
       return freeze({
         contract_version: FABRIC_API_VERSION,

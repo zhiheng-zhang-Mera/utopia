@@ -10,21 +10,29 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import city.utopia.control.theme.Space
+import city.utopia.control.theme.UtopiaColors
+import city.utopia.control.theme.UtopiaIcons
+import city.utopia.control.theme.UtopiaTheme
 import org.json.JSONArray
 import org.json.JSONObject
 
-private val Ink = Color(0xFF19382F)
-private val Moss = Color(0xFFC8EEA1)
+/* UI-102: the old brand pair is remapped onto the adopted direction so the screens
+   that already referenced Ink/Moss move with the theme instead of needing edits.
+   Ink is now the body ink, Moss the lime signal. */
+private val Ink = UtopiaColors.Ink
+private val Moss = UtopiaColors.Lime
 private fun JSONArray?.objects(): List<JSONObject> = if (this == null) emptyList() else (0 until length()).map { getJSONObject(it) }
 
 class MainActivity : ComponentActivity() {
- override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); setContent { MaterialTheme(colorScheme = lightColorScheme(primary = Ink, secondary = Moss, background = Color(0xFFF4F6F0))) { CityApp() } } }
+ override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); setContent { UtopiaTheme { CityApp() } } }
  @Composable private fun CityApp() {
   val log = remember { PilotLog(this@MainActivity) }
   var now by remember { mutableStateOf(java.time.Instant.now()) }
@@ -47,11 +55,39 @@ class MainActivity : ComponentActivity() {
   val tasks = state.snapshot?.optJSONArray("tasks").objects()
   val nodes = state.snapshot?.optJSONArray("nodes").objects()
   val events = state.snapshot?.optJSONArray("events").objects()
-  Scaffold(containerColor = Color(0xFFF4F6F0), bottomBar = {
-   NavigationBar(containerColor = Color.White) { listOf("Home" to "◈", "Ask" to "❯", "Rooms" to "▦", "Action" to "≣", "Devices" to "◇", "Services" to "◉", "Tasks" to "▤", "Activity" to "≋", "Settings" to "⚙").forEach { (name, icon) -> NavigationBarItem(selected = page == name, onClick = { page = name; selected = null; selectedNode = null }, icon = { Text(icon, fontSize = 22.sp) }, label = { Text(name) }) } }
+  /* UI-102: five phone-sized primary entries instead of nine, and real tintable
+     vector icons instead of Unicode geometry drawn as text. Everything that is not a
+     primary surface is reachable from the header overflow, so no capability is lost
+     while the bar stops being a wall of tabs. */
+  val primaryNav = listOf(
+   "Home" to UtopiaIcons.Home,
+   "Ask" to UtopiaIcons.Ask,
+   "Rooms" to UtopiaIcons.Tools,
+   "Devices" to UtopiaIcons.Devices,
+   "Activity" to UtopiaIcons.Activity,
+  )
+  val advancedNav = listOf(
+   "Services" to "能力服务",
+   "Tasks" to "任务",
+   "Action" to "操作记录",
+   "Settings" to "设置",
+   "Find" to "配对",
+  )
+  val advancedOpen = remember { mutableStateOf(false) }
+  Scaffold(containerColor = MaterialTheme.colorScheme.background, bottomBar = {
+   NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+    primaryNav.forEach { (name, vector) ->
+     NavigationBarItem(
+      selected = page == name,
+      onClick = { page = name; selected = null; selectedNode = null },
+      icon = { Icon(vector, contentDescription = null) },
+      label = { Text(name, maxLines = 1) },
+     )
+    }
+   }
   }) { padding ->
-   LazyColumn(Modifier.fillMaxSize().padding(padding).imePadding().padding(horizontal = 22.dp), verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(top = 22.dp, bottom = 28.dp)) {
-    item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("UTOPIA", color = Ink, fontWeight = FontWeight.Bold, letterSpacing = 3.sp); Text(state.connection, color = if (online) Color(0xFF456B29) else Color(0xFFA15C38), fontSize = 12.sp) } }
+   LazyColumn(Modifier.fillMaxSize().padding(padding).imePadding().padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(Space.md), contentPadding = PaddingValues(top = Space.lg, bottom = Space.xl)) {
+    item { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Text("UTOPIA", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, letterSpacing = 3.sp); Spacer(Modifier.weight(1f)); Text(state.connection, color = if (online) UtopiaColors.Lime else UtopiaColors.Warn, fontSize = 12.sp); Box { IconButton(onClick = { advancedOpen.value = true }) { Icon(UtopiaIcons.More, contentDescription = "更多", tint = MaterialTheme.colorScheme.onSurfaceVariant) }; DropdownMenu(expanded = advancedOpen.value, onDismissRequest = { advancedOpen.value = false }) { advancedNav.forEach { (target, label) -> DropdownMenuItem(text = { Text(label) }, onClick = { page = target; selected = null; selectedNode = null; advancedOpen.value = false }) } } } } }
     item { Column { Text(if (selected != null) "Task details" else when (page) { "Home" -> "Digital City"; "Find" -> "Welcome"; "Ask" -> "Ask / Do"; "Rooms" -> "Rooms · local tools"; "Action" -> "Actions"; "Devices" -> if(selectedNode == null) "Devices" else "Device details"; "Services" -> "City services"; "Tasks" -> "Your tasks"; "Activity" -> "City activity"; else -> "Connect your city" }, fontSize = 32.sp, color = Ink, fontWeight = FontWeight.Medium); Text(if (online) "Your devices. One shared view." else "Cached information · connection is not live", fontSize = 12.sp, color = Color.Gray) } }
     if (state.message.isNotBlank()) item { Text(state.message, color = Color(0xFFA15C38), fontSize = 12.sp) }
     if (page == "Find") {

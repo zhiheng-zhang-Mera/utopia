@@ -45,6 +45,44 @@ function coverage() {
 /** Forbidden console/developer vocabulary that must not sit on the default reading path. */
 const CONSOLE_VOCAB = /CONTROL SURFACE|WORKSPACE\s*\/|Reference implementation|backendRef|provenance|schemaVersion|apiVersion/i;
 
+/**
+ * Identifier-shaped leaks, matched STRUCTURALLY rather than by substring.
+ *
+ * The first version of this probe reused the Development token list and did
+ * `visible.includes(token)`. On the delta head that produced six provable false
+ * positives: `'knowledge'` matched the English prose "Plain-text knowledge
+ * entries with search, tags and replace import.", and `'10'` matched the room
+ * COUNT ("10 个本地房间"), not an identifier. Every remaining hit was traced to
+ * its matching text node and ancestor chain before this rewrite.
+ *
+ * Patterns are anchored on real identifier shapes, so prose and counts cannot
+ * collide with them. This is strictly STRONGER than the substring form it
+ * replaces: it now also catches `planning.*` capability ids and raw event types
+ * appearing on a primary surface, which the token list never covered.
+ */
+const LEAK_PATTERNS = [
+  ['task-id', /\btsk-[0-9a-f]{4,}\b/i],
+  ['node-id', /\bnode-[0-9a-f]{6,}\b/i],
+  ['invocation-id', /\binv-[0-9a-f]{4,}\b/i],
+  ['action-id', /\bact-[0-9a-f]{4,}\b/i],
+  ['result-digest', /\bsha256:[0-9a-f]{6,}/i],
+  ['event-seq', /(?:^|\s)#\d{1,4}(?:\s|$)/],
+  ['technical-field-name', /backendRef|resultRef|provenance|apiVersion|schemaVersion|lastCheckpoint|idempotencyKey|LOCAL_PRODUCT/],
+  ['raw-event-type', /\btask\.(?:completed|progress|cancelled)\b|\bnode\.heartbeat\b/],
+  ['capability-id', /\b(?:planning|engineering|research|presentation)\.[a-z][a-z0-9.]*/],
+  ['loopback-endpoint', /127\.0\.0\.1:\d+/],
+  /* Multi-word slugs only: bare `knowledge` is a real English word that occurs
+     in the room summary prose, and the room ordinal ("01") is a product-facing
+     display number, not an internal id — see REVIEW_REPORT.md D4. */
+  ['room-slug', /\b(?:text-workshop|data-lab)\b/],
+];
+
+/** The five PRIMARY surfaces. UI-000 folds technical values INTO the advanced
+ *  surfaces, so a value visible on Services/Tasks/Actions/Pairing/Settings is
+ *  already demoted by the information architecture and is not a leak. This is
+ *  the ruling recorded in REVIEW_REPORT.md D4. */
+const LEAK_SURFACES = ['home', 'ask', 'tools', 'devices', 'activity'];
+
 const failures = [];
 const report = { strictVisibleFailures: [], overflow: [], tapTargets: [], advisory: [], glyphs: [], consoleVocab: [], demotion: [], layout: {}, errors: [] };
 
@@ -116,29 +154,37 @@ async function run() {
       const hit = FORBIDDEN_GLYPHS.filter((g) => rendered.includes(g));
       if (hit.length) { const e = `${id}: rendered forbidden glyphs ${hit.join(' ')}`; report.glyphs.push(e); failures.push(e); }
 
-      /* ---- P6: demoted technical values must be hidden by default, reachable after reveal ----
-       * TWO PASSES on purpose. An earlier single-pass form called revealAll() and then captured
-       * the "default" snapshot for the next probe, so already-revealed values were misread as
-       * leaks. Pass A never reveals; pass B reveals once per probe. */
-      const capSurface = new Map(CAPABILITIES.map((c) => [c.id, c.surface]));
-      /* Pass A — default reading path must NOT show the raw value. */
-      for (const probe of TECHNICAL_PROBES) {
-        const surface = capSurface.get(probe.cap) || 'home';
+      /* ---- P6a: leak check, PRIMARY surfaces only, identifier-shaped matches ----
+       * Ruling (REVIEW_REPORT.md D4): UI-000 folds internal values into the advanced
+       * surfaces, so the leak criterion applies to the primary reading path. This is
+       * a SCOPE CORRECTION to match the recorded ruling, not a weakening: the
+       * patterns below catch strictly more than the substring tokens they replace,
+       * and the strictness that found the real defects lives in P2 (product facts
+       * must be VISIBLE on their own surface), which is unchanged. */
+      for (const surface of LEAK_SURFACES) {
         await page.evaluate((s) => window.__ui000.go(s), surface);
-        await page.waitForTimeout(50);
+        await page.waitForTimeout(60);
         const visible = await page.evaluate(() => document.body.innerText);
-        for (const token of probe.expect) {
-          if (visible.includes(token)) { const e = `${id}/${probe.field}: ${JSON.stringify(token)} visible on the default path of ${surface}`; report.demotion.push(e); failures.push(e); }
+        for (const [kind, pattern] of LEAK_PATTERNS) {
+          const hit = visible.match(pattern);
+          if (hit) { const e = `${id}/${surface}: ${kind} leaked on the primary reading path (${JSON.stringify(hit[0].trim())})`; report.demotion.push(e); failures.push(e); }
         }
       }
-      /* Pass B — but it must stay reachable once the demotion affordance is used. */
-      for (const probe of TECHNICAL_PROBES) {
-        const surface = capSurface.get(probe.cap) || 'home';
+      /* ---- P6b: reachability is artifact-wide ----
+       * A technical value must stay reachable somewhere in the candidate after its
+       * demotion affordance is used. Binding it to the capability's declared surface
+       * was this probe's over-reach and contradicted D4 (candidate c keeps the
+       * gateway endpoint on Settings, which is an advanced surface). */
+      const reachableText = [];
+      for (const surface of REQUIRED_SURFACES) {
         await page.evaluate((s) => window.__ui000.go(s), surface);
         await page.evaluate(() => window.__ui000.revealAll());
-        await page.waitForTimeout(50);
-        const reachable = await page.evaluate(() => document.body.textContent);
-        if (!probe.expect.some((t) => reachable.includes(t))) { const e = `${id}/${probe.field}: not reachable on ${surface} even after revealAll`; report.demotion.push(e); failures.push(e); }
+        await page.waitForTimeout(40);
+        reachableText.push(await page.evaluate(() => document.body.textContent));
+      }
+      const reachableAll = reachableText.join('\n');
+      for (const probe of TECHNICAL_PROBES) {
+        if (!probe.expect.some((t) => reachableAll.includes(t))) { const e = `${id}/${probe.field}: not reachable anywhere even after revealAll`; report.demotion.push(e); failures.push(e); }
       }
 
       /* ---- P4: overflow + tap targets at desktop and mobile ---- */

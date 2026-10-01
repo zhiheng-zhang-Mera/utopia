@@ -31,6 +31,16 @@ export const messages = {
   "device.recentEvents": "Recent device events",
   "device.noEvents": "No recent device events.",
   "device.noTasks": "No active tasks.",
+  /* Event types are internal vocabulary; the default reading path shows these
+     labels and the raw type only inside the folded run-details block. */
+  "event.clientConnected": "A device connected",
+  "event.cityStarted": "The city started",
+  "event.taskCompleted": "A task completed",
+  "event.taskProgress": "A task is progressing",
+  "event.taskCancelled": "A task was cancelled",
+  "event.nodeHeartbeat": "A device heartbeat",
+  "event.other": "An update",
+  "common.runDetails": "Run details",
   "device.ago": "{seconds}s ago",
   "pairing.title": "Pair a device with",
   "pairing.yourCity": "your City",

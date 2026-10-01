@@ -155,7 +155,7 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 }
 .badge.ONLINE { color: var(--lime); }
 .badge.OFFLINE, .badge.UNKNOWN { color: var(--ink-3); }
-.node-icon { color: var(--cyan); }
+.node-icon { color: var(--cyan); flex: none; display: inline-block; width: 10px; height: 10px; margin-top: 4px; background: var(--cyan); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
 .node-info { min-width: 0; }
 .device-card + .device-card { border-top: 1px solid var(--line); margin-top: 10px; }
 

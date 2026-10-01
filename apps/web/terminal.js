@@ -213,10 +213,10 @@ function renderRooms(container) {
     return `<article class="card terminal-room"><div class="row"><div>`
       + `<strong>${esc(room.label ?? id)}</strong>`
       + `<p class="muted">${esc(room.zh ?? '')}</p>`
-      + `<small class="task-id">${esc(room.number ?? '')} · ${esc(id)}</small></div>`
+      + `<small class="task-id">${esc(room.number ?? '')}</small><details><summary>${esc(t('common.runDetails'))}</summary><div class="task-id">${esc(id)}</div></details></div>`
       + badge(room.persistent === true ? tr('terminal.rooms.persistent') : tr('terminal.rooms.ephemeral')) + '</div>'
       + `<p>${esc(room.summary ?? '')}</p>`
-      + `<small class="muted">${esc([room.lifecycle, ...list(room.tags)].filter(Boolean).join(' · '))}</small>`
+      + `<small class="muted">${esc(list(room.tags).join(' · '))}</small><details><summary>${esc(t('common.runDetails'))}</summary><div class="task-id">${esc(room.lifecycle ?? '')}</div></details>`
       + `<div class="terminal-actions"><button data-terminal="room-open" data-room="${esc(id)}">${tr('terminal.rooms.open')}</button>`
       + (payload.hubUrl ? rawLink(`${String(payload.hubUrl).replace(/\/$/, '')}/#/${encodeURIComponent(id)}`, t('terminal.rooms.openTab')) : '')
       + '</div></article>';

@@ -51,31 +51,64 @@ export class GaiSurfaceError extends Error {
   }
 }
 
-const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+const isPlainObject = value => {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+};
 const isText = value => typeof value === 'string' && value.trim().length > 0;
 const clone = value => (value === undefined ? undefined : structuredClone(value));
+/** Cycle-safe: a caller-supplied structure must not be able to blow the stack. */
 const freeze = value => {
-  if (value === null || typeof value !== 'object') return value;
-  for (const child of Object.values(value)) freeze(child);
-  return Object.freeze(value);
+  const seen = new WeakSet();
+  const walk = node => {
+    if (node === null || typeof node !== 'object') return node;
+    if (seen.has(node)) return node;
+    seen.add(node);
+    for (const child of Object.values(node)) walk(child);
+    return Object.freeze(node);
+  };
+  return walk(value);
 };
-export const isIsoInstant = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+export const isIsoInstant = value => typeof value === 'string'
+  && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)
+  && !Number.isNaN(Date.parse(value));
 
-export function findSecretFields(value, path = 'record', found = []) {
+const INSTANT_PARTS = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?Z$/;
+const isRealInstant = value => {
+  if (!isIsoInstant(value)) return false;
+  const parts = INSTANT_PARTS.exec(value);
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return false;
+  return date.getUTCFullYear() === Number(parts[1])
+    && date.getUTCMonth() + 1 === Number(parts[2])
+    && date.getUTCDate() === Number(parts[3])
+    && date.getUTCHours() === Number(parts[4])
+    && date.getUTCMinutes() === Number(parts[5])
+    && date.getUTCSeconds() === Number(parts[6]);
+};
+
+export function findSecretFields(value, path = 'record', found = [], seen = new WeakSet()) {
   if (Array.isArray(value)) {
-    value.forEach((item, index) => findSecretFields(item, `${path}[${index}]`, found));
+    if (seen.has(value)) return found;
+    seen.add(value);
+    value.forEach((item, index) => findSecretFields(item, path + '[' + index + ']', found, seen));
     return found;
   }
-  if (typeof value === 'boolean' || value === null) return found;
-  if (!isPlainObject(value)) return found;
-  for (const [key, child] of Object.entries(value)) {
-    const childPath = `${path}.${key}`;
-    const keyIsSecret = SECRET_KEY_SHAPE.test(key) && !/_ref$/.test(key) && typeof child !== 'boolean';
+  if (typeof value === 'boolean' || value === null || typeof value === 'string') return found;
+  if (!isPlainObject(value) || seen.has(value)) return found;
+  seen.add(value);
+  // Own keys, not enumerable keys: a hidden own field is exactly how a secret would ride along.
+  for (const key of Reflect.ownKeys(value)) {
+    const name = typeof key === 'string' ? key : String(key);
+    const child = value[key];
+    const childPath = path + '.' + name;
+    const keyIsSecret = SECRET_KEY_SHAPE.test(name) && !/_ref$/.test(name) && typeof child !== 'boolean';
     if (keyIsSecret) {
       if (!found.includes(childPath)) found.push(childPath);
       continue;
     }
-    findSecretFields(child, childPath, found);
+    findSecretFields(child, childPath, found, seen);
   }
   return found;
 }
@@ -105,7 +138,14 @@ export function createAskDoFacade({
 } = {}) {
   if (typeof deterministicMatcher !== 'function') throw new GaiSurfaceError('INVALID_REQUEST', 'deterministicMatcher must be a function');
   if (typeof clock !== 'function') throw new GaiSurfaceError('INVALID_CLOCK', 'clock must be a function returning an ISO-8601 UTC instant');
+  if (policy !== undefined && policy !== null && !isPlainObject(policy)) throw new GaiSurfaceError('INVALID_REQUEST', 'policy must be a plain object');
   const config = { ...DEFAULT_GAI_SURFACE_POLICY, ...(isPlainObject(policy) ? policy : {}) };
+  for (const key of Reflect.ownKeys(config)) {
+    if (typeof key !== 'string' || !Object.hasOwn(DEFAULT_GAI_SURFACE_POLICY, key)) throw new GaiSurfaceError('INVALID_REQUEST', 'policy.' + String(key) + ' is not part of the GAI surface policy');
+  }
+  if (typeof config.deterministic_first !== 'boolean' || typeof config.web_first !== 'boolean') throw new GaiSurfaceError('INVALID_REQUEST', 'policy.deterministic_first and policy.web_first must be booleans');
+  if (!Array.isArray(config.attention_sources) || config.attention_sources.some(source => !isText(source))) throw new GaiSurfaceError('INVALID_REQUEST', 'policy.attention_sources must be a list of sources');
+  if (!isText(config.policy_ref)) throw new GaiSurfaceError('INVALID_REQUEST', 'policy.policy_ref must be nonempty text');
   const actions = new Map();
   const history = [];
   const journal = [];
@@ -113,8 +153,15 @@ export function createAskDoFacade({
 
   const now = () => {
     const produced = clock();
-    if (!isIsoInstant(produced)) throw new GaiSurfaceError('INVALID_CLOCK', 'clock() must return an ISO-8601 UTC instant');
+    if (!isRealInstant(produced)) throw new GaiSurfaceError('INVALID_CLOCK', 'clock() must return a real ISO-8601 UTC instant');
     return produced;
+  };
+
+  /** A caller-supplied instant is validated: a rendered timestamp is evidence, including its reality. */
+  const atFrom = when => {
+    if (when === undefined || when === null) return now();
+    if (!isRealInstant(when)) throw new GaiSurfaceError('INVALID_REQUEST', 'at must be a real ISO-8601 UTC instant, got ' + String(when));
+    return when;
   };
 
   const note = (event, at, detail = {}) => {
@@ -162,7 +209,7 @@ export function createAskDoFacade({
     ask({ text, interaction_device_ref, request_ref = null, at: when } = {}) {
       if (!isText(text)) throw new GaiSurfaceError('INVALID_REQUEST', 'text is required');
       if (!isText(interaction_device_ref)) throw new GaiSurfaceError('INVALID_REQUEST', 'interaction_device_ref is required');
-      const at = when ?? now();
+      const at = atFrom(when);
       const deterministic = deterministicMatcher(text);
       if (deterministic !== null && deterministic !== undefined) {
         note('DETERMINISTIC_ROUTED', at, { request_ref });
@@ -183,7 +230,12 @@ export function createAskDoFacade({
       if (routePort === null || typeof routePort.route !== 'function') {
         throw new GaiSurfaceError('BACKEND_NOT_READY', 'no GAI routing port is configured', { routed_to_api: false });
       }
-      const routed = routePort.route({ text, context: { interaction_device_ref } });
+      let routed = null;
+      try {
+        routed = routePort.route({ text, context: { interaction_device_ref } });
+      } catch (error) {
+        throw new GaiSurfaceError('BACKEND_NOT_READY', 'the GAI routing port failed: ' + String(error?.message ?? error), { routed: false, action_created: false });
+      }
       const chosen = routed?.chosen?.route ?? 'MANUAL_PICKER';
       if (chosen === 'ENGINEERING') {
         note('ENGINEERING_ROUTED', at, { request_ref });
@@ -258,7 +310,7 @@ export function createAskDoFacade({
     /** The Action view a Web or Android client renders; both read the same action. */
     render({ action_ref, at: when } = {}) {
       const action = requireAction(action_ref);
-      const at = when ?? now();
+      const at = atFrom(when);
       const backendUnavailable = action.state === 'UNAVAILABLE' || action.state === 'UNKNOWN' || action.state === 'WAITING_CONFIRMATION';
       return freeze({
         ...projectAction(action),
@@ -277,7 +329,7 @@ export function createAskDoFacade({
       const action = requireAction(action_ref);
       if (TERMINAL_STATES.includes(action.state)) throw new GaiSurfaceError('FALSE_SUCCESS_REFUSED', `action ${action_ref} is ${action.state}`, { action_ref, state: action.state });
       if (!isText(partial_ref)) throw new GaiSurfaceError('INVALID_REQUEST', 'partial_ref is required');
-      const at = when ?? now();
+      const at = atFrom(when);
       action.partial_refs.push(freeze({ partial_ref, text, terminal: false, partial_is_not_success: true, at }));
       if (action.state === 'ACCEPTED') action.state = 'RUNNING';
       action.updated_at = at;
@@ -289,7 +341,7 @@ export function createAskDoFacade({
     proposeDeviceSwitch({ action_ref, remote_device_ref, reason = 'LOCAL_WEB_THROTTLED', at: when } = {}) {
       const action = requireAction(action_ref);
       if (!isText(remote_device_ref)) throw new GaiSurfaceError('INVALID_REQUEST', 'remote_device_ref is required');
-      const at = when ?? now();
+      const at = atFrom(when);
       action.device_switch_proposal = freeze({
         contract_version: GAI_SURFACE_CONTRACT_VERSION,
         proposal_ref: `${action_ref}:device-switch`,
@@ -313,7 +365,7 @@ export function createAskDoFacade({
       const action = requireAction(action_ref);
       const proposal = action.device_switch_proposal;
       if (proposal === null) throw new GaiSurfaceError('INVALID_REQUEST', `no device-switch proposal for ${action_ref}`);
-      const at = when ?? now();
+      const at = atFrom(when);
       if (confirmed !== true) return freeze({ ...clone(proposal), confirmed: false, applied: false, stays_on_interaction_device: true });
       action.device_switch_proposal = freeze({ ...proposal, confirmed: true, applied: true, confirmed_at: at });
       action.execution_device_ref = proposal.remote_device_ref;
@@ -335,7 +387,7 @@ export function createAskDoFacade({
      */
     proposeApiSwitch({ action_ref, reason = 'WEB_UNAVAILABLE', at: when } = {}) {
       const action = requireAction(action_ref);
-      const at = when ?? now();
+      const at = atFrom(when);
       if (admissionPort === null) throw new GaiSurfaceError('BACKEND_NOT_READY', 'no admission port is configured', { api_execution_permitted: false });
       const budget = admissionPort.checkBudget?.({ action_ref }) ?? null;
       action.api_switch_proposal = freeze({
@@ -361,7 +413,7 @@ export function createAskDoFacade({
     /** Execution requires an approved consent record and a budget verdict; otherwise nothing runs. */
     executeApi({ action_ref, consent = null, at: when } = {}) {
       const action = requireAction(action_ref);
-      const at = when ?? now();
+      const at = atFrom(when);
       if (action.api_switch_proposal === null) throw new GaiSurfaceError('CONFIRMATION_REQUIRED', 'an API proposal is required before API execution', { action_ref, executed: false });
       if (admissionPort === null || typeof admissionPort.admit !== 'function') throw new GaiSurfaceError('BACKEND_NOT_READY', 'no admission port is configured', { executed: false });
       const admission = admissionPort.admit({ action_ref, consent, request: {}, protocol: action.api_switch_proposal.protocol ?? null });
@@ -379,10 +431,21 @@ export function createAskDoFacade({
           api_triggered_automatically: false,
         });
       }
-      const execution = executionPort !== null && typeof executionPort.execute === 'function' ? executionPort.execute({ action_ref, consent }) : null;
+      // Nothing may be reported as executed when there is no channel to execute on.
+      if (executionPort === null || typeof executionPort.execute !== 'function') {
+        throw new GaiSurfaceError('BACKEND_NOT_READY', 'no execution port is configured', { executed: false, action_ref });
+      }
+      let execution = null;
+      try {
+        execution = executionPort.execute({ action_ref, consent });
+      } catch (error) {
+        throw new GaiSurfaceError('BACKEND_NOT_READY', 'the execution port failed: ' + String(error?.message ?? error), { executed: false, action_ref });
+      }
       action.budget_verdict = freeze(clone(admission.budget));
       action.consent_ref = admission.consent?.consent_id ?? null;
-      action.execution_device_ref = action.interaction_device_ref;
+      // The admission consent is the explicit confirmation that authorises this API run, and the confirmed
+      // execution device is not silently rewritten back to the interaction device.
+      action.api_switch_proposal = freeze({ ...action.api_switch_proposal, confirmed: true, applied: true, confirmed_by_consent_ref: action.consent_ref });
       action.state = 'RUNNING';
       action.updated_at = at;
       history.push(freeze({ history_ref: action.canonical_history_ref, action_ref, event: 'API_EXECUTED', at }));
@@ -398,6 +461,8 @@ export function createAskDoFacade({
         channel_ref: 'API',
         execution: execution === null ? null : freeze(clone(execution)),
         interaction_device_ref: action.interaction_device_ref,
+        execution_device_ref: action.execution_device_ref,
+        executed_on_device_ref: action.execution_device_ref,
         user_navigated_away: false,
         result_returns_to_originating_action: true,
       });
@@ -414,7 +479,7 @@ export function createAskDoFacade({
       const action = requireAction(action_ref);
       if (!isText(attention_ref) || !isText(question)) throw new GaiSurfaceError('INVALID_REQUEST', 'attention_ref and question are required');
       if (sharedAttention === null || typeof sharedAttention.project !== 'function') throw new GaiSurfaceError('ATTENTION_FROM_SHARED_STATE_ONLY', 'the canonical shared Attention port is required');
-      const at = when ?? now();
+      const at = atFrom(when);
       const projected = sharedAttention.project({ attention_ref, source: SHARED_ATTENTION_SOURCE, question, blocking, subject_ref: action_ref, delivered_to: action.interaction_device_ref, at });
       action.attention_refs.push(attention_ref);
       action.state = 'WAITING_CONFIRMATION';
@@ -430,8 +495,11 @@ export function createAskDoFacade({
       if (!action.authorized_devices.includes(by_device_ref)) {
         throw new GaiSurfaceError('NOT_AUTHORIZED_TO_CONTROL', `${String(by_device_ref)} may not control ${action_ref}`, { action_ref, authorized_devices: clone(action.authorized_devices) });
       }
-      const at = when ?? now();
-      if (TERMINAL_STATES.includes(action.state) && operation !== 'RESUME') throw new GaiSurfaceError('FALSE_SUCCESS_REFUSED', `action ${action_ref} is ${action.state}`, { action_ref, state: action.state });
+      const at = atFrom(when);
+      // Cancel is binding: a terminal action cannot be resumed back into work.
+      if (TERMINAL_STATES.includes(action.state)) {
+        throw new GaiSurfaceError('FALSE_SUCCESS_REFUSED', 'action ' + action_ref + ' is ' + action.state, { action_ref, state: action.state, resumed: false });
+      }
       if (operation === 'CANCEL') {
         action.cancellation = freeze({ cancellation_ref: `cancellation:${action_ref}`, action_ref, by_device_ref, at });
         action.state = 'CANCELLED';
@@ -465,9 +533,16 @@ export function createAskDoFacade({
       }
       if (state === 'SUCCEEDED' && !isText(result_ref)) throw new GaiSurfaceError('FALSE_SUCCESS_REFUSED', 'a success needs an accepted result reference', { action_ref, result_ref: null });
       if (state === 'SUCCEEDED' && (action.state === 'UNAVAILABLE' || action.state === 'WAITING_CONFIRMATION')) {
-        throw new GaiSurfaceError('FALSE_SUCCESS_REFUSED', `action ${action_ref} cannot succeed while the backend is ${action.state}`, { action_ref, state: action.state, backend_unavailable: true });
+        throw new GaiSurfaceError('FALSE_SUCCESS_REFUSED', 'action ' + action_ref + ' cannot succeed while the backend is ' + action.state, { action_ref, state: action.state, backend_unavailable: true });
       }
-      const at = when ?? now();
+      // A terminal action already carries its canonical result: a later result may not rewrite it (a failed
+      // or cancelled run never becomes a success because a second report arrived).
+      if (TERMINAL_STATES.includes(action.state)) {
+        throw new GaiSurfaceError('ACTION_TRUTH_IS_SHARED', 'action ' + action_ref + ' is already ' + action.state + '; the canonical result is not rewritten', {
+          action_ref, existing_state: action.state, requested_state: state, rewritten: false,
+        });
+      }
+      const at = atFrom(when);
       action.state = state;
       action.result = freeze({
         contract_version: GAI_SURFACE_CONTRACT_VERSION,
@@ -496,11 +571,17 @@ export function createAskDoFacade({
     /** Advanced/debug view: real provider/channel/device/backend identifiers, no secrets. */
     advanced({ action_ref, provenance = null, at: when } = {}) {
       const action = requireAction(action_ref);
-      const at = when ?? now();
+      const at = atFrom(when);
       if (provenance !== null) {
+        if (!isPlainObject(provenance)) throw new GaiSurfaceError('INVALID_REQUEST', 'provenance must be a plain record of canonical fields', { stored: false });
         const secrets = findSecretFields(provenance);
         if (secrets.length > 0) throw new GaiSurfaceError('SECRET_MATERIAL_REFUSED', `provenance carries secret-shaped material at ${secrets.join(', ')}`, { fields: freeze(secrets), stored: false });
-        const unknown = Object.keys(provenance).filter(key => !PROVENANCE_FIELDS.includes(key));
+        for (const key of Reflect.ownKeys(provenance)) {
+          if (typeof key !== 'string' || !PROVENANCE_FIELDS.includes(key)) {
+            throw new GaiSurfaceError('INVALID_REQUEST', String(key) + ' is not a canonical provenance field', { allowed: freeze([...PROVENANCE_FIELDS]), stored: false });
+          }
+        }
+        const unknown = [];
         if (unknown.length > 0) throw new GaiSurfaceError('INVALID_REQUEST', `${unknown.join(', ')} is not a canonical provenance field`, { allowed: freeze([...PROVENANCE_FIELDS]) });
         action.provenance = freeze({ ...clone(action.provenance), ...clone(provenance) });
       }
@@ -528,7 +609,7 @@ export function createAskDoFacade({
 
     /** One canonical Action/history truth shared by Web, Android and Rooms. */
     history({ action_ref = null, at: when } = {}) {
-      const at = when ?? now();
+      const at = atFrom(when);
       const scoped = action_ref === null ? history : history.filter(entry => entry.action_ref === action_ref);
       return freeze({
         contract_version: GAI_SURFACE_CONTRACT_VERSION,

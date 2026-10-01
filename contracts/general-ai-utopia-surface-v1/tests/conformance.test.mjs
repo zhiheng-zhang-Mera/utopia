@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ACTION_KINDS, GAI_ACTION_STATES, GaiSurfaceError, PROVENANCE_FIELDS, ROUTES, SHARED_ATTENTION_SOURCE,
-  SURFACE_SECTIONS, TERMINAL_STATES, createAskDoFacade, findSecretFields,
+  SURFACE_SECTIONS, TERMINAL_STATES, createAskDoFacade, isIsoInstant, findSecretFields,
 } from '../index.mjs';
 
 const T0 = '2026-01-01T00:00:00Z';
@@ -300,4 +300,83 @@ test('no path claims success while the backend is unavailable, and legacy routes
   assert.equal(failure(() => createAskDoFacade({ deterministicMatcher: 'x', clock: () => T0 })).code, 'INVALID_REQUEST');
   assert.throws(() => { facade.render({ action_ref: second.action_ref }).state = 'FAILED'; }, TypeError);
   assert.equal(PROVENANCE_FIELDS.includes('provider_ref'), true);
+});
+
+test('nothing is reported as executed without a channel, and a confirmed device is not rewritten', () => {
+  const orphanPorts = ports();
+  const orphan = createAskDoFacade({ deterministicMatcher, routePort: orphanPorts.routePort, admissionPort: orphanPorts.admissionPort, clock: () => T0 });
+  const asked = askGeneralAi(orphan);
+  orphan.proposeApiSwitch({ action_ref: asked.action_ref });
+  assert.equal(failure(() => orphan.executeApi({ action_ref: asked.action_ref })).code, 'BACKEND_NOT_READY', 'no execution port means nothing executed');
+
+  const { facade, calls } = facadeWith();
+  const switched = askGeneralAi(facade);
+  facade.proposeDeviceSwitch({ action_ref: switched.action_ref, remote_device_ref: PHONE });
+  facade.confirmDeviceSwitch({ action_ref: switched.action_ref, confirmed: true });
+  facade.proposeApiSwitch({ action_ref: switched.action_ref });
+  const executed = facade.executeApi({ action_ref: switched.action_ref });
+  assert.equal(executed.executed, true);
+  assert.equal(calls.execute, 1);
+  assert.equal(executed.interaction_device_ref, LAPTOP, 'the UI endpoint stays the current device');
+  assert.equal(executed.execution_device_ref, PHONE, 'the confirmed execution device is preserved, not rewritten');
+  assert.equal(executed.executed_on_device_ref, PHONE);
+  const proposal = facade.action(switched.action_ref).proposals.api_switch;
+  assert.equal(proposal.confirmed, true, 'the consent that authorised the run confirms the proposal');
+  assert.equal(typeof proposal.confirmed_by_consent_ref === 'string' || proposal.confirmed_by_consent_ref === null, true);
+});
+
+test('the first terminal result is the action truth and cannot be rewritten', () => {
+  const { facade } = facadeWith();
+  const asked = askGeneralAi(facade);
+  const failed = facade.applyResult({ action_ref: asked.action_ref, state: 'FAILED', error: { code: 'PROVIDER_FAULT' } });
+  assert.equal(failed.user_visible_success, false);
+  const rewritten = failure(() => facade.applyResult({ action_ref: asked.action_ref, state: 'SUCCEEDED', result_ref: 'result:late' }));
+  assert.equal(rewritten.code, 'ACTION_TRUTH_IS_SHARED');
+  assert.equal(rewritten.rewritten, false);
+  assert.equal(facade.render({ action_ref: asked.action_ref }).state, 'FAILED', 'a failed run never becomes a success');
+  assert.equal(facade.render({ action_ref: asked.action_ref }).shows_success, false);
+  assert.equal(facade.advanced({ action_ref: asked.action_ref }).real_identifiers_preserved, true);
+  const cancelled = askGeneralAi(facade);
+  facade.control({ action_ref: cancelled.action_ref, operation: 'CANCEL', by_device_ref: LAPTOP });
+  assert.equal(failure(() => facade.applyResult({ action_ref: cancelled.action_ref, state: 'SUCCEEDED', result_ref: 'result:c' })).code, 'ACTION_TRUTH_IS_SHARED');
+  assert.equal(failure(() => facade.control({ action_ref: cancelled.action_ref, operation: 'RESUME', by_device_ref: LAPTOP })).code, 'FALSE_SUCCESS_REFUSED', 'a cancelled action cannot be resumed');
+  assert.equal(facade.render({ action_ref: cancelled.action_ref }).state, 'CANCELLED');
+});
+
+test('the advanced view keeps real identifiers and refuses unreadable provenance', () => {
+  const { facade } = facadeWith();
+  const asked = askGeneralAi(facade);
+  const hidden = { provider_ref: 'provider:deepseek' };
+  Object.defineProperty(hidden, 'access_token', { value: 'sk-live-abcdef', enumerable: false });
+  assert.equal(failure(() => facade.advanced({ action_ref: asked.action_ref, provenance: hidden })).code, 'SECRET_MATERIAL_REFUSED', 'a hidden own secret field is still a secret');
+  const symbol = { provider_ref: 'p' };
+  symbol[Symbol('api_key')] = 'sk-live-abcdef';
+  assert.equal(failure(() => facade.advanced({ action_ref: asked.action_ref, provenance: symbol })).code, 'SECRET_MATERIAL_REFUSED', 'a symbol-keyed secret is named as one');
+  class FakeProvenance { constructor() { this.provider_ref = 'p'; } }
+  assert.equal(failure(() => facade.advanced({ action_ref: asked.action_ref, provenance: new FakeProvenance() })).code, 'INVALID_REQUEST');
+  const kept = facade.advanced({ action_ref: asked.action_ref, provenance: { provider_ref: 'provider:deepseek', backend_run_ref: 'backend:run:9' } });
+  assert.equal(kept.provenance.backend_run_ref, 'backend:run:9');
+  assert.equal(kept.provenance.provider_ref, 'provider:deepseek');
+  assert.equal(kept.contains_secret_material, false);
+});
+
+test('a crashing port is a typed refusal and instants are real', () => {
+  const crashing = ports();
+  const facade = createAskDoFacade({
+    deterministicMatcher,
+    routePort: { route() { throw new Error('triage exploded'); } },
+    admissionPort: crashing.admissionPort,
+    executionPort: crashing.executionPort,
+    clock: () => T0,
+  });
+  assert.equal(failure(() => facade.ask({ text: 'do something clever', interaction_device_ref: LAPTOP })).code, 'BACKEND_NOT_READY');
+  assert.equal(facade.actions().length, 0, 'a crashed routing call creates no action');
+  assert.equal(isIsoInstant('2026-13-45T99:99:99Z'), false);
+  assert.equal(isIsoInstant('2026-01-01T00:00:00.000Z'), true);
+  const healthy = facadeWith().facade;
+  assert.equal(failure(() => healthy.ask({ text: 'do something clever', interaction_device_ref: LAPTOP, at: '2026-13-45T99:99:99Z' })).code, 'INVALID_REQUEST');
+  assert.equal(healthy.actions().length, 0);
+  assert.equal(failure(() => createAskDoFacade({ deterministicMatcher, clock: () => '2026-13-45T99:99:99Z' }).ask({ text: 'hi', interaction_device_ref: LAPTOP })).code, 'INVALID_CLOCK');
+  assert.equal(failure(() => createAskDoFacade({ deterministicMatcher, policy: { unknown: 1 } })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => createAskDoFacade({ deterministicMatcher, policy: { web_first: 'yes' } })).code, 'INVALID_REQUEST');
 });

@@ -41,6 +41,18 @@ export const messages = {
   "event.nodeHeartbeat": "A device heartbeat",
   "event.other": "An update",
   "common.runDetails": "Run details",
+  /* Home's character slot. The assistant is configured later, so these describe a
+     slot that is deliberately empty rather than implying finished artwork. */
+  "assistant.role": "ASSISTANT",
+  "assistant.unassigned": "Unassigned",
+  "assistant.note": "This is your assistant. Naming, appearance, voice and duty are bound in Settings later; for now the slot is only a placeholder.",
+  "assistant.boundDevice": "Bound device",
+  "assistant.duty": "Duty",
+  "assistant.appearance": "Appearance",
+  "assistant.voice": "Voice",
+  "assistant.pending": "Not set",
+  "assistant.placeholderValue": "Placeholder silhouette",
+  "assistant.disabled": "Not enabled",
   "device.ago": "{seconds}s ago",
   "pairing.title": "Pair a device with",
   "pairing.yourCity": "your City",

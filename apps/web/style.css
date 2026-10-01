@@ -244,6 +244,46 @@ details > summary { cursor: pointer; list-style: none; color: var(--ink-3); min-
 details > summary::before { content: ''; width: 5px; height: 5px; background: var(--violet); display: inline-block; transform: rotate(45deg); margin-right: 7px; flex: none; }
 details[open] > summary::before { background: var(--lime); }
 
+/* ------------------------------------------------------- assistant (Home) */
+/* Home's character slot, same geometry as the reviewed UI-000 direction C2:
+   clipped frame, scanline veil, hologram edge light. Presentational only. */
+
+.operator { display: grid; grid-template-columns: minmax(0, 268px) minmax(0, 1fr); gap: 10px; align-items: stretch; }
+.op-frame {
+  position: relative; overflow: hidden; min-height: 208px;
+  background:
+    radial-gradient(120% 80% at 50% 8%, rgba(94, 231, 255, .14), transparent 62%),
+    linear-gradient(160deg, rgba(139, 92, 246, .22), var(--layer-1) 66%);
+  border: 1px solid var(--line-2); clip-path: var(--clip); --cut: 22px;
+}
+.op-frame::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, .045) 0 1px, transparent 1px 3px);
+  mix-blend-mode: screen;
+}
+.op-art { position: absolute; inset: 0; }
+.op-art svg { width: 100%; height: 100%; display: block; padding: 16px 6px 0; filter: drop-shadow(0 0 14px var(--cyan-dim)); }
+.op-tag {
+  position: absolute; top: 9px; left: 10px; z-index: 2; font-size: 8.5px; letter-spacing: .26em;
+  color: var(--cyan); font-weight: 700; border: 1px solid var(--cyan-dim); padding: 2px 7px; background: rgba(8, 7, 15, .55);
+}
+.op-slot { position: absolute; right: 9px; bottom: 8px; z-index: 2; font-family: var(--mono); font-size: 9.5px; letter-spacing: .14em; color: var(--ink-3); }
+.op-side { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: linear-gradient(to bottom, var(--cyan), transparent 72%); z-index: 2; }
+.op-body { min-width: 0; }
+.op-role { margin: 0; font-size: 9.5px; letter-spacing: .26em; color: var(--cyan); font-weight: 700; text-transform: uppercase; }
+.op-name { font-family: var(--display); font-size: clamp(22px, 2.8vw, 30px); font-weight: 700; margin: 5px 0 3px; letter-spacing: -.01em; }
+.op-sub { margin: 0 0 9px; color: var(--ink-2); font-size: 12px; max-width: 60ch; }
+
+/* dense key/value readings; shared by the assistant card and the HUD cells */
+.kv { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 3px 12px; margin: 0; }
+.kv dt { color: var(--ink-3); font-size: 11.5px; }
+.kv dd { margin: 0; font-size: 12.5px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+@media (max-width: 900px) {
+  .operator { grid-template-columns: 1fr; }
+  .op-frame { min-height: 190px; }
+}
+
 /* -------------------------------------------------------------- narrow屏 */
 
 @media (max-width: 900px) {

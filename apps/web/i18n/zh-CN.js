@@ -40,6 +40,18 @@ export const messages = {
   "event.nodeHeartbeat": "设备心跳",
   "event.other": "一次状态更新",
   "common.runDetails": "运行详情",
+  /* 主页人物位。助理是后期配置的，所以这里描述的是一个明确为空的槽位，
+     不暗示已有成品立绘。 */
+  "assistant.role": "助理",
+  "assistant.unassigned": "未指派",
+  "assistant.note": "这就是你的助理。命名、形象、语音与职务在后续「设置」中绑定；现在只是占位。",
+  "assistant.boundDevice": "绑定设备",
+  "assistant.duty": "职务",
+  "assistant.appearance": "形象",
+  "assistant.voice": "语音",
+  "assistant.pending": "待设定",
+  "assistant.placeholderValue": "占位剪影",
+  "assistant.disabled": "未启用",
   "device.ago": "{seconds} 秒前",
   "pairing.title": "配对设备到",
   "pairing.yourCity": "你的城市",

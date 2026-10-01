@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "incidentId": "ASYNC-DISPATCH-TRANSIENT-QUIESCENCE-2026-10-01",
+  "observedTimezone": "+10:00",
+  "globalComponentTasks": 41,
+  "finalSnapshot": {
+    "developmentImplemented": 41,
+    "fullyTwoStageComplete": 20,
+    "correctionCodeCompleteCiBlocked": 2,
+    "developmentCodeCompleteCiBlocked": 5,
+    "developmentGreenWaitingCorrection": 14,
+    "utopiaMain": "82ed36933fb4c5b00e44768d9e1aedec1d525d9c"
+  },
+  "ciAccountBlockRuns": [
+    36750532324,
+    36750532665,
+    36751505413,
+    36752017760,
+    36752540378,
+    36750981300,
+    36751919772,
+    36753243377,
+    36753891511
+  ],
+  "sequence": [
+    {
+      "time": "2026-10-01T03:32:29+10:00",
+      "repo": "Digital-City",
+      "commit": "b2672faefc1fc162c7d48dd7236edc429a9aace6",
+      "event": "ALIEN_RF006_CORRECTION_CODE_COMPLETE_CI_BLOCKED_AND_RUN_STOPPED"
+    },
+    {
+      "time": "2026-10-01T03:36:42+10:00",
+      "repo": "Digital-City",
+      "commit": "d9201af6044afb987038a5d753e26d3bbc43375e",
+      "event": "MECH_BA007_DEVELOPMENT"
+    },
+    {
+      "time": "2026-10-01T03:42:35+10:00",
+      "repo": "Digital-City",
+      "commit": "802d4c9c6cb61e47a4e25ff507cb650b57724f7a",
+      "event": "MECH_EM013_DEVELOPMENT"
+    },
+    {
+      "time": "2026-10-01T03:48:00+10:00",
+      "repo": "Digital-City",
+      "commit": "d4e2847d5cc63b4be6ac971554ff265650f4b64d",
+      "event": "MECH_GAI009_DEVELOPMENT"
+    }
+  ],
+  "learnedRule": {
+    "singleEmptyScanProvesPoolDrained": false,
+    "defaultRescanMinutes": 20,
+    "classes": [
+      "TEMPORARILY_UNCLAIMABLE",
+      "STRUCTURALLY_INELIGIBLE",
+      "GLOBAL_EXTERNAL_BLOCK",
+      "POOL_TERMINAL"
+    ]
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "incident_id": "MULTI-DEVICE-AI-CONCURRENCY-LATENCY-2026-10-01",
+  "observation_date": "2026-10-01",
+  "evidence_level": "user_field_observation",
+  "root_cause_confirmed": false,
+  "observed_symptom": "Perceived response latency increases when the same logical assistant/account receives concurrent requests from multiple devices.",
+  "confirmed_facts": [
+    "The user reported the symptom after several days of multi-device use.",
+    "Utopia is expected to support concurrent inputs from multiple device embodiments."
+  ],
+  "not_confirmed": [
+    "Account-level compute contention",
+    "Multiple devices competing for a single backend worker",
+    "Provider-specific concurrency throttling",
+    "Utopia internal contention as the cause of the current ChatGPT symptom"
+  ],
+  "candidate_causes": [
+    "provider scheduling or rate/concurrency limits",
+    "long-context and tool-heavy request cost",
+    "local host resource contention",
+    "network/client variance",
+    "future Utopia internal concurrency defects"
+  ],
+  "candidate_mitigations": [
+    "admission control and backpressure",
+    "per-provider/channel concurrency budgets",
+    "action idempotency and execution leases",
+    "bounded retries with backoff",
+    "layered latency telemetry",
+    "typed queue/throttle/waiting states"
+  ],
+  "proposed_metrics": [
+    "queue_wait_ms",
+    "local_wait_ms",
+    "local_execution_ms",
+    "provider_ttft_ms",
+    "provider_total_ms",
+    "retry_count",
+    "dedupe_count",
+    "throttle_reason",
+    "source_device",
+    "execution_device",
+    "provider_channel"
+  ],
+  "city_implementation_plan_committed": false,
+  "implementation_status": "not_implemented"
+}

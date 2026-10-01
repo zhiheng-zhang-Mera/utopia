@@ -1,0 +1,92 @@
+{
+  "schemaVersion": 1,
+  "incidentId": "CONTROL-PLANE-STATE-RECONCILIATION-LAG-2026-10-01",
+  "observedTimezone": "+10:00",
+  "trigger": "GITHUB_ACTIONS_BILLING_RECOVERY",
+  "failureClass": "CONTROL_PLANE_STATE_RECONCILIATION_LAG",
+  "repairClass": "AUTHORITATIVE_EXTERNAL_STATE_RECONCILIATION",
+  "utopiaMainBeforeEvidenceCommit": "064cc1f870d03228668d29364faf535f78d168c7",
+  "digitalCityReconciliationCommit": "da309a6ef6a45ed747a270bc6576204b0455c363",
+  "staleDevelopmentTasks": [
+    {
+      "task": "BA-007",
+      "runId": 36752540378,
+      "attempt": 3,
+      "head": "8fa4686bb7acb2b57a34a00fe517f6ecaad9769f",
+      "conclusion": "success"
+    },
+    {
+      "task": "BA-009",
+      "runId": 36750981300,
+      "attempt": 5,
+      "head": "9e1de31ba53766758406e991dbacdb8f707b1bfc",
+      "conclusion": "success"
+    },
+    {
+      "task": "GAI-009",
+      "runId": 36753891511,
+      "attempt": 3,
+      "head": "8dfdf9edcf6f525797de964650b383a916271371",
+      "conclusion": "success"
+    },
+    {
+      "task": "EM-012",
+      "runId": 36751919772,
+      "attempt": 3,
+      "head": "364c5160952039d31074af3bfae843c1d0f4be24",
+      "conclusion": "success"
+    },
+    {
+      "task": "EM-013",
+      "runId": 36753243377,
+      "attempt": 3,
+      "head": "5920e8076d317e15142b7d16c8531e529ce587f0",
+      "conclusion": "success"
+    }
+  ],
+  "recoveredCorrectionHeads": [
+    {
+      "task": "GAI-004",
+      "runId": 36750532665,
+      "attempt": 4,
+      "head": "11d5eced3e913cdd0cd9249d55825dedbcc3d5ac",
+      "conclusion": "success"
+    },
+    {
+      "task": "RF-006",
+      "runId": 36752017760,
+      "attempt": 4,
+      "head": "8fbd71df10535456cddd8146e28b08fd7684d714",
+      "conclusion": "success"
+    }
+  ],
+  "evidencePointerMismatch": {
+    "task": "GAI-005",
+    "staleRunId": 36746849199,
+    "staleRunBelongsTo": "RF-009",
+    "correctedRunId": 36746845955,
+    "correctedHead": "8a37f44547557caf9f684b49aa7ec7d06361efc9",
+    "conclusion": "success"
+  },
+  "reconciledSnapshot": {
+    "developmentGreen": 41,
+    "globalComponentTasks": 41,
+    "correctionComplete": 36,
+    "remoteFabricDevelopmentComplete": 10,
+    "remoteFabricCorrectionComplete": 10,
+    "remoteFabricComponentPoolDrained": true,
+    "waitingAlienCorrection": [
+      "BA-007",
+      "BA-009",
+      "GAI-009",
+      "EM-012",
+      "EM-013"
+    ]
+  },
+  "requiredEvidenceBinding": [
+    "task_branch == run_head_branch",
+    "task_head == run_head_sha",
+    "required_terminal_state == run_conclusion_or_status"
+  ],
+  "learnedRule": "External recovery is not complete until canonical control metadata is reconciled from authoritative external evidence."
+}

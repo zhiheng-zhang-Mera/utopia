@@ -18,12 +18,21 @@ if (!TOKEN) throw new Error('CITY_TOKEN is required to pair');
 mkdirSync(OUT, { recursive: true });
 
 /* Each input must land in a distinguishable presentation. `marker` is what the shell
-   must show for that state; `raw` is internal vocabulary that must NOT appear. */
+   must show for that state; `raw` is internal vocabulary that must NOT appear.
+ *
+ * Review repair R-2 (Mech, UI-101 review): the two middle inputs did not match the
+ * router. `services/dev-gateway/intents.mjs` is a list of LITERAL patterns and there is
+ * no rule for "clean up my downloads folder" or "open my notes", so both fell through to
+ * UNMATCHED — this probe was exercising UNMATCHED three times and reporting CLEAN. It
+ * reproduced in a full host (gateway + reference node + Room hub), so the cause was the
+ * inputs, not the environment. The triggers below are taken from the router itself:
+ * the confirmation path is the side-effect CITY_TASK rule, and the ambiguity path is the
+ * knowledge-lookup rule, which deliberately returns two owners. */
 const CASES = [
-  { name: 'route-confirmed', input: 'hash C:\\tmp\\a.txt', marker: /Hash Room|哈希/, expectShot: true },
-  { name: 'needs-choice', input: 'clean up my downloads folder', marker: /确认|选择|Document intake/, expectShot: true },
-  { name: 'ambiguous', input: 'open my notes', marker: /Knowledge Room|知识/, expectShot: true },
-  { name: 'unmatched', input: 'reticulate the splines', marker: /Focus Room|Data Lab|没有|未匹配|手动/, expectShot: true },
+  { name: 'route-confirmed', input: 'hash C:\\tmp\\a.txt', expect: 'confirmed', marker: /Hash Room|哈希/, expectShot: true },
+  { name: 'needs-choice', input: 'run a safe task of type CHECKPOINT_DEMO', expect: 'confirmation', marker: /确认|选择|CHECKPOINT_DEMO/, expectShot: true },
+  { name: 'ambiguous', input: 'search for utopia', expect: 'ambiguous', marker: /Knowledge Room|知识/, expectShot: true },
+  { name: 'unmatched', input: 'reticulate the splines', expect: 'unmatched', marker: /Focus Room|Data Lab|没有|未匹配|手动/, expectShot: true },
 ];
 
 const launch = async () => { for (const o of [{ channel: 'msedge' }, {}]) { try { return await chromium.launch(o); } catch {} } throw new Error('no browser'); };
@@ -62,6 +71,14 @@ try {
   }
   const distinct = new Set(observed.map((o) => o.split('state=')[1].split(' controls')[0]));
   if (distinct.size < 2) findings.push(`ask: all four inputs produced the same state presentation (${[...distinct].join(', ')}), so the states are not distinguished`);
+  /* Review repair R-2 (Mech): `distinct.size < 2` was too weak. Three inputs collapsing
+     into UNMATCHED plus one distinct state satisfied it, so the probe reported CLEAN
+     while never reaching the confirmation or ambiguity presentations it names. The guard
+     now requires every case to reach a presentation of its OWN, which is what makes this
+     instrument able to fail. */
+  if (distinct.size < CASES.length) {
+    findings.push(`ask: only ${distinct.size} distinct presentation(s) for ${CASES.length} named states (${[...distinct].join(', ')}); at least one state was never reached, so this probe is not covering what its case names claim`);
+  }
 
   /* ---- step 8: Action detail, folded by default then reachable ---- */
   await page.locator('nav button[data-page="Actions"]').first().click();

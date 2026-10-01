@@ -129,6 +129,14 @@ button { font: inherit; cursor: pointer; border: 0; padding: 8px 14px; backgroun
 .primary:hover { background: #d6ff5f; }
 button:disabled { opacity: .45; cursor: not-allowed; }
 .link-button { display: inline-flex; align-items: center; text-decoration: none; color: var(--lime); padding: 8px 10px; min-height: 24px; }
+/* Review repair R-1 (Mech, UI-101 review): `rawLink()` renders
+   `<a class="primary link-button">`, and because .link-button comes later at EQUAL
+   specificity its `color: var(--lime)` overrode .primary's `color: var(--void)`, while
+   .primary's lime background still applied — lime text on a lime background, i.e.
+   invisible, on all ten "open in a new tab" links on the Rooms page. Measured in the
+   browser as color rgb(198,242,78) on background rgb(198,242,78), contrast 1:1.
+   The higher-specificity rule restores the on-accent ink for a primary link. */
+.link-button.primary { color: var(--void); }
 .link-button:hover { text-decoration: underline; }
 
 /* ------------------------------------------------------------------ cards */

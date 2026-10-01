@@ -441,3 +441,83 @@ test('a non-boolean requirement cannot skip an exclusion', () => {
   assert.equal(failure(() => router.proposeDeviceSwitch({ action_ref: 'a', interaction_device_ref: LAPTOP, requirements: { requires_session: 'true' } })).code, 'INVALID_REQUEST');
   assert.equal(failure(() => router.proposeDeviceSwitch({ action_ref: 'a', interaction_device_ref: LAPTOP, requirements: { requires_local_input: true } })).code, 'NO_HEALTHY_ENDPOINT', 'the boolean still excludes an unsuitable endpoint');
 });
+
+test('a live action id cannot bypass the confirmation gates', () => {
+  assert.equal(failure(() => routerWith([endpoint({ device_ref: DESKTOP })], { v1_confirmation_required: false }).router).code, 'INVALID_REQUEST', 'V1 confirmation is not a switch');
+
+  const { router } = routerWith([endpoint({ device_ref: DESKTOP }), endpoint({ device_ref: TABLET, load: 0.5, freshness_ms: 2000 })]);
+  const approved = remoteProposal(router, 'action:A');
+  const deniedProposal = router.proposeDeviceSwitch({ action_ref: 'action:B', interaction_device_ref: LAPTOP });
+  router.confirmProposal({ proposal_ref: deniedProposal.proposal_ref, confirmed: false });
+  router.dispatch({ proposal_ref: approved.proposal_ref, action_id: 'shared' });
+
+  const reused = failure(() => router.dispatch({ proposal_ref: deniedProposal.proposal_ref, action_id: 'shared' }));
+  assert.equal(reused.code, 'PROPOSAL_NOT_CONFIRMED', 'a denied proposal is still denied when the action id exists');
+  assert.equal(reused.dispatch_performed, false);
+
+  const mismatched = failure(() => router.dispatch({ proposal_ref: approved.proposal_ref, action_id: 'shared', action_ref: 'action:OTHER' }));
+  assert.equal(mismatched.code, 'DUPLICATE_DISPATCH', 'a different action reference is not the same action');
+  assert.equal(mismatched.duplicate_dispatch, true);
+  assert.equal(router.dispatch({ proposal_ref: approved.proposal_ref, action_id: 'shared' }).duplicate, true, 'the same proposal and reference is still absorbed');
+});
+
+test('an executor refusal is not recorded as a dispatch', () => {
+  const { port } = portWith([endpoint({ device_ref: DESKTOP })]);
+  port.dispatch = () => ({ accepted: false, receipt_ref: null, detail: 'executor refused' });
+  const router = createRemoteExecutionRouter({ executionPort: port, clock: () => T0 });
+  const proposal = remoteProposal(router);
+  const refused = failure(() => router.dispatch({ proposal_ref: proposal.proposal_ref, action_id: 'action:1' }));
+  assert.equal(refused.code, 'INVALID_PORT');
+  assert.equal(refused.executor_accepted, false);
+  assert.equal(refused.dispatch_performed, false);
+  assert.equal(router.actions().length, 0, 'no action was created for a refused dispatch');
+  assert.equal(failure(() => router.statusFor({ action_id: 'action:1' })).code, 'UNKNOWN_ACTION');
+});
+
+test('a hardware-bound action stays addressable while it awaits the user', () => {
+  const { router } = routerWith([endpoint({ device_ref: DESKTOP, hardware_auth_required: true })]);
+  const proposal = remoteProposal(router);
+  const dispatched = router.dispatch({ proposal_ref: proposal.proposal_ref, action_id: 'action:1' });
+  assert.equal(dispatched.attention_required, true);
+  assert.equal(dispatched.actions_created_on_execution_host, 0, 'nothing executed on the host');
+  const status = router.statusFor({ action_id: 'action:1' });
+  assert.equal(status.state, 'AWAITING_USER');
+  assert.equal(status.terminal, false);
+  assert.equal(status.attention.attention_ref, dispatched.attention.attention_ref, 'the pending decision is addressable');
+  assert.equal(status.execution_device_ref, DESKTOP);
+});
+
+test('a success carries its result, and an exact replay is not applied twice', () => {
+  const { router } = routerWith([endpoint({ device_ref: DESKTOP })]);
+  const proposal = remoteProposal(router);
+  router.dispatch({ proposal_ref: proposal.proposal_ref, action_id: 'action:1' });
+  assert.equal(failure(() => router.recordEvent({ action_id: 'action:1', kind: 'FINAL' })).code, 'INVALID_REQUEST', 'a final without a result is not a success');
+  assert.equal(router.statusFor({ action_id: 'action:1' }).state, 'DISPATCHED');
+
+  const partial = router.recordEvent({ action_id: 'action:1', kind: 'PARTIAL', text: 'half' });
+  const replay = router.recordEvent({ action_id: 'action:1', kind: 'PARTIAL', text: 'half' });
+  assert.equal(partial.applied, true);
+  assert.equal(replay.applied, false);
+  assert.equal(replay.duplicate, true, 'an exact replay is suppressed');
+  assert.equal(router.statusFor({ action_id: 'action:1' }).partial_refs.length, 1, 'the replay did not inflate the partial list');
+  assert.equal(router.recordEvent({ action_id: 'action:1', kind: 'FINAL', payload_ref: 'result:1' }).state, 'SUCCEEDED');
+});
+
+test('a cancellation is only reported when the executor accepted it', () => {
+  const { port } = portWith([endpoint({ device_ref: DESKTOP })]);
+  port.cancel = () => ({ accepted: false, detail: 'past the cancellation point' });
+  const router = createRemoteExecutionRouter({ executionPort: port, clock: () => T0 });
+  const proposal = remoteProposal(router);
+  router.dispatch({ proposal_ref: proposal.proposal_ref, action_id: 'action:1' });
+  const refused = failure(() => router.cancel({ action_id: 'action:1', by_device_ref: LAPTOP }));
+  assert.equal(refused.code, 'INVALID_PORT');
+  assert.equal(refused.cancellation_performed, false);
+  assert.equal(router.statusFor({ action_id: 'action:1' }).state, 'DISPATCHED', 'the action stays live');
+
+  const strict = routerWith([endpoint({ device_ref: DESKTOP })], { cancel_authorized_states: ['RUNNING'] });
+  const second = remoteProposal(strict.router, 'action:2');
+  strict.router.dispatch({ proposal_ref: second.proposal_ref, action_id: 'action:2' });
+  assert.equal(failure(() => strict.router.cancel({ action_id: 'action:2', by_device_ref: LAPTOP })).code, 'INVALID_REQUEST', 'the declared cancellation policy is enforced');
+  strict.router.recordEvent({ action_id: 'action:2', kind: 'PROGRESS' });
+  assert.equal(strict.router.cancel({ action_id: 'action:2', by_device_ref: LAPTOP }).state, 'CANCELLED');
+});

@@ -61,7 +61,11 @@ export class RemoteExecutionError extends Error {
   }
 }
 
-const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+const isPlainObject = value => {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+};
 const isText = value => typeof value === 'string' && value.trim().length > 0;
 const clone = value => (value === undefined ? undefined : structuredClone(value));
 const freeze = value => {
@@ -116,8 +120,8 @@ export function createRemoteExecutionRouter({ executionPort, clock = () => new D
   const config = { ...DEFAULT_REMOTE_POLICY, ...(policy ?? {}), weights: { ...DEFAULT_REMOTE_POLICY.weights, ...(isPlainObject(policy?.weights) ? policy.weights : {}) } };
   // The V1 confirmation requirement and the health ceilings are the module's central bounds: a
   // non-boolean or non-finite policy value must not be able to switch them off.
-  if (typeof config.v1_confirmation_required !== 'boolean') {
-    throw new RemoteExecutionError('INVALID_REQUEST', 'policy.v1_confirmation_required must be a boolean, so the device-switch confirmation cannot be disabled by a non-boolean value');
+  if (config.v1_confirmation_required !== true) {
+    throw new RemoteExecutionError('INVALID_REQUEST', 'V1 requires an explicit device-switch confirmation, so policy.v1_confirmation_required must be true and cannot be disabled');
   }
   for (const key of ['max_freshness_ms']) {
     if (!Number.isFinite(config[key]) || config[key] <= 0) throw new RemoteExecutionError('INVALID_REQUEST', `policy.${key} must be a positive finite number, got ${String(config[key])}`);
@@ -327,17 +331,11 @@ export function createRemoteExecutionRouter({ executionPort, clock = () => new D
       if (!isText(action_id)) throw new RemoteExecutionError('INVALID_REQUEST', 'the canonical action_id is required');
       const at = when === undefined || when === null ? now() : callerInstant(when);
 
-      // Duplicate dispatch is absorbed: the execution host must never grow a second Action.
-      const existing = [...actions.values()].find(action => action.action_id === action_id) ?? null;
-      if (existing !== null) {
-        note('DISPATCH_DUPLICATE_SUPPRESSED', at, { action_id });
-        return freeze({ ...api.statusFor({ action_id }), dispatched: false, duplicate: true, actions_created_on_execution_host: 1, at });
-      }
-
+      // The confirmation gates run first: holding a live action_id must never bypass them.
       if (proposal.route === 'REMOTE_DEVICE' && proposal.confirmation !== null && proposal.confirmation.confirmed !== true) {
         throw new RemoteExecutionError('PROPOSAL_NOT_CONFIRMED', 'the device switch proposal was denied', { action_id, proposal_ref, dispatch_performed: false });
       }
-      if (proposal.route === 'REMOTE_DEVICE' && config.v1_confirmation_required === true && proposal.confirmed !== true) {
+      if (proposal.route === 'REMOTE_DEVICE' && proposal.confirmed !== true) {
         throw new RemoteExecutionError('CONFIRMATION_REQUIRED', 'V1 requires explicit user confirmation before dispatching to another device', {
           action_id,
           proposal_ref,
@@ -345,6 +343,23 @@ export function createRemoteExecutionRouter({ executionPort, clock = () => new D
           interaction_device_unchanged: true,
           dispatch_performed: false,
         });
+      }
+
+      // Only then is a duplicate absorbed, and only for the proposal and action reference that own it.
+      const existing = [...actions.values()].find(action => action.action_id === action_id) ?? null;
+      if (existing !== null) {
+        if (existing.proposal_ref !== proposal_ref || existing.action_ref !== (action_ref ?? proposal.action_ref)) {
+          throw new RemoteExecutionError('DUPLICATE_DISPATCH', `action ${action_id} already belongs to another proposal or action reference`, {
+            action_id,
+            proposal_ref,
+            existing_proposal_ref: existing.proposal_ref,
+            existing_action_ref: existing.action_ref,
+            duplicate_dispatch: true,
+            dispatch_performed: false,
+          });
+        }
+        note('DISPATCH_DUPLICATE_SUPPRESSED', at, { action_id });
+        return freeze({ ...api.statusFor({ action_id }), dispatched: false, duplicate: true, actions_created_on_execution_host: 1, at });
       }
 
       // Semantic input staging: every staged reference carries its own cleanup policy.
@@ -397,6 +412,28 @@ export function createRemoteExecutionRouter({ executionPort, clock = () => new D
           user_must_operate_execution_host: false,
           created_at: at,
         });
+        // The attention is addressable: the action exists in AWAITING_USER and nothing has executed.
+        actions.set(action_id, {
+          action_id,
+          action_ref: action_ref ?? proposal.action_ref,
+          proposal_ref,
+          interaction_device_ref: proposal.interaction_device_ref,
+          execution_device_ref: proposal.execution_device_ref,
+          endpoint_ref: proposal.endpoint_ref,
+          state: 'AWAITING_USER',
+          events: [],
+          seq: 0,
+          partial_refs: [],
+          final_ref: null,
+          error: null,
+          cancellation: null,
+          reconciled_events: [],
+          attention,
+          staged_inputs: staged,
+          viewers: [proposal.interaction_device_ref, proposal.execution_device_ref],
+          dispatched_at: null,
+          receipt_ref: null,
+        });
         note('ATTENTION_REQUIRED', at, { action_id, execution_device_ref: proposal.execution_device_ref });
         return freeze({
           ...clone(proposal),
@@ -420,6 +457,18 @@ export function createRemoteExecutionRouter({ executionPort, clock = () => new D
         input_bundle_refs: staged.map(entry => entry.bundle_ref),
         semantic_rpc: true,
       });
+      // A refusal is not a dispatch: the router never records an Action the executor did not accept.
+      if (!isPlainObject(receipt) || receipt.accepted !== true) {
+        note('DISPATCH_REFUSED_BY_EXECUTOR', at, { action_id, endpoint_ref: proposal.endpoint_ref });
+        throw new RemoteExecutionError('INVALID_PORT', 'the execution port did not accept the dispatch', {
+          action_id,
+          endpoint_ref: proposal.endpoint_ref,
+          executor_accepted: isPlainObject(receipt) ? (receipt.accepted ?? null) : null,
+          receipt_ref: isPlainObject(receipt) ? (receipt.receipt_ref ?? null) : null,
+          dispatch_performed: false,
+          actions_created_on_execution_host: 0,
+        });
+      }
       const action = {
         action_id,
         action_ref: action_ref ?? proposal.action_ref,
@@ -489,6 +538,16 @@ export function createRemoteExecutionRouter({ executionPort, clock = () => new D
       if (seq !== null && seq !== nextSeq) {
         throw new RemoteExecutionError('EVENT_OUT_OF_ORDER', `event seq ${seq} is not the expected ${nextSeq}`, { action_id, expected_seq: nextSeq });
       }
+      if (kind === 'FINAL' && payloadRef === null) {
+        throw new RemoteExecutionError('INVALID_REQUEST', 'a final event must name the result it returns; a terminal success is never synthesized', { action_id, kind, payload_ref: null, applied: false });
+      }
+      // An exact replay must not be applied twice, even when the caller omits seq: the same kind with the
+      // same payload and text as the most recent event is that same event.
+      const lastEvent = action.events.length === 0 ? null : action.events[action.events.length - 1];
+      if (seq === null && lastEvent !== null && lastEvent.kind === kind && lastEvent.payload_ref === payloadRef && lastEvent.text === eventText) {
+        note('EVENT_DUPLICATE_SUPPRESSED', at, { action_id, kind });
+        return freeze({ contract_version: REMOTE_EXECUTION_CONTRACT_VERSION, action_id, applied: false, duplicate: true, reconciled: false, reason: 'EXACT_REPLAY_SUPPRESSED', state: action.state, correlated_action_id: action_id, at });
+      }
       action.seq = nextSeq;
       const event = freeze({
         contract_version: REMOTE_EXECUTION_CONTRACT_VERSION,
@@ -528,8 +587,22 @@ export function createRemoteExecutionRouter({ executionPort, clock = () => new D
       if (!action.viewers.includes(by_device_ref)) {
         throw new RemoteExecutionError('NOT_AUTHORIZED_TO_CANCEL', `${by_device_ref} is not an authorized viewer of ${action_id}`, { action_id, viewers: freeze(clone(action.viewers)) });
       }
+      if (!config.cancel_authorized_states.includes(action.state)) {
+        throw new RemoteExecutionError('INVALID_REQUEST', `an action in ${action.state} is not cancellable under this policy`, { action_id, state: action.state, cancel_authorized_states: freeze([...config.cancel_authorized_states]), cancellation_performed: false });
+      }
       portCalls.cancel += 1;
       const receipt = typeof executionPort.cancel === 'function' ? executionPort.cancel({ action_id, endpoint_ref: action.endpoint_ref, by_device_ref }) : null;
+      // A cancellation the executor did not accept is not a cancellation: the action stays live.
+      if (!isPlainObject(receipt) || receipt.accepted !== true) {
+        note('CANCEL_REFUSED_BY_EXECUTOR', at, { action_id, by_device_ref });
+        throw new RemoteExecutionError('INVALID_PORT', 'the execution port did not accept the cancellation', {
+          action_id,
+          by_device_ref,
+          executor_accepted: isPlainObject(receipt) ? (receipt.accepted ?? null) : null,
+          cancellation_performed: false,
+          action_state: action.state,
+        });
+      }
       const cancellation = freeze({
         contract_version: REMOTE_EXECUTION_CONTRACT_VERSION,
         cancellation_ref: `cancellation:${action_id}`,

@@ -457,3 +457,91 @@ test('RS-201: the availability reason vocabulary carries all seven required cate
     assert.equal(typeof REASON_SOURCES[derived], 'string', `${derived} should point at existing state`);
   }
 });
+
+/* ------------------------------- RS-201: reversible enablement and non-destructive removal */
+
+test('RS-201: disable and re-enable are reversible and destroy nothing', () => {
+  const registry = freshRegistry();
+  registry.upsertProvider(providerRecord());
+  const off = registry.setEnablement({ subject: 'PROVIDER', ref: 'provider-alpha', enablement: 'DISABLED' });
+  assert.equal(off.found, true);
+  assert.equal(off.record.enablement, 'DISABLED');
+  // Switching a provider off is not a deletion: identity, observation time and handle stay put.
+  assert.equal(off.record.observed_at, ISO(T0));
+  assert.equal(registry.getProvider('provider-alpha').found, true);
+  assert.equal(registry.snapshot().providers.length, 1);
+  const on = registry.setEnablement({ subject: 'PROVIDER', ref: 'provider-alpha', enablement: 'ENABLED' });
+  assert.equal(on.record.enablement, 'ENABLED');
+});
+
+test('RS-201: setEnablement refuses a bad state and answers a bad reference with a typed absence', () => {
+  const registry = freshRegistry();
+  registry.upsertProvider(providerRecord());
+  // `true` is the value a boolean field would have carried; the enum must refuse it rather than coerce.
+  assert.throws(() => registry.setEnablement({ subject: 'PROVIDER', ref: 'provider-alpha', enablement: true }), /is not an enablement/);
+  assert.equal(registry.setEnablement({ subject: 'PROVIDER', ref: 'nope', enablement: 'DISABLED' }).code, 'UNKNOWN_PROVIDER');
+  assert.throws(() => registry.setEnablement({ subject: 'NOPE', ref: 'x', enablement: 'DISABLED' }), /not a registry subject/);
+});
+
+test('RS-201: a provider with dependents is REFUSED removal, and the dependents are named', () => {
+  const registry = freshRegistry();
+  registry.upsertProvider(providerRecord());
+  registry.upsertModel(modelRecord());
+  registry.upsertAccount(accountRecord());
+  const refused = registry.remove({ subject: 'PROVIDER', ref: 'provider-alpha' });
+  assert.equal(refused.removed, false);
+  assert.equal(refused.code, 'HAS_DEPENDENTS');
+  // Naming them is the point: a caller can act, and removal can never leave a dangling reference.
+  assert.deepEqual([...refused.dependents], ['account-alpha-1', 'model-alpha']);
+  assert.equal(registry.getProvider('provider-alpha').found, true);
+  assert.equal(registry.getModel('model-alpha').found, true);
+});
+
+test('RS-201: removal tombstones the reference, so RETIRED is distinguishable from UNKNOWN', () => {
+  const registry = freshRegistry();
+  registry.upsertProvider(providerRecord({ provider_ref: 'provider-solo' }));
+  assert.equal(registry.remove({ subject: 'PROVIDER', ref: 'provider-solo' }).removed, true);
+  assert.equal(registry.isRetired('provider-solo'), true);
+  assert.deepEqual([...registry.listRetired()], ['provider-solo']);
+  // "the user removed it" is a different, more useful answer than "never heard of it".
+  assert.equal(registry.getProvider('provider-solo').code, 'RETIRED_PROVIDER');
+  assert.equal(registry.getProvider('provider-never').code, 'UNKNOWN_PROVIDER');
+  // And the reference is NOT free for the taking: re-registering it must not silently resurrect the
+  // identity, because references still holding it would then quietly mean a different record.
+  expectCode(() => registry.upsertProvider(providerRecord({ provider_ref: 'provider-solo' })), 'RETIRED_PROVIDER');
+});
+
+test('RS-201: restore is the explicit act that makes a removed reference registerable again', () => {
+  const registry = freshRegistry();
+  registry.upsertProvider(providerRecord({ provider_ref: 'provider-solo' }));
+  registry.remove({ subject: 'PROVIDER', ref: 'provider-solo' });
+  assert.equal(registry.restore({ subject: 'PROVIDER', ref: 'provider-solo' }).restored, true);
+  assert.equal(registry.isRetired('provider-solo'), false);
+  // Restored means registerable again - and it is genuinely a NEW record, not the old one revived.
+  const again = registry.upsertProvider(providerRecord({ provider_ref: 'provider-solo', display_name: 'Re-added' }));
+  assert.equal(again.created, true);
+  assert.equal(registry.getProvider('provider-solo').record.display_name, 'Re-added');
+  // Restoring something that was never removed is reported, not thrown.
+  assert.equal(registry.restore({ subject: 'PROVIDER', ref: 'provider-other' }).restored, false);
+});
+
+test('RS-201: unavailability never removes anything - only an explicit user remove() does', () => {
+  const registry = freshRegistry();
+  registry.upsertProvider(providerRecord({ provider_ref: 'provider-blocked', enablement: 'DISABLED', region: 'cn-north' }));
+  // Disabled AND region-declared, and still fully registered: the workbook forbids the system from
+  // dropping a provider because it is unusable, and nothing here does.
+  assert.equal(registry.snapshot().providers.length, 1);
+  assert.equal(registry.getProvider('provider-blocked').found, true);
+  assert.equal(registry.isRetired('provider-blocked'), false);
+});
+
+test('RS-201: models and accounts are removable once they have no dependents of their own', () => {
+  const registry = freshRegistry();
+  registry.upsertProvider(providerRecord());
+  registry.upsertModel(modelRecord());
+  assert.equal(registry.remove({ subject: 'MODEL', ref: 'model-alpha' }).removed, true);
+  assert.equal(registry.getModel('model-alpha').code, 'RETIRED_MODEL');
+  // With the model gone the provider is held by nothing but itself, so it can now be removed.
+  assert.equal(registry.remove({ subject: 'PROVIDER', ref: 'provider-alpha' }).removed, true);
+  assert.equal(registry.getProvider('provider-alpha').code, 'RETIRED_PROVIDER');
+});

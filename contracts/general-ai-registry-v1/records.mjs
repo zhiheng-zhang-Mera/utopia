@@ -16,7 +16,12 @@ export const SUPPORT_LEVELS = Object.freeze(['SUPPORTED', 'UNSUPPORTED', 'UNKNOW
 export const ACCOUNT_STATUSES = Object.freeze(['UNKNOWN', 'UNAUTHENTICATED', 'PENDING', 'AUTHENTICATED', 'EXPIRED', 'REVOKED']);
 export const FACT_SOURCES = Object.freeze(['CONFIGURED', 'PROBED', 'USER_REPORTED']);
 export const FRESHNESS = Object.freeze(['FRESH', 'STALE', 'UNKNOWN']);
-export const ABSENCE_CODES = Object.freeze(['UNKNOWN_PROVIDER', 'UNKNOWN_MODEL', 'UNKNOWN_ACCOUNT', 'MODEL_NOT_IN_PROVIDER', 'ACCOUNT_NOT_IN_PROVIDER', 'DUPLICATE_IDENTITY', 'IDENTITY_COLLISION', 'INVALID_REGISTRY_RECORD', 'RAW_SECRET_FORBIDDEN', 'HANDLE_STORE_REQUIRED']);
+/**
+ * Typed absence. `UNKNOWN_*` means "never registered"; `RETIRED_*` means "the user removed it", which
+ * is a different and more useful answer — a removed provider is not the same fact as a typo, and the
+ * reason has to survive the removal or every surface can only say "not found".
+ */
+export const ABSENCE_CODES = Object.freeze(['UNKNOWN_PROVIDER', 'UNKNOWN_MODEL', 'UNKNOWN_ACCOUNT', 'MODEL_NOT_IN_PROVIDER', 'ACCOUNT_NOT_IN_PROVIDER', 'DUPLICATE_IDENTITY', 'IDENTITY_COLLISION', 'INVALID_REGISTRY_RECORD', 'RAW_SECRET_FORBIDDEN', 'HANDLE_STORE_REQUIRED', 'RETIRED_PROVIDER', 'RETIRED_MODEL', 'RETIRED_ACCOUNT', 'HAS_DEPENDENTS']);
 export const SUBJECT_KINDS = Object.freeze(['PROVIDER', 'MODEL', 'ACCOUNT']);
 
 /**

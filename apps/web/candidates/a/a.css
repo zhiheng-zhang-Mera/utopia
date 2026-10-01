@@ -7,12 +7,18 @@
   --paper-2: #f3ede3;
   --ink: #241f1a;
   --ink-2: #5c5347;
-  --ink-3: #8b8073;
+  /* was #8b8073 (3.65:1 on --paper) — below WCAG AA 4.5:1 for every one of the 79
+     elements that use it (timestamps, field labels, secondary metadata) at 12-14px.
+     Same hue, lightness only, so the direction is unchanged. See REVIEW_REPORT. */
+  --ink-3: #7a6f60;
   --rule: #e3dacb;
   --accent: #b4502a;
+  /* text-safe variant of --accent for use ON --accent-soft (4.75:1 vs 3.76:1) */
+  --accent-ink: #9c4423;
   --accent-soft: #f0d9cd;
   --ok: #4a6b3c;
-  --warn: #8a6a1f;
+  /* was #8a6a1f (4.10:1 on the warn tint) — below WCAG AA 4.5:1 for badge text. */
+  --warn: #7a5c18;
   --radius: 8px;
   --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Songti SC", serif;
   --sans: "Segoe UI", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
@@ -188,7 +194,9 @@ button.quiet.small { padding: 3px 10px; font-size: 12.5px; }
 
 .stage-switch { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 26px; }
 .chip { font: inherit; font-size: 13px; color: var(--ink-3); background: none; border: 1px solid var(--rule); border-radius: 999px; padding: 5px 13px; cursor: pointer; }
-.chip.is-on { color: var(--accent); border-color: var(--accent-soft); background: var(--accent-soft); }
+/* --accent is text-safe on --paper (4.81:1) but not on --accent-soft (3.76:1), so the
+   selected chip needs the same hue at a text-safe lightness. See REVIEW_REPORT. */
+.chip.is-on { color: var(--accent-ink); border-color: var(--accent-soft); background: var(--accent-soft); }
 
 /* ---------------------------------------------------------- declarations */
 

@@ -1,6 +1,6 @@
 # UI-000 capability parity report
 
-- generated: 2026-10-01T11:45:07.633Z
+- generated: 2026-10-01T12:57:12.086Z
 - candidates: a, b, c
 - probes: 396/396 passed
 - result: PASS

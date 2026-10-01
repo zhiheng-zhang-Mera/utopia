@@ -1,8 +1,8 @@
 {
   "schema": "ui-000-evidence-manifest/1",
-  "captured_at": "2026-10-01T11:46:09.844Z",
-  "branch": "ui/UI-000-visual-direction-candidates",
-  "captured_at_head_sha": "c03adf13bbdd64d74514534b1de1e61ce3a68c6a",
+  "captured_at": "2026-10-01T12:59:08.998Z",
+  "branch": "HEAD",
+  "captured_at_head_sha": "aea8361c07c003f6f519829b6c1a208c20bccab1",
   "source_paths": [
     "apps/web/candidates",
     "apps/rooms/hub/public/themes",
@@ -12,15 +12,15 @@
     "apps/android/app/src/main/AndroidManifest.xml"
   ],
   "source_file_count": 23,
-  "source_digest": "51a499e31d2c64e6c6a6a94e03168e85f3512c0915084fed7826d2349804da2b",
+  "source_digest": "fb363dea56f583c5602cc21097d84bf885f0976084ebb02239326b1a5040d362",
   "note": "source_digest is a sha256 over source_paths, i.e. the tree this evidence is a picture of. It is deliberately NOT keyed to a commit sha: that would make every evidence-only commit invalidate its own manifest, and would force a pointless re-capture when only docs or tests moved. Generated files must be re-captured whenever source_digest changes; hand-written files (README.md, this manifest) are exempt from that rule but are still hash-verified.",
   "file_count": 25,
   "generated_file_count": 24,
   "files": [
     {
       "path": "README.md",
-      "bytes": 4804,
-      "sha256": "c45d81f2c0bcd63c27fbb1e7ef42e5fce4c9b50df5d42c896a0336fb71f9f340",
+      "bytes": 5240,
+      "sha256": "7483f9dd0edce0a08bf1c1798a03ec1ce5b9818b21c821003408e0072f47385c",
       "generated": false
     },
     {
@@ -55,92 +55,92 @@
     },
     {
       "path": "candidate-a/1440x960-ask.png",
-      "bytes": 56526,
-      "sha256": "d87b46e7d51c51b55f523d4a785811fdf9a0881aa49aaf3a5bb528b9604e82e7",
+      "bytes": 56606,
+      "sha256": "f62657d1e089cb19f69bbea65a2b4879e98f390a0c305fb889e795c993c45a67",
       "generated": true
     },
     {
       "path": "candidate-a/1440x960-home.png",
-      "bytes": 73207,
-      "sha256": "c0e3f48485407182ed65ef4e5f494e79e7d8c71ffc5d48857c7d5915b18e4acb",
+      "bytes": 73181,
+      "sha256": "a0e3440a119b44879aa199b8b17788aca9d861f73636c29814aa4b58b74ea007",
       "generated": true
     },
     {
       "path": "candidate-a/1440x960-tools.png",
-      "bytes": 121883,
-      "sha256": "830a3a2bbd2da97506b1fed519804c05495dc918b4a26cdc40b6967d37fb738b",
+      "bytes": 122060,
+      "sha256": "939e331a1fc2c25c03b8a61f3bdbeb1be0b6e31a2cfa3699ec3943aa2f3f9da7",
       "generated": true
     },
     {
       "path": "candidate-a/414x896-tools.png",
-      "bytes": 104296,
-      "sha256": "ea72411f10c8629a465c0c6e71dff9afabced065938f51927a8bd96855cd9377",
+      "bytes": 104465,
+      "sha256": "2f6a3a07c2fb8910a6e5f0f344d38d07841d01e754b3bd1a09d5b07dbb96f662",
       "generated": true
     },
     {
       "path": "candidate-b/1440x960-ask.png",
-      "bytes": 35592,
-      "sha256": "5b2ca511db956fe3f1cc909adf0f26e42839480b0b0f09e3a59259a5b9250f5d",
+      "bytes": 35624,
+      "sha256": "3da1841d0460d8151cd697ac951af1564b912c7eeffeb84b28bdf7567f0e958e",
       "generated": true
     },
     {
       "path": "candidate-b/1440x960-home.png",
-      "bytes": 43012,
-      "sha256": "493d7d4afff706fd03e7ac4264c74c6af1ada36bac330a7678c47438d464a315",
+      "bytes": 43212,
+      "sha256": "560c0d9a02db9ea1ebefaab1b24ff5fa25a13064de9ed8f86cb9f5c1fc0ef430",
       "generated": true
     },
     {
       "path": "candidate-b/1440x960-tools.png",
-      "bytes": 86022,
-      "sha256": "7707b7a817d492962dd12d35be724dea51ea0b7ff303899709e668c8157bb589",
+      "bytes": 86045,
+      "sha256": "7b1a878163c9f80e1899c52b5f3ead3cbdc0ceeedafad1fb79a070f6b6afdcf1",
       "generated": true
     },
     {
       "path": "candidate-b/414x896-tools.png",
-      "bytes": 79761,
-      "sha256": "3cd2cb08f511594b7f5cc38b815c73de1ac510b2ce86c2c20c0c1a16d802e8b5",
+      "bytes": 79805,
+      "sha256": "9dc76c87d85045c1215d2c9e185fc3c88ec4e2981506ad665d6076fddcfb4459",
       "generated": true
     },
     {
       "path": "candidate-c/1440x960-ask-spotlight.png",
-      "bytes": 99341,
-      "sha256": "4adc58ad837fc6f548106fc436bcc6481c843aa717105afc098088c86dbb1da3",
+      "bytes": 66173,
+      "sha256": "923e745789deef311763694738040bb56ce225a6e45120bdb67a99953cfd41b4",
       "generated": true
     },
     {
       "path": "candidate-c/1440x960-ask.png",
-      "bytes": 95379,
-      "sha256": "99989f9bb644b7d97a4bcbccb6c7f46a9ee490d66be263aa674169234a196de4",
+      "bytes": 116973,
+      "sha256": "027c4e5aac87f0f10a1380eff609b9cf883c056a42706cd8deaf914d40518ae7",
       "generated": true
     },
     {
       "path": "candidate-c/1440x960-home.png",
-      "bytes": 169132,
-      "sha256": "5a9ecc41165f49a949eeaf37567540d7228f3ce14f594fe4054ad51697b509a2",
+      "bytes": 220488,
+      "sha256": "6a59448088ae48f0cef617d36dfc3e915ba1d5ee9eb61389b2dcb08adee78fa3",
       "generated": true
     },
     {
       "path": "candidate-c/1440x960-tools.png",
-      "bytes": 564043,
-      "sha256": "07202ddfc54703931c4113cb9b9460a592420900e9d280d50939c6b84b8a0fb0",
+      "bytes": 159517,
+      "sha256": "4cedd790de9b1468a2956bdbf7e7e5fac4b9595237a377715e0eab11b2b0f4a5",
       "generated": true
     },
     {
       "path": "candidate-c/414x896-tools.png",
-      "bytes": 325018,
-      "sha256": "800427f7510cd5ee80a13e377f025e045e47eaeda8cca6c2045e7e70be3e101a",
+      "bytes": 116506,
+      "sha256": "3d11d2c784fec3bef627bd6b4ce76f55df9daf13a5cf96fa51373284a4119a9c",
       "generated": true
     },
     {
       "path": "parity-report.json",
       "bytes": 66491,
-      "sha256": "a30a2ba4bcd8bfafda63d382cdc7538d6371595154550458926c0a6a894f88e9",
+      "sha256": "5c40851745e9ac829886fe4733e9547d7b4f07d1b4b823aceebc90ad773794ad",
       "generated": true
     },
     {
       "path": "parity-report.md",
       "bytes": 24451,
-      "sha256": "82d3b7f957ec1e595bdc5b59b8e32b0ff4ae262da257c9bf12a070d772273b23",
+      "sha256": "ec280ecce1344f2622383fc32f4b51328ed88877027aa83a45ba4600e4fc714a",
       "generated": true
     },
     {

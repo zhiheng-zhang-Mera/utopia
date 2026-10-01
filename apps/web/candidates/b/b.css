@@ -9,7 +9,9 @@
   --surface-2: #eef0ee;
   --ink: #0f1513;
   --ink-2: #4a534f;
-  --ink-3: #7e8884;
+  /* was #7e8884 (3.41:1 on --bg, 3.66:1 on white) — below WCAG AA 4.5:1 for all
+     89 elements that use it at 10-12.5px. Same hue, lightness only. */
+  --ink-3: #626c67;
   --line: #dde1dd;
   --line-strong: #c3cac5;
   --accent: #1f4ed8;

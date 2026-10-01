@@ -54,10 +54,16 @@ that fixed the very defect the Review had flagged. Human eyeballing failed three
 `node scripts/ui-000/evidence-check.mjs` fails with `EVIDENCE_POINTER_MISMATCH` once the branch head
 moves past it. `--write` regenerates the manifest after a deliberate re-capture.
 
-Note on the current capture: **only candidate B's rendered pixels changed** in the last re-capture.
-The WCAG minimum-target fix was a no-op for A and C at these viewports (their line boxes already
-exceeded 24px), so their PNGs are byte-identical rather than re-encoded. B changed visibly because it
-also stopped rendering raw event types on its primary path — the exact point its Review flagged.
+Note on the current capture (revision review, head `aea8361`): the review host measured colour
+contrast, which neither earlier instrument did, and found the tertiary text token failing WCAG AA in
+**all three** directions. The fix changed that one token per candidate (plus candidate A's warn and
+selected-chip colours), so **all three** directions' screenshots changed in this capture — a
+lightness-only adjustment that preserves each direction's hue.
+
+Note on the previous capture: only candidate B's rendered pixels changed there. The WCAG
+minimum-target fix was a no-op for A and C at these viewports (their line boxes already exceeded
+24px), so their PNGs were byte-identical rather than re-encoded. B changed visibly because it also
+stopped rendering raw event types on its primary path — the exact point its Review flagged.
 
 Two evidence captures were **not** produced the naive way, and the reason is recorded because it
 is a real finding rather than a convenience:

@@ -50,6 +50,23 @@ export const STATE_FOR_KIND = Object.freeze({
   CANCELLED: 'CANCELLED',
 });
 
+/**
+ * Step 2 additions.
+ *
+ * `AWAITING_USER` is declared by remote-execution's ACTION_STATES and step 2 requires covering
+ * "waiting for user", but no EVENT_KIND maps to it - and minting a new kind would be the parallel
+ * vocabulary this module exists to avoid. So attention is carried as an explicit INPUT on apply():
+ * a STATUS event with `attention: true` settles AWAITING_USER, which is the truthful way to say
+ * "the run is fine and is waiting for the person". Clearing it is the same mechanism in reverse -
+ * attention false on the next STATUS - which is also what step 3's RESPOND command will drive.
+ *
+ * `remote_state` is deliberately SEPARATE from the canonical ACTION state, because a disconnected
+ * execution host has not failed and has not succeeded: the run's truth is unchanged while our
+ * KNOWLEDGE of it degrades. Collapsing the two would be exactly the false success invariant 5
+ * forbids.
+ */
+export const REMOTE_STATES = Object.freeze(['ONLINE', 'UNKNOWN', 'RECOVERING']);
+
 export const BRIDGE_CODES = Object.freeze([
   'INVALID_REQUEST', 'INVALID_CLOCK', 'INVALID_SURFACE_RESOLVER', 'UNKNOWN_CORRELATION',
   'DUPLICATE_CORRELATION', 'UNKNOWN_EVENT_KIND', 'OUT_OF_ORDER', 'DUPLICATE_EVENT',
@@ -81,7 +98,7 @@ export function createReturnBridge({ resolveSurface, clock = () => new Date().to
 
   /** actionRef -> correlation record */
   const correlations = new Map();
-  const counters = { registered: 0, applied: 0, duplicates: 0, out_of_order: 0, late: 0, unprojected: 0 };
+  const counters = { registered: 0, applied: 0, duplicates: 0, out_of_order: 0, late: 0, unprojected: 0, disconnected: 0 };
 
   function register({ actionRef, interactionDeviceRef, executionDeviceRef, ownerRef = null } = {}) {
     if (!isText(actionRef)) throw new ReturnBridgeError('INVALID_REQUEST', 'actionRef is required');
@@ -100,6 +117,7 @@ export function createReturnBridge({ resolveSurface, clock = () => new Date().to
       last_sequence: null,
       applied_events: 0,
       terminal: false,
+      remote_state: 'ONLINE',
       registered_at: clock(),
       handed_off_at: null,
     };
@@ -140,7 +158,7 @@ export function createReturnBridge({ resolveSurface, clock = () => new Date().to
    * event is NOT applied and the canonical state is unchanged, because applying a stale progress
    * event over a finished run is exactly the false-success the workbook forbids.
    */
-  function apply({ actionRef, sequence, kind, payload = null } = {}) {
+  function apply({ actionRef, sequence, kind, payload = null, attention = false } = {}) {
     const record = correlations.get(actionRef);
     if (!record) throw new ReturnBridgeError('UNKNOWN_CORRELATION', `no correlation for ${String(actionRef)}`);
     if (!EVENT_KINDS.includes(kind)) throw new ReturnBridgeError('UNKNOWN_EVENT_KIND', `${String(kind)} is not one of ${EVENT_KINDS.join(', ')}`);
@@ -155,6 +173,7 @@ export function createReturnBridge({ resolveSurface, clock = () => new Date().to
       detail,
       canonical_state: record.state,
       state_changed: false,
+      remote_state: record.remote_state,
       interaction_device_ref: record.interaction_device_ref,
       execution_device_ref: record.execution_device_ref,
       devices_differ: record.devices_differ,
@@ -164,9 +183,18 @@ export function createReturnBridge({ resolveSurface, clock = () => new Date().to
     if (record.last_sequence !== null && sequence === record.last_sequence) { counters.duplicates += 1; return settled('DUPLICATE_EVENT', `sequence ${sequence} was already applied`); }
     if (record.last_sequence !== null && sequence < record.last_sequence) { counters.out_of_order += 1; return settled('OUT_OF_ORDER', `sequence ${sequence} is behind ${record.last_sequence}`); }
 
-    const nextState = STATE_FOR_KIND[kind] ?? null;
+    // Step 2: attention is an INPUT rather than a minted event kind, and it only applies to a
+    // STATUS report. A non-STATUS kind carrying attention is refused as ambiguous rather than
+    // guessed at, because "PROGRESS and also waiting for you" has no single truthful state.
+    if (attention === true && kind !== 'STATUS') {
+      throw new ReturnBridgeError('INVALID_REQUEST', `attention is only meaningful on a STATUS event, not ${kind}`);
+    }
+    const nextState = attention === true ? 'AWAITING_USER' : (STATE_FOR_KIND[kind] ?? null);
     const previousState = record.state;
+    const previousRemote = record.remote_state;
     if (nextState !== null) record.state = nextState;
+    // An applied event is first-hand knowledge, so it clears any degraded view of the remote host.
+    record.remote_state = 'ONLINE';
     record.last_sequence = sequence;
     record.applied_events += 1;
     record.terminal = TERMINAL_ACTION_STATES.includes(record.state);
@@ -197,6 +225,8 @@ export function createReturnBridge({ resolveSurface, clock = () => new Date().to
       canonical_state: record.state,
       previous_state: previousState,
       state_changed: previousState !== record.state,
+      remote_state: record.remote_state,
+      remote_state_recovered: previousRemote !== 'ONLINE' && record.remote_state === 'ONLINE',
       state_is_declared: ACTION_STATES.includes(record.state),
       terminal: record.terminal,
       interaction_device_ref: record.interaction_device_ref,
@@ -210,10 +240,43 @@ export function createReturnBridge({ resolveSurface, clock = () => new Date().to
     });
   }
 
+  /**
+   * The execution host went away mid-run. Step 2's "device disconnect" case, and the one place
+   * invariant 5 is easiest to get wrong.
+   *
+   * A disconnect is NOT a failure and NOT a success: the run's canonical state is left exactly as
+   * it was, `terminal` stays false so a later event can still settle it, and only our KNOWLEDGE
+   * degrades - reported as remote_state UNKNOWN. Nothing here reports success, and a caller asking
+   * "is this a truthful success?" is told no.
+   */
+  function markDisconnected({ actionRef, detail = null } = {}) {
+    const record = correlations.get(actionRef);
+    if (!record) throw new ReturnBridgeError('UNKNOWN_CORRELATION', `no correlation for ${String(actionRef)}`);
+    const previous = record.remote_state;
+    // A terminal run keeps whatever it had: a disconnect after the end changes nothing about a
+    // result that already landed. A live run's knowledge degrades to UNKNOWN.
+    if (!record.terminal) record.remote_state = 'UNKNOWN';
+    counters.disconnected += 1;
+    return Object.freeze({
+      action_ref: actionRef,
+      canonical_state: record.state,
+      state_changed: false,          // a disconnect never moves the run's truth
+      previous_remote_state: previous,
+      remote_state: record.remote_state,
+      terminal: record.terminal,
+      // Explicit, and the point of the case: a disconnected run is not a success, and a caller
+      // must not be able to read it as one.
+      truthful_success: false,
+      recovered: false,
+      detail,
+    });
+  }
+
   return Object.freeze({
     register,
     handoff,
     apply,
+    markDisconnected,
     correlation: (actionRef) => (correlations.has(actionRef) ? Object.freeze({ ...correlations.get(actionRef) }) : null),
     stats: () => Object.freeze({ ...counters }),
   });

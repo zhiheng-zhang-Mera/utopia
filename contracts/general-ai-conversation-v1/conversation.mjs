@@ -156,6 +156,7 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
   const turns = new Map();
   const partials = new Map();
   const stagingReleased = new Map();
+  const conversationStream = new Map();
   const journal = [];
   let counter = 0;
 
@@ -176,6 +177,18 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
       throw new ConversationError('ENTROPY_REQUIRED', 'the entropy source returned unusable material');
     }
     return produced.slice(0, bytes * 2).toLowerCase();
+  };
+
+  /**
+   * The published conversation stream is conversation-scoped and monotonic: per-turn partial sequences
+   * restart at 1, so a consumer cannot order the stream from them, and a cancellation must be visible.
+   */
+  const appendStreamEvent = (conversation_id, event) => {
+    const list = conversationStream.get(conversation_id) ?? [];
+    const entry = freeze({ stream_seq: list.length + 1, conversation_id, ...event });
+    list.push(entry);
+    conversationStream.set(conversation_id, list);
+    return entry;
   };
 
   const requireConversation = conversation_id => {
@@ -208,7 +221,7 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
     canonical_state_source: CANONICAL_STATE_SOURCE,
   });
 
-  const validateItem = (item, path, kind) => {
+  const validateItem = (item, path, kind, bundleAt) => {
     // Digest first: "you forgot a digest" and "your digest is malformed" are different problems.
     const declared = isPlainObject(item) ? item.digest : undefined;
     if (declared === undefined || declared === null) {
@@ -219,6 +232,15 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
     const errors = [];
     checkShape(item, path, ITEM_SPEC, errors);
     if (errors.length) throw new ConversationError('INVALID_BUNDLE', errors.join('; '));
+    // Every free-text field is bounded, not only the bundle's top-level text.
+    for (const [label, value] of [['logical_ref', item.logical_ref], ['media_type', item.media_type], ['display_name', item.display_name], ['origin_device_ref', item.origin_device_ref]]) {
+      if (value !== undefined && value !== null && String(value).length > config.max_text_chars) {
+        throw new ConversationError('BOUNDS_EXCEEDED', `${path}.${label} exceeds ${config.max_text_chars} characters`);
+      }
+    }
+    if (item.staging !== undefined && item.staging.staging_ref !== undefined && item.staging.staging_ref !== null && String(item.staging.staging_ref).length > config.max_text_chars) {
+      throw new ConversationError('BOUNDS_EXCEEDED', `${path}.staging.staging_ref exceeds ${config.max_text_chars} characters`);
+    }
     if (item.digest !== undefined && item.digest !== null && !isDigest(item.digest)) throw new ConversationError('INVALID_DIGEST', `${path}.digest must be a sha256 digest`);
     if (!config.allowed_media_types.includes(item.media_type)) {
       throw new ConversationError('MEDIA_TYPE_NOT_ALLOWED', `${path}.media_type ${item.media_type} is not in the allowed set`);
@@ -235,6 +257,10 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
         }
         if (item.staging.policy === 'DELETE_AFTER_USE' && item.staging.cleanup_by === undefined) {
           throw new ConversationError('STAGING_POLICY_REQUIRED', `${path}.staging.cleanup_by is required when staging must be cleaned up`);
+        }
+        // A cleanup deadline that has already passed when the bundle is created is not a policy.
+        if (item.staging.cleanup_by !== undefined && item.staging.cleanup_by !== null && Date.parse(item.staging.cleanup_by) <= Date.parse(bundleAt)) {
+          throw new ConversationError('STAGING_POLICY_REQUIRED', `${path}.staging.cleanup_by must be after the bundle instant`);
         }
       }
     }
@@ -350,16 +376,22 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
       }
       if (provenance.created_at !== undefined && !isRealInstant(provenance.created_at)) throw new ConversationError('PROVENANCE_REQUIRED', 'provenance.created_at must be an ISO-8601 UTC instant');
 
-      const bundleFiles = files.map((item, index) => validateItem(item, `files[${index}]`, 'file'));
-      const bundleImages = images.map((item, index) => validateItem(item, `images[${index}]`, 'image'));
+      const bundleFiles = files.map((item, index) => validateItem(item, `files[${index}]`, 'file', at));
+      const bundleImages = images.map((item, index) => validateItem(item, `images[${index}]`, 'image', at));
       const bundleReferences = references.map((item, index) => {
         if (!isPlainObject(item) || !isText(item.ref) || !isText(item.kind)) throw new ConversationError('INVALID_BUNDLE', `references[${index}] needs a ref and a kind`);
         for (const key of Object.keys(item)) if (!['ref', 'kind', 'note'].includes(key)) throw new ConversationError('INVALID_BUNDLE', `references[${index}].${key} is not part of the canonical contract`);
         if (item.note !== undefined && item.note !== null && !isText(item.note)) throw new ConversationError('INVALID_BUNDLE', `references[${index}].note must be text`);
+        for (const [label, value] of [['ref', item.ref], ['kind', item.kind], ['note', item.note]]) {
+          if (value !== undefined && value !== null && String(value).length > config.max_text_chars) {
+            throw new ConversationError('BOUNDS_EXCEEDED', `references[${index}].${label} exceeds ${config.max_text_chars} characters`);
+          }
+        }
         return freeze({ ref: item.ref, kind: item.kind, note: item.note ?? null });
       });
       const bundleContextRefs = context_refs.map((item, index) => {
         if (!isText(item)) throw new ConversationError('INVALID_BUNDLE', `context_refs[${index}] must be a nonempty reference`);
+        if (String(item).length > config.max_text_chars) throw new ConversationError('BOUNDS_EXCEEDED', `context_refs[${index}] exceeds ${config.max_text_chars} characters`);
         return item;
       });
 
@@ -467,6 +499,7 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
       };
       partials.set(partial.partial_ref, partial);
       turn.events.push({ kind: 'PARTIAL', seq: nextSeq, partial_ref: partial.partial_ref, at });
+      appendStreamEvent(turn.conversation_id, { kind: 'PARTIAL', turn_ref, partial_ref: partial.partial_ref, at });
       return freeze(clone(partial));
     },
 
@@ -572,6 +605,7 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
       turn.cancellation = cancellation;
       turn.state = 'CANCELLED';
       turn.events.push({ kind: 'CANCELLED', seq: turn.partial_seq + 1, cancellation_ref: cancellation.cancellation_ref, at });
+      appendStreamEvent(turn.conversation_id, { kind: 'CANCELLED', turn_ref, cancellation_ref: cancellation.cancellation_ref, at });
       note('TURN_CANCELLED', at, { turn_ref, reason });
       return freeze({ ...clone(cancellation), duplicate: false, cancellation_idempotent: true });
     },
@@ -602,6 +636,8 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
         staging_ref: item.staging.staging_ref ?? null,
         cleanup_by: item.staging.cleanup_by ?? null,
         cleanup_required: item.staging.policy === 'DELETE_AFTER_USE',
+        cleanup_by_enforced: true,
+        overdue: item.staging.cleanup_by !== undefined && item.staging.cleanup_by !== null && Date.parse(item.staging.cleanup_by) <= Date.parse(now()),
         retained: item.staging.policy === 'RETAIN',
         staging_explicit: true,
       }));
@@ -620,7 +656,9 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
       // Release state lives beside the immutable bundle record, not inside it.
       const releasedSet = stagingReleased.get(bundle_ref) ?? new Set();
       const released = [];
+      const overdue = [];
       for (const item of [...bundle.files, ...bundle.images]) {
+        if (item.staging.cleanup_by !== undefined && item.staging.cleanup_by !== null && Date.parse(item.staging.cleanup_by) <= Date.parse(at)) overdue.push(item.logical_ref);
         if (item.staging.policy !== 'DELETE_AFTER_USE') continue;
         if (releasedSet.has(item.logical_ref)) continue;
         releasedSet.add(item.logical_ref);
@@ -628,7 +666,7 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
       }
       stagingReleased.set(bundle_ref, releasedSet);
       note('STAGING_RELEASED', at, { bundle_ref, released: released.length });
-      return freeze({ bundle_ref, released_logical_refs: released, released_count: released.length, idempotent: released.length === 0 });
+      return freeze({ bundle_ref, released_logical_refs: released, released_count: released.length, idempotent: released.length === 0, cleanup_deadline_enforced: true, overdue_logical_refs: overdue, overdue_count: overdue.length });
     },
 
     closeConversation({ conversation_id, at: when } = {}) {
@@ -668,12 +706,27 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
       return bundle ? freeze(clone(bundle)) : null;
     },
 
-    /** The GAI domain-semantic stream for a conversation, in order. */
+    /** The GAI domain-semantic stream for a conversation, in order and with its terminal events. */
     eventsFor(conversation_id) {
       requireConversation(conversation_id);
-      return freeze([...partials.values()]
-        .filter(partial => partial.conversation_id === conversation_id)
-        .map(partial => freeze({ seq: partial.seq, turn_ref: partial.turn_ref, kind: 'PARTIAL', partial_ref: partial.partial_ref, terminal: false, text: partial.text, transport_ref: partial.transport_ref, canonical_state_source: CANONICAL_STATE_SOURCE, at: partial.at })));
+      const stream = conversationStream.get(conversation_id) ?? [];
+      return freeze(stream.map(entry => {
+        const partial = entry.partial_ref === undefined ? null : partials.get(entry.partial_ref) ?? null;
+        return freeze({
+          seq: entry.stream_seq,
+          stream_seq: entry.stream_seq,
+          turn_ref: entry.turn_ref,
+          kind: entry.kind,
+          partial_ref: entry.partial_ref ?? null,
+          cancellation_ref: entry.cancellation_ref ?? null,
+          terminal: entry.kind !== 'PARTIAL',
+          text: partial === null ? null : partial.text,
+          transport_ref: partial === null ? null : partial.transport_ref,
+          partial_is_terminal_success: false,
+          canonical_state_source: CANONICAL_STATE_SOURCE,
+          at: entry.at,
+        });
+      }));
     },
 
     journal: () => clone(journal),

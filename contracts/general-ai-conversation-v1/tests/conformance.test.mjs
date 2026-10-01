@@ -450,3 +450,59 @@ test('each late result is reconciled under its own reference', () => {
   assert.notEqual(first.reconciliation_ref, second.reconciliation_ref, 'distinct late results get distinct references');
   assert.equal(registry.turn(turn.turn_ref).reconciled_results.length, 2);
 });
+
+test('the published stream carries cancellation and a conversation-level order', () => {
+  const { registry } = registryAt();
+  const conversation = registry.createConversation();
+  registry.bindBackend({ conversation_id: conversation.conversation_id, channel: 'WEB' });
+  const first = openTurnWith(registry, conversation.conversation_id);
+  registry.emitPartial({ turn_ref: first.turn_ref, text: 'a' });
+  registry.emitPartial({ turn_ref: first.turn_ref, text: 'b' });
+  registry.cancelTurn({ turn_ref: first.turn_ref, reason: 'USER_CANCELLED' });
+  const second = openTurnWith(registry, conversation.conversation_id);
+  registry.emitPartial({ turn_ref: second.turn_ref, text: 'c' });
+
+  const stream = registry.eventsFor(conversation.conversation_id);
+  assert.deepEqual(stream.map(event => event.kind), ['PARTIAL', 'PARTIAL', 'CANCELLED', 'PARTIAL'], 'a cancellation is visible in the stream');
+  assert.deepEqual(stream.map(event => event.seq), [1, 2, 3, 4], 'the sequence is conversation-level and unique');
+  assert.deepEqual(stream.map(event => event.terminal), [false, false, true, false]);
+  assert.equal(stream[2].cancellation_ref, `cancel:${first.turn_ref}`);
+  assert.equal(stream[2].text, null);
+  assert.equal(stream[3].text, 'c');
+  assert.equal(registry.turn(first.turn_ref).state, 'CANCELLED');
+});
+
+test('every free-text field is bounded', () => {
+  const { registry } = registryAt();
+  const conversation = registry.createConversation();
+  registry.bindBackend({ conversation_id: conversation.conversation_id, channel: 'WEB' });
+  const long = 'x'.repeat(DEFAULT_CONVERSATION_POLICY.max_text_chars + 1);
+  assert.equal(failure(() => registry.createInputBundle({ conversation_id: conversation.conversation_id, files: [{ ...FILE, logical_ref: long }], provenance: PROVENANCE })).code, 'BOUNDS_EXCEEDED');
+  assert.equal(failure(() => registry.createInputBundle({ conversation_id: conversation.conversation_id, references: [{ ref: long, kind: 'TASK' }], provenance: PROVENANCE })).code, 'BOUNDS_EXCEEDED');
+  assert.equal(failure(() => registry.createInputBundle({ conversation_id: conversation.conversation_id, references: [{ ref: 'task:1', kind: 'TASK', note: long }], provenance: PROVENANCE })).code, 'BOUNDS_EXCEEDED');
+  assert.equal(failure(() => registry.createInputBundle({ conversation_id: conversation.conversation_id, context_refs: [long], provenance: PROVENANCE })).code, 'BOUNDS_EXCEEDED');
+  assert.equal(registry.createInputBundle({ conversation_id: conversation.conversation_id, text: 'ok', provenance: PROVENANCE }).text, 'ok', 'a bounded bundle still works');
+});
+
+test('the staging cleanup deadline is a decision, not decoration', () => {
+  const { registry, clock } = registryAt();
+  const conversation = registry.createConversation();
+  registry.bindBackend({ conversation_id: conversation.conversation_id, channel: 'WEB' });
+  assert.equal(failure(() => registry.createInputBundle({
+    conversation_id: conversation.conversation_id,
+    files: [{ ...FILE, staging: { policy: 'DELETE_AFTER_USE', staging_ref: 'staging:1', cleanup_by: '1999-01-01T00:00:00Z' } }],
+    provenance: PROVENANCE,
+  })).code, 'STAGING_POLICY_REQUIRED', 'a deadline that has already passed is not a policy');
+
+  const bundle = registry.createInputBundle({
+    conversation_id: conversation.conversation_id,
+    files: [{ ...FILE, logical_ref: 'file:temp', staging: { policy: 'DELETE_AFTER_USE', staging_ref: 'staging:1', cleanup_by: AT(600000) } }],
+    provenance: PROVENANCE,
+  });
+  assert.equal(registry.stagingPlan({ bundle_ref: bundle.bundle_ref }).items[0].overdue, false, 'not yet overdue');
+  clock.advance(700000);
+  assert.equal(registry.stagingPlan({ bundle_ref: bundle.bundle_ref }).items[0].overdue, true, 'the plan reports the deadline state');
+  const released = registry.releaseStaging({ bundle_ref: bundle.bundle_ref });
+  assert.equal(released.cleanup_deadline_enforced, true);
+  assert.deepEqual(released.overdue_logical_refs, ['file:temp'], 'a late release is reported as overdue rather than silently accepted');
+});

@@ -1,0 +1,3225 @@
+{
+  "generated_at": "2026-10-01T11:45:07.633Z",
+  "base": "http://127.0.0.1:4330",
+  "candidates": [
+    "a",
+    "b",
+    "c"
+  ],
+  "required_surfaces": [
+    "home",
+    "ask",
+    "tools",
+    "devices",
+    "activity",
+    "services",
+    "tasks",
+    "actions",
+    "pairing",
+    "settings"
+  ],
+  "required_capabilities": [
+    "connection-state",
+    "city-snapshot",
+    "attention-summary",
+    "room-catalog",
+    "room-availability",
+    "room-launch",
+    "ask-route",
+    "ask-confirm",
+    "ask-ambiguous",
+    "ask-unmatched",
+    "ask-result",
+    "capability-catalog",
+    "capability-invoke",
+    "capability-history",
+    "device-list",
+    "device-telemetry",
+    "device-detail",
+    "device-select",
+    "task-list",
+    "task-detail",
+    "task-create-demo",
+    "event-timeline",
+    "action-history",
+    "action-detail",
+    "pairing-session",
+    "pairing-diagnostics",
+    "locale-switch",
+    "session-disconnect",
+    "connect-token"
+  ],
+  "probes_total": 396,
+  "probes_passed": 396,
+  "failures": [],
+  "results": [
+    {
+      "candidate": "a",
+      "probe": "leak",
+      "where": "home",
+      "cap": "demotion",
+      "token": "tsk-",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "leak",
+      "where": "home",
+      "cap": "demotion",
+      "token": "inv-",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "leak",
+      "where": "home",
+      "cap": "demotion",
+      "token": "act-",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "leak",
+      "where": "home",
+      "cap": "demotion",
+      "token": "apiVersion",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "leak",
+      "where": "home",
+      "cap": "demotion",
+      "token": "schemaVersion",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "leak",
+      "where": "home",
+      "cap": "demotion",
+      "token": "backendRef",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "leak",
+      "where": "home",
+      "cap": "demotion",
+      "token": "provenance",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "leak",
+      "where": "home",
+      "cap": "demotion",
+      "token": "#41",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "leak",
+      "where": "ask",
+      "cap": "demotion",
+      "token": "apiVersion",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "leak",
+      "where": "ask",
+      "cap": "demotion",
+      "token": "schemaVersion",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "leak",
+      "where": "ask",
+      "cap": "demotion",
+      "token": "idempotencyKey",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "leak",
+      "where": "ask",
+      "cap": "demotion",
+      "token": "backendRef",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "leak",
+      "where": "tools",
+      "cap": "demotion",
+      "token": "LOCAL_PRODUCT",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "leak",
+      "where": "tools",
+      "cap": "demotion",
+      "token": "127.0.0.1:4320",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "leak",
+      "where": "tools",
+      "cap": "demotion",
+      "token": "text-workshop",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "leak",
+      "where": "tools",
+      "cap": "demotion",
+      "token": "data-lab",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "leak",
+      "where": "devices",
+      "cap": "demotion",
+      "token": "node-3f7a91c2",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "leak",
+      "where": "devices",
+      "cap": "demotion",
+      "token": "agentVersion",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "leak",
+      "where": "devices",
+      "cap": "demotion",
+      "token": "lastHeartbeatAt",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "leak",
+      "where": "activity",
+      "cap": "demotion",
+      "token": "#41",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "leak",
+      "where": "activity",
+      "cap": "demotion",
+      "token": "\"seq\"",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "leak",
+      "where": "activity",
+      "cap": "demotion",
+      "token": "tsk-",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "home",
+      "cap": "connection-state",
+      "token": "Alien-PC",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "home",
+      "cap": "city-snapshot",
+      "token": "20:24",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "home",
+      "cap": "attention-summary",
+      "token": "10",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "home",
+      "cap": "device-telemetry",
+      "token": "12.4",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "home",
+      "cap": "event-timeline",
+      "token": "20:19",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Knowledge Room",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "本地知识室",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Bookmark Room",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "收藏室",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Checklist Room",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "清单室",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Prompt Library",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "提示词库",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Text Workshop",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "文本工坊",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Hash Room",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "哈希室",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Data Lab",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "数据实验室",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Focus Room",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "专注室",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Calendar Room",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "日程室",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Decision Room",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "决策室",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-launch",
+      "token": "打开",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-availability",
+      "token": "运行",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "devices",
+      "cap": "device-list",
+      "token": "Alien-PC",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "devices",
+      "cap": "device-telemetry",
+      "token": "12.4",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "devices",
+      "cap": "device-detail",
+      "token": "磁盘",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "devices",
+      "cap": "device-select",
+      "token": "Alien-PC",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "activity",
+      "cap": "event-timeline",
+      "token": "20:19",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "activity",
+      "cap": "event-timeline",
+      "token": "20:23",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "services",
+      "cap": "capability-catalog",
+      "token": "planning.document.intake",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "services",
+      "cap": "capability-catalog",
+      "token": "planning.knowledge.query",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "services",
+      "cap": "capability-catalog",
+      "token": "engineering.skill.inspect",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "services",
+      "cap": "capability-catalog",
+      "token": "research.evidence.review",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "services",
+      "cap": "capability-catalog",
+      "token": "presentation.theme.lab",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "services",
+      "cap": "capability-history",
+      "token": "COMPLETED",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "services",
+      "cap": "capability-invoke",
+      "token": "调用",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "tasks",
+      "cap": "task-list",
+      "token": "CHECKPOINT_DEMO",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "tasks",
+      "cap": "task-list",
+      "token": "COMPLETED",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "tasks",
+      "cap": "task-list",
+      "token": "RUNNING",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "tasks",
+      "cap": "task-detail",
+      "token": "取消",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "tasks",
+      "cap": "task-create-demo",
+      "token": "演示",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "actions",
+      "cap": "action-history",
+      "token": "25",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "actions",
+      "cap": "action-history",
+      "token": "50",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "actions",
+      "cap": "action-history",
+      "token": "100",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "pairing",
+      "cap": "pairing-session",
+      "token": "配对码",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "pairing",
+      "cap": "pairing-diagnostics",
+      "token": "mDNS",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "pairing",
+      "cap": "pairing-diagnostics",
+      "token": "DISABLED",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "pairing",
+      "cap": "pairing-diagnostics",
+      "token": "蓝牙",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "settings",
+      "cap": "locale-switch",
+      "token": "English",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "settings",
+      "cap": "locale-switch",
+      "token": "简体中文",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "surface",
+      "where": "settings",
+      "cap": "session-disconnect",
+      "token": "令牌",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "task-detail",
+      "token": "tsk-9c41",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "task-detail",
+      "token": "tsk-8b20",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "event-timeline",
+      "token": "41",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "event-timeline",
+      "token": "task.completed",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "event-timeline",
+      "token": "node.heartbeat",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "room-catalog",
+      "token": "knowledge",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "room-catalog",
+      "token": "text-workshop",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "room-catalog",
+      "token": "data-lab",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "room-catalog",
+      "token": "01",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "room-catalog",
+      "token": "10",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "room-catalog",
+      "token": "LOCAL_PRODUCT",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "device-detail",
+      "token": "node-3f7a91c2",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "device-list",
+      "token": "0.2.0",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "capability-catalog",
+      "token": "planning.knowledge.query",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "capability-history",
+      "token": "inv-2f10",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "capability-history",
+      "token": "sha256:6a1f",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "session-disconnect",
+      "token": "apiVersion",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "pairing-diagnostics",
+      "token": "schemaVersion",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "room-availability",
+      "token": "127.0.0.1:4320",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "action-detail",
+      "token": "act-77c1",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "action-detail",
+      "token": "backendRef",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "action-detail",
+      "token": "resultRef",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "action-detail",
+      "token": "provenance",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "task-detail",
+      "token": "lastCheckpoint",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "task-detail",
+      "token": "step",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "pairing-diagnostics",
+      "token": "no Bluetooth adapter",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "connect-token",
+      "token": "127.0.0.1",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "ask",
+      "where": "ask:confirmed",
+      "cap": "ask-states",
+      "token": "hash C:\\tmp\\a.txt",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "ask",
+      "where": "ask:confirmed",
+      "cap": "ask-states",
+      "token": "Hash Room",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "ask",
+      "where": "ask:confirmed",
+      "cap": "ask-states",
+      "token": "SHA-256",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "ask",
+      "where": "ask:needsChoice",
+      "cap": "ask-states",
+      "token": "clean up my downloads folder",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "ask",
+      "where": "ask:needsChoice",
+      "cap": "ask-states",
+      "token": "Document intake",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "ask",
+      "where": "ask:needsChoice",
+      "cap": "ask-states",
+      "token": "确认",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "ask",
+      "where": "ask:ambiguous",
+      "cap": "ask-states",
+      "token": "open my notes",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "ask",
+      "where": "ask:ambiguous",
+      "cap": "ask-states",
+      "token": "Knowledge Room",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "ask",
+      "where": "ask:ambiguous",
+      "cap": "ask-states",
+      "token": "Checklist Room",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "ask",
+      "where": "ask:ambiguous",
+      "cap": "ask-states",
+      "token": "Bookmark Room",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "ask",
+      "where": "ask:unmatched",
+      "cap": "ask-states",
+      "token": "reticulate the splines",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "ask",
+      "where": "ask:unmatched",
+      "cap": "ask-states",
+      "token": "Focus Room",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "ask",
+      "where": "ask:unmatched",
+      "cap": "ask-states",
+      "token": "Data Lab",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "ask",
+      "where": "ask:working",
+      "cap": "ask-states",
+      "token": "hash C:\\tmp\\a.txt",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "ask",
+      "where": "ask:working",
+      "cap": "ask-states",
+      "token": "执行",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "action",
+      "where": "tools:打开",
+      "cap": "openRoom",
+      "token": "click:打开",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "action",
+      "where": "tools:打开",
+      "cap": "openRoom",
+      "token": "127.0.0.1:4320",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "action",
+      "where": "tools:打开房间服务",
+      "cap": "openHub",
+      "token": "click:打开房间服务",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "action",
+      "where": "services:调用",
+      "cap": "invoke",
+      "token": "click:调用",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "action",
+      "where": "services:调用",
+      "cap": "invoke",
+      "token": "inv-11",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "action",
+      "where": "tasks:运行一个演示任务",
+      "cap": "createDemoTask",
+      "token": "click:运行一个演示任务",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "action",
+      "where": "tasks:运行一个演示任务",
+      "cap": "createDemoTask",
+      "token": "tsk-101",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "action",
+      "where": "tasks:取消",
+      "cap": "cancelTask",
+      "token": "click:取消",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "action",
+      "where": "tasks:取消",
+      "cap": "cancelTask",
+      "token": "CANCELLED",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "action",
+      "where": "pairing:生成配对码",
+      "cap": "startPairing",
+      "token": "click:生成配对码",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "action",
+      "where": "pairing:生成配对码",
+      "cap": "startPairing",
+      "token": "4821",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "action",
+      "where": "settings:更换令牌",
+      "cap": "disconnect",
+      "token": "click:更换令牌",
+      "ok": true
+    },
+    {
+      "candidate": "a",
+      "probe": "action",
+      "where": "settings:更换令牌",
+      "cap": "disconnect",
+      "token": "已断开",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "leak",
+      "where": "home",
+      "cap": "demotion",
+      "token": "tsk-",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "leak",
+      "where": "home",
+      "cap": "demotion",
+      "token": "inv-",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "leak",
+      "where": "home",
+      "cap": "demotion",
+      "token": "act-",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "leak",
+      "where": "home",
+      "cap": "demotion",
+      "token": "apiVersion",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "leak",
+      "where": "home",
+      "cap": "demotion",
+      "token": "schemaVersion",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "leak",
+      "where": "home",
+      "cap": "demotion",
+      "token": "backendRef",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "leak",
+      "where": "home",
+      "cap": "demotion",
+      "token": "provenance",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "leak",
+      "where": "home",
+      "cap": "demotion",
+      "token": "#41",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "leak",
+      "where": "ask",
+      "cap": "demotion",
+      "token": "apiVersion",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "leak",
+      "where": "ask",
+      "cap": "demotion",
+      "token": "schemaVersion",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "leak",
+      "where": "ask",
+      "cap": "demotion",
+      "token": "idempotencyKey",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "leak",
+      "where": "ask",
+      "cap": "demotion",
+      "token": "backendRef",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "leak",
+      "where": "tools",
+      "cap": "demotion",
+      "token": "LOCAL_PRODUCT",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "leak",
+      "where": "tools",
+      "cap": "demotion",
+      "token": "127.0.0.1:4320",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "leak",
+      "where": "tools",
+      "cap": "demotion",
+      "token": "text-workshop",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "leak",
+      "where": "tools",
+      "cap": "demotion",
+      "token": "data-lab",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "leak",
+      "where": "devices",
+      "cap": "demotion",
+      "token": "node-3f7a91c2",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "leak",
+      "where": "devices",
+      "cap": "demotion",
+      "token": "agentVersion",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "leak",
+      "where": "devices",
+      "cap": "demotion",
+      "token": "lastHeartbeatAt",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "leak",
+      "where": "activity",
+      "cap": "demotion",
+      "token": "#41",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "leak",
+      "where": "activity",
+      "cap": "demotion",
+      "token": "\"seq\"",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "leak",
+      "where": "activity",
+      "cap": "demotion",
+      "token": "tsk-",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "home",
+      "cap": "connection-state",
+      "token": "Alien-PC",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "home",
+      "cap": "city-snapshot",
+      "token": "20:24",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "home",
+      "cap": "attention-summary",
+      "token": "10",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "home",
+      "cap": "device-telemetry",
+      "token": "12.4",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "home",
+      "cap": "event-timeline",
+      "token": "20:19",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Knowledge Room",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "本地知识室",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Bookmark Room",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "收藏室",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Checklist Room",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "清单室",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Prompt Library",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "提示词库",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Text Workshop",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "文本工坊",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Hash Room",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "哈希室",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Data Lab",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "数据实验室",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Focus Room",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "专注室",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Calendar Room",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "日程室",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Decision Room",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "决策室",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-launch",
+      "token": "打开",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-availability",
+      "token": "运行",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "devices",
+      "cap": "device-list",
+      "token": "Alien-PC",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "devices",
+      "cap": "device-telemetry",
+      "token": "12.4",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "devices",
+      "cap": "device-detail",
+      "token": "磁盘",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "devices",
+      "cap": "device-select",
+      "token": "Alien-PC",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "activity",
+      "cap": "event-timeline",
+      "token": "20:19",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "activity",
+      "cap": "event-timeline",
+      "token": "20:23",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "services",
+      "cap": "capability-catalog",
+      "token": "planning.document.intake",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "services",
+      "cap": "capability-catalog",
+      "token": "planning.knowledge.query",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "services",
+      "cap": "capability-catalog",
+      "token": "engineering.skill.inspect",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "services",
+      "cap": "capability-catalog",
+      "token": "research.evidence.review",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "services",
+      "cap": "capability-catalog",
+      "token": "presentation.theme.lab",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "services",
+      "cap": "capability-history",
+      "token": "COMPLETED",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "services",
+      "cap": "capability-invoke",
+      "token": "调用",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "tasks",
+      "cap": "task-list",
+      "token": "CHECKPOINT_DEMO",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "tasks",
+      "cap": "task-list",
+      "token": "COMPLETED",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "tasks",
+      "cap": "task-list",
+      "token": "RUNNING",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "tasks",
+      "cap": "task-detail",
+      "token": "取消",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "tasks",
+      "cap": "task-create-demo",
+      "token": "演示",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "actions",
+      "cap": "action-history",
+      "token": "25",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "actions",
+      "cap": "action-history",
+      "token": "50",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "actions",
+      "cap": "action-history",
+      "token": "100",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "pairing",
+      "cap": "pairing-session",
+      "token": "配对码",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "pairing",
+      "cap": "pairing-diagnostics",
+      "token": "mDNS",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "pairing",
+      "cap": "pairing-diagnostics",
+      "token": "DISABLED",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "pairing",
+      "cap": "pairing-diagnostics",
+      "token": "蓝牙",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "settings",
+      "cap": "locale-switch",
+      "token": "English",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "settings",
+      "cap": "locale-switch",
+      "token": "简体中文",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "surface",
+      "where": "settings",
+      "cap": "session-disconnect",
+      "token": "令牌",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "task-detail",
+      "token": "tsk-9c41",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "task-detail",
+      "token": "tsk-8b20",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "event-timeline",
+      "token": "41",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "event-timeline",
+      "token": "task.completed",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "event-timeline",
+      "token": "node.heartbeat",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "room-catalog",
+      "token": "knowledge",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "room-catalog",
+      "token": "text-workshop",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "room-catalog",
+      "token": "data-lab",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "room-catalog",
+      "token": "01",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "room-catalog",
+      "token": "10",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "room-catalog",
+      "token": "LOCAL_PRODUCT",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "device-detail",
+      "token": "node-3f7a91c2",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "device-list",
+      "token": "0.2.0",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "capability-catalog",
+      "token": "planning.knowledge.query",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "capability-history",
+      "token": "inv-2f10",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "capability-history",
+      "token": "sha256:6a1f",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "session-disconnect",
+      "token": "apiVersion",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "pairing-diagnostics",
+      "token": "schemaVersion",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "room-availability",
+      "token": "127.0.0.1:4320",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "action-detail",
+      "token": "act-77c1",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "action-detail",
+      "token": "backendRef",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "action-detail",
+      "token": "resultRef",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "action-detail",
+      "token": "provenance",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "task-detail",
+      "token": "lastCheckpoint",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "task-detail",
+      "token": "step",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "pairing-diagnostics",
+      "token": "no Bluetooth adapter",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "connect-token",
+      "token": "127.0.0.1",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "ask",
+      "where": "ask:confirmed",
+      "cap": "ask-states",
+      "token": "hash C:\\tmp\\a.txt",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "ask",
+      "where": "ask:confirmed",
+      "cap": "ask-states",
+      "token": "Hash Room",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "ask",
+      "where": "ask:confirmed",
+      "cap": "ask-states",
+      "token": "SHA-256",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "ask",
+      "where": "ask:needsChoice",
+      "cap": "ask-states",
+      "token": "clean up my downloads folder",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "ask",
+      "where": "ask:needsChoice",
+      "cap": "ask-states",
+      "token": "Document intake",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "ask",
+      "where": "ask:needsChoice",
+      "cap": "ask-states",
+      "token": "确认",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "ask",
+      "where": "ask:ambiguous",
+      "cap": "ask-states",
+      "token": "open my notes",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "ask",
+      "where": "ask:ambiguous",
+      "cap": "ask-states",
+      "token": "Knowledge Room",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "ask",
+      "where": "ask:ambiguous",
+      "cap": "ask-states",
+      "token": "Checklist Room",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "ask",
+      "where": "ask:ambiguous",
+      "cap": "ask-states",
+      "token": "Bookmark Room",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "ask",
+      "where": "ask:unmatched",
+      "cap": "ask-states",
+      "token": "reticulate the splines",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "ask",
+      "where": "ask:unmatched",
+      "cap": "ask-states",
+      "token": "Focus Room",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "ask",
+      "where": "ask:unmatched",
+      "cap": "ask-states",
+      "token": "Data Lab",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "ask",
+      "where": "ask:working",
+      "cap": "ask-states",
+      "token": "hash C:\\tmp\\a.txt",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "ask",
+      "where": "ask:working",
+      "cap": "ask-states",
+      "token": "执行",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "action",
+      "where": "tools:打开",
+      "cap": "openRoom",
+      "token": "click:打开",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "action",
+      "where": "tools:打开",
+      "cap": "openRoom",
+      "token": "127.0.0.1:4320",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "action",
+      "where": "tools:打开房间服务",
+      "cap": "openHub",
+      "token": "click:打开房间服务",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "action",
+      "where": "services:调用",
+      "cap": "invoke",
+      "token": "click:调用",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "action",
+      "where": "services:调用",
+      "cap": "invoke",
+      "token": "inv-11",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "action",
+      "where": "tasks:运行演示作业",
+      "cap": "createDemoTask",
+      "token": "click:运行演示作业",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "action",
+      "where": "tasks:运行演示作业",
+      "cap": "createDemoTask",
+      "token": "tsk-101",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "action",
+      "where": "tasks:取消",
+      "cap": "cancelTask",
+      "token": "click:取消",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "action",
+      "where": "tasks:取消",
+      "cap": "cancelTask",
+      "token": "CANCELLED",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "action",
+      "where": "pairing:生成配对码",
+      "cap": "startPairing",
+      "token": "click:生成配对码",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "action",
+      "where": "pairing:生成配对码",
+      "cap": "startPairing",
+      "token": "4821",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "action",
+      "where": "settings:更换令牌",
+      "cap": "disconnect",
+      "token": "click:更换令牌",
+      "ok": true
+    },
+    {
+      "candidate": "b",
+      "probe": "action",
+      "where": "settings:更换令牌",
+      "cap": "disconnect",
+      "token": "已断开",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "leak",
+      "where": "home",
+      "cap": "demotion",
+      "token": "tsk-",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "leak",
+      "where": "home",
+      "cap": "demotion",
+      "token": "inv-",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "leak",
+      "where": "home",
+      "cap": "demotion",
+      "token": "act-",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "leak",
+      "where": "home",
+      "cap": "demotion",
+      "token": "apiVersion",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "leak",
+      "where": "home",
+      "cap": "demotion",
+      "token": "schemaVersion",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "leak",
+      "where": "home",
+      "cap": "demotion",
+      "token": "backendRef",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "leak",
+      "where": "home",
+      "cap": "demotion",
+      "token": "provenance",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "leak",
+      "where": "home",
+      "cap": "demotion",
+      "token": "#41",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "leak",
+      "where": "ask",
+      "cap": "demotion",
+      "token": "apiVersion",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "leak",
+      "where": "ask",
+      "cap": "demotion",
+      "token": "schemaVersion",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "leak",
+      "where": "ask",
+      "cap": "demotion",
+      "token": "idempotencyKey",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "leak",
+      "where": "ask",
+      "cap": "demotion",
+      "token": "backendRef",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "leak",
+      "where": "tools",
+      "cap": "demotion",
+      "token": "LOCAL_PRODUCT",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "leak",
+      "where": "tools",
+      "cap": "demotion",
+      "token": "127.0.0.1:4320",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "leak",
+      "where": "tools",
+      "cap": "demotion",
+      "token": "text-workshop",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "leak",
+      "where": "tools",
+      "cap": "demotion",
+      "token": "data-lab",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "leak",
+      "where": "devices",
+      "cap": "demotion",
+      "token": "node-3f7a91c2",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "leak",
+      "where": "devices",
+      "cap": "demotion",
+      "token": "agentVersion",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "leak",
+      "where": "devices",
+      "cap": "demotion",
+      "token": "lastHeartbeatAt",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "leak",
+      "where": "activity",
+      "cap": "demotion",
+      "token": "#41",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "leak",
+      "where": "activity",
+      "cap": "demotion",
+      "token": "\"seq\"",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "leak",
+      "where": "activity",
+      "cap": "demotion",
+      "token": "tsk-",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "home",
+      "cap": "connection-state",
+      "token": "Alien-PC",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "home",
+      "cap": "city-snapshot",
+      "token": "20:24",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "home",
+      "cap": "attention-summary",
+      "token": "10",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "home",
+      "cap": "device-telemetry",
+      "token": "12.4",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "home",
+      "cap": "event-timeline",
+      "token": "20:19",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Knowledge Room",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "本地知识室",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Bookmark Room",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "收藏室",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Checklist Room",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "清单室",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Prompt Library",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "提示词库",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Text Workshop",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "文本工坊",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Hash Room",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "哈希室",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Data Lab",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "数据实验室",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Focus Room",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "专注室",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Calendar Room",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "日程室",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "Decision Room",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-catalog",
+      "token": "决策室",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-launch",
+      "token": "打开",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "tools",
+      "cap": "room-availability",
+      "token": "运行",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "devices",
+      "cap": "device-list",
+      "token": "Alien-PC",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "devices",
+      "cap": "device-telemetry",
+      "token": "12.4",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "devices",
+      "cap": "device-detail",
+      "token": "磁盘",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "devices",
+      "cap": "device-select",
+      "token": "Alien-PC",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "activity",
+      "cap": "event-timeline",
+      "token": "20:19",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "activity",
+      "cap": "event-timeline",
+      "token": "20:23",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "services",
+      "cap": "capability-catalog",
+      "token": "planning.document.intake",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "services",
+      "cap": "capability-catalog",
+      "token": "planning.knowledge.query",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "services",
+      "cap": "capability-catalog",
+      "token": "engineering.skill.inspect",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "services",
+      "cap": "capability-catalog",
+      "token": "research.evidence.review",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "services",
+      "cap": "capability-catalog",
+      "token": "presentation.theme.lab",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "services",
+      "cap": "capability-history",
+      "token": "COMPLETED",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "services",
+      "cap": "capability-invoke",
+      "token": "调用",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "tasks",
+      "cap": "task-list",
+      "token": "CHECKPOINT_DEMO",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "tasks",
+      "cap": "task-list",
+      "token": "COMPLETED",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "tasks",
+      "cap": "task-list",
+      "token": "RUNNING",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "tasks",
+      "cap": "task-detail",
+      "token": "取消",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "tasks",
+      "cap": "task-create-demo",
+      "token": "演示",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "actions",
+      "cap": "action-history",
+      "token": "25",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "actions",
+      "cap": "action-history",
+      "token": "50",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "actions",
+      "cap": "action-history",
+      "token": "100",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "pairing",
+      "cap": "pairing-session",
+      "token": "配对码",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "pairing",
+      "cap": "pairing-diagnostics",
+      "token": "mDNS",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "pairing",
+      "cap": "pairing-diagnostics",
+      "token": "DISABLED",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "pairing",
+      "cap": "pairing-diagnostics",
+      "token": "蓝牙",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "settings",
+      "cap": "locale-switch",
+      "token": "English",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "settings",
+      "cap": "locale-switch",
+      "token": "简体中文",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "surface",
+      "where": "settings",
+      "cap": "session-disconnect",
+      "token": "令牌",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "task-detail",
+      "token": "tsk-9c41",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "task-detail",
+      "token": "tsk-8b20",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "event-timeline",
+      "token": "41",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "event-timeline",
+      "token": "task.completed",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "event-timeline",
+      "token": "node.heartbeat",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "room-catalog",
+      "token": "knowledge",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "room-catalog",
+      "token": "text-workshop",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "room-catalog",
+      "token": "data-lab",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "room-catalog",
+      "token": "01",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "room-catalog",
+      "token": "10",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "room-catalog",
+      "token": "LOCAL_PRODUCT",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "device-detail",
+      "token": "node-3f7a91c2",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "device-list",
+      "token": "0.2.0",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "capability-catalog",
+      "token": "planning.knowledge.query",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "capability-history",
+      "token": "inv-2f10",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "capability-history",
+      "token": "sha256:6a1f",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "session-disconnect",
+      "token": "apiVersion",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "pairing-diagnostics",
+      "token": "schemaVersion",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "room-availability",
+      "token": "127.0.0.1:4320",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "action-detail",
+      "token": "act-77c1",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "action-detail",
+      "token": "backendRef",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "action-detail",
+      "token": "resultRef",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "action-detail",
+      "token": "provenance",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "task-detail",
+      "token": "lastCheckpoint",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "task-detail",
+      "token": "step",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "pairing-diagnostics",
+      "token": "no Bluetooth adapter",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "technical",
+      "where": "revealed",
+      "cap": "connect-token",
+      "token": "127.0.0.1",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "ask",
+      "where": "ask:confirmed",
+      "cap": "ask-states",
+      "token": "hash C:\\tmp\\a.txt",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "ask",
+      "where": "ask:confirmed",
+      "cap": "ask-states",
+      "token": "Hash Room",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "ask",
+      "where": "ask:confirmed",
+      "cap": "ask-states",
+      "token": "SHA-256",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "ask",
+      "where": "ask:needsChoice",
+      "cap": "ask-states",
+      "token": "clean up my downloads folder",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "ask",
+      "where": "ask:needsChoice",
+      "cap": "ask-states",
+      "token": "Document intake",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "ask",
+      "where": "ask:needsChoice",
+      "cap": "ask-states",
+      "token": "确认",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "ask",
+      "where": "ask:ambiguous",
+      "cap": "ask-states",
+      "token": "open my notes",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "ask",
+      "where": "ask:ambiguous",
+      "cap": "ask-states",
+      "token": "Knowledge Room",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "ask",
+      "where": "ask:ambiguous",
+      "cap": "ask-states",
+      "token": "Checklist Room",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "ask",
+      "where": "ask:ambiguous",
+      "cap": "ask-states",
+      "token": "Bookmark Room",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "ask",
+      "where": "ask:unmatched",
+      "cap": "ask-states",
+      "token": "reticulate the splines",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "ask",
+      "where": "ask:unmatched",
+      "cap": "ask-states",
+      "token": "Focus Room",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "ask",
+      "where": "ask:unmatched",
+      "cap": "ask-states",
+      "token": "Data Lab",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "ask",
+      "where": "ask:working",
+      "cap": "ask-states",
+      "token": "hash C:\\tmp\\a.txt",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "ask",
+      "where": "ask:working",
+      "cap": "ask-states",
+      "token": "执行",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "action",
+      "where": "tools:打开",
+      "cap": "openRoom",
+      "token": "click:打开",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "action",
+      "where": "tools:打开",
+      "cap": "openRoom",
+      "token": "127.0.0.1:4320",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "action",
+      "where": "tools:打开房间服务",
+      "cap": "openHub",
+      "token": "click:打开房间服务",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "action",
+      "where": "services:调用",
+      "cap": "invoke",
+      "token": "click:调用",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "action",
+      "where": "services:调用",
+      "cap": "invoke",
+      "token": "inv-11",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "action",
+      "where": "tasks:运行演示任务",
+      "cap": "createDemoTask",
+      "token": "click:运行演示任务",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "action",
+      "where": "tasks:运行演示任务",
+      "cap": "createDemoTask",
+      "token": "tsk-101",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "action",
+      "where": "tasks:取消",
+      "cap": "cancelTask",
+      "token": "click:取消",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "action",
+      "where": "tasks:取消",
+      "cap": "cancelTask",
+      "token": "CANCELLED",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "action",
+      "where": "pairing:生成配对码",
+      "cap": "startPairing",
+      "token": "click:生成配对码",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "action",
+      "where": "pairing:生成配对码",
+      "cap": "startPairing",
+      "token": "4821",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "action",
+      "where": "settings:更换令牌",
+      "cap": "disconnect",
+      "token": "click:更换令牌",
+      "ok": true
+    },
+    {
+      "candidate": "c",
+      "probe": "action",
+      "where": "settings:更换令牌",
+      "cap": "disconnect",
+      "token": "已断开",
+      "ok": true
+    }
+  ]
+}

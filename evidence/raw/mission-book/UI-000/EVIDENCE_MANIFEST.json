@@ -1,0 +1,171 @@
+{
+  "schema": "ui-000-evidence-manifest/1",
+  "captured_at": "2026-10-01T11:46:09.844Z",
+  "branch": "ui/UI-000-visual-direction-candidates",
+  "captured_at_head_sha": "c03adf13bbdd64d74514534b1de1e61ce3a68c6a",
+  "source_paths": [
+    "apps/web/candidates",
+    "apps/rooms/hub/public/themes",
+    "apps/rooms/hub/public/index.html",
+    "apps/android/app/src/main/java/city/utopia/control/ui000",
+    "apps/android/app/src/debug",
+    "apps/android/app/src/main/AndroidManifest.xml"
+  ],
+  "source_file_count": 23,
+  "source_digest": "51a499e31d2c64e6c6a6a94e03168e85f3512c0915084fed7826d2349804da2b",
+  "note": "source_digest is a sha256 over source_paths, i.e. the tree this evidence is a picture of. It is deliberately NOT keyed to a commit sha: that would make every evidence-only commit invalidate its own manifest, and would force a pointless re-capture when only docs or tests moved. Generated files must be re-captured whenever source_digest changes; hand-written files (README.md, this manifest) are exempt from that rule but are still hash-verified.",
+  "file_count": 25,
+  "generated_file_count": 24,
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 4804,
+      "sha256": "c45d81f2c0bcd63c27fbb1e7ef42e5fce4c9b50df5d42c896a0336fb71f9f340",
+      "generated": false
+    },
+    {
+      "path": "android-candidates/candidate-a-home.png",
+      "bytes": 127305,
+      "sha256": "0127bd4a0f5d53bf38e28f6a54b2c2d7eada1227c8322156b4f8a4c207f4f2ea",
+      "generated": true
+    },
+    {
+      "path": "android-candidates/candidate-b-home.png",
+      "bytes": 86538,
+      "sha256": "6d99f5c1d0f69be5bcded17e2767cf82523150b920f121d6501e6cef0bf8da5b",
+      "generated": true
+    },
+    {
+      "path": "android-candidates/candidate-c-home.png",
+      "bytes": 240633,
+      "sha256": "e79a2b75bd01c0030df747dc8021f98cd0a950982b86fe21f1de811b9f7abedf",
+      "generated": true
+    },
+    {
+      "path": "before/home.png",
+      "bytes": 152692,
+      "sha256": "4321c51cf16efb52c9d294ae6622251cd06cc2d1c6c36c239548280e4169141c",
+      "generated": true
+    },
+    {
+      "path": "before/tools-rooms.png",
+      "bytes": 152650,
+      "sha256": "7ff5b479c6ad911e1f4724999df96b022a63ec3e4573350268d9e93f65a8e9ad",
+      "generated": true
+    },
+    {
+      "path": "candidate-a/1440x960-ask.png",
+      "bytes": 56526,
+      "sha256": "d87b46e7d51c51b55f523d4a785811fdf9a0881aa49aaf3a5bb528b9604e82e7",
+      "generated": true
+    },
+    {
+      "path": "candidate-a/1440x960-home.png",
+      "bytes": 73207,
+      "sha256": "c0e3f48485407182ed65ef4e5f494e79e7d8c71ffc5d48857c7d5915b18e4acb",
+      "generated": true
+    },
+    {
+      "path": "candidate-a/1440x960-tools.png",
+      "bytes": 121883,
+      "sha256": "830a3a2bbd2da97506b1fed519804c05495dc918b4a26cdc40b6967d37fb738b",
+      "generated": true
+    },
+    {
+      "path": "candidate-a/414x896-tools.png",
+      "bytes": 104296,
+      "sha256": "ea72411f10c8629a465c0c6e71dff9afabced065938f51927a8bd96855cd9377",
+      "generated": true
+    },
+    {
+      "path": "candidate-b/1440x960-ask.png",
+      "bytes": 35592,
+      "sha256": "5b2ca511db956fe3f1cc909adf0f26e42839480b0b0f09e3a59259a5b9250f5d",
+      "generated": true
+    },
+    {
+      "path": "candidate-b/1440x960-home.png",
+      "bytes": 43012,
+      "sha256": "493d7d4afff706fd03e7ac4264c74c6af1ada36bac330a7678c47438d464a315",
+      "generated": true
+    },
+    {
+      "path": "candidate-b/1440x960-tools.png",
+      "bytes": 86022,
+      "sha256": "7707b7a817d492962dd12d35be724dea51ea0b7ff303899709e668c8157bb589",
+      "generated": true
+    },
+    {
+      "path": "candidate-b/414x896-tools.png",
+      "bytes": 79761,
+      "sha256": "3cd2cb08f511594b7f5cc38b815c73de1ac510b2ce86c2c20c0c1a16d802e8b5",
+      "generated": true
+    },
+    {
+      "path": "candidate-c/1440x960-ask-spotlight.png",
+      "bytes": 99341,
+      "sha256": "4adc58ad837fc6f548106fc436bcc6481c843aa717105afc098088c86dbb1da3",
+      "generated": true
+    },
+    {
+      "path": "candidate-c/1440x960-ask.png",
+      "bytes": 95379,
+      "sha256": "99989f9bb644b7d97a4bcbccb6c7f46a9ee490d66be263aa674169234a196de4",
+      "generated": true
+    },
+    {
+      "path": "candidate-c/1440x960-home.png",
+      "bytes": 169132,
+      "sha256": "5a9ecc41165f49a949eeaf37567540d7228f3ce14f594fe4054ad51697b509a2",
+      "generated": true
+    },
+    {
+      "path": "candidate-c/1440x960-tools.png",
+      "bytes": 564043,
+      "sha256": "07202ddfc54703931c4113cb9b9460a592420900e9d280d50939c6b84b8a0fb0",
+      "generated": true
+    },
+    {
+      "path": "candidate-c/414x896-tools.png",
+      "bytes": 325018,
+      "sha256": "800427f7510cd5ee80a13e377f025e045e47eaeda8cca6c2045e7e70be3e101a",
+      "generated": true
+    },
+    {
+      "path": "parity-report.json",
+      "bytes": 66491,
+      "sha256": "a30a2ba4bcd8bfafda63d382cdc7538d6371595154550458926c0a6a894f88e9",
+      "generated": true
+    },
+    {
+      "path": "parity-report.md",
+      "bytes": 24451,
+      "sha256": "82d3b7f957ec1e595bdc5b59b8e32b0ff4ae262da257c9bf12a070d772273b23",
+      "generated": true
+    },
+    {
+      "path": "rooms/a-knowledge.png",
+      "bytes": 58912,
+      "sha256": "416b732c469e8c5f352f1a7b050a1ae6c3ac17b6cf1c35065c5b1ba9a85038ab",
+      "generated": true
+    },
+    {
+      "path": "rooms/b-knowledge.png",
+      "bytes": 51664,
+      "sha256": "b30b6d9ae671f13a3ff00527f15cbc5e0653137610a81c56a0be769e58aabbe6",
+      "generated": true
+    },
+    {
+      "path": "rooms/c-knowledge.png",
+      "bytes": 131947,
+      "sha256": "70d03efbae5166ff6edee4daec78254fa0b32d6f3be785f004f103eb3b7e74e5",
+      "generated": true
+    },
+    {
+      "path": "rooms/none-knowledge.png",
+      "bytes": 59254,
+      "sha256": "695e89d449e34b89a2654c689c51e40739a25b4d977006cab7d128a4b14ba0be",
+      "generated": true
+    }
+  ]
+}

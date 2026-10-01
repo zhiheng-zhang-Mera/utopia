@@ -28,7 +28,8 @@ This directory is the deliberately small published subset.
 | `rooms/{a,b,c}-knowledge.png` | The **real** Room Hub rendering the **real** Knowledge Room under each candidate theme |
 | `rooms/none-knowledge.png` | The same Room today, for comparison (`#0c1016` + `#5ec8f2`) |
 | `before/home.png`, `before/tools-rooms.png` | The shipping Web product today, for comparison |
-| `parity-report.md` | Machine check that all three candidates express the same functional facts (285/285 probes) |
+| `parity-report.md` | Machine check that all three candidates express the same functional facts (396/396 probes) |
+| `EVIDENCE_MANIFEST.json` | The commit this evidence describes, plus a sha256 per file; verified by `scripts/ui-000/evidence-check.mjs` |
 
 ## How it was produced
 
@@ -37,9 +38,26 @@ node scripts/ui-000/serve.mjs 4330                     # candidate surface
 node apps/rooms/hub/server.mjs                         # real Room Hub (loopback)
 $env:CITY_TOKEN = (Get-Content .runtime/local-config.json | ConvertFrom-Json).token
 node scripts/ui-000/screenshot.mjs                     # Web + Rooms + before/after
-node scripts/ui-000/parity.mjs                         # 285 capability probes
+node scripts/ui-000/parity.mjs                         # 396 capability/action/demotion probes
+node scripts/ui-000/review-probes.mjs                  # the review host's independent, stricter probe
 node scripts/ui-000/android-screens.mjs                # Compose screens via emulator + adb
+node scripts/ui-000/evidence-check.mjs                 # verify this evidence still describes HEAD
 ```
+
+## Evidence integrity
+
+This directory hit the same defect class three times: a pointer that stopped describing the artifact it
+claimed to describe — a stale `HEAD_SHA` in the Development report, a parity report published at
+285/285 while the real run was 390/390, and these screenshots plus README numbers predating the commit
+that fixed the very defect the Review had flagged. Human eyeballing failed three times, so
+`EVIDENCE_MANIFEST.json` records the commit this evidence describes and a sha256 per file, and
+`node scripts/ui-000/evidence-check.mjs` fails with `EVIDENCE_POINTER_MISMATCH` once the branch head
+moves past it. `--write` regenerates the manifest after a deliberate re-capture.
+
+Note on the current capture: **only candidate B's rendered pixels changed** in the last re-capture.
+The WCAG minimum-target fix was a no-op for A and C at these viewports (their line boxes already
+exceeded 24px), so their PNGs are byte-identical rather than re-encoded. B changed visibly because it
+also stopped rendering raw event types on its primary path — the exact point its Review flagged.
 
 Two evidence captures were **not** produced the naive way, and the reason is recorded because it
 is a real finding rather than a convenience:

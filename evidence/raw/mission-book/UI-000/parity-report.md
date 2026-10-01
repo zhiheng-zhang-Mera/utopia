@@ -1,8 +1,8 @@
 # UI-000 capability parity report
 
-- generated: 2026-10-01T11:31:29.402Z
+- generated: 2026-10-01T11:45:07.633Z
 - candidates: a, b, c
-- probes: 390/390 passed
+- probes: 396/396 passed
 - result: PASS
 
 | candidate | probe | where | capability | token | ok |
@@ -33,7 +33,7 @@
 | a | surface | home | city-snapshot | 20:24 | yes |
 | a | surface | home | attention-summary | 10 | yes |
 | a | surface | home | device-telemetry | 12.4 | yes |
-| a | surface | home | event-timeline | task.completed | yes |
+| a | surface | home | event-timeline | 20:19 | yes |
 | a | surface | tools | room-catalog | Knowledge Room | yes |
 | a | surface | tools | room-catalog | 本地知识室 | yes |
 | a | surface | tools | room-catalog | Bookmark Room | yes |
@@ -60,14 +60,14 @@
 | a | surface | devices | device-telemetry | 12.4 | yes |
 | a | surface | devices | device-detail | 磁盘 | yes |
 | a | surface | devices | device-select | Alien-PC | yes |
-| a | surface | activity | event-timeline | task.completed | yes |
-| a | surface | activity | event-timeline | node.heartbeat | yes |
+| a | surface | activity | event-timeline | 20:19 | yes |
+| a | surface | activity | event-timeline | 20:23 | yes |
 | a | surface | services | capability-catalog | planning.document.intake | yes |
 | a | surface | services | capability-catalog | planning.knowledge.query | yes |
 | a | surface | services | capability-catalog | engineering.skill.inspect | yes |
 | a | surface | services | capability-catalog | research.evidence.review | yes |
 | a | surface | services | capability-catalog | presentation.theme.lab | yes |
-| a | surface | services | capability-history | inv-2f10 | yes |
+| a | surface | services | capability-history | COMPLETED | yes |
 | a | surface | services | capability-invoke | 调用 | yes |
 | a | surface | tasks | task-list | CHECKPOINT_DEMO | yes |
 | a | surface | tasks | task-list | COMPLETED | yes |
@@ -87,6 +87,8 @@
 | a | technical | revealed | task-detail | tsk-9c41 | yes |
 | a | technical | revealed | task-detail | tsk-8b20 | yes |
 | a | technical | revealed | event-timeline | 41 | yes |
+| a | technical | revealed | event-timeline | task.completed | yes |
+| a | technical | revealed | event-timeline | node.heartbeat | yes |
 | a | technical | revealed | room-catalog | knowledge | yes |
 | a | technical | revealed | room-catalog | text-workshop | yes |
 | a | technical | revealed | room-catalog | data-lab | yes |
@@ -163,7 +165,7 @@
 | b | surface | home | city-snapshot | 20:24 | yes |
 | b | surface | home | attention-summary | 10 | yes |
 | b | surface | home | device-telemetry | 12.4 | yes |
-| b | surface | home | event-timeline | task.completed | yes |
+| b | surface | home | event-timeline | 20:19 | yes |
 | b | surface | tools | room-catalog | Knowledge Room | yes |
 | b | surface | tools | room-catalog | 本地知识室 | yes |
 | b | surface | tools | room-catalog | Bookmark Room | yes |
@@ -190,14 +192,14 @@
 | b | surface | devices | device-telemetry | 12.4 | yes |
 | b | surface | devices | device-detail | 磁盘 | yes |
 | b | surface | devices | device-select | Alien-PC | yes |
-| b | surface | activity | event-timeline | task.completed | yes |
-| b | surface | activity | event-timeline | node.heartbeat | yes |
+| b | surface | activity | event-timeline | 20:19 | yes |
+| b | surface | activity | event-timeline | 20:23 | yes |
 | b | surface | services | capability-catalog | planning.document.intake | yes |
 | b | surface | services | capability-catalog | planning.knowledge.query | yes |
 | b | surface | services | capability-catalog | engineering.skill.inspect | yes |
 | b | surface | services | capability-catalog | research.evidence.review | yes |
 | b | surface | services | capability-catalog | presentation.theme.lab | yes |
-| b | surface | services | capability-history | inv-2f10 | yes |
+| b | surface | services | capability-history | COMPLETED | yes |
 | b | surface | services | capability-invoke | 调用 | yes |
 | b | surface | tasks | task-list | CHECKPOINT_DEMO | yes |
 | b | surface | tasks | task-list | COMPLETED | yes |
@@ -217,6 +219,8 @@
 | b | technical | revealed | task-detail | tsk-9c41 | yes |
 | b | technical | revealed | task-detail | tsk-8b20 | yes |
 | b | technical | revealed | event-timeline | 41 | yes |
+| b | technical | revealed | event-timeline | task.completed | yes |
+| b | technical | revealed | event-timeline | node.heartbeat | yes |
 | b | technical | revealed | room-catalog | knowledge | yes |
 | b | technical | revealed | room-catalog | text-workshop | yes |
 | b | technical | revealed | room-catalog | data-lab | yes |
@@ -293,7 +297,7 @@
 | c | surface | home | city-snapshot | 20:24 | yes |
 | c | surface | home | attention-summary | 10 | yes |
 | c | surface | home | device-telemetry | 12.4 | yes |
-| c | surface | home | event-timeline | task.completed | yes |
+| c | surface | home | event-timeline | 20:19 | yes |
 | c | surface | tools | room-catalog | Knowledge Room | yes |
 | c | surface | tools | room-catalog | 本地知识室 | yes |
 | c | surface | tools | room-catalog | Bookmark Room | yes |
@@ -320,14 +324,14 @@
 | c | surface | devices | device-telemetry | 12.4 | yes |
 | c | surface | devices | device-detail | 磁盘 | yes |
 | c | surface | devices | device-select | Alien-PC | yes |
-| c | surface | activity | event-timeline | task.completed | yes |
-| c | surface | activity | event-timeline | node.heartbeat | yes |
+| c | surface | activity | event-timeline | 20:19 | yes |
+| c | surface | activity | event-timeline | 20:23 | yes |
 | c | surface | services | capability-catalog | planning.document.intake | yes |
 | c | surface | services | capability-catalog | planning.knowledge.query | yes |
 | c | surface | services | capability-catalog | engineering.skill.inspect | yes |
 | c | surface | services | capability-catalog | research.evidence.review | yes |
 | c | surface | services | capability-catalog | presentation.theme.lab | yes |
-| c | surface | services | capability-history | inv-2f10 | yes |
+| c | surface | services | capability-history | COMPLETED | yes |
 | c | surface | services | capability-invoke | 调用 | yes |
 | c | surface | tasks | task-list | CHECKPOINT_DEMO | yes |
 | c | surface | tasks | task-list | COMPLETED | yes |
@@ -347,6 +351,8 @@
 | c | technical | revealed | task-detail | tsk-9c41 | yes |
 | c | technical | revealed | task-detail | tsk-8b20 | yes |
 | c | technical | revealed | event-timeline | 41 | yes |
+| c | technical | revealed | event-timeline | task.completed | yes |
+| c | technical | revealed | event-timeline | node.heartbeat | yes |
 | c | technical | revealed | room-catalog | knowledge | yes |
 | c | technical | revealed | room-catalog | text-workshop | yes |
 | c | technical | revealed | room-catalog | data-lab | yes |

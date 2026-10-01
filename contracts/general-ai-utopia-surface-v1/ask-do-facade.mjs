@@ -175,6 +175,17 @@ export function createAskDoFacade({
     return action;
   };
 
+  /** A terminal action is finished: cancel is binding and no later call may advance it. */
+  const requireLiveAction = (action_ref, operation) => {
+    const action = requireAction(action_ref);
+    if (TERMINAL_STATES.includes(action.state)) {
+      throw new GaiSurfaceError('FALSE_SUCCESS_REFUSED', 'action ' + action_ref + ' is ' + action.state + '; ' + operation + ' cannot advance a finished action', {
+        action_ref, state: action.state, operation, advanced: false,
+      });
+    }
+    return action;
+  };
+
   const projectAction = action => freeze({
     contract_version: GAI_SURFACE_CONTRACT_VERSION,
     action_ref: action.action_ref,
@@ -210,7 +221,7 @@ export function createAskDoFacade({
       if (!isText(text)) throw new GaiSurfaceError('INVALID_REQUEST', 'text is required');
       if (!isText(interaction_device_ref)) throw new GaiSurfaceError('INVALID_REQUEST', 'interaction_device_ref is required');
       const at = atFrom(when);
-      const deterministic = deterministicMatcher(text);
+      const deterministic = config.deterministic_first === true ? deterministicMatcher(text) : null;
       if (deterministic !== null && deterministic !== undefined) {
         note('DETERMINISTIC_ROUTED', at, { request_ref });
         return freeze({
@@ -287,7 +298,7 @@ export function createAskDoFacade({
         updated_at: at,
       };
       actions.set(action.action_ref, action);
-      history.push(freeze({ history_ref: action.canonical_history_ref, action_ref: action.action_ref, event: 'ASK_ACCEPTED', at }));
+      history.push(freeze({ history_ref: action.canonical_history_ref, action_ref: action.action_ref, event: 'ASK_ACCEPTED', by_device_ref: interaction_device_ref, at }));
       note('GENERAL_AI_ACTION_CREATED', at, { action_ref: action.action_ref });
       return freeze({
         contract_version: GAI_SURFACE_CONTRACT_VERSION,
@@ -297,7 +308,7 @@ export function createAskDoFacade({
         action_ref: action.action_ref,
         canonical_history_ref: action.canonical_history_ref,
         general_ai_action_created: true,
-        web_first_default_path: true,
+        web_first_default_path: config.web_first === true,
         interaction_device_ref,
         execution_device_ref: interaction_device_ref,
         provider_choice_requested_from_user: false,
@@ -339,7 +350,7 @@ export function createAskDoFacade({
 
     /** A device-switch proposal is rendered for confirmation; the user is not navigated away. */
     proposeDeviceSwitch({ action_ref, remote_device_ref, reason = 'LOCAL_WEB_THROTTLED', at: when } = {}) {
-      const action = requireAction(action_ref);
+      const action = requireLiveAction(action_ref, 'a device-switch proposal');
       if (!isText(remote_device_ref)) throw new GaiSurfaceError('INVALID_REQUEST', 'remote_device_ref is required');
       const at = atFrom(when);
       action.device_switch_proposal = freeze({
@@ -386,7 +397,7 @@ export function createAskDoFacade({
      * An API proposal requires explicit confirmation and shows the budget verdict before execution.
      */
     proposeApiSwitch({ action_ref, reason = 'WEB_UNAVAILABLE', at: when } = {}) {
-      const action = requireAction(action_ref);
+      const action = requireLiveAction(action_ref, 'an API proposal');
       const at = atFrom(when);
       if (admissionPort === null) throw new GaiSurfaceError('BACKEND_NOT_READY', 'no admission port is configured', { api_execution_permitted: false });
       const budget = admissionPort.checkBudget?.({ action_ref }) ?? null;
@@ -412,9 +423,11 @@ export function createAskDoFacade({
 
     /** Execution requires an approved consent record and a budget verdict; otherwise nothing runs. */
     executeApi({ action_ref, consent = null, at: when } = {}) {
-      const action = requireAction(action_ref);
+      const action = requireLiveAction(action_ref, 'API execution');
       const at = atFrom(when);
       if (action.api_switch_proposal === null) throw new GaiSurfaceError('CONFIRMATION_REQUIRED', 'an API proposal is required before API execution', { action_ref, executed: false });
+      // The approved proposal is consumed by its one execution: a second call may not run the API again.
+      if (action.api_switch_proposal.applied === true) throw new GaiSurfaceError('ACTION_TRUTH_IS_SHARED', 'the API proposal for ' + action_ref + ' was already executed', { action_ref, executed: false, already_applied: true });
       if (admissionPort === null || typeof admissionPort.admit !== 'function') throw new GaiSurfaceError('BACKEND_NOT_READY', 'no admission port is configured', { executed: false });
       const admission = admissionPort.admit({ action_ref, consent, request: {}, protocol: action.api_switch_proposal.protocol ?? null });
       if (admission.admitted !== true) {
@@ -445,7 +458,7 @@ export function createAskDoFacade({
       action.consent_ref = admission.consent?.consent_id ?? null;
       // The admission consent is the explicit confirmation that authorises this API run, and the confirmed
       // execution device is not silently rewritten back to the interaction device.
-      action.api_switch_proposal = freeze({ ...action.api_switch_proposal, confirmed: true, applied: true, confirmed_by_consent_ref: action.consent_ref });
+      action.api_switch_proposal = freeze({ ...action.api_switch_proposal, confirmed: true, applied: true, applied_at: at, confirmed_by_consent_ref: action.consent_ref });
       action.state = 'RUNNING';
       action.updated_at = at;
       history.push(freeze({ history_ref: action.canonical_history_ref, action_ref, event: 'API_EXECUTED', at }));
@@ -476,16 +489,26 @@ export function createAskDoFacade({
     },
 
     projectAttention({ action_ref, attention_ref, question, blocking = true, at: when } = {}) {
-      const action = requireAction(action_ref);
+      const action = requireLiveAction(action_ref, 'an attention projection');
       if (!isText(attention_ref) || !isText(question)) throw new GaiSurfaceError('INVALID_REQUEST', 'attention_ref and question are required');
       if (sharedAttention === null || typeof sharedAttention.project !== 'function') throw new GaiSurfaceError('ATTENTION_FROM_SHARED_STATE_ONLY', 'the canonical shared Attention port is required');
       const at = atFrom(when);
-      const projected = sharedAttention.project({ attention_ref, source: SHARED_ATTENTION_SOURCE, question, blocking, subject_ref: action_ref, delivered_to: action.interaction_device_ref, at });
+      let projected = null;
+      try {
+        projected = sharedAttention.project({ attention_ref, source: SHARED_ATTENTION_SOURCE, question, blocking, subject_ref: action_ref, delivered_to: action.interaction_device_ref, at });
+      } catch (error) {
+        throw new GaiSurfaceError('ATTENTION_FROM_SHARED_STATE_ONLY', 'the shared Attention port failed: ' + String(error?.message ?? error), { action_ref, projected: false, mutated: false });
+      }
+      // An undefined, refusing or unreadable answer is not canonical attention, and nothing may be claimed.
+      if (!isPlainObject(projected) || projected.projected === false) {
+        throw new GaiSurfaceError('ATTENTION_FROM_SHARED_STATE_ONLY', 'the shared Attention port did not accept the projection', { action_ref, projected: false, mutated: false });
+      }
+      const projectedSnapshot = clone(projected);
       action.attention_refs.push(attention_ref);
       action.state = 'WAITING_CONFIRMATION';
       action.updated_at = at;
       note('ATTENTION_PROJECTED', at, { action_ref, attention_ref });
-      return freeze({ ...clone(projected), action_ref, from_shared_state: true, gai_only_store: false, delivered_to: action.interaction_device_ref });
+      return freeze({ ...projectedSnapshot, action_ref, from_shared_state: true, gai_only_store: false, delivered_to: action.interaction_device_ref });
     },
 
     /** Control works from Web and Android for the same action where authorized. */
@@ -507,7 +530,7 @@ export function createAskDoFacade({
       if (operation === 'PAUSE') action.state = 'WAITING_CONFIRMATION';
       if (operation === 'RESUME') action.state = 'RUNNING';
       action.updated_at = at;
-      history.push(freeze({ history_ref: action.canonical_history_ref, action_ref, event: `CONTROL_${operation}`, at }));
+      history.push(freeze({ history_ref: action.canonical_history_ref, action_ref, event: `CONTROL_${operation}`, by_device_ref, at }));
       note('ACTION_CONTROLLED', at, { action_ref, operation, by_device_ref });
       return freeze({
         contract_version: GAI_SURFACE_CONTRACT_VERSION,
@@ -534,6 +557,11 @@ export function createAskDoFacade({
       if (state === 'SUCCEEDED' && !isText(result_ref)) throw new GaiSurfaceError('FALSE_SUCCESS_REFUSED', 'a success needs an accepted result reference', { action_ref, result_ref: null });
       if (state === 'SUCCEEDED' && (action.state === 'UNAVAILABLE' || action.state === 'WAITING_CONFIRMATION')) {
         throw new GaiSurfaceError('FALSE_SUCCESS_REFUSED', 'action ' + action_ref + ' cannot succeed while the backend is ' + action.state, { action_ref, state: action.state, backend_unavailable: true });
+      }
+      // Outstanding canonical attention means the backend is waiting on the user, not finished: the state alone
+      // does not carry that (a resumed action is RUNNING again), so the attention ledger decides as well.
+      if (state === 'SUCCEEDED' && action.attention_refs.length > 0) {
+        throw new GaiSurfaceError('FALSE_SUCCESS_REFUSED', 'action ' + action_ref + ' has outstanding attention; the backend is attention-required', { action_ref, state: action.state, attention_refs: clone(action.attention_refs), backend_unavailable: true, backend_attention_required: true });
       }
       // A terminal action already carries its canonical result: a later result may not rewrite it (a failed
       // or cancelled run never becomes a success because a second report arrived).

@@ -380,3 +380,85 @@ test('a crashing port is a typed refusal and instants are real', () => {
   assert.equal(failure(() => createAskDoFacade({ deterministicMatcher, policy: { unknown: 1 } })).code, 'INVALID_REQUEST');
   assert.equal(failure(() => createAskDoFacade({ deterministicMatcher, policy: { web_first: 'yes' } })).code, 'INVALID_REQUEST');
 });
+// GAI-009-CORRECTION-PASS-2 - regressions for the second repair pass: a cancelled action stays
+// cancelled, an approved API proposal is single use, a refusing shared Attention port is not
+// canonical attention, success is refused while attention is outstanding, the routing policy
+// decides, and the canonical history names the device that acted.
+
+test('a cancelled action cannot be advanced, proposed to, projected, or executed', () => {
+  const { facade, calls } = facadeWith();
+  const asked = askGeneralAi(facade);
+  facade.control({ action_ref: asked.action_ref, operation: 'CANCEL', by_device_ref: LAPTOP });
+  assert.equal(failure(() => facade.proposeDeviceSwitch({ action_ref: asked.action_ref, remote_device_ref: PHONE })).code, 'FALSE_SUCCESS_REFUSED');
+  assert.equal(failure(() => facade.proposeApiSwitch({ action_ref: asked.action_ref })).code, 'FALSE_SUCCESS_REFUSED');
+  assert.equal(failure(() => facade.projectAttention({ action_ref: asked.action_ref, attention_ref: 'attention:c', question: 'still there?' })).code, 'FALSE_SUCCESS_REFUSED');
+  assert.equal(failure(() => facade.executeApi({ action_ref: asked.action_ref })).code, 'FALSE_SUCCESS_REFUSED');
+  assert.equal(failure(() => facade.addPartial({ action_ref: asked.action_ref, partial_ref: 'partial:c' })).code, 'FALSE_SUCCESS_REFUSED');
+  assert.equal(facade.render({ action_ref: asked.action_ref }).state, 'CANCELLED');
+  assert.equal(calls.admit, 0, 'a cancelled action reaches no admission port');
+  assert.equal(calls.execute, 0, 'a cancelled action reaches no execution port');
+  assert.equal(calls.project, 0, 'a cancelled action projects no attention');
+  assert.equal(facade.action(asked.action_ref).proposals.api_switch, null);
+});
+
+test('an approved API proposal is consumed by its one execution', () => {
+  const { facade, calls } = facadeWith();
+  const asked = askGeneralAi(facade);
+  facade.proposeApiSwitch({ action_ref: asked.action_ref });
+  const first = facade.executeApi({ action_ref: asked.action_ref });
+  assert.equal(first.executed, true);
+  assert.equal(calls.execute, 1);
+  const second = failure(() => facade.executeApi({ action_ref: asked.action_ref }));
+  assert.equal(second.code, 'ACTION_TRUTH_IS_SHARED');
+  assert.equal(second.executed, false);
+  assert.equal(calls.admit, 1, 'the second call is refused before admission');
+  assert.equal(calls.execute, 1, 'the API is not run twice for one proposal');
+});
+
+test('a shared Attention port that refuses is refused, not claimed as canonical state', () => {
+  const refusing = ports();
+  const nothing = createAskDoFacade({ deterministicMatcher, clock: () => T0, routePort: refusing.routePort, admissionPort: refusing.admissionPort, executionPort: refusing.executionPort, sharedAttention: { project: () => undefined } });
+  const orphan = askGeneralAi(nothing);
+  assert.equal(failure(() => nothing.projectAttention({ action_ref: orphan.action_ref, attention_ref: 'attention:x', question: 'q' })).code, 'ATTENTION_FROM_SHARED_STATE_ONLY');
+  assert.equal(nothing.action(orphan.action_ref).attention_refs.length, 0, 'no attention is recorded when shared state did not accept it');
+  assert.equal(nothing.action(orphan.action_ref).state, 'ACCEPTED', 'the action is not moved to waiting by a refused projection');
+  const denying = ports();
+  const denied = createAskDoFacade({ deterministicMatcher, clock: () => T0, routePort: denying.routePort, admissionPort: denying.admissionPort, executionPort: denying.executionPort, sharedAttention: { project: () => ({ projected: false }) } });
+  const deniedAction = askGeneralAi(denied);
+  assert.equal(failure(() => denied.projectAttention({ action_ref: deniedAction.action_ref, attention_ref: 'attention:y', question: 'q' })).code, 'ATTENTION_FROM_SHARED_STATE_ONLY');
+  assert.equal(denied.action(deniedAction.action_ref).attention_refs.length, 0);
+});
+
+test('success is refused while canonical attention is outstanding, even after a resume', () => {
+  const { facade } = facadeWith();
+  const asked = askGeneralAi(facade);
+  facade.projectAttention({ action_ref: asked.action_ref, attention_ref: 'attention:r', question: 'which provider?' });
+  const resumed = facade.control({ action_ref: asked.action_ref, operation: 'RESUME', by_device_ref: LAPTOP });
+  assert.equal(resumed.state, 'RUNNING');
+  const refused = failure(() => facade.applyResult({ action_ref: asked.action_ref, state: 'SUCCEEDED', result_ref: 'result:r' }));
+  assert.equal(refused.code, 'FALSE_SUCCESS_REFUSED');
+  assert.equal(refused.backend_unavailable, true);
+  assert.equal(refused.backend_attention_required, true);
+  assert.equal(facade.render({ action_ref: asked.action_ref }).shows_success, false, 'the backend is attention-required, not successful');
+});
+
+test('the routing policy decides whether the local matcher runs first', () => {
+  const { facade, calls } = facadeWith({ policy: { deterministic_first: false } });
+  const routed = facade.ask({ text: '/help me', interaction_device_ref: LAPTOP });
+  assert.equal(routed.route, 'GENERAL_AI', 'a policy that turns the local-first matcher off does not route locally');
+  assert.equal(routed.general_ai_action_created, true);
+  assert.equal(calls.route, 1);
+  assert.equal(facade.surfaceContract().deterministic_first, false);
+  const { facade: localFirst } = facadeWith();
+  assert.equal(localFirst.ask({ text: '/help me', interaction_device_ref: LAPTOP }).route, 'DETERMINISTIC_LOCAL');
+});
+
+test('the canonical history names the device that acted', () => {
+  const { facade } = facadeWith();
+  const asked = askGeneralAi(facade);
+  facade.control({ action_ref: asked.action_ref, operation: 'PAUSE', by_device_ref: LAPTOP });
+  const entries = facade.history({ action_ref: asked.action_ref }).entries;
+  assert.equal(entries.every(entry => entry.by_device_ref === LAPTOP), true, 'every canonical event records the acting device');
+  assert.equal(entries.some(entry => entry.event === 'ASK_ACCEPTED'), true);
+  assert.equal(entries.some(entry => entry.event === 'CONTROL_PAUSE'), true);
+});

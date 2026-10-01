@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import city.utopia.control.ui.UtFeedback
 
 // T1 — Rooms on Android. Availability and the ten-Room catalog only.
 // Android never receives or uses the loopback hubUrl and never opens a Room Hub port;
@@ -37,14 +38,14 @@ import androidx.compose.ui.unit.sp
   Button(onClick = { load() }, enabled = canLoadRooms(state.connection, busy), modifier = Modifier.fillMaxWidth()) { Text(if (busy) "Checking…" else if (hub == null) "Check Room availability" else "Refresh") }
   if (!online) Text("Offline · Room availability is unknown until the gateway reconnects. Nothing below is live.", fontSize = 12.sp)
   if (busy) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-  failure?.let { Text(it, color = Color(0xFFA15C38), fontSize = 12.sp) }
-  if (hub == null) Text("Room availability has not been read yet.", fontSize = 12.sp, color = Color.Gray) else {
+  failure?.let { UtFeedback(it, kind = "error") }
+  if (hub == null) Text("Room availability has not been read yet.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) else {
    val status = hub!!
    Panel {
-    Text(status.stateLabel, fontWeight = FontWeight.Bold, color = if (status.available) Color(0xFF456B29) else Color(0xFFA15C38))
-    Text(status.stateDetail, fontSize = 12.sp)
-    Text("Last checked by the host: " + status.checkedAt.ifBlank { "Unavailable" }, fontSize = 11.sp, color = Color.Gray)
-    Text("Rooms in catalog: " + status.count, fontSize = 11.sp, color = Color.Gray)
+    Text(status.stateLabel, style = MaterialTheme.typography.titleMedium, color = if (status.available) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+    Text(status.stateDetail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+    Text("Last checked by the host: " + status.checkedAt.ifBlank { "Unavailable" }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text("Rooms in catalog: " + status.count, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
    }
    if (!status.available) Text("This is the hub's real state, not an error and not an empty catalog. The Rooms below are listed from the gateway catalog and cannot run right now.", fontSize = 12.sp)
    Text(if (status.available) "ROOMS" else "ROOMS · UNAVAILABLE", fontSize = 11.sp, letterSpacing = 2.sp, color = Color.Gray)

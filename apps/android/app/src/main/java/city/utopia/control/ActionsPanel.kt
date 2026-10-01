@@ -132,38 +132,60 @@ import city.utopia.control.ui.UtPanel
   if (ref.summary.isNotBlank()) Text(ref.summary, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
  }
  detail.error?.let { UtFeedback(it.code + " · " + it.message, kind = "error") }
- // Everything internal, verbatim and reachable, but folded by default.
- val technical = buildList {
-  add("actionId" to row.actionId)
-  add("status" to row.status)
-  add("route" to row.route)
-  add("progress" to (row.progress.toString() + "%"))
-  detail.target?.let { add("targetId" to it.id); add("operation" to (it.operation ?: "")) }
-  detail.backendRef?.let { ref ->
-   add("backendRef.kind" to ref.kind)
-   add("backendRef.id" to ref.id)
-   add("backendRef.roomId" to (ref.roomId ?: ""))
-   add("backendRef.operationId" to (ref.operationId ?: ""))
-  }
-  detail.resultRef?.let { ref ->
-   add("resultRef.kind" to ref.kind)
-   add("resultRef.id" to ref.id)
-   add("resultRef.digest" to (ref.digest ?: ""))
-  }
-  detail.error?.let { add("error.code" to it.code); add("error.message" to it.message) }
-  detail.provenance?.let { p ->
-   add("provenance.source" to p.source)
-   add("provenance.host" to p.host)
-   add("provenance.roomId" to (p.roomId ?: "—"))
-   add("provenance.capabilityId" to (p.capabilityId ?: "—"))
-   add("provenance.taskId" to (p.taskId ?: "—"))
-   add("provenance.invocationId" to (p.invocationId ?: "—"))
-   p.history.forEachIndexed { index, entry ->
-    add("history[$index]" to (entry.status + " · " + entry.at + (if (entry.note.isBlank()) "" else " · " + entry.note)))
-   }
-  }
-  add("createdAt" to detail.createdAt.ifBlank { "Unavailable" })
-  add("updatedAt" to detail.updatedAt.ifBlank { "Unavailable" })
- }
- TechnicalDetails(technical)
+ TechnicalDetails(actionTechnicalRows(detail))
 }
+
+/**
+ * Every internal value the Action record carries, as the exact list the UI folds.
+ *
+ * Extracted from `ActionRecord` for one reason: it makes "folded, not deleted" a
+ * testable property instead of a code-reading claim. `TechnicalFoldingTest` asserts
+ * against THIS function, so the test cannot drift from what the screen renders.
+ *
+ * A Compose UI test would assert the collapse itself, but `ui-test-junit4` and
+ * `androidx.test` are not in this machine's offline Gradle cache, so an androidTest
+ * cannot be built here. This is the strongest check available offline; the collapse
+ * behaviour itself is a single shared component whose default state is collapsed.
+ */
+internal fun actionTechnicalRows(detail: ActionDetail): List<Pair<String, String>> = buildList {
+ val row = detail.summary
+ add("actionId" to row.actionId)
+ add("status" to row.status)
+ add("route" to row.route)
+ add("progress" to (row.progress.toString() + "%"))
+ detail.target?.let { add("targetId" to it.id); add("operation" to (it.operation ?: "")) }
+ detail.backendRef?.let { ref ->
+  add("backendRef.kind" to ref.kind)
+  add("backendRef.id" to ref.id)
+  add("backendRef.roomId" to (ref.roomId ?: ""))
+  add("backendRef.operationId" to (ref.operationId ?: ""))
+ }
+ detail.resultRef?.let { ref ->
+  add("resultRef.kind" to ref.kind)
+  add("resultRef.id" to ref.id)
+  add("resultRef.digest" to (ref.digest ?: ""))
+ }
+ detail.error?.let { add("error.code" to it.code); add("error.message" to it.message) }
+ detail.provenance?.let { p ->
+  add("provenance.source" to p.source)
+  add("provenance.host" to p.host)
+  add("provenance.roomId" to (p.roomId ?: "—"))
+  add("provenance.capabilityId" to (p.capabilityId ?: "—"))
+  add("provenance.taskId" to (p.taskId ?: "—"))
+  add("provenance.invocationId" to (p.invocationId ?: "—"))
+  p.history.forEachIndexed { index, entry ->
+   add("history[$index]" to (entry.status + " · " + entry.at + (if (entry.note.isBlank()) "" else " · " + entry.note)))
+  }
+ }
+ add("createdAt" to detail.createdAt.ifBlank { "Unavailable" })
+ add("updatedAt" to detail.updatedAt.ifBlank { "Unavailable" })
+}
+
+/** The folded rows for one row of the Action list. Same contract as above. */
+internal fun actionSummaryTechnicalRows(row: ActionSummary): List<Pair<String, String>> = listOf(
+ "actionId" to row.actionId,
+ "route" to row.route,
+ "target" to row.targetLabel.ifBlank { "unknown target" },
+ "progress" to (row.progress.toString() + "%"),
+ "errorCode" to (row.errorCode ?: ""),
+)

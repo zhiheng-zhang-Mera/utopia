@@ -21,6 +21,7 @@ import city.utopia.control.theme.Space
 import city.utopia.control.theme.UtopiaColors
 import city.utopia.control.theme.UtopiaIcons
 import city.utopia.control.theme.UtopiaTheme
+import city.utopia.control.ui.UtFeedback
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -89,7 +90,7 @@ class MainActivity : ComponentActivity() {
    LazyColumn(Modifier.fillMaxSize().padding(padding).imePadding().padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(Space.md), contentPadding = PaddingValues(top = Space.lg, bottom = Space.xl)) {
     item { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Text("UTOPIA", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, letterSpacing = 3.sp); Spacer(Modifier.weight(1f)); Text(state.connection, color = if (online) UtopiaColors.Lime else UtopiaColors.Warn, fontSize = 12.sp); Box { IconButton(onClick = { advancedOpen.value = true }) { Icon(UtopiaIcons.More, contentDescription = "更多", tint = MaterialTheme.colorScheme.onSurfaceVariant) }; DropdownMenu(expanded = advancedOpen.value, onDismissRequest = { advancedOpen.value = false }) { advancedNav.forEach { (target, label) -> DropdownMenuItem(text = { Text(label) }, onClick = { page = target; selected = null; selectedNode = null; advancedOpen.value = false }) } } } } }
     item { Column { Text(if (selected != null) "Task details" else when (page) { "Home" -> "Digital City"; "Find" -> "Welcome"; "Ask" -> "Ask / Do"; "Rooms" -> "Rooms · local tools"; "Action" -> "Actions"; "Devices" -> if(selectedNode == null) "Devices" else "Device details"; "Services" -> "City services"; "Tasks" -> "Your tasks"; "Activity" -> "City activity"; else -> "Connect your city" }, fontSize = 32.sp, color = Ink, fontWeight = FontWeight.Medium); Text(if (online) "Your devices. One shared view." else "Cached information · connection is not live", fontSize = 12.sp, color = Color.Gray) } }
-    if (state.message.isNotBlank()) item { Text(state.message, color = Color(0xFFA15C38), fontSize = 12.sp) }
+    if (state.message.isNotBlank()) item { UtFeedback(state.message, kind = "error") }
     if (page == "Find") {
      item { PairingPanel(log, intent?.dataString, { page="Settings" }, { h,t,id -> host=h; token=t; prefs.edit().putString("host",h).putString("token",t).putString("cityId",id).apply(); state=CityState("RECONNECTING"); settingsRevision++; page="Devices"; intent.data=null }) }
     } else if (page == "Devices") {

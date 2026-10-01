@@ -94,14 +94,7 @@ import org.json.JSONObject
     if (answer.message.isNotBlank()) Text(answer.message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
     if (!answer.isKnownStatus) UtFeedback("Gateway 返回了未识别的状态，这里按原样显示。", kind = "warn")
     // router label, route/target/operation: folded, still reachable
-    TechnicalDetails(listOf(
-     "status" to answer.status,
-     "statusLabel" to answer.statusLabel,
-     "router" to answer.routerLabel,
-     "route" to (answer.route ?: ""),
-     "target" to (answer.target ?: ""),
-     "operation" to (answer.operation ?: ""),
-    ))
+    TechnicalDetails(askTechnicalRows(answer))
    }
    if (answer.status == ASK_AWAITING_CONFIRMATION) {
     val confirmation = answer.confirmation
@@ -171,13 +164,37 @@ import org.json.JSONObject
   if (candidate.sideEffect) UtFeedback("这个目标会产生真实的外部副作用。", kind = "warn")
   if (candidate.mutating) UtFeedback("会写入本地产品数据。", kind = "warn")
   // route/target/operation and the example stay reachable but folded
-  TechnicalDetails(listOf(
-   "route" to candidate.route,
-   "target" to candidate.target,
-   "operation" to (candidate.operation ?: ""),
-   "available" to candidate.available.toString(),
-   "example" to candidate.example,
-  ))
+  TechnicalDetails(targetTechnicalRows(candidate))
   OutlinedButton(onClick = choose, enabled = !disabled && candidate.available) { Text("选择") }
  }
 }
+
+/**
+ * The routing facts the Ask result folds. Extracted so `TechnicalFoldingTest` asserts
+ * against exactly what the screen renders — "folded, not deleted" as a test instead of
+ * a code-reading claim.
+ *
+ * A Compose UI test would assert the collapse itself, but `ui-test-junit4` and
+ * `androidx.test` are absent from this machine's offline Gradle cache, so an androidTest
+ * cannot be built here. This is the strongest check available offline.
+ */
+internal fun askTechnicalRows(answer: AskResult): List<Pair<String, String>> = listOf(
+ "status" to answer.status,
+ "statusLabel" to answer.statusLabel,
+ // both halves: the raw router token is internal vocabulary, the label is what the
+ // surface already shows. Folding the raw one too is what the test caught as missing.
+ "router" to answer.router,
+ "routerLabel" to answer.routerLabel,
+ "route" to (answer.route ?: ""),
+ "target" to (answer.target ?: ""),
+ "operation" to (answer.operation ?: ""),
+)
+
+/** The routing facts one selectable target folds. */
+internal fun targetTechnicalRows(candidate: TargetOption): List<Pair<String, String>> = listOf(
+ "route" to candidate.route,
+ "target" to candidate.target,
+ "operation" to (candidate.operation ?: ""),
+ "available" to candidate.available.toString(),
+ "example" to candidate.example,
+)

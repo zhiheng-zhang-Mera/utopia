@@ -20,22 +20,25 @@
 // Pure module: the clock is injected; no storage, network, UI framework or ambient state.
 export const CONTROL_SURFACE_CONTRACT_VERSION = 1;
 
+// Canonical refs are minted from one process-wide sequence so two surfaces never publish the same ref.
+let REF_SEQ = 0;
+
 export const SURFACE_VIEWS = Object.freeze(['SUBMIT', 'STATUS', 'PROGRESS', 'STAGE', 'ATTENTION', 'CONTROL', 'RESULT', 'ARTIFACT']);
 export const JOB_STATES = Object.freeze(['SUBMITTED', 'QUEUED', 'RUNNING', 'WAITING_CONFIRMATION', 'SUCCEEDED', 'FAILED', 'REFUSED', 'CANCELLED', 'UNKNOWN']);
 export const TERMINAL_JOB_STATES = Object.freeze(['SUCCEEDED', 'FAILED', 'REFUSED', 'CANCELLED']);
 export const ELIGIBILITY = Object.freeze(['LOCAL_ALLOWED', 'LOCAL_THROTTLED', 'LOCAL_BLOCKED', 'REMOTE_REQUIRED']);
 export const ATTENTION_STATES = Object.freeze(['PENDING', 'ACKNOWLEDGED', 'EXPIRED', 'WITHDRAWN']);
 export const PROVENANCE_FIELDS = Object.freeze(['connector_ref', 'backend_run_ref', 'device_ref', 'branch_ref', 'commit_ref', 'test_ref', 'error_ref']);
-export const SECRET_KEY_SHAPE = /(secret|token|password|api_?key|private_?key|session_key|credential_value|^value$)/i;
+export const SECRET_KEY_SHAPE = /(secret|token|password|api_?key|private_?key|session_key|credential_value|authorization|cookie|bearer|x-api-key|refresh_token|^value$)/i;
 
 export const CONTROL_SURFACE_CODES = Object.freeze([
   'INVALID_REQUEST', 'INVALID_CLOCK', 'UNKNOWN_JOB', 'DUPLICATE_JOB', 'CANONICAL_TASK_REQUIRED',
   'FALSE_SUCCESS_REFUSED', 'REMOTE_FALLBACK_REQUIRES_APPROVAL', 'LOCAL_WORK_MUST_STAY_LOCAL',
   'UNKNOWN_ATTENTION', 'ALREADY_ACKNOWLEDGED', 'SECOND_ATTENTION_STORE_REFUSED', 'NOT_TERMINAL_ACCEPTED',
-  'SECRET_MATERIAL_REFUSED', 'EXECUTOR_NOT_SEPARATED',
+  'SECRET_MATERIAL_REFUSED', 'EXECUTOR_NOT_SEPARATED', 'NOT_AUTHORIZED_TO_CONTROL',
 ]);
 
-const CONFLICT_CODES = new Set(['DUPLICATE_JOB', 'FALSE_SUCCESS_REFUSED', 'REMOTE_FALLBACK_REQUIRES_APPROVAL', 'LOCAL_WORK_MUST_STAY_LOCAL', 'ALREADY_ACKNOWLEDGED', 'SECOND_ATTENTION_STORE_REFUSED', 'NOT_TERMINAL_ACCEPTED']);
+const CONFLICT_CODES = new Set(['DUPLICATE_JOB', 'FALSE_SUCCESS_REFUSED', 'REMOTE_FALLBACK_REQUIRES_APPROVAL', 'LOCAL_WORK_MUST_STAY_LOCAL', 'ALREADY_ACKNOWLEDGED', 'SECOND_ATTENTION_STORE_REFUSED', 'NOT_TERMINAL_ACCEPTED', 'NOT_AUTHORIZED_TO_CONTROL']);
 
 export class ControlSurfaceError extends Error {
   constructor(code, detail, extra = {}) {
@@ -48,31 +51,57 @@ export class ControlSurfaceError extends Error {
   }
 }
 
-const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+const isPlainObject = value => {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+};
 const isText = value => typeof value === 'string' && value.trim().length > 0;
+
+/** A timestamp is evidence only when it is a real instant, not merely a shape. */
+const isRealInstant = value => {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)) return false;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return false;
+  return parsed.toISOString() === value || parsed.toISOString() === value.replace('Z', '.000Z');
+};
 const clone = value => (value === undefined ? undefined : structuredClone(value));
-const freeze = value => {
+const freeze = (value, seen = new WeakSet()) => {
   if (value === null || typeof value !== 'object') return value;
-  for (const child of Object.values(value)) freeze(child);
+  if (seen.has(value)) return value;
+  seen.add(value);
+  for (const key of Reflect.ownKeys(value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (descriptor === undefined || !('value' in descriptor)) continue;
+    freeze(descriptor.value, seen);
+  }
   return Object.freeze(value);
 };
-export const isIsoInstant = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+export const isIsoInstant = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value) && isRealInstant(value);
 
-export function findSecretFields(value, path = 'record', found = []) {
+export function findSecretFields(value, path = 'record', found = [], seen = new WeakSet()) {
   if (Array.isArray(value)) {
-    value.forEach((item, index) => findSecretFields(item, `${path}[${index}]`, found));
+    value.forEach((item, index) => findSecretFields(item, `${path}[${index}]`, found, seen));
     return found;
   }
   if (typeof value === 'boolean' || value === null) return found;
   if (!isPlainObject(value)) return found;
-  for (const [key, child] of Object.entries(value)) {
-    const childPath = `${path}.${key}`;
-    const keyIsSecret = SECRET_KEY_SHAPE.test(key) && !/_ref$/.test(key) && typeof child !== 'boolean';
+  if (seen.has(value)) return found;
+  seen.add(value);
+  // Own keys, enumerable or not, string or symbol: a hidden secret field is still a secret field, and a
+  // getter is never invoked while scanning.
+  for (const key of Reflect.ownKeys(value)) {
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (descriptor === undefined) continue;
+    const child = 'value' in descriptor ? descriptor.value : undefined;
+    const name = typeof key === 'symbol' ? `[${String(key.description ?? 'symbol')}]` : key;
+    const childPath = `${path}.${name}`;
+    const keyIsSecret = SECRET_KEY_SHAPE.test(String(name)) && !/_ref$/.test(String(name)) && typeof child !== 'boolean';
     if (keyIsSecret) {
       if (!found.includes(childPath)) found.push(childPath);
       continue;
     }
-    findSecretFields(child, childPath, found);
+    findSecretFields(child, childPath, found, seen);
   }
   return found;
 }
@@ -85,8 +114,23 @@ export const DEFAULT_SURFACE_POLICY = Object.freeze({
 });
 
 export function createEngineeringControlSurface({ clock = () => new Date().toISOString(), policy = {} } = {}) {
-  if (typeof clock !== 'function') throw new ControlSurfaceError('INVALID_CLOCK', 'clock must be a function returning an ISO-8601 UTC instant');
-  const config = { ...DEFAULT_SURFACE_POLICY, ...(isPlainObject(policy) ? policy : {}) };
+  if (typeof clock !== 'function') throw new ControlSurfaceError('INVALID_CLOCK', 'clock must be a function returning a real ISO-8601 UTC instant');
+  if (!isPlainObject(policy)) throw new ControlSurfaceError('INVALID_REQUEST', 'policy must be a plain object');
+  const unknownPolicyKeys = Object.keys(policy).filter(key => !Object.hasOwn(DEFAULT_SURFACE_POLICY, key));
+  if (unknownPolicyKeys.length > 0) throw new ControlSurfaceError('INVALID_REQUEST', unknownPolicyKeys.join(', ') + ' is not part of the control surface policy');
+  // The canonical binding is the contract, not a deployment switch a caller may turn off.
+  if (policy.require_canonical_task !== undefined && policy.require_canonical_task !== true) {
+    throw new ControlSurfaceError('CANONICAL_TASK_REQUIRED', 'require_canonical_task may not be disabled: every engineering job binds to canonical shared task state', { require_canonical_task: policy.require_canonical_task });
+  }
+  if (policy.local_first !== undefined && typeof policy.local_first !== 'boolean') throw new ControlSurfaceError('INVALID_REQUEST', 'policy.local_first must be a boolean');
+  if (policy.attention_projection_sources !== undefined) {
+    const sources = policy.attention_projection_sources;
+    if (!Array.isArray(sources) || sources.length === 0 || sources.some(source => source !== 'SHARED_CORE_ATTENTION')) {
+      throw new ControlSurfaceError('SECOND_ATTENTION_STORE_REFUSED', 'attention may only be projected from SHARED_CORE_ATTENTION', { sources: sources ?? null, created: false });
+    }
+  }
+  if (policy.policy_ref !== undefined && !isText(policy.policy_ref)) throw new ControlSurfaceError('INVALID_REQUEST', 'policy.policy_ref must be nonempty text');
+  const config = { ...DEFAULT_SURFACE_POLICY, ...policy };
   const jobs = new Map();
   const attention = new Map();
   const acknowledgements = [];
@@ -95,8 +139,14 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
 
   const now = () => {
     const produced = clock();
-    if (!isIsoInstant(produced)) throw new ControlSurfaceError('INVALID_CLOCK', 'clock() must return an ISO-8601 UTC instant');
+    if (!isRealInstant(produced)) throw new ControlSurfaceError('INVALID_CLOCK', 'clock() must return a real ISO-8601 UTC instant');
     return produced;
+  };
+
+  const atFrom = when => {
+    if (when === undefined || when === null) return now();
+    if (!isRealInstant(when)) throw new ControlSurfaceError('INVALID_REQUEST', 'at must be a real ISO-8601 UTC instant, got ' + String(when));
+    return when;
   };
 
   const note = (event, at, detail = {}) => {
@@ -118,13 +168,18 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
     task_truth_source: 'SHARED_TASK_CORE',
     manager_creates_canonical_truth: false,
     execution_responsibility: job.execution_responsibility,
+    execution_responsibility_source: 'CALLER_DECLARED_CANONICAL_TASK_BINDING',
+    lease_verified_here: false,
     lease_ref: job.lease_ref,
     state: job.state,
     terminal: TERMINAL_JOB_STATES.includes(job.state),
     logical_owner_ref: job.logical_owner_ref,
     executor_connector_ref: job.executor_connector_ref,
     executor_device_ref: job.executor_device_ref,
-    owner_and_executor_separated: job.logical_owner_ref !== job.executor_device_ref,
+    // Separation is between the logical owner/coordinator and the executor connector: comparing an owner
+    // reference with a device reference would report separation between two different namespaces.
+    owner_and_executor_separated: job.logical_owner_ref !== job.executor_connector_ref,
+    executor_connector_is_logical_owner: job.logical_owner_ref === job.executor_connector_ref,
     interaction_device_ref: job.interaction_device_ref,
     interaction_device_is_execution_device: job.interaction_device_ref === job.executor_device_ref,
     stage: job.stage,
@@ -142,7 +197,7 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
     views: () => freeze([...SURFACE_VIEWS]),
 
     /** Bind an Engineering job to canonical shared task/action state. */
-    submit({ job_ref, canonical_task_ref, canonical_action_ref = null, logical_owner_ref, executor_connector_ref, executor_device_ref = null, interaction_device_ref, lease_ref = null, eligibility = 'LOCAL_ALLOWED', at: when } = {}) {
+    submit({ job_ref, canonical_task_ref, canonical_action_ref = null, logical_owner_ref, executor_connector_ref, executor_device_ref = null, interaction_device_ref, lease_ref = null, eligibility = 'LOCAL_ALLOWED', authorized_devices = null, at: when } = {}) {
       if (!isText(job_ref)) throw new ControlSurfaceError('INVALID_REQUEST', 'job_ref is required');
       if (jobs.has(job_ref)) throw new ControlSurfaceError('DUPLICATE_JOB', `job ${job_ref} is already bound`, { job_ref });
       if (config.require_canonical_task === true && !isText(canonical_task_ref)) {
@@ -154,8 +209,9 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
         throw new ControlSurfaceError('INVALID_REQUEST', 'logical_owner_ref, executor_connector_ref and interaction_device_ref are required');
       }
       if (!ELIGIBILITY.includes(eligibility)) throw new ControlSurfaceError('INVALID_REQUEST', `eligibility must be one of ${ELIGIBILITY.join(', ')}`);
-      const at = when ?? now();
+      const at = atFrom(when);
       counter += 1;
+      const authorized = [...new Set([interaction_device_ref, ...(Array.isArray(authorized_devices) ? authorized_devices.filter(isText) : [])])];
       const job = {
         job_ref,
         canonical_task_ref,
@@ -165,7 +221,9 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
         state: 'SUBMITTED',
         logical_owner_ref,
         executor_connector_ref,
-        executor_device_ref: executor_device_ref ?? executor_connector_ref,
+        // A connector reference is not a device reference: an unreported execution device stays unknown.
+        executor_device_ref: isText(executor_device_ref) ? executor_device_ref : null,
+        authorized_devices: freeze(authorized),
         interaction_device_ref,
         stage: 'SUBMITTED',
         progress: [],
@@ -185,7 +243,7 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
     /** The one canonical view Web and Android both render; no per-device job copy exists. */
     status({ job_ref, at: when } = {}) {
       const job = requireJob(job_ref);
-      const at = when ?? now();
+      const at = atFrom(when);
       return freeze({
         ...projectJob(job),
         surface_view: 'STATUS',
@@ -198,12 +256,15 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
 
     progress({ job_ref, kind = 'PROGRESS', stage = null, detail_ref = null, at: when } = {}) {
       const job = requireJob(job_ref);
-      if (job.result !== null) throw new ControlSurfaceError('FALSE_SUCCESS_REFUSED', `job ${job_ref} is already terminal`, { job_ref, state: job.state });
-      const at = when ?? now();
+      // Terminal is a state fact, not a result fact: a cancelled job carries no result and is still finished.
+      if (TERMINAL_JOB_STATES.includes(job.state)) {
+        throw new ControlSurfaceError('FALSE_SUCCESS_REFUSED', 'job ' + job_ref + ' is already ' + job.state, { job_ref, state: job.state, progress_recorded: false });
+      }
+      const at = atFrom(when);
       counter += 1;
       const event = freeze({
         contract_version: CONTROL_SURFACE_CONTRACT_VERSION,
-        event_ref: `${job_ref}:event:${job.progress.length + 1}`,
+        event_ref: `${job_ref}:event:${(REF_SEQ += 1)}`,
         job_ref,
         canonical_task_ref: job.canonical_task_ref,
         kind,
@@ -228,7 +289,7 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
     proposeRemoteFallback({ job_ref, remote_device_ref, reason = 'LOCAL_THROTTLED', at: when } = {}) {
       const job = requireJob(job_ref);
       if (!isText(remote_device_ref)) throw new ControlSurfaceError('INVALID_REQUEST', 'remote_device_ref is required');
-      const at = when ?? now();
+      const at = atFrom(when);
       if (job.eligibility === 'LOCAL_ALLOWED') {
         throw new ControlSurfaceError('LOCAL_WORK_MUST_STAY_LOCAL', `job ${job_ref} is allowed to run locally and must not be moved for speed`, {
           job_ref, eligibility: job.eligibility, auto_selected_faster_machine: false,
@@ -236,7 +297,7 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
       }
       const proposal = freeze({
         contract_version: CONTROL_SURFACE_CONTRACT_VERSION,
-        proposal_ref: `${job_ref}:fallback:${counter + 1}`,
+        proposal_ref: `${job_ref}:fallback:${(REF_SEQ += 1)}`,
         job_ref,
         canonical_task_ref: job.canonical_task_ref,
         remote_device_ref,
@@ -258,8 +319,8 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
     approveRemoteFallback({ job_ref, proposal_ref, approved = false, at: when } = {}) {
       const job = requireJob(job_ref);
       const proposal = job.remote_fallback;
-      if (proposal === null || proposal.proposal_ref !== proposal_ref) throw new ControlSurfaceError('INVALID_REQUEST', `no fallback proposal ${String(proposal_ref)} for ${job_ref}`);
-      const at = when ?? now();
+      if (proposal === null || proposal.proposal_ref !== proposal_ref) throw new ControlSurfaceError('INVALID_REQUEST', 'no fallback proposal ' + String(proposal_ref) + ' for ' + job_ref);
+      const at = atFrom(when);
       if (approved !== true) {
         return freeze({ ...clone(proposal), approved: false, applied: false, work_stays_local: job.eligibility !== 'REMOTE_REQUIRED', reason: 'USER_DECLINED' });
       }
@@ -289,8 +350,8 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
     projectAttention({ job_ref, attention_ref, question, blocking = true, source = 'SHARED_CORE_ATTENTION', at: when } = {}) {
       const job = requireJob(job_ref);
       if (!isText(attention_ref) || !isText(question)) throw new ControlSurfaceError('INVALID_REQUEST', 'attention_ref and question are required');
-      if (!config.attention_projection_sources.includes(source)) throw new ControlSurfaceError('SECOND_ATTENTION_STORE_REFUSED', `attention must come from ${config.attention_projection_sources.join(', ')}`, { source });
-      const at = when ?? now();
+      if (!config.attention_projection_sources.includes(source)) throw new ControlSurfaceError('SECOND_ATTENTION_STORE_REFUSED', 'attention must come from ' + config.attention_projection_sources.join(', '), { source });
+      const at = atFrom(when);
       const entry = freeze({
         contract_version: CONTROL_SURFACE_CONTRACT_VERSION,
         attention_ref,
@@ -315,12 +376,14 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
 
     acknowledgeAttention({ attention_ref, device_ref, at: when } = {}) {
       const entry = attention.get(attention_ref);
-      if (!entry) throw new ControlSurfaceError('UNKNOWN_ATTENTION', `no attention ${String(attention_ref)}`);
-      const at = when ?? now();
+      if (!entry) throw new ControlSurfaceError('UNKNOWN_ATTENTION', 'no attention ' + String(attention_ref));
+      if (!isText(device_ref)) throw new ControlSurfaceError('INVALID_REQUEST', 'device_ref is required to acknowledge attention');
+      const at = atFrom(when);
       if (entry.state === 'ACKNOWLEDGED') {
         return freeze({ ...clone(entry), acknowledged_by: freeze(acknowledgements.filter(entryRef => entryRef.attention_ref === attention_ref).map(entryRef => entryRef.device_ref)), duplicate: true, reconciles_all_projections: true, second_acknowledgement_needed: false });
       }
-      const acknowledgement = freeze({ attention_ref, device_ref, at, reconciles_all_projections: true, second_acknowledgement_needed: false });
+      // The acknowledgement is bound to the subject it answers, not only to the device that acted.
+      const acknowledgement = freeze({ attention_ref, device_ref, job_ref: entry.job_ref, subject_ref: entry.job_ref, at, reconciles_all_projections: true, second_acknowledgement_needed: false });
       acknowledgements.push(acknowledgement);
       const updated = freeze({ ...entry, state: 'ACKNOWLEDGED', acknowledged_at: at, acknowledged_by_device_ref: device_ref });
       attention.set(attention_ref, updated);
@@ -330,13 +393,14 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
 
     attentionFor({ job_ref, at: when } = {}) {
       const job = requireJob(job_ref);
-      const at = when ?? now();
+      const at = atFrom(when);
       return freeze({
         contract_version: CONTROL_SURFACE_CONTRACT_VERSION,
         job_ref,
         attention: freeze(job.attention_refs.map(ref => clone(attention.get(ref))).filter(Boolean)),
         pending_count: job.attention_refs.filter(ref => attention.get(ref)?.state === 'PENDING').length,
-        from_shared_state: true,
+        // Derived from the entries themselves: true only while every projection came from the shared source.
+        from_shared_state: job.attention_refs.every(ref => attention.get(ref)?.projection_of_shared_state === true),
         engineering_global_store: false,
         delivered_to_interaction_device: job.interaction_device_ref,
         at,
@@ -352,14 +416,25 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
           job_ref, requested_state: state, terminal: false, dispatch_is_not_success: true,
         });
       }
-      const at = when ?? now();
+      const at = atFrom(when);
+      // The first terminal result is the job truth: a later report may not rewrite it.
+      if (TERMINAL_JOB_STATES.includes(job.state)) {
+        throw new ControlSurfaceError('FALSE_SUCCESS_REFUSED', 'job ' + job_ref + ' is already ' + job.state + '; its canonical result is not rewritten', { job_ref, existing_state: job.state, requested_state: state, rewritten: false });
+      }
       // Validate before mutating: a refused result must leave no partial state behind.
       if (state === 'SUCCEEDED' && !isText(result_ref)) {
         throw new ControlSurfaceError('NOT_TERMINAL_ACCEPTED', 'a success needs an accepted result reference', { job_ref, result_ref: null });
       }
-      const acceptedArtifacts = (Array.isArray(artifacts) ? artifacts : [])
-        .filter(artifact => isPlainObject(artifact) && isText(artifact.artifact_ref))
-        .map(artifact => freeze(clone(artifact)));
+      // A backend that is waiting on the user is attention-required, not successful.
+      if (state === 'SUCCEEDED' && job.attention_refs.some(ref => attention.get(ref)?.state === 'PENDING')) {
+        throw new ControlSurfaceError('FALSE_SUCCESS_REFUSED', 'job ' + job_ref + ' has pending canonical attention and cannot be shown as success', { job_ref, attention_refs: freeze(clone(job.attention_refs)), backend_attention_required: true });
+      }
+      if (artifacts !== undefined && artifacts !== null && !Array.isArray(artifacts)) throw new ControlSurfaceError('INVALID_REQUEST', 'artifacts must be an array');
+      const artifactList = Array.isArray(artifacts) ? artifacts : [];
+      const malformedArtifacts = artifactList.filter(artifact => !isPlainObject(artifact) || !isText(artifact.artifact_ref));
+      // A malformed artifact is refused rather than silently dropped from the accepted result.
+      if (malformedArtifacts.length > 0) throw new ControlSurfaceError('INVALID_REQUEST', 'every artifact needs a canonical artifact_ref', { job_ref, malformed_count: malformedArtifacts.length });
+      const acceptedArtifacts = artifactList.map(artifact => freeze(clone(artifact)));
       job.state = state;
       job.updated_at = at;
       job.artifacts = freeze([...clone(job.artifacts), ...acceptedArtifacts]);
@@ -371,11 +446,11 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
           accepted: true,
           terminal_state: state,
           canonical_task_ref: job.canonical_task_ref,
-          artifacts: freeze(clone(artifacts)),
+          artifacts: freeze(clone(acceptedArtifacts)),
           accepted_at: at,
         });
       } else {
-        job.result = freeze({ contract_version: CONTROL_SURFACE_CONTRACT_VERSION, result_ref, accepted: true, terminal_state: state, canonical_task_ref: job.canonical_task_ref, artifacts: freeze(clone(artifacts)), accepted_at: at });
+        job.result = freeze({ contract_version: CONTROL_SURFACE_CONTRACT_VERSION, result_ref, accepted: true, terminal_state: state, canonical_task_ref: job.canonical_task_ref, artifacts: freeze(clone(acceptedArtifacts)), accepted_at: at });
       }
       job.stage = state;
       note('JOB_RESULT', at, { job_ref, state });
@@ -391,13 +466,14 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
     /** Advanced/debug provenance: identifiers only, never secret material. */
     provenance({ job_ref, provenance = {}, at: when } = {}) {
       const job = requireJob(job_ref);
-      const at = when ?? now();
+      if (!isPlainObject(provenance)) throw new ControlSurfaceError('INVALID_REQUEST', 'provenance must be a plain record of canonical fields', { stored: false });
+      const at = atFrom(when);
       // A secret-shaped key is reported as such rather than as a generic unknown field.
       const secrets = findSecretFields(provenance);
       if (secrets.length > 0) throw new ControlSurfaceError('SECRET_MATERIAL_REFUSED', `provenance carries secret-shaped material at ${secrets.join(', ')}`, { job_ref, fields: freeze(secrets), stored: false });
       const unknown = Object.keys(provenance).filter(key => !PROVENANCE_FIELDS.includes(key));
       if (unknown.length > 0) throw new ControlSurfaceError('INVALID_REQUEST', `${unknown.join(', ')} is not a canonical provenance field`, { allowed: freeze([...PROVENANCE_FIELDS]) });
-      job.provenance = freeze({ ...clone(provenance) });
+      job.provenance = freeze(clone(provenance));
       note('PROVENANCE_VIEWED', at, { job_ref });
       return freeze({
         contract_version: CONTROL_SURFACE_CONTRACT_VERSION,
@@ -415,23 +491,34 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
     control({ job_ref, operation, by_device_ref = null, at: when } = {}) {
       const job = requireJob(job_ref);
       if (!['CANCEL', 'RETRY', 'PAUSE', 'RESUME'].includes(operation)) throw new ControlSurfaceError('INVALID_REQUEST', 'operation must be CANCEL, RETRY, PAUSE or RESUME');
-      if (TERMINAL_JOB_STATES.includes(job.state) && operation !== 'RETRY') {
-        throw new ControlSurfaceError('FALSE_SUCCESS_REFUSED', `job ${job_ref} is ${job.state}`, { job_ref, state: job.state });
+      const controlDevice = by_device_ref ?? job.interaction_device_ref;
+      // Authority is bound to the job: a device the job never authorized may not control it.
+      if (!job.authorized_devices.includes(controlDevice)) {
+        throw new ControlSurfaceError('NOT_AUTHORIZED_TO_CONTROL', String(controlDevice) + ' is not authorized to control ' + job_ref, { job_ref, by_device_ref: controlDevice, authorized_devices: freeze(clone(job.authorized_devices)), applied: false });
       }
-      const at = when ?? now();
+      if (TERMINAL_JOB_STATES.includes(job.state) && operation !== 'RETRY') {
+        throw new ControlSurfaceError('FALSE_SUCCESS_REFUSED', 'job ' + job_ref + ' is ' + job.state, { job_ref, state: job.state, applied: false });
+      }
+      // A retry re-queues failed work only: retrying a success, a cancellation or a live job would duplicate
+      // execution of the same canonical task.
+      if (operation === 'RETRY' && job.state !== 'FAILED') {
+        const revival = TERMINAL_JOB_STATES.includes(job.state);
+        throw new ControlSurfaceError(revival ? 'FALSE_SUCCESS_REFUSED' : 'DUPLICATE_JOB', 'a retry is only valid for a failed job; ' + job_ref + ' is ' + job.state, { job_ref, state: job.state, retry_allowed_from: freeze(['FAILED']), duplicate_execution_prevented: !revival, applied: false });
+      }
+      const at = atFrom(when);
       if (operation === 'CANCEL') { job.state = 'CANCELLED'; job.stage = 'CANCELLED'; }
       if (operation === 'PAUSE') { job.state = 'WAITING_CONFIRMATION'; job.stage = 'PAUSED'; }
       if (operation === 'RESUME') { job.state = 'RUNNING'; job.stage = 'RUNNING'; }
       if (operation === 'RETRY') { job.state = 'QUEUED'; job.stage = 'RETRY_QUEUED'; }
       job.updated_at = at;
-      note('JOB_CONTROLLED', at, { job_ref, operation });
+      note('JOB_CONTROLLED', at, { job_ref, operation, by_device_ref: controlDevice });
       return freeze({
         contract_version: CONTROL_SURFACE_CONTRACT_VERSION,
         job_ref,
         operation,
         applied: true,
         state: job.state,
-        controlled_from: by_device_ref ?? job.interaction_device_ref,
+        controlled_from: controlDevice,
         interaction_device_ref: job.interaction_device_ref,
         execution_device_ref: job.executor_device_ref,
         user_navigated_to_execution_host: false,
@@ -463,14 +550,14 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
       });
     },
 
-    jobs: () => clone([...jobs.values()]).map(job => projectJob(job)),
+    jobs: () => freeze(clone([...jobs.values()]).map(job => projectJob(job))),
     job: job_ref => {
       const job = jobs.get(job_ref);
       return job ? projectJob(job) : null;
     },
-    attentionEntries: () => clone([...attention.values()]),
-    acknowledgements: () => clone(acknowledgements),
-    journal: () => clone(journal),
+    attentionEntries: () => freeze(clone([...attention.values()])),
+    acknowledgements: () => freeze(clone(acknowledgements)),
+    journal: () => freeze(clone(journal)),
   };
   return Object.freeze(api);
 }

@@ -186,3 +186,117 @@ export function suggestSwitch({ candidates, from = null } = {}) {
 // exported by two star sources is AMBIGUOUS — importing it then throws rather than resolving. The
 // vocabulary is owned by records.mjs and is already reachable through the same index.
 
+/**
+ * How a probe answer was obtained. Made explicit because a DEGRADED answer and a FRESH one must never
+ * be indistinguishable downstream — the whole point of bounding the probe is that the caller can tell
+ * which it got, and can therefore avoid presenting a stale answer as a current fact.
+ */
+export const PROBE_OUTCOMES = Object.freeze([
+  'FRESH_PROBE',        // the probe answered inside the bound
+  'CACHED_WITHIN_TTL',  // served from cache without probing; still inside its lifetime
+  'CACHED_DEGRADED',    // the probe missed the bound and the LAST KNOWN answer was served instead
+  'NO_DATA',            // the probe missed the bound and nothing was ever known — nothing is invented
+]);
+
+/** Mirrors the resilience contract's `health_ttl_ms` rather than minting a second lifetime. */
+export const DEFAULT_PROBE_TIMEOUT_MS = 250;
+export const DEFAULT_PROBE_CACHE_TTL_MS = 30000;
+
+const PROBE_TIMED_OUT = Symbol('PROBE_TIMED_OUT');
+
+/**
+ * A bounded availability probe (RS-201 step 6).
+ *
+ * The requirement is that an availability probe must never block the whole Ask/Do main path, and that
+ * a slow probe must be BOUNDED and DEGRADED rather than merely slow. Three properties implement that,
+ * and each is asserted by a test rather than asserted in prose:
+ *
+ *   - BOUNDED: a single probe is raced against a deadline, so `availability()` settles in about
+ *     `timeoutMs` regardless of how long the underlying probe takes.
+ *   - DEGRADED, NOT INVENTED: when the deadline wins, the last known answer is served and the result
+ *     is marked `degraded: true` with the outcome and the age of the cached data. If nothing was ever
+ *     known, the answer is NO_DATA with reason UNKNOWN and `selectable: false` — the bound never
+ *     becomes an excuse to report a provider as available.
+ *   - NON-THROWING: a probe that rejects degrades the same way instead of propagating into the calling
+ *     path, because a probe failing is a fact about the probe, not a failure of Ask/Do.
+ *
+ * A cache hit inside its lifetime is served WITHOUT probing, which is what keeps the main path cheap.
+ */
+export function createBoundedAvailabilityProbe({
+  probe,
+  timeoutMs = DEFAULT_PROBE_TIMEOUT_MS,
+  cacheTtlMs = DEFAULT_PROBE_CACHE_TTL_MS,
+  now = () => Date.now(),
+} = {}) {
+  if (typeof probe !== 'function') throw new RegistryError('INVALID_REGISTRY_RECORD', 'a bounded probe needs a probe function');
+  if (!Number.isSafeInteger(timeoutMs) || timeoutMs <= 0) throw new RegistryError('INVALID_REGISTRY_RECORD', 'timeoutMs must be a positive integer');
+  if (!Number.isSafeInteger(cacheTtlMs) || cacheTtlMs < 0) throw new RegistryError('INVALID_REGISTRY_RECORD', 'cacheTtlMs must be a non-negative integer');
+
+  const cache = new Map();
+  const counters = { probes: 0, fresh: 0, timeouts: 0, degraded: 0, served_from_cache: 0, no_data: 0, probe_failures: 0 };
+
+  const unknownAnswer = (ref, detail) => Object.freeze({
+    reason: 'UNKNOWN', selectable: false, freshness: 'UNKNOWN', subject: null, ref,
+    detail, sources: Object.freeze([detail]),
+    outcome: 'NO_DATA', degraded: true, cached_age_ms: null,
+  });
+
+  const fromCache = (entry, ref, outcome, detail) => Object.freeze({
+    ...entry.availability,
+    outcome,
+    degraded: outcome === 'CACHED_DEGRADED',
+    cached_age_ms: Math.max(0, now() - entry.at),
+    detail,
+  });
+
+  async function availability(ref) {
+    const entry = cache.get(ref) ?? null;
+    if (entry && (now() - entry.at) <= cacheTtlMs) {
+      counters.served_from_cache += 1;
+      return fromCache(entry, ref, 'CACHED_WITHIN_TTL', entry.availability.detail);
+    }
+
+    counters.probes += 1;
+    let timer = null;
+    const deadline = new Promise(resolve => { timer = setTimeout(() => resolve(PROBE_TIMED_OUT), timeoutMs); });
+    let outcome;
+    try {
+      outcome = await Promise.race([
+        Promise.resolve().then(() => probe(ref)).then(value => ({ value }), error => ({ error })),
+        deadline,
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (outcome === PROBE_TIMED_OUT) {
+      counters.timeouts += 1;
+      if (entry) { counters.degraded += 1; return fromCache(entry, ref, 'CACHED_DEGRADED', `the probe did not answer within ${timeoutMs}ms; serving the last known answer`); }
+      counters.no_data += 1;
+      return unknownAnswer(ref, `the probe did not answer within ${timeoutMs}ms and nothing was known`);
+    }
+
+    if (outcome.error) {
+      counters.probe_failures += 1;
+      if (entry) { counters.degraded += 1; return fromCache(entry, ref, 'CACHED_DEGRADED', `the probe failed (${outcome.error.message}); serving the last known answer`); }
+      counters.no_data += 1;
+      return unknownAnswer(ref, `the probe failed (${outcome.error.message}) and nothing was known`);
+    }
+
+    cache.set(ref, { availability: outcome.value, at: now() });
+    counters.fresh += 1;
+    return fromCache(cache.get(ref), ref, 'FRESH_PROBE', outcome.value.detail);
+  }
+
+  const probeApi = {
+    availability,
+    cached: ref => cache.get(ref)?.availability ?? null,
+    stats: () => Object.freeze({ ...counters }),
+    bounds: Object.freeze({ timeout_ms: timeoutMs, cache_ttl_ms: cacheTtlMs }),
+  };
+  return Object.freeze(probeApi);
+}
+
+export { PROBE_OUTCOMES as PROBE_OUTCOME_VALUES };
+
+

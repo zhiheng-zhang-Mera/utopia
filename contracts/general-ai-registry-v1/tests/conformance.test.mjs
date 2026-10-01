@@ -9,9 +9,10 @@ import assert from 'node:assert/strict';
 
 import {
  ABSENCE_CODES, AVAILABILITY_REASONS, CAPABILITY_FACTS, CHANNELS, CHANNEL_READINESS, ENABLEMENT,
- FRESHNESS, GAI_REGISTRY_CONTRACT, REASON_PRECEDENCE, REASON_SOURCES, SELECTABLE_REASON,
+ FRESHNESS, GAI_REGISTRY_CONTRACT, PROBE_OUTCOMES, REASON_PRECEDENCE, REASON_SOURCES, SELECTABLE_REASON,
  RegistryError, SECURE_HANDLE_STORE_PORT, SUBJECT_KINDS, SUPPORT_LEVELS, buildCandidates, capabilityOf,
- channelReadiness, createDeterministicHandleStoreDouble, createProviderRegistry, findRawSecretFields,
+ channelReadiness, createBoundedAvailabilityProbe, createDeterministicHandleStoreDouble,
+ createProviderRegistry, findRawSecretFields,
  findRawSecretValues, findReservedKeyPaths, isSecretFieldName, normalizeFieldName,
  freshnessOf, resolveAvailability, suggestSwitch, validateModelDescriptor, validateProviderAccount,
  validateProviderDescriptor
@@ -670,4 +671,111 @@ test('RS-201: when nothing is selectable the suggestion says so instead of inven
   // An empty pool gets its own rationale rather than being reported as a refusal.
   const emptySuggestion = suggestSwitch({ candidates: buildCandidates({ registry: freshRegistry(), now: T0 }) });
   assert.match(emptySuggestion.rationale, /pool is empty/);
+});
+
+/* ------------------------------- RS-201 step 6: the bounded, degrading probe */
+
+const freshAnswer = (ref = 'provider-a') => Object.freeze({ reason: 'AVAILABLE', selectable: true, freshness: 'FRESH', ref, detail: 'all facts fresh and permissive', sources: Object.freeze([]) });
+
+test('RS-201: a probe that answers inside the bound is FRESH, and is then served from cache', async () => {
+  let calls = 0;
+  const probe = createBoundedAvailabilityProbe({ probe: async () => { calls += 1; return freshAnswer(); }, timeoutMs: 1000 });
+  const first = await probe.availability('provider-a');
+  assert.equal(first.outcome, 'FRESH_PROBE');
+  assert.equal(first.degraded, false);
+  assert.equal(first.reason, 'AVAILABLE');
+  // A cache hit inside its lifetime must NOT re-probe - that is what keeps the main path cheap.
+  const second = await probe.availability('provider-a');
+  assert.equal(second.outcome, 'CACHED_WITHIN_TTL');
+  assert.equal(second.degraded, false);
+  assert.equal(calls, 1, 'the second call should not have probed again');
+  assert.equal(probe.stats().probes, 1);
+  assert.equal(probe.stats().served_from_cache, 1);
+});
+
+test('RS-201: the bound HOLDS - a probe that never answers cannot block the caller', async () => {
+  const probe = createBoundedAvailabilityProbe({ probe: () => new Promise(() => {}), timeoutMs: 40 });
+  const started = Date.now();
+  const answer = await probe.availability('provider-x');
+  const elapsed = Date.now() - started;
+  // The measured property, not a stated one: the call settles near the bound rather than hanging.
+  assert.ok(elapsed < 1000, `expected the bound to hold, but the call took ${elapsed}ms`);
+  assert.equal(answer.outcome, 'NO_DATA');
+  assert.equal(probe.stats().timeouts, 1);
+});
+
+test('RS-201: a missed bound degrades to the last known answer, marked as degraded and aged', async () => {
+  let slow = false;
+  let clock = T0;
+  const probe = createBoundedAvailabilityProbe({
+    probe: async () => { if (slow) return new Promise(() => {}); return freshAnswer(); },
+    timeoutMs: 40,
+    now: () => clock,
+  });
+  const fresh = await probe.availability('provider-a');
+  assert.equal(fresh.outcome, 'FRESH_PROBE');
+  // The probe goes slow, and the cache is aged past its lifetime so a probe is genuinely attempted.
+  slow = true;
+  clock = T0 + 60_000;
+  const degraded = await probe.availability('provider-a');
+  assert.equal(degraded.outcome, 'CACHED_DEGRADED');
+  assert.equal(degraded.degraded, true, 'a degraded answer must be distinguishable from a fresh one');
+  assert.equal(degraded.cached_age_ms, 60_000);
+  // The last known CONTENT is preserved - degrading does not blank the answer - but it is not claimed
+  // to be current, which is exactly the distinction the outcome field carries.
+  assert.equal(degraded.reason, 'AVAILABLE');
+  assert.equal(probe.stats().degraded, 1);
+});
+
+test('RS-201: when nothing was ever known, the bound yields NO_DATA and never invents availability', async () => {
+  const probe = createBoundedAvailabilityProbe({ probe: () => new Promise(() => {}), timeoutMs: 30 });
+  const answer = await probe.availability('provider-never-seen');
+  assert.equal(answer.outcome, 'NO_DATA');
+  assert.equal(answer.reason, 'UNKNOWN');
+  assert.equal(answer.selectable, false, 'a missed bound must never read as available');
+  assert.equal(answer.degraded, true);
+  assert.equal(answer.cached_age_ms, null);
+  assert.equal(probe.cached('provider-never-seen'), null);
+});
+
+test('RS-201: a probe that throws degrades instead of propagating into the calling path', async () => {
+  let clock = T0;
+  let boom = false;
+  const probe = createBoundedAvailabilityProbe({
+    probe: async () => { if (boom) throw new Error('upstream exploded'); return freshAnswer(); },
+    timeoutMs: 200,
+    now: () => clock,
+  });
+  await probe.availability('provider-a');
+  boom = true;
+  // Age the cache past its lifetime first, otherwise the call is served from cache and the failure
+  // path is never reached - a test that would have passed while proving nothing.
+  clock = T0 + 60_000;
+  // A probe failing is a fact about the probe, not a failure of Ask/Do, so this must not reject.
+  const degraded = await probe.availability('provider-a');
+  assert.equal(degraded.outcome, 'CACHED_DEGRADED');
+  assert.match(degraded.detail, /probe failed/);
+  assert.equal(probe.stats().probe_failures, 1);
+  // And with nothing ever known, a failure is NO_DATA rather than an invented answer.
+  const cold = createBoundedAvailabilityProbe({ probe: async () => { throw new Error('nope'); }, timeoutMs: 200 });
+  const noData = await cold.availability('provider-b');
+  assert.equal(noData.outcome, 'NO_DATA');
+  assert.match(noData.detail, /probe failed/);
+  assert.equal(noData.selectable, false);
+});
+
+test('RS-201: the probe reports its own bounds and refuses an unusable configuration', () => {
+  const probe = createBoundedAvailabilityProbe({ probe: async () => freshAnswer(), timeoutMs: 123, cacheTtlMs: 456 });
+  assert.deepEqual({ ...probe.bounds }, { timeout_ms: 123, cache_ttl_ms: 456 });
+  assert.throws(() => createBoundedAvailabilityProbe({}), /needs a probe function/);
+  assert.throws(() => createBoundedAvailabilityProbe({ probe: async () => freshAnswer(), timeoutMs: 0 }), /positive integer/);
+  assert.throws(() => createBoundedAvailabilityProbe({ probe: async () => freshAnswer(), cacheTtlMs: -1 }), /non-negative integer/);
+});
+
+test('RS-201: the outcome vocabulary keeps a degraded answer distinguishable from a fresh one', () => {
+  assert.deepEqual([...PROBE_OUTCOMES], ['FRESH_PROBE', 'CACHED_WITHIN_TTL', 'CACHED_DEGRADED', 'NO_DATA']);
+  assert.equal(PROBE_OUTCOMES.includes('CACHED_DEGRADED'), true);
+  // Only the two non-degraded outcomes represent a currently-known state.
+  const authoritative = PROBE_OUTCOMES.filter(outcome => !['CACHED_DEGRADED', 'NO_DATA'].includes(outcome));
+  assert.deepEqual(authoritative, ['FRESH_PROBE', 'CACHED_WITHIN_TTL']);
 });

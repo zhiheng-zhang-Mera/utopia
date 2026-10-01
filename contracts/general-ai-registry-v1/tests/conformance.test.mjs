@@ -9,11 +9,12 @@ import assert from 'node:assert/strict';
 
 import {
  ABSENCE_CODES, AVAILABILITY_REASONS, CAPABILITY_FACTS, CHANNELS, CHANNEL_READINESS, ENABLEMENT,
- FRESHNESS, GAI_REGISTRY_CONTRACT, REASON_SOURCES, SELECTABLE_REASON,
- RegistryError, SECURE_HANDLE_STORE_PORT, SUBJECT_KINDS, SUPPORT_LEVELS, capabilityOf,
+ FRESHNESS, GAI_REGISTRY_CONTRACT, REASON_PRECEDENCE, REASON_SOURCES, SELECTABLE_REASON,
+ RegistryError, SECURE_HANDLE_STORE_PORT, SUBJECT_KINDS, SUPPORT_LEVELS, buildCandidates, capabilityOf,
  channelReadiness, createDeterministicHandleStoreDouble, createProviderRegistry, findRawSecretFields,
  findRawSecretValues, findReservedKeyPaths, isSecretFieldName, normalizeFieldName,
- freshnessOf, validateModelDescriptor, validateProviderAccount, validateProviderDescriptor
+ freshnessOf, resolveAvailability, suggestSwitch, validateModelDescriptor, validateProviderAccount,
+ validateProviderDescriptor
 } from '../index.mjs';
 
 const T0 = Date.parse('2026-09-30T12:00:00.000Z');
@@ -544,4 +545,129 @@ test('RS-201: models and accounts are removable once they have no dependents of 
   // With the model gone the provider is held by nothing but itself, so it can now be removed.
   assert.equal(registry.remove({ subject: 'PROVIDER', ref: 'provider-alpha' }).removed, true);
   assert.equal(registry.getProvider('provider-alpha').code, 'RETIRED_PROVIDER');
+});
+
+/* ------------------------------- RS-201: availability resolution and candidate output */
+
+test('RS-201: a fresh, enabled, unimpeded record is the ONLY thing that reads AVAILABLE', () => {
+  const ok = resolveAvailability({ record: providerRecord(), now: T0 });
+  assert.equal(ok.reason, 'AVAILABLE');
+  assert.equal(ok.selectable, true);
+  assert.equal(ok.freshness, 'FRESH');
+});
+
+test('RS-201: staleness is NOT live truth - a stale observation is UNKNOWN, never AVAILABLE', () => {
+  // The workbook requires that stale availability cannot be read as current. The registry already
+  // models staleness via observed_at/ttl_ms, so the resolver CONSUMES that rather than adding a cache.
+  const stale = resolveAvailability({ record: providerRecord(), now: T0 + (TTL * 2) });
+  assert.equal(stale.freshness, 'STALE');
+  assert.equal(stale.reason, 'UNKNOWN');
+  assert.equal(stale.selectable, false, 'a stale observation must not be selectable');
+  // An unparseable observation is UNKNOWN freshness and equally unusable.
+  const broken = resolveAvailability({ record: { ...providerRecord(), observed_at: 'not-a-date' }, now: T0 });
+  assert.equal(broken.freshness, 'UNKNOWN');
+  assert.equal(broken.selectable, false);
+});
+
+test('RS-201: region is checked only against a DECLARED region, so a neutral provider never mismatches', () => {
+  const neutral = resolveAvailability({ record: providerRecord({ region: null }), now: T0, requestedRegion: 'eu-west' });
+  assert.equal(neutral.reason, 'AVAILABLE', 'region-neutral must not be treated as unsupported');
+  const mismatch = resolveAvailability({ record: providerRecord({ region: 'us-east' }), now: T0, requestedRegion: 'eu-west' });
+  assert.equal(mismatch.reason, 'REGION_UNSUPPORTED');
+  assert.equal(mismatch.selectable, false);
+  const match = resolveAvailability({ record: providerRecord({ region: 'eu-west' }), now: T0, requestedRegion: 'eu-west' });
+  assert.equal(match.reason, 'AVAILABLE');
+  // No requested region means no region question was asked, so a declared region is not a refusal.
+  assert.equal(resolveAvailability({ record: providerRecord({ region: 'us-east' }), now: T0 }).reason, 'AVAILABLE');
+});
+
+test('RS-201: session and credential reasons come from the account status, and stay apart', () => {
+  const expired = resolveAvailability({ record: accountRecord({ status: 'EXPIRED' }), now: T0 });
+  assert.equal(expired.reason, 'SESSION_EXPIRED');
+  assert.equal(resolveAvailability({ record: accountRecord({ status: 'REVOKED' }), now: T0 }).reason, 'SESSION_EXPIRED');
+  assert.equal(resolveAvailability({ record: accountRecord({ status: 'UNAUTHENTICATED' }), now: T0 }).reason, 'CREDENTIALS_MISSING');
+  assert.equal(resolveAvailability({ record: accountRecord({ status: 'AUTHENTICATED' }), now: T0 }).reason, 'AVAILABLE');
+  // The PROVIDER fixture declares API AUTH_REQUIRED, so naming that channel surfaces the credential gap.
+  assert.equal(resolveAvailability({ record: providerRecord(), now: T0, channel: 'API' }).reason, 'CREDENTIALS_MISSING');
+  assert.equal(resolveAvailability({ record: providerRecord(), now: T0, channel: 'WEB' }).reason, 'AVAILABLE');
+  // An ACCOUNT carries handles rather than readiness, so an absent handle is a credential gap and must
+  // not be downgraded to UNKNOWN: we KNOW the handle is missing, which is more than not knowing.
+  const noApiHandle = accountRecord({ channel_handles: { WEB: { handle_ref: 'handle:profile:1', kind: 'BROWSER_PROFILE' }, API: null } });
+  assert.equal(resolveAvailability({ record: noApiHandle, now: T0, channel: 'API' }).reason, 'CREDENTIALS_MISSING');
+  assert.equal(resolveAvailability({ record: noApiHandle, now: T0, channel: 'WEB' }).reason, 'AVAILABLE');
+});
+
+test('RS-201: a channel that is UNAVAILABLE is a service fault, and neither is selectable', () => {
+  const faulted = resolveAvailability({ record: providerRecord({ channels: [{ channel: 'API', readiness: 'UNAVAILABLE' }] }), now: T0 });
+  assert.equal(faulted.reason, 'SERVICE_FAULT');
+  assert.equal(faulted.selectable, false);
+});
+
+test('RS-201: precedence is ordered and the user instruction outranks every observation', () => {
+  // The order is asserted as data, not just exercised, because it is a judgement the contract makes.
+  assert.deepEqual([...REASON_PRECEDENCE], ['USER_DISABLED', 'REGION_UNSUPPORTED', 'SESSION_EXPIRED', 'CREDENTIALS_MISSING', 'SERVICE_FAULT', 'UNKNOWN', 'AVAILABLE']);
+  // Disabled AND region-blocked reports DISABLED: telling the user about the region would imply that
+  // fixing the region would help, and it would not.
+  const both = resolveAvailability({ record: providerRecord({ enablement: 'DISABLED', region: 'us-east' }), now: T0, requestedRegion: 'eu-west' });
+  assert.equal(both.reason, 'USER_DISABLED');
+  // Disabled AND stale is still DISABLED, not UNKNOWN: the user's own choice does not go stale.
+  const disabledStale = resolveAvailability({ record: providerRecord({ enablement: 'DISABLED' }), now: T0 + (TTL * 5) });
+  assert.equal(disabledStale.reason, 'USER_DISABLED');
+  // An unreadable enablement is UNKNOWN and not usable - absence must not read as consent.
+  const unreadable = resolveAvailability({ record: { ...providerRecord(), enablement: 'TRUE' }, now: T0 });
+  assert.equal(unreadable.reason, 'UNKNOWN');
+  assert.equal(unreadable.selectable, false);
+});
+
+test('RS-201: the candidate list keeps refused entries WITH their reasons rather than hiding them', () => {
+  const registry = freshRegistry();
+  registry.upsertProvider(providerRecord({ provider_ref: 'provider-good' }));
+  registry.upsertProvider(providerRecord({ provider_ref: 'provider-off', enablement: 'DISABLED' }));
+  registry.upsertProvider(providerRecord({ provider_ref: 'provider-abroad', region: 'us-east' }));
+  const list = buildCandidates({ registry, now: T0, requestedRegion: 'eu-west' });
+  assert.equal(list.candidates.length, 3, 'refused providers must still be listed');
+  assert.deepEqual([...list.selectable], ['provider-good']);
+  assert.equal(list.all_refused, false);
+  // Each refusal is explainable, which is the difference between "unavailable" and "missing".
+  const abroads = list.refused.find(entry => entry.ref === 'provider-abroad');
+  assert.equal(abroads.reason, 'REGION_UNSUPPORTED');
+  const offs = list.refused.find(entry => entry.ref === 'provider-off');
+  assert.equal(offs.reason, 'USER_DISABLED');
+});
+
+test('RS-201: an all-refused pool and an empty pool are distinct, named conditions', () => {
+  const allOff = freshRegistry();
+  allOff.upsertProvider(providerRecord({ provider_ref: 'provider-off', enablement: 'DISABLED' }));
+  const refused = buildCandidates({ registry: allOff, now: T0 });
+  assert.equal(refused.all_refused, true);
+  assert.equal(refused.empty_pool, false);
+  const empty = buildCandidates({ registry: freshRegistry(), now: T0 });
+  assert.equal(empty.empty_pool, true);
+  assert.equal(empty.all_refused, false, 'an empty pool is not the same fact as a pool where everything is refused');
+});
+
+test('RS-201: a suggestion is structurally incapable of being an execution', () => {
+  const registry = freshRegistry();
+  registry.upsertProvider(providerRecord({ provider_ref: 'provider-a' }));
+  registry.upsertProvider(providerRecord({ provider_ref: 'provider-b' }));
+  const list = buildCandidates({ registry, now: T0 });
+  const suggestion = suggestSwitch({ candidates: list, from: 'provider-a' });
+  assert.equal(suggestion.suggested_ref, 'provider-b');
+  // The separation the workbook requires is a property of the returned data, not a promise: there is
+  // no function in the module that performs a switch, so this can never be executed by accident.
+  assert.equal(suggestion.executed, false);
+  assert.equal(suggestion.requires_user_confirmation, true);
+});
+
+test('RS-201: when nothing is selectable the suggestion says so instead of inventing a fallback', () => {
+  const registry = freshRegistry();
+  registry.upsertProvider(providerRecord({ provider_ref: 'provider-off', enablement: 'DISABLED' }));
+  const list = buildCandidates({ registry, now: T0 });
+  const suggestion = suggestSwitch({ candidates: list, from: 'provider-off' });
+  assert.equal(suggestion.suggested_ref, null);
+  assert.match(suggestion.rationale, /every candidate is refused/);
+  assert.equal(suggestion.executed, false);
+  // An empty pool gets its own rationale rather than being reported as a refusal.
+  const emptySuggestion = suggestSwitch({ candidates: buildCandidates({ registry: freshRegistry(), now: T0 }) });
+  assert.match(emptySuggestion.rationale, /pool is empty/);
 });

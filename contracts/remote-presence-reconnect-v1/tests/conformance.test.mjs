@@ -260,3 +260,221 @@ test('the audit log carries causal identifiers and no secrets, and state is isol
   assert.equal(tracker.policy().policy_ref, 'policy:rf-presence-default');
   assert.throws(() => { const presence = tracker.presenceOf({ node_ref: PHONE }); presence.state = 'ONLINE'; }, TypeError);
 });
+
+// ---------------------------------------------------------------- Alien Correction regressions
+// Every test below fails against the Development head and passes against the corrected head.
+
+test('the audit sequence stays monotonic and retention is reported honestly', () => {
+  const { tracker } = trackerAt({ max_audit_entries: 3 });
+  for (let index = 0; index < 8; index += 1) tracker.observePresence({ node_ref: PHONE, state: 'ONLINE' });
+  const log = tracker.auditLog();
+  assert.equal(log.length, 3, 'the log stays bounded');
+  const sequences = log.map(entry => entry.audit_seq);
+  assert.equal(new Set(sequences).size, 3, `retained entries must be distinguishable: ${sequences}`);
+  assert.deepEqual([...sequences].sort((left, right) => left - right), sequences, 'entries are ordered by a monotonic sequence');
+  assert.equal(log[log.length - 1].retained_entries, 3);
+  assert.equal(log[log.length - 1].dropped_entries, 7, 'a bounded log says how much it dropped');
+});
+
+test('the audit secret-freedom claim is checked, not asserted', () => {
+  const { tracker } = trackerAt();
+  // An object-valued reference could hide a secret key inside the log.
+  assert.equal(failure(() => tracker.enqueueAction({ command_ref: 'cmd:s', node_ref: PHONE, action_ref: { token: 'sk-live-1' }, deadline_at: AT(60000) })).code, 'INVALID_REQUEST');
+  tracker.observePresence({ node_ref: PHONE, state: 'ONLINE', session_ref: 'session:1' });
+  tracker.enqueueAction({ command_ref: 'cmd:1', node_ref: PHONE, action_ref: 'action:1', deadline_at: AT(60000) });
+  tracker.markOutcomeUnknown({ command_ref: 'cmd:1' });
+  tracker.reconcile({ node_ref: PHONE, refreshed: refreshed(), authority: AUTHORITY });
+  const log = tracker.auditLog();
+  assert.deepEqual(findForbiddenAuditFields(log), [], 'the module’s own scanner finds nothing forbidden in the log');
+  assert.equal(log.every(entry => entry.contains_secret_material === false), true);
+});
+
+test('a malformed caller instant is refused as a typed error', () => {
+  const { tracker } = trackerAt();
+  tracker.enqueueAction({ command_ref: 'cmd:1', node_ref: PHONE, action_ref: 'action:1', deadline_at: AT(600000) });
+  for (const at of ['garbage', '2026-13-45T99:99:99Z', 123, {}]) {
+    assert.equal(failure(() => tracker.registerNode({ node_ref: 'node:x', device_id: 'device:x', at })).code, 'INVALID_REQUEST', `registerNode at=${String(at)}`);
+    assert.equal(failure(() => tracker.observePresence({ node_ref: PHONE, state: 'ONLINE', at })).code, 'INVALID_REQUEST');
+    assert.equal(failure(() => tracker.presenceOf({ node_ref: PHONE, at })).code, 'INVALID_REQUEST');
+    assert.equal(failure(() => tracker.enqueueAction({ command_ref: 'cmd:other', node_ref: PHONE, deadline_at: AT(60000), at })).code, 'INVALID_REQUEST');
+    assert.equal(failure(() => tracker.markOutcomeUnknown({ command_ref: 'cmd:1', at })).code, 'INVALID_REQUEST');
+    assert.equal(failure(() => tracker.reconcile({ node_ref: PHONE, refreshed: refreshed(), authority: AUTHORITY, at })).code, 'INVALID_REQUEST');
+    assert.equal(failure(() => tracker.confirmEffect({ node_ref: PHONE, effect_ref: 'effect:1', at })).code, 'INVALID_REQUEST');
+    assert.equal(failure(() => tracker.assertNotDuplicate({ node_ref: PHONE, action_ref: 'action:1', at })).code, 'INVALID_REQUEST');
+    assert.equal(failure(() => tracker.assertReachable({ node_ref: PHONE, at })).code, 'INVALID_REQUEST');
+  }
+  assert.equal(tracker.pendingCommands().find(record => record.command_ref === 'cmd:1').state, 'PENDING', 'no refused call changed a state');
+  assert.throws(
+    () => createPresenceTracker({ clock: () => '2026-13-45T99:99:99Z' }).registerNode({ node_ref: PHONE, device_id: 'device:phone' }),
+    error => error instanceof PresenceError && error.code === 'INVALID_CLOCK',
+    'a shape-valid but impossible clock instant is refused too',
+  );
+});
+
+test('an observation instant may not lie in the future', () => {
+  const { tracker } = trackerAt();
+  assert.equal(failure(() => tracker.observePresence({ node_ref: PHONE, state: 'ONLINE', at: AT(60000) })).code, 'INVALID_REQUEST', 'a future observation would look fresh forever');
+  assert.equal(failure(() => tracker.registerNode({ node_ref: 'node:future', device_id: 'device:f', at: AT(60000) })).code, 'INVALID_REQUEST');
+  assert.equal(tracker.presenceOf({ node_ref: PHONE }).state, 'UNKNOWN');
+});
+
+test('a backdated instant cannot make a silent node reachable', () => {
+  const { tracker, clock } = trackerAt({ offline_after_ms: 1000 });
+  tracker.observePresence({ node_ref: PHONE, state: 'ONLINE' });
+  clock.advance(500000);
+  assert.equal(tracker.presenceOf({ node_ref: PHONE }).state, 'UNREACHABLE');
+  assert.equal(failure(() => tracker.assertReachable({ node_ref: PHONE, at: AT(500) })).code, 'NOT_REACHABLE', 'the registry clock refuses new work');
+  assert.equal(failure(() => tracker.enqueueAction({ command_ref: 'cmd:live', node_ref: PHONE, queue_policy: 'LIVE_ONLY', at: AT(500) })).code, 'LIVE_ACTION_NOT_QUEUEABLE');
+});
+
+test('a backdated instant cannot revive an expired queued action', () => {
+  const { tracker, clock } = trackerAt();
+  tracker.observePresence({ node_ref: PHONE, state: 'ONLINE' });
+  tracker.enqueueAction({ command_ref: 'cmd:exp', node_ref: PHONE, action_ref: 'action:exp', deadline_at: AT(60000) });
+  clock.advance(70000);
+  const backdated = tracker.reconcile({ node_ref: PHONE, refreshed: refreshed(), authority: AUTHORITY, at: AT(1000) });
+  const outcome = backdated.outcomes.find(entry => entry.command_ref === 'cmd:exp');
+  assert.equal(outcome.outcome, 'DROPPED_EXPIRED', 'expiry is judged at the registry clock');
+  assert.equal(outcome.executed, false);
+  assert.deepEqual(backdated.resumed_commands, []);
+});
+
+test('a replayed enqueue cannot clear an unknown outcome', () => {
+  const { tracker } = trackerAt();
+  tracker.observePresence({ node_ref: PHONE, state: 'ONLINE' });
+  tracker.enqueueAction({ command_ref: 'cmd:u', node_ref: PHONE, action_ref: 'action:u', deadline_at: AT(600000) });
+  tracker.markOutcomeUnknown({ command_ref: 'cmd:u', reason: 'TRANSPORT_LOST' });
+  const replay = failure(() => tracker.enqueueAction({ command_ref: 'cmd:u', node_ref: PHONE, action_ref: 'action:u', deadline_at: AT(600000) }));
+  assert.equal(replay.code, 'RECONCILIATION_REQUIRED');
+  assert.equal(replay.duplicate_side_effect_prevented, true);
+  assert.equal(tracker.pendingCommands().find(record => record.command_ref === 'cmd:u').state, 'UNKNOWN', 'the unknown outcome is preserved');
+  const reconciled = tracker.reconcile({ node_ref: PHONE, refreshed: refreshed(), authority: AUTHORITY });
+  assert.equal(reconciled.outcomes.find(entry => entry.command_ref === 'cmd:u').outcome, 'DROPPED_UNKNOWN', 'and it is still not resumed');
+});
+
+test('a settled outcome is never regressed to UNKNOWN', () => {
+  const { tracker } = trackerAt();
+  tracker.observePresence({ node_ref: PHONE, state: 'ONLINE' });
+  tracker.enqueueAction({ command_ref: 'cmd:c', node_ref: PHONE, action_ref: 'action:c', deadline_at: AT(600000) });
+  tracker.confirmEffect({ node_ref: PHONE, effect_ref: 'effect:c', command_ref: 'cmd:c' });
+  assert.equal(tracker.pendingCommands().find(record => record.command_ref === 'cmd:c').state, 'CONFIRMED_SUCCEEDED');
+  const regressed = failure(() => tracker.markOutcomeUnknown({ command_ref: 'cmd:c', reason: 'LATE_TRANSPORT_LOSS' }));
+  assert.equal(regressed.code, 'INVALID_REQUEST');
+  assert.equal(regressed.existing_state, 'CONFIRMED_SUCCEEDED');
+  assert.equal(tracker.pendingCommands().find(record => record.command_ref === 'cmd:c').state, 'CONFIRMED_SUCCEEDED');
+});
+
+test('identifiers are text, so a cyclic object cannot reach the freezer', () => {
+  const { tracker } = trackerAt();
+  const cycle = {};
+  cycle.self = cycle;
+  assert.equal(failure(() => tracker.registerNode({ node_ref: 'node:cyc', device_id: 'device:cyc', installation_id: cycle })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => tracker.observePresence({ node_ref: PHONE, state: 'ONLINE', session_ref: cycle })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => tracker.enqueueAction({ command_ref: 'cmd:cyc', node_ref: PHONE, action_ref: cycle, deadline_at: AT(60000) })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => tracker.enqueueAction({ command_ref: 'cmd:cyc2', node_ref: PHONE, interaction_ref: cycle, deadline_at: AT(60000) })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => tracker.reconcile({ node_ref: PHONE, refreshed: refreshed({ session_ref: cycle }), authority: AUTHORITY })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => tracker.markOutcomeUnknown({ command_ref: 'cmd:cyc', reason: cycle })).code, 'INVALID_REQUEST');
+  assert.equal(tracker.presenceOf({ node_ref: PHONE }).session_ref, null, 'nothing was recorded');
+});
+
+test('the presence policy is a bound, so it is validated', () => {
+  for (const policy of [{ offline_after_ms: Infinity }, { max_audit_entries: 0 }, { default_queue_deadline_ms: 900, max_queue_deadline_ms: 8 }, 'nonsense']) {
+    assert.equal(failure(() => createPresenceTracker({ clock: () => T0, policy })).code, 'INVALID_REQUEST', `policy ${JSON.stringify(policy)}`);
+  }
+  // A finite ceiling still works and is enforced.
+  const { tracker } = trackerAt({ offline_after_ms: 1000 });
+  tracker.observePresence({ node_ref: PHONE, state: 'ONLINE' });
+  assert.equal(tracker.presenceOf({ node_ref: PHONE }).state, 'ONLINE');
+});
+
+test('an impossible queue deadline is refused rather than never expiring', () => {
+  const { tracker, clock } = trackerAt();
+  tracker.observePresence({ node_ref: PHONE, state: 'ONLINE' });
+  assert.equal(failure(() => tracker.enqueueAction({ command_ref: 'cmd:nan', node_ref: PHONE, deadline_at: '2026-13-45T99:99:99Z' })).code, 'DEADLINE_REQUIRED');
+  assert.equal(tracker.pendingCommands().find(record => record.command_ref === 'cmd:nan'), undefined);
+  clock.advance(600000);
+  assert.deepEqual(tracker.reconcile({ node_ref: PHONE, refreshed: refreshed(), authority: AUTHORITY }).outcomes, []);
+});
+
+test('a duplicate check needs a subject and does not match one it was not given', () => {
+  const { tracker } = trackerAt();
+  tracker.confirmEffect({ node_ref: PHONE, effect_ref: 'effect:x' });
+  assert.equal(failure(() => tracker.assertNotDuplicate({ node_ref: PHONE })).code, 'INVALID_REQUEST', 'no subject was given');
+  assert.equal(tracker.assertNotDuplicate({ node_ref: PHONE, action_ref: 'action:other' }).duplicate, false);
+  assert.equal(failure(() => tracker.assertNotDuplicate({ node_ref: PHONE, action_ref: 'effect:x' })).code, 'DUPLICATE_COMPLETED_EFFECT', 'the recorded effect is still detected by its own key');
+});
+
+test('a refusal that protects new work is audited', () => {
+  const { tracker } = trackerAt();
+  const before = tracker.auditLog().length;
+  assert.equal(failure(() => tracker.assertReachable({ node_ref: PHONE })).code, 'NOT_REACHABLE');
+  const log = tracker.auditLog();
+  assert.equal(log.length, before + 1, 'the refusal is recorded');
+  assert.equal(log[log.length - 1].outcome, 'NOT_REACHABLE');
+  assert.equal(log[log.length - 1].kind, 'PRESENCE');
+  assert.equal(log[log.length - 1].node_ref, PHONE);
+});
+
+test('refreshed reconnect state is a plain record', () => {
+  class Refreshed {}
+  const { tracker } = trackerAt();
+  const instance = Object.assign(new Refreshed(), refreshed());
+  assert.equal(failure(() => tracker.reconcile({ node_ref: PHONE, refreshed: instance, authority: AUTHORITY })).code, 'INVALID_REQUEST');
+});
+
+test('an effect confirmed without an in-flight command still suppresses its replay', () => {
+  const { tracker } = trackerAt();
+  tracker.observePresence({ node_ref: PHONE, state: 'ONLINE' });
+  // The command record is gone, so the action can only come from the confirmation itself.
+  const confirmed = tracker.confirmEffect({ node_ref: PHONE, effect_ref: 'effect:1', action_ref: 'action:unlock' });
+  assert.equal(confirmed.duplicate_suppression_armed, true);
+  assert.equal(failure(() => tracker.assertNotDuplicate({ node_ref: PHONE, action_ref: 'action:unlock' })).code, 'DUPLICATE_COMPLETED_EFFECT', 'the confirmation bound the action it performed');
+
+  tracker.enqueueAction({ command_ref: 'cmd:retry', node_ref: PHONE, action_ref: 'action:unlock', deadline_at: AT(600000) });
+  const reconciled = tracker.reconcile({ node_ref: PHONE, refreshed: refreshed(), authority: AUTHORITY });
+  const outcome = reconciled.outcomes.find(entry => entry.command_ref === 'cmd:retry');
+  assert.equal(outcome.outcome, 'DUPLICATE_SUPPRESSED', 'a stale replay is suppressed, not resumed');
+  assert.equal(outcome.executed, false);
+  assert.equal(outcome.completed_effect_ref, 'effect:1');
+  assert.equal(reconciled.resumed_commands.includes('cmd:retry'), false);
+});
+
+test('a presence record may not be rebound to another logical identity', () => {
+  const { tracker } = trackerAt();
+  tracker.observePresence({ node_ref: PHONE, state: 'ONLINE' });
+  tracker.enqueueAction({ command_ref: 'cmd:unlock', node_ref: PHONE, action_ref: 'action:unlock', deadline_at: AT(600000) });
+
+  const rebind = failure(() => tracker.registerNode({ node_ref: PHONE, device_id: 'device:mallory', installation_id: 'installation:evil' }));
+  assert.equal(rebind.code, 'INVALID_REQUEST');
+  assert.equal(rebind.rebound, false);
+  assert.equal(rebind.bound_device_id, 'device:phone');
+  assert.equal(tracker.presenceOf({ node_ref: PHONE }).device_id, 'device:phone', 'the bound identity is unchanged');
+
+  // The same identity may re-register, and the resume gate still compares against the bound device.
+  tracker.registerNode({ node_ref: PHONE, device_id: 'device:phone', installation_id: 'installation:1' });
+  const reconciled = tracker.reconcile({ node_ref: PHONE, refreshed: refreshed({ device_id: 'device:mallory' }), authority: AUTHORITY });
+  const outcome = reconciled.outcomes.find(entry => entry.command_ref === 'cmd:unlock');
+  assert.equal(outcome.outcome, 'DROPPED_NOT_REVALIDATED');
+  assert.equal(outcome.reason, 'IDENTITY_MISMATCH', 'another device cannot resume this queued work');
+});
+
+test('a live action cannot be downgraded by a non-boolean flag', () => {
+  const { tracker } = trackerAt();
+  for (const flag of [1, 'true', 'yes', null]) {
+    const refused = failure(() => tracker.enqueueAction({ command_ref: `cmd:click:${String(flag)}`, node_ref: PHONE, action_ref: 'action:click', requires_live_session: flag }));
+    assert.equal(refused.code, 'INVALID_REQUEST', `requires_live_session ${String(flag)} is not a boolean`);
+  }
+  assert.equal(tracker.pendingCommands().length, 0, 'no interactive action was silently queued');
+  // The explicit boolean still means what it says.
+  tracker.observePresence({ node_ref: PHONE, state: 'ONLINE' });
+  assert.equal(tracker.enqueueAction({ command_ref: 'cmd:live', node_ref: PHONE, action_ref: 'action:live', requires_live_session: true }).queue_policy, 'LIVE_ONLY');
+});
+
+test('a measurement is validated before any state changes', () => {
+  const { tracker } = trackerAt();
+  for (const latency of [-1000000000, NaN, -1]) {
+    assert.equal(failure(() => tracker.observePresence({ node_ref: PHONE, state: 'ONLINE', latency_ms: latency })).code, 'INVALID_PRESENCE', `latency ${String(latency)}`);
+  }
+  assert.equal(tracker.presenceOf({ node_ref: PHONE }).reported_state, 'UNKNOWN', 'the refused observations changed nothing');
+  assert.equal(tracker.observePresence({ node_ref: PHONE, state: 'ONLINE', latency_ms: 0 }).quality.latency_ms, 0, 'zero is a real measurement');
+});

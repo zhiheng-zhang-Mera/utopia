@@ -66,45 +66,70 @@ function tech(summary, payload) {
 }
 const tag = (kind, text) => el('span', { class: `tag tag-${kind}`, text });
 
+/* HUD cell primitives — Owner ruling 2026-10-01: keep C's theme, drop the big
+ * sparse cards, move density toward B, render as a game HUD. A cell is a compact
+ * framed panel with a micro label, an optional right-aligned reading, and a body. */
+function cellHead(label, meta) {
+  const kids = [el('p', { class: 'cell-label', text: label })];
+  if (meta) kids.push(el('span', { class: 'cell-meta', text: meta }));
+  return el('div', { class: 'cell-head' }, kids);
+}
+function cell(size, label, meta, ...kids) {
+  /* `el` flattens only one level, so the body arrays are flattened here before
+     being handed over — otherwise a nested array would be stringified. */
+  return el('section', { class: `cell cell-${size}` }, cellHead(label, meta), ...kids.flat());
+}
+/** Small definition-list row used across the board for dense key/value readings. */
+function kv(pairs) {
+  return el('dl', { class: 'kv' }, pairs.flatMap(([k, v]) => [el('dt', { text: k }), el('dd', { text: v })]));
+}
+
 /* ----------------------------------------------------------------- scenes */
 
 function sceneHome() {
   const open = rt.state.tasks.filter((t) => !['COMPLETED', 'FAILED', 'CANCELLED'].includes(t.state));
   return el('div', { class: 'act', dataset: { view: 'home' } }, [
     el('p', { class: 'act-kicker', text: `NOW · ${hhmm(city.updatedAt)}` }),
-    el('h1', { class: 'act-title', html: '你的城市<br><em>现在</em>是这样。' }),
-    el('div', { class: 'deck' }, [
-      panel('hero', [
-        el('p', { class: 'panel-label', text: '正在发生' }),
-        el('p', { class: 'hero-line', text: open.length ? `${open.length} 件事在做` : '没有正在运行的事' }),
-        el('p', { class: 'panel-note', text: `最近一次同步 ${hhmm(city.updatedAt)}` }),
-        el('a', { class: 'pill-link', href: '#devices', text: '看设备' }),
-      ]),
-      panel('tall', [
-        el('p', { class: 'panel-label', text: '设备' }),
-        el('p', { class: 'hero-mid', text: node.displayName }),
-        el('p', { class: 'panel-note', text: `CPU ${node.telemetry.cpu.usagePercent}% · 内存 ${gb(node.telemetry.memory.usedBytes)}` }),
-        el('p', { class: 'panel-note', text: `磁盘剩余 ${gb(node.telemetry.disk.freeBytes)}` }),
+    el('h1', { class: 'act-title', html: '你的城市<em>现在</em>是这样。' }),
+    el('div', { class: 'board' }, [
+      /* 1 — machine, as a dense reading block rather than a hero card */
+      cell(4, '设备', node.online ? 'ONLINE' : 'OFFLINE', [
+        el('p', { class: 'hero-line', text: node.displayName }),
+        kv([
+          ['处理器', `${node.telemetry.cpu.usagePercent}%`],
+          ['内存', `${gb(node.telemetry.memory.usedBytes)} / ${gb(node.telemetry.memory.totalBytes)}`],
+          ['磁盘剩余', gb(node.telemetry.disk.freeBytes)],
+          ['心跳', hhmm(node.lastHeartbeatAt)],
+        ]),
         tech('运行详情', { nodeId: node.id, platform: node.metadata.platform, agentVersion: node.agentVersion, telemetry: node.telemetry }),
       ]),
-      panel('wide', [
-        el('p', { class: 'panel-label', text: '随时可用' }),
+      /* 2 — what is running now */
+      cell(4, '正在发生', open.length ? `${open.length} 运行中` : 'IDLE', [
+        el('p', { class: 'hero-mid', text: open.length ? `${open.length} 件事在做` : '没有正在运行的事' }),
+        kv([
+          ['最近同步', hhmm(city.updatedAt)],
+          ['作业', open.length ? open.map((t) => t.type).join(' · ') : '—'],
+        ]),
+        el('a', { class: 'pill-link ghosty', href: '#devices', text: '看设备' }),
+      ]),
+      /* 3 — tools, compact chips (keeps the B-style brevity the Owner asked for) */
+      cell(4, '随时可用', `${rooms.count} 项`, [
         el('p', { class: 'hero-mid', text: `${rooms.count} 个本地工具` }),
-        el('div', { class: 'poster-row' }, rooms.rooms.slice(0, 5).map((r, i) =>
-          el('button', { class: `mini mini-${i === 0 ? 'lg' : 'sm'}`, onclick: () => go('tools') }, [
+        el('div', { class: 'poster-row' }, rooms.rooms.slice(0, 6).map((r, i) =>
+          el('button', { class: 'mini', onclick: () => go('tools') }, [
             el('span', { class: 'mini-icon', html: icon(ROOM_ICONS[i % ROOM_ICONS.length]) }),
             el('span', { class: 'mini-label', text: r.label }),
           ]),
         )),
         el('a', { class: 'pill-link', href: '#tools', text: '全部工具' }),
       ]),
-      panel('std', [
-        el('p', { class: 'panel-label', text: '最近动态' }),
-        el('ul', { class: 'beats' }, rt.state.events.slice(0, 3).map((e) =>
+      /* 4 — activity as a tight ledger strip, full width */
+      cell(12, '最近动态', `${rt.state.events.length} 条`, [
+        el('ul', { class: 'beats' }, rt.state.events.slice(0, 4).map((e) =>
           el('li', {}, [
             el('span', { class: 'beat-time', text: hhmm(e.timestamp) }),
-            el('span', { text: readable(e.type) }),
-            tech('#', e),
+            el('span', { class: 'beat-text', text: readable(e.type) }),
+            tech('运行详情', e),
           ]),
         )),
       ]),
@@ -119,19 +144,21 @@ function sceneTools() {
     el('p', { class: 'act-kicker', text: 'TOOLS' }),
     el('h1', { class: 'act-title', html: `本地工具<br><em>${rooms.count}</em> 个` }),
     el('p', { class: 'act-lede', text: rooms.available ? '房间服务正在这台机器上运行。' : `房间服务不可用：${rooms.reason}` }),
-    el('div', { class: 'ribbon' }, rooms.rooms.map((r, i) =>
-      el('article', { class: i % 4 === 0 ? 'poster poster-xl' : i % 3 === 0 ? 'poster poster-lg' : 'poster' }, [
-        el('span', { class: 'poster-icon', html: icon(ROOM_ICONS[i % ROOM_ICONS.length]) }),
-        el('span', { class: 'poster-num', text: r.number }),
-        el('h2', { class: 'poster-title', text: r.label }),
-        el('p', { class: 'poster-zh', text: r.zh }),
-        el('p', { class: 'poster-note', text: r.summary }),
-        el('div', { class: 'poster-foot' }, [
+    el('div', { class: 'room-grid' }, rooms.rooms.map((r, i) =>
+      el('article', { class: 'room' }, [
+        el('div', { class: 'room-top' }, [
+          el('span', { class: 'room-icon', html: icon(ROOM_ICONS[i % ROOM_ICONS.length]) }),
+          el('span', { class: 'room-num', text: r.number }),
+          el('h2', { class: 'room-title', text: r.label }),
+        ]),
+        el('p', { class: 'room-zh', text: r.zh }),
+        el('p', { class: 'room-note', text: r.summary }),
+        el('div', { class: 'room-foot' }, [
           r.persistent ? tag('ok', '保存') : tag('idle', '不留痕'),
-          el('span', { class: 'poster-tags', text: r.tags.join(' · ') }),
+          el('span', { class: 'room-tags', text: r.tags.join(' · ') }),
+          el('button', { class: 'cta poster-open', text: '打开', onclick: () => { rt.openRoom(r.id); render(); } }),
         ]),
         tech('运行详情', { id: r.id, number: r.number, lifecycle: r.lifecycle, tags: r.tags, persistent: r.persistent }),
-        el('button', { class: 'cta poster-open', text: '打开', onclick: () => { rt.openRoom(r.id); render(); } }),
       ]),
     )),
     rt.state.openedRoom

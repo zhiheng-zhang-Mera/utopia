@@ -43,18 +43,25 @@ try {
   await page.waitForTimeout(600);
 
   /* ---- step 4: Ask/Do states ---- */
+  const observed = [];
   for (const c of CASES) {
     await page.locator('#ask-text').fill(c.input);
     await page.locator('#ask-submit').click();
     await page.waitForTimeout(1800);
     const view = await page.locator('#view').innerText();
-    if (!c.marker.test(view)) findings.push(`ask ${c.name}: no recognisable state marker for input ${JSON.stringify(c.input)}`);
+    const badgeLabel = (await page.locator('#ask-result .badge').count())
+      ? (await page.locator('#ask-result .badge').first().innerText()).trim() : '(no state badge)';
+    const actions = await page.locator('#ask-result [data-terminal^="ask-"]').count();
+    observed.push(`${c.name}: state="${badgeLabel}" controls=${actions}`);
+    console.log(`[ask] ${c.name.padEnd(16)} state=${JSON.stringify(badgeLabel)} controls=${actions}`);
     await page.screenshot({ path: `${OUT}/ask-${c.name}.png`, fullPage: true });
     /* the ask surface must not leak raw internal vocabulary by default */
-    for (const leak of ['AWAITING_CONFIRMATION', 'AMBIGUOUS', 'UNMATCHED', 'idempotencyKey', 'backendRef']) {
+    for (const leak of ['AWAITING_CONFIRMATION', 'AMBIGUOUS', 'UNMATCHED', 'MATCHED', 'idempotencyKey', 'backendRef']) {
       if (view.includes(leak)) findings.push(`ask ${c.name}: raw protocol token visible: ${leak}`);
     }
   }
+  const distinct = new Set(observed.map((o) => o.split('state=')[1].split(' controls')[0]));
+  if (distinct.size < 2) findings.push(`ask: all four inputs produced the same state presentation (${[...distinct].join(', ')}), so the states are not distinguished`);
 
   /* ---- step 8: Action detail, folded by default then reachable ---- */
   await page.locator('nav button[data-page="Actions"]').first().click();
@@ -63,8 +70,9 @@ try {
   for (const leak of ['backendRef', 'provenance', 'resultRef', 'act-']) {
     if (before.includes(leak)) findings.push(`actions list: raw detail visible by default: ${leak}`);
   }
-  const row = page.locator('#view [data-terminal="action"], #view .row, #view button').first();
+  const row = page.locator('#view [data-terminal="action-open"]').first();
   if (await row.count()) { await row.click(); await page.waitForTimeout(700); }
+  else findings.push('actions: no action-open row exists, so the detail view could not be opened');
   await page.screenshot({ path: `${OUT}/action-detail-collapsed.png`, fullPage: true });
   const details = page.locator('#view details');
   const n = await details.count();

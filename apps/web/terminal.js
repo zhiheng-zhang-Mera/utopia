@@ -66,7 +66,9 @@ function candidatePayload(candidate) {
 
 /* ---------------------------------------------------------------- shared bits */
 
-const badge = (value) => `<span class="badge ${esc(value)}">${esc(value)}</span>`;
+/* `value` is the state token and stays as the CSS class; `label` is what a person
+   reads. Callers that pass only a value keep the previous behaviour. */
+const badge = (value, label) => `<span class="badge ${esc(value)}">${esc(label ?? value)}</span>`;
 const taskId = (value) => `<div class="task-id">${esc(value)}</div>`;
 
 /** External links leave the shell; plain anchors would hit the dev-gateway's file table. */

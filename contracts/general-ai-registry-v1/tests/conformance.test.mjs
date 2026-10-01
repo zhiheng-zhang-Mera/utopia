@@ -8,7 +8,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
- ABSENCE_CODES, CAPABILITY_FACTS, CHANNELS, CHANNEL_READINESS, FRESHNESS, GAI_REGISTRY_CONTRACT,
+ ABSENCE_CODES, AVAILABILITY_REASONS, CAPABILITY_FACTS, CHANNELS, CHANNEL_READINESS, ENABLEMENT,
+ FRESHNESS, GAI_REGISTRY_CONTRACT, REASON_SOURCES, SELECTABLE_REASON,
  RegistryError, SECURE_HANDLE_STORE_PORT, SUBJECT_KINDS, SUPPORT_LEVELS, capabilityOf,
  channelReadiness, createDeterministicHandleStoreDouble, createProviderRegistry, findRawSecretFields,
  findRawSecretValues, findReservedKeyPaths, isSecretFieldName, normalizeFieldName,
@@ -28,6 +29,8 @@ const providerRecord = (overrides = {}) => ({
   registry_version: 1,
   provider_ref: 'provider-alpha',
   display_name: 'Synthetic Alpha',
+  enablement: 'ENABLED',
+  region: null,
   channels: [{ channel: 'WEB', readiness: 'READY' }, { channel: 'API', readiness: 'AUTH_REQUIRED' }],
   capabilities: { TEXT: 'SUPPORTED', VISION: 'UNSUPPORTED' },
   observed_at: ISO(T0),
@@ -41,6 +44,7 @@ const modelRecord = (overrides = {}) => ({
   model_ref: 'model-alpha',
   provider_ref: 'provider-alpha',
   display_name: 'Synthetic Alpha Large',
+  enablement: 'ENABLED',
   channels: [{ channel: 'WEB', readiness: 'READY' }],
   capabilities: { TEXT: 'SUPPORTED', LONG_CONTEXT: 'SUPPORTED', TOOLS: 'UNKNOWN' },
   context_window: 128000,
@@ -55,6 +59,7 @@ const accountRecord = (overrides = {}) => ({
   account_ref: 'account-alpha-1',
   provider_ref: 'provider-alpha',
   display_name: 'Alpha account one',
+  enablement: 'ENABLED',
   status: 'AUTHENTICATED',
   channel_handles: { WEB: { handle_ref: 'handle:profile:1', kind: 'BROWSER_PROFILE' }, API: { handle_ref: 'handle:credential:1', kind: 'API_CREDENTIAL' } },
   capabilities: { TEXT: 'SUPPORTED' },
@@ -379,4 +384,76 @@ test('a missing subject reports its own absence code, and a future observation i
   assert.equal(channelReadiness(offEnum, 'API', T0).supported, false);
   // The published "no hard-coded identities" count is derived, not asserted.
   assert.equal(registry.snapshot().hard_coded_identities, 0);
+});
+
+/* ------------------------------- RS-201: user enablement, region, availability reasons */
+
+test('RS-201: enablement is REQUIRED, so an omitted field can never read as enabled', () => {
+  // The hazard this closes: if absence defaulted to enabled, a record whose disablement was lost or
+  // written by an older writer would silently look available, and the scheduler would pick a provider
+  // the user had switched off. Absence must not be readable as consent, on any of the three kinds.
+  const { enablement: _p, ...providerWithout } = providerRecord();
+  const providerResult = validateProviderDescriptor(providerWithout);
+  assert.equal(providerResult.ok, false);
+  assert.ok(providerResult.errors.some(entry => entry.includes('enablement') && entry.includes('required')), providerResult.errors.join('; '));
+  const { enablement: _m, ...modelWithout } = modelRecord();
+  assert.equal(validateModelDescriptor(modelWithout).ok, false);
+  const { enablement: _a, ...accountWithout } = accountRecord();
+  assert.equal(validateProviderAccount(accountWithout).ok, false);
+});
+
+test('RS-201: enablement accepts exactly the two declared states and nothing that merely looks like one', () => {
+  assert.deepEqual([...ENABLEMENT], ['ENABLED', 'DISABLED']);
+  assert.equal(validateProviderDescriptor(providerRecord({ enablement: 'ENABLED' })).ok, true);
+  assert.equal(validateProviderDescriptor(providerRecord({ enablement: 'DISABLED' })).ok, true);
+  // `true` is the specific hazard: it is exactly what a JSON writer emits for a boolean field, and a
+  // validator that silently ignored an unknown type would let it through.
+  for (const bad of [true, false, 'enabled', 'disabled', 'TRUE', 'PAUSED', '', null]) {
+    assert.equal(validateProviderDescriptor(providerRecord({ enablement: bad })).ok, false, `enablement ${JSON.stringify(bad)} must be refused`);
+  }
+  // ...and a synonym key is not a way in either, because unknown keys are refused outright.
+  assert.equal(validateProviderDescriptor(providerRecord({ isEnabled: true })).ok, false);
+  assert.equal(validateProviderDescriptor(providerRecord({ disabled: true })).ok, false);
+});
+
+test('RS-201: DISABLED is a user choice, not a capability fact, and does not contaminate freshness', () => {
+  const disabled = providerRecord({ enablement: 'DISABLED' });
+  assert.equal(validateProviderDescriptor(disabled).ok, true);
+  // Disabling says nothing about whether the provider works or how recently it was observed.
+  assert.equal(freshnessOf(disabled, T0), 'FRESH');
+  // An account can be AUTHENTICATED and DISABLED at the same time: status is observed, enablement is
+  // chosen. Collapsing the two would make "user turned it off" indistinguishable from "login broke".
+  assert.equal(validateProviderAccount(accountRecord({ enablement: 'DISABLED', status: 'AUTHENTICATED' })).ok, true);
+  assert.equal(validateProviderAccount(accountRecord({ enablement: 'ENABLED', status: 'EXPIRED' })).ok, true);
+});
+
+test('RS-201: region is required but explicitly nullable, and is never inferred', () => {
+  assert.equal(validateProviderDescriptor(providerRecord({ region: null })).ok, true);
+  assert.equal(validateProviderDescriptor(providerRecord({ region: 'eu-central' })).ok, true);
+  // A provider must STATE its region; null is the honest answer for a region-neutral provider, and
+  // omitting the field is not allowed to mean the same thing silently.
+  const { region: _r, ...withoutRegion } = providerRecord();
+  const result = validateProviderDescriptor(withoutRegion);
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some(entry => entry.includes('region') && entry.includes('required')), result.errors.join('; '));
+  for (const bad of ['', '   ', 42, {}, []]) {
+    assert.equal(validateProviderDescriptor(providerRecord({ region: bad })).ok, false, `region ${JSON.stringify(bad)} must be refused`);
+  }
+});
+
+test('RS-201: the availability reason vocabulary carries all seven required categories', () => {
+  assert.deepEqual([...AVAILABILITY_REASONS], [
+    'AVAILABLE', 'REGION_UNSUPPORTED', 'CREDENTIALS_MISSING', 'SESSION_EXPIRED', 'SERVICE_FAULT', 'USER_DISABLED', 'UNKNOWN',
+  ]);
+  // Exactly one reason permits selection, stated as data so no caller re-derives the rule.
+  assert.equal(AVAILABILITY_REASONS.filter(reason => reason === SELECTABLE_REASON).length, 1);
+  assert.equal(SELECTABLE_REASON, 'AVAILABLE');
+  // Every reason declares provenance, and the two that existed nowhere before RS-201 are named as new
+  // rather than quietly presented as if they had always been derivable.
+  assert.deepEqual(Object.keys(REASON_SOURCES).sort(), [...AVAILABILITY_REASONS].sort());
+  assert.equal(REASON_SOURCES.REGION_UNSUPPORTED, null);
+  assert.equal(REASON_SOURCES.USER_DISABLED, null);
+  for (const derived of ['AVAILABLE', 'CREDENTIALS_MISSING', 'SESSION_EXPIRED', 'SERVICE_FAULT', 'UNKNOWN']) {
+    assert.equal(typeof REASON_SOURCES[derived], 'string', `${derived} should point at existing state`);
+  }
 });

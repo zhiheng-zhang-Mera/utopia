@@ -19,6 +19,60 @@ export const FRESHNESS = Object.freeze(['FRESH', 'STALE', 'UNKNOWN']);
 export const ABSENCE_CODES = Object.freeze(['UNKNOWN_PROVIDER', 'UNKNOWN_MODEL', 'UNKNOWN_ACCOUNT', 'MODEL_NOT_IN_PROVIDER', 'ACCOUNT_NOT_IN_PROVIDER', 'DUPLICATE_IDENTITY', 'IDENTITY_COLLISION', 'INVALID_REGISTRY_RECORD', 'RAW_SECRET_FORBIDDEN', 'HANDLE_STORE_REQUIRED']);
 export const SUBJECT_KINDS = Object.freeze(['PROVIDER', 'MODEL', 'ACCOUNT']);
 
+/**
+ * User enablement (RS-201). A record is either explicitly ENABLED or explicitly DISABLED by the
+ * user, and the field is REQUIRED rather than defaulted, deliberately.
+ *
+ * The reason is the failure mode this contract exists to prevent: if an omitted field defaulted to
+ * "enabled", then a record whose disablement was lost, mistyped, or written by an older writer would
+ * silently read as available, and the scheduler would select a provider the user had turned off.
+ * "A disabled provider was still selected" is named in the workbook as an attack on Review, so
+ * absence must never be readable as consent. There is no third state and no implicit default.
+ */
+export const ENABLEMENT = Object.freeze(['ENABLED', 'DISABLED']);
+
+/**
+ * The single availability-reason vocabulary (RS-201). One code per category the workbook requires,
+ * so no surface has to invent a synonym and no two surfaces can disagree about what "unavailable"
+ * meant.
+ *
+ * This is a REASON vocabulary, not a second copy of the resilience states. `health-resilience-v1`
+ * already owns AVAILABILITY_STATES / AUTH_STATES / FAULT_CLASSES / CIRCUIT_STATES and stays the
+ * source of truth for those; AVAILABILITY_REASONS sits above them and says WHICH of them applies and
+ * WHY, by mapping onto them in REASON_SOURCES. In particular REGION_UNSUPPORTED and USER_DISABLED
+ * had no representation anywhere in either contract before this task, which is why they appear here
+ * rather than being derived from the existing states.
+ *
+ * AVAILABLE is the only code that permits selection. Every other code is a refusal with a reason.
+ */
+export const AVAILABILITY_REASONS = Object.freeze([
+  'AVAILABLE',
+  'REGION_UNSUPPORTED',
+  'CREDENTIALS_MISSING',
+  'SESSION_EXPIRED',
+  'SERVICE_FAULT',
+  'USER_DISABLED',
+  'UNKNOWN',
+]);
+
+/**
+ * Where each reason is derived from, recorded so a later reader can see that this vocabulary is a
+ * projection of existing state rather than a parallel truth. `null` means the reason has no source
+ * in the existing contracts and is genuinely new in RS-201.
+ */
+export const REASON_SOURCES = Object.freeze({
+  AVAILABLE: 'AVAILABILITY_STATES.AVAILABLE',
+  REGION_UNSUPPORTED: null,
+  CREDENTIALS_MISSING: 'AUTH_STATES.MISSING',
+  SESSION_EXPIRED: 'AUTH_STATES.EXPIRED',
+  SERVICE_FAULT: 'FAULT_CLASSES / CIRCUIT_STATES',
+  USER_DISABLED: null,
+  UNKNOWN: 'AVAILABILITY_STATES.UNKNOWN',
+});
+
+/** Only this reason may be selected. Stated as data so no caller has to re-derive the rule. */
+export const SELECTABLE_REASON = 'AVAILABLE';
+
 export class RegistryError extends Error {
   constructor(code, detail) {
     super(detail ? `${code}: ${detail}` : code);
@@ -158,6 +212,14 @@ export const PROVIDER_SPEC = Object.freeze({
   registry_version: VERSION,
   provider_ref: { required: true, type: 'text' },
   display_name: { required: true, type: 'text' },
+  // Required, not defaulted: absence must never read as "enabled" (see ENABLEMENT).
+  enablement: { required: true, type: 'enum', values: ENABLEMENT },
+  /**
+   * The region this provider is declared to serve, or null when the provider is region-neutral.
+   * Declared, never inferred: a provider that requires a region and has none is UNKNOWN, and the
+   * contract must not guess a region from the host's own location or fabricate support.
+   */
+  region: { required: true, type: 'text', nullable: true },
   channels: { required: true, type: 'array' },
   capabilities: capabilitySpec,
   observed_at: { required: true, type: 'instant' },
@@ -170,6 +232,8 @@ export const MODEL_SPEC = Object.freeze({
   model_ref: { required: true, type: 'text' },
   provider_ref: { required: true, type: 'text' },
   display_name: { required: true, type: 'text' },
+  // A model can be switched off independently of its provider.
+  enablement: { required: true, type: 'enum', values: ENABLEMENT },
   channels: { required: true, type: 'array' },
   capabilities: capabilitySpec,
   context_window: { required: true, type: 'int', min: 1, nullable: true },
@@ -185,6 +249,9 @@ export const ACCOUNT_SPEC = Object.freeze({
   account_ref: { required: true, type: 'text' },
   provider_ref: { required: true, type: 'text' },
   display_name: { required: true, type: 'text' },
+  // Distinct from `status`: status is what the account IS (probed/observed), enablement is what the
+  // USER chose. A user may disable a perfectly AUTHENTICATED account, and that must be honoured.
+  enablement: { required: true, type: 'enum', values: ENABLEMENT },
   status: { required: true, type: 'enum', values: ACCOUNT_STATUSES },
   channel_handles: { required: true, type: 'object' },
   capabilities: capabilitySpec,

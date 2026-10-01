@@ -8,6 +8,12 @@
 
 const kit = globalThis.RoomsKit;
 
+/* UI-103: embedded mode drops the hub's own rail so the Utopia Web shell owns the
+   chrome and the room reads as one product rather than two. The flag is set from an
+   explicit query parameter in index.html, never sniffed. */
+const EMBEDDED = new URLSearchParams(window.location.search).get('embedded') === '1';
+if (EMBEDDED) document.body.dataset.embedded = 'true';
+
 const dom = {
   nav: document.getElementById('nav'),
   status: document.getElementById('hub-status'),
@@ -16,6 +22,9 @@ const dom = {
   summary: document.getElementById('room-summary'),
   data: document.getElementById('room-data'),
   root: document.getElementById('room-root'),
+  diagOrigin: document.getElementById('diag-origin'),
+  diagRuntime: document.getElementById('diag-runtime'),
+  diagProduct: document.getElementById('diag-product'),
 };
 
 const state = {
@@ -28,6 +37,16 @@ const state = {
 function setStatus(text, kind = 'ok') {
   dom.status.textContent = text;
   dom.status.dataset.kind = kind;
+}
+
+/**
+ * Local/debug facts are diagnostics, not product copy (UI-103). They stay
+ * discoverable in the rail's disclosure instead of sitting on the reading path.
+ */
+function setDiagnostics({ origin, runtime, product }) {
+  if (origin !== undefined && dom.diagOrigin) dom.diagOrigin.textContent = origin;
+  if (runtime !== undefined && dom.diagRuntime) dom.diagRuntime.textContent = runtime;
+  if (product !== undefined && dom.diagProduct) dom.diagProduct.textContent = product;
 }
 
 function renderNav() {
@@ -69,9 +88,12 @@ async function selectRoom(roomId) {
   dom.number.textContent = `ROOM ${room.number}`;
   dom.title.textContent = room.label;
   dom.summary.textContent = room.summary;
-  dom.data.textContent = room.persistent ? `persistent · .runtime/${room.id}.json` : 'no persistence';
+  /* Product-level statement, not a runtime path: UI-103 forbids printing
+     .runtime/<id>.json as default product information. The exact path stays in
+     the rail's diagnostics disclosure. */
+  dom.data.textContent = room.persistent ? '会保存在本机' : '不留痕';
   dom.root.textContent = '';
-  dom.root.append(kit.el('p', { class: 'muted', text: 'Loading room…' }));
+  dom.root.append(kit.el('p', { class: 'muted', text: '正在打开房间…' }));
 
   const token = ++state.bootToken;
   try {
@@ -81,7 +103,8 @@ async function selectRoom(roomId) {
     const result = await module.mount(dom.root, kit.createRoomApi(room.id), kit);
     if (token !== state.bootToken) return;
     if (typeof result === 'function') state.teardown = result;
-    setStatus(`local · ready · ${room.label}`);
+    setStatus(`${room.label} · 已就绪`);
+    setDiagnostics({ runtime: room.persistent ? `.runtime-rooms/${room.id}.json` : '不持久化' });
   } catch (error) {
     if (token !== state.bootToken) return;
     dom.root.textContent = '';
@@ -91,7 +114,7 @@ async function selectRoom(roomId) {
         kit.el('p', { text: String(error?.message ?? error) }),
       ]),
     );
-    setStatus(`error · ${room.label}`, 'error');
+    setStatus(`${room.label} · 载入失败`, 'error');
   }
 }
 
@@ -100,9 +123,13 @@ async function boot() {
     const health = await (await fetch('/health')).json();
     const payload = await (await fetch('/local-rooms/v1/rooms')).json();
     state.rooms = payload.rooms;
-    setStatus(`local · ready · v${health.version} · ${payload.rooms.length} rooms`);
+    setStatus(`${payload.rooms.length} 个本地工具 · 已就绪`);
+    setDiagnostics({
+      origin: window.location.origin,
+      product: `${health.product ?? 'utopia-room-pack'} ${health.version ?? ''}`.trim(),
+    });
   } catch (error) {
-    setStatus(`hub unreachable · ${error.message}`, 'error');
+    setStatus(`房间服务不可用 · ${error.message}`, 'error');
     dom.root.append(kit.el('div', { class: 'banner error', text: `Room Hub unavailable: ${error.message}` }));
     return;
   }

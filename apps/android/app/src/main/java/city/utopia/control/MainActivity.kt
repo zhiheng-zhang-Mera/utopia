@@ -5,26 +5,42 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import city.utopia.control.theme.Space
+import city.utopia.control.theme.UtopiaColors
+import city.utopia.control.theme.UtopiaIcons
+import city.utopia.control.theme.UtopiaTheme
+import city.utopia.control.ui.MeasuredStatusChip
+import city.utopia.control.ui.TechnicalDetails
+import city.utopia.control.ui.UtFeedback
+import city.utopia.control.ui.UtLabel
+import city.utopia.control.ui.UtopiaNavigationBar
 import org.json.JSONArray
 import org.json.JSONObject
 
-private val Ink = Color(0xFF19382F)
-private val Moss = Color(0xFFC8EEA1)
+/* UI-102: the old brand pair is remapped onto the adopted direction so the screens
+   that already referenced Ink/Moss move with the theme instead of needing edits.
+   Ink is now the body ink, Moss the lime signal. */
+private val Ink = UtopiaColors.Ink
+private val Moss = UtopiaColors.Lime
 private fun JSONArray?.objects(): List<JSONObject> = if (this == null) emptyList() else (0 until length()).map { getJSONObject(it) }
 
 class MainActivity : ComponentActivity() {
- override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); setContent { MaterialTheme(colorScheme = lightColorScheme(primary = Ink, secondary = Moss, background = Color(0xFFF4F6F0))) { CityApp() } } }
+ override fun onCreate(savedInstanceState: Bundle?) { super.onCreate(savedInstanceState); setContent { UtopiaTheme { CityApp() } } }
  @Composable private fun CityApp() {
   val log = remember { PilotLog(this@MainActivity) }
   var now by remember { mutableStateOf(java.time.Instant.now()) }
@@ -47,13 +63,38 @@ class MainActivity : ComponentActivity() {
   val tasks = state.snapshot?.optJSONArray("tasks").objects()
   val nodes = state.snapshot?.optJSONArray("nodes").objects()
   val events = state.snapshot?.optJSONArray("events").objects()
-  Scaffold(containerColor = Color(0xFFF4F6F0), bottomBar = {
-   NavigationBar(containerColor = Color.White) { listOf("Home" to "◈", "Ask" to "❯", "Rooms" to "▦", "Action" to "≣", "Devices" to "◇", "Services" to "◉", "Tasks" to "▤", "Activity" to "≋", "Settings" to "⚙").forEach { (name, icon) -> NavigationBarItem(selected = page == name, onClick = { page = name; selected = null; selectedNode = null }, icon = { Text(icon, fontSize = 22.sp) }, label = { Text(name) }) } }
+  /* UI-102: five phone-sized primary entries instead of nine, and real tintable
+     vector icons instead of Unicode geometry drawn as text. Everything that is not a
+     primary surface is reachable from the header overflow, so no capability is lost
+     while the bar stops being a wall of tabs. */
+  val primaryNav = listOf(
+   "Home" to UtopiaIcons.Home,
+   "Ask" to UtopiaIcons.Ask,
+   "Rooms" to UtopiaIcons.Tools,
+   "Devices" to UtopiaIcons.Devices,
+   "Activity" to UtopiaIcons.Activity,
+  )
+  val advancedNav = listOf(
+   "Services" to "能力服务",
+   "Tasks" to "任务",
+   "Action" to "操作记录",
+   "Settings" to "设置",
+   "Find" to "配对",
+  )
+  val advancedOpen = remember { mutableStateOf(false) }
+  Scaffold(containerColor = MaterialTheme.colorScheme.background, bottomBar = {
+   /* UI-102 narrow-width fix: this was `NavigationBar { NavigationBarItem(label = { Text(name,
+      maxLines = 1) }) }`, which at 320dp / font_scale 1.5 clipped every label to its first two
+      characters (`Ho`, `As`, `Ro`, `De`, `Ac`) — `maxLines` without an `overflow` is `Clip`, and
+      there is no width at which that becomes readable. UtopiaNavigationBar measures each label
+      against the slot it really has, steps the size down while it fits, and degrades to an
+      icon-only entry named by `contentDescription` only when nothing legible fits. */
+   UtopiaNavigationBar(primaryNav, page, onSelect = { page = it; selected = null; selectedNode = null })
   }) { padding ->
-   LazyColumn(Modifier.fillMaxSize().padding(padding).imePadding().padding(horizontal = 22.dp), verticalArrangement = Arrangement.spacedBy(16.dp), contentPadding = PaddingValues(top = 22.dp, bottom = 28.dp)) {
-    item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("UTOPIA", color = Ink, fontWeight = FontWeight.Bold, letterSpacing = 3.sp); Text(state.connection, color = if (online) Color(0xFF456B29) else Color(0xFFA15C38), fontSize = 12.sp) } }
+   LazyColumn(Modifier.fillMaxSize().padding(padding).imePadding().padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(Space.md), contentPadding = PaddingValues(top = Space.lg, bottom = Space.xl)) {
+    item { Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) { Text("UTOPIA", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, letterSpacing = 3.sp); Spacer(Modifier.width(Space.md)); MeasuredStatusChip(state.connection); Spacer(Modifier.width(Space.xs)); Box { IconButton(onClick = { advancedOpen.value = true }) { Icon(UtopiaIcons.More, contentDescription = "更多", tint = MaterialTheme.colorScheme.onSurfaceVariant) }; DropdownMenu(expanded = advancedOpen.value, onDismissRequest = { advancedOpen.value = false }) { advancedNav.forEach { (target, label) -> DropdownMenuItem(text = { Text(label) }, onClick = { page = target; selected = null; selectedNode = null; advancedOpen.value = false }) } } } } }
     item { Column { Text(if (selected != null) "Task details" else when (page) { "Home" -> "Digital City"; "Find" -> "Welcome"; "Ask" -> "Ask / Do"; "Rooms" -> "Rooms · local tools"; "Action" -> "Actions"; "Devices" -> if(selectedNode == null) "Devices" else "Device details"; "Services" -> "City services"; "Tasks" -> "Your tasks"; "Activity" -> "City activity"; else -> "Connect your city" }, fontSize = 32.sp, color = Ink, fontWeight = FontWeight.Medium); Text(if (online) "Your devices. One shared view." else "Cached information · connection is not live", fontSize = 12.sp, color = Color.Gray) } }
-    if (state.message.isNotBlank()) item { Text(state.message, color = Color(0xFFA15C38), fontSize = 12.sp) }
+    if (state.message.isNotBlank()) item { UtFeedback(state.message, kind = "error") }
     if (page == "Find") {
      item { PairingPanel(log, intent?.dataString, { page="Settings" }, { h,t,id -> host=h; token=t; prefs.edit().putString("host",h).putString("token",t).putString("cityId",id).apply(); state=CityState("RECONNECTING"); settingsRevision++; page="Devices"; intent.data=null }) }
     } else if (page == "Devices") {
@@ -94,11 +135,37 @@ class MainActivity : ComponentActivity() {
      }
      if (page == "Activity") events.reversed().forEach { e -> item { EventRow(e) } }
     }
-    if (state.snapshot != null && page != "Settings") item { Text("Last snapshot: " + state.snapshot?.optString("updatedAt"), color = Color.Gray, fontSize = 10.sp) }
+    if (state.snapshot != null && page != "Settings") item { Text("Last snapshot: " + clockLabel(state.snapshot?.optString("updatedAt")), color = Color.Gray, fontSize = 10.sp) }
    }
   }
  }
 }
-@Composable fun Panel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) { Column(modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(16.dp)).padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp), content = content) }
-@Composable private fun Metric(label: String, count: Int, modifier: Modifier) { Panel(modifier) { Text(label, fontSize = 12.sp, color = Color.Gray); Text(count.toString(), fontSize = 32.sp, color = Ink) } }
-@Composable private fun EventRow(e: JSONObject) { Panel { Text(e.optString("type"), fontSize = 13.sp, fontWeight = FontWeight.Medium); Text("#${e.optInt("seq")} · ${e.optString("taskId")}", fontSize = 10.sp, color = Color.Gray); Text(e.optString("timestamp"), fontSize = 10.sp, color = Color.Gray) } }
+/* UI-102: this used to be `.background(Color.White, RoundedCornerShape(16.dp))`. After
+   increment 1 changed the theme it was painting white 16dp-rounded cards on a dark HUD -
+   a defect increment 1 introduced and did not propagate. It now uses the theme surface,
+   the direction's cut corners and the spacing scale, which fixes every call site at once. */
+@Composable fun Panel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+ Column(
+  modifier.fillMaxWidth().clip(MaterialTheme.shapes.large).background(MaterialTheme.colorScheme.surface).padding(Space.lg),
+  verticalArrangement = Arrangement.spacedBy(Space.sm),
+  content = content,
+ )
+}
+@Composable private fun Metric(label: String, count: Int, modifier: Modifier) {
+ Panel(modifier) {
+  UtLabel(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+  Text(count.toString(), style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary)
+ }
+}
+/* The event's ordering number and task id are internal identifiers: folded, not deleted.
+   The surface keeps what happened and when. */
+@Composable private fun EventRow(e: JSONObject) {
+ Panel {
+  Text(e.optString("type"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+  Text(clockLabel(e.optString("timestamp")), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+  TechnicalDetails(listOf(
+   "seq" to e.optInt("seq").toString(),
+   "taskId" to e.optString("taskId"),
+  ))
+ }
+}

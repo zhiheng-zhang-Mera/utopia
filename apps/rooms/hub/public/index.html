@@ -4,20 +4,40 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Utopia · Rooms</title>
+<link rel="icon" href="/hub/favicon.svg">
 <link rel="stylesheet" href="/hub/hub.css">
+<script>
+  /* UI-103: when the Utopia Web shell embeds the hub in an iframe, the hub must read
+     as part of the same product rather than as a second one, so it drops its own
+     rail and keeps only the room surface. Standalone (new tab) keeps the full shell.
+     Query flag rather than a referrer sniff, so the behaviour is explicit and
+     testable from both entry points. */
+  if (new URLSearchParams(location.search).get('embedded') === '1') {
+    document.documentElement.dataset.embeddedPending = 'true';
+  }
+</script>
 </head>
 <body>
 <div class="shell">
   <aside class="rail">
     <div class="brand">
       <span class="mark">U</span>
-      <span class="brand-text">UTOPIA<em>Rooms</em></span>
+      <span class="brand-text">UTOPIA<em>ROOMS</em></span>
     </div>
-    <p class="rail-label">ROOM PACK V1</p>
+    <p class="rail-label">本地工具</p>
     <nav id="nav" class="nav" aria-label="Room navigation"></nav>
     <div class="rail-foot">
-      <span id="hub-status" class="status" role="status" aria-live="polite">loading…</span>
-      <span class="local-only" title="This product only listens on 127.0.0.1">LOCAL · 127.0.0.1</span>
+      <span id="hub-status" class="status" role="status" aria-live="polite">加载中…</span>
+      <!-- local/debug facts: still discoverable, no longer product-surface reading -->
+      <details class="diagnostics" id="hub-diagnostics">
+        <summary>运行详情</summary>
+        <div class="diag-body">
+          <div class="diag-row"><span>监听</span><span id="diag-origin">—</span></div>
+          <div class="diag-row"><span>数据目录</span><span id="diag-runtime">—</span></div>
+          <div class="diag-row"><span>房间包</span><span id="diag-product">—</span></div>
+          <div class="diag-row"><span>本地限制</span><span>仅本机回环，不对局域网或公网开放</span></div>
+        </div>
+      </details>
     </div>
   </aside>
 
@@ -26,7 +46,7 @@
       <div>
         <p class="eyebrow" id="room-number">ROOM</p>
         <h1 id="room-title">Utopia Rooms</h1>
-        <p class="muted" id="room-summary">Loading the room catalog…</p>
+        <p class="muted" id="room-summary">正在载入房间目录…</p>
       </div>
       <span class="pill" id="room-data">—</span>
     </header>

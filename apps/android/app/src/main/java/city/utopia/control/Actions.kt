@@ -94,7 +94,13 @@ fun parseActionSummary(row: JSONObject): ActionSummary {
   route = row.textOrEmpty("route"),
   targetLabel = target?.textOrEmpty("operation").orEmpty().let { if (label.isBlank()) it else if (it.isBlank()) label else "$label · $it" },
   status = status,
-  statusLabel = actionStatusLabel(status),
+  /* UI-102 truth-parity repair: this used to be `actionStatusLabel(status)` unconditionally,
+     which DISCARDED the label the gateway sent and substituted a client-side derivation. Web
+     renders the gateway's label, so the two surfaces could show different text for the same
+     gateway truth - and UI-102's boundary forbids re-deriving status on the client. The
+     gateway's own label now wins; the local mapping is only a fallback for a status the
+     gateway did not label, so an unknown future status still renders honestly. */
+  statusLabel = row.textOrEmpty("statusLabel").ifBlank { actionStatusLabel(status) },
   progress = row.optInt("progress", 0),
   resultText = resultRef?.textOrEmpty("summary").orEmpty().ifBlank { error?.message.orEmpty() },
   errorCode = error?.code?.takeIf { it.isNotBlank() },
@@ -274,7 +280,9 @@ fun parseAskResult(row: JSONObject): AskResult {
  return AskResult(
   text = row.textOrEmpty("text"),
   status = status,
-  statusLabel = askStatusLabel(status),
+  /* Same truth-parity repair as parseActionSummary: the gateway's own label wins, the local
+     mapping is only a fallback. */
+  statusLabel = row.textOrEmpty("statusLabel").ifBlank { askStatusLabel(status) },
   route = row.textOrNull("route"),
   target = row.textOrNull("target"),
   operation = row.textOrNull("operation"),

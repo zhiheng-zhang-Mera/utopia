@@ -386,3 +386,31 @@ exactly that row shape so the upgrade path is real and tested, but this branch c
 runtime behaviour. The unresolved seam is recorded in the module's `PROVENANCE.json` and is
 deferred to the Remote Fabric merge workbook, as
 `CROSS_PROGRAMME_EXECUTION_CONTRACT.md` §5 requires — deferral is not success.
+
+## 10. RF-002 Pairing & Trust — the Device Node Fabric building
+
+`Digital-City/mission-book` was later restructured from a single migration queue into four
+asynchronous programmes (`BA-`, `RF-`, `GAI-`, `EM-`) scheduled by
+`CROSS_PROGRAMME_EXECUTION_CONTRACT.md`. Those tasks land code under `city/` exactly the way
+the migration missions did, but they are **new construction**: no donor exists, so there is
+nothing to pin and the third incubation identity of §1 applies.
+
+RF-002 declares the building the published City map already reserved as *City Node Network —
+Device Node Fabric*, whose declared ownership covers node/device principal identity,
+membership and trust:
+
+| Module | Provenance | What it provides |
+| --- | --- | --- |
+| `pairing-trust` | new construction (`PROVENANCE.json`, `donor: null`) | one versioned pairing/trust state machine every join entry point converges on: session phases and legal transitions, ephemeral key exchange bound to stable fingerprints, a human-readable device preview with optional non-authoritative MAC evidence, one-time Owner confirmation with replay protection, expiry/cancel/reject/fail cleanup, trust roles as classifications rather than grants, credential rotation, revoke, lost-device revoke, quarantine and re-pair, reconnect revalidation, and an audit log that proves transitions without carrying key material |
+
+Its incubation room is `mb-rf-002-pairing-trust-lab`, its lifecycle is `PROMOTED`, and it
+declares no capability: trust is a classification, so the module stays out of the capability
+registry the same way `01-city-core` does.
+
+### The freeze, and programme-task consumption
+
+§5 freezes the product surfaces. RF-002 is a component task and wires no consumer: the
+natural seam is `services/dev-gateway/pairing.mjs` and `discovery.mjs`, which today implement
+a descriptor/QR/short-code flow with no session state machine and no trust record.
+`PROVENANCE.json` records the seam, deferred to the Remote Fabric merge workbook as
+`CROSS_PROGRAMME_EXECUTION_CONTRACT.md` §5 requires — deferral is not success.

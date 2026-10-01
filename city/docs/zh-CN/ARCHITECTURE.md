@@ -282,3 +282,19 @@ RF-001 新增了一栋楼 `00-foundation/02-city-node-network`——城市地图
 ### 冻结，与项目任务的消费要求
 
 §5 冻结产品面。RF-001 是组件任务，因此不接任何消费者：天然接缝在 `services/dev-gateway` 的节点注册，它今天存的是 `{id, devicePrincipalId, displayName, metadata.platform, agentVersion, capabilities, online, lastHeartbeatAt}`，且 `devicePrincipalId === id`，没有密钥材料、没有逻辑设备与安装的分离、也没有克隆检测。`migrateDeviceIdentity` 正好接受这个行形状，所以升级路径是真实且被测试的，但本分支不改变任何运行时行为。未解决的接缝记录在该 module 的 `PROVENANCE.json` 中，并按 `CROSS_PROGRAMME_EXECUTION_CONTRACT.md` §5 推迟到 Remote Fabric 合并工程书——推迟不等于成功。
+
+## 10. RF-002 配对与信任——设备节点互联层那栋楼
+
+`Digital-City/mission-book` 后来从单一的迁移队列重整为四个异步项目（`BA-`、`RF-`、`GAI-`、`EM-`），由 `CROSS_PROGRAMME_EXECUTION_CONTRACT.md` 统一调度。这些任务与当年的迁移 mission 一样把代码落到 `city/` 下，但它们是**全新施工**：没有 donor，因此适用 §1 的第三种孵化身份。
+
+RF-002 声明了城市地图早已保留的那栋楼——「城市节点网 City Node Network — Device Node Fabric」，其产权声明覆盖节点/设备主体身份、成员关系与信任：
+
+| Module | 溯源 | 提供什么 |
+| --- | --- | --- |
+| `pairing-trust` | 全新施工（`PROVENANCE.json`，`donor: null`） | 所有加入入口共同收敛到的唯一配对/信任状态机：会话阶段与合法迁移、绑定稳定指纹的临时密钥交换、带可选非权威 MAC 证据的面向人的设备预览、带重放防护的一次性 Owner 确认、过期/取消/拒绝/失败清理、把信任角色当分类而非授权、凭据轮换、撤销、丢失设备撤销、隔离与重新配对、重连再校验，以及一份只证明状态迁移、不携带密钥材料的审计日志 |
+
+其孵化房间为 `mb-rf-002-pairing-trust-lab`，生命周期为 `PROMOTED`，且不声明任何能力：信任是分类，因此该 module 和 `01-city-core` 一样不进能力注册表。
+
+### 冻结，与项目任务的消费要求
+
+§5 冻结产品面。RF-002 是组件任务，不接任何消费者：天然接缝在 `services/dev-gateway/pairing.mjs` 与 `discovery.mjs`，它们今天实现的是一条 descriptor/二维码/短码流程，既没有会话状态机也没有信任记录。`PROVENANCE.json` 记录了这个接缝，并按 `CROSS_PROGRAMME_EXECUTION_CONTRACT.md` §5 推迟到 Remote Fabric 合并工程书——推迟不等于成功。

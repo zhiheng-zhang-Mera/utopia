@@ -39,6 +39,7 @@ const EXPECTED_MODULES = [
   'city/00-foundation/01-city-core/fleet-routing',
   'city/00-foundation/01-city-core/audit-ledger',
   'city/00-foundation/02-city-node-network/device-identity',
+  'city/00-foundation/02-city-node-network/pairing-trust',
   'city/00-foundation/03-capability-fabric/capability-fabric',
   'city/00-foundation/05-control-centre/theme-engine',
   'city/02-engineering/01-project-foreman/project-foreman',

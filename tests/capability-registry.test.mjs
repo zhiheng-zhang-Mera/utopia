@@ -64,9 +64,9 @@ test('infrastructure modules are never advertised as capabilities',()=>{
  // The census is pinned as an explicit list rather than an absolute count. A count of 2
  // was not detecting anything the loop above does not already detect: it only meant that
  // any new infrastructure building failed the suite for the wrong reason, which is how
- // RF-001's 00-foundation/02-city-node-network surfaced. Naming the buildings keeps the
- // deliberate-update property (a new kernel building must be added here on purpose) while
- // stating which building is which.
+ // RF-002's 00-foundation/02-city-node-network surfaced (and how RF-001's copy of the
+ // same building surfaced on its own branch). Naming the buildings keeps the
+ // deliberate-update property while stating which building is which.
  const kernelIds=m.districts.flatMap(d=>d.buildings.filter(b=>(b.kind??d.kind??'domain')==='infrastructure').map(b=>`${d.id}/${b.id}`));
  assert.deepEqual(kernelIds,['00-foundation/01-city-core','00-foundation/02-city-node-network','00-foundation/03-capability-fabric'],'the infrastructure buildings are exactly these');
  // 05-control-centre sits in the same infrastructure district but is the City map's

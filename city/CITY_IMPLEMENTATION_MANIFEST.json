@@ -134,6 +134,23 @@
                 "architectureContract": "REMOTE_FABRIC_V1",
                 "cluster": "logical device identity and installation lifecycle: versioned DeviceIdentity/device_id and installation_id records, first-install enrollment, reinstall/rebind, key rotation, rename, retirement, cloned-credential detection/quarantine, and the non-authoritative MAC/metadata rule"
               }
+            },
+            {
+              "id": "pairing-trust",
+              "zh": "配对与信任生命周期",
+              "en": "Pairing & Trust Lifecycle",
+              "path": "city/00-foundation/02-city-node-network/pairing-trust",
+              "lifecycle": "PROMOTED",
+              "donor": null,
+              "incubationRooms": [
+                "mb-rf-002-pairing-trust-lab"
+              ],
+              "mission": {
+                "missionId": "RF-002",
+                "programme": "REMOTE_FABRIC_ENGINEERING",
+                "architectureContract": "REMOTE_FABRIC_V1",
+                "cluster": "one unified pairing and trust state machine for every join entry point: session phases and legal transitions, ephemeral key exchange bound to stable fingerprints, human-readable device preview with optional non-authoritative MAC evidence, one-time Owner confirmation with replay protection, expiry/cancel/reject/fail cleanup, trust roles as classifications rather than grants, credential rotation, revoke, lost-device revoke, quarantine and re-pair, reconnect revalidation, and an audit log that proves transitions without carrying key material"
+              }
             }
           ]
         },

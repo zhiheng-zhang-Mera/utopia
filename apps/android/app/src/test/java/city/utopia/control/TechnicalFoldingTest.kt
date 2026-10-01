@@ -102,6 +102,25 @@ class TechnicalFoldingTest {
   }
 
   @Test
+  fun `the gateway's own status label wins over the local fallback`() {
+    // UI-102 truth-parity: Web renders the gateway's label. If Android re-derived its own,
+    // the two surfaces could disagree about the same gateway truth.
+    val fromGateway = parseActionSummary(
+      org.json.JSONObject().put("actionId", "act-1").put("status", "FAILED").put("statusLabel", "Failed — gateway wording"),
+    )
+    assertEquals("Failed — gateway wording", fromGateway.statusLabel)
+
+    val fromAsk = parseAskResult(
+      org.json.JSONObject().put("status", ASK_AMBIGUOUS).put("statusLabel", "请选择目标"),
+    )
+    assertEquals("请选择目标", fromAsk.statusLabel)
+
+    // and the local mapping still covers a status the gateway labelled nothing for
+    val unlabelled = parseActionSummary(org.json.JSONObject().put("actionId", "act-2").put("status", "REFUSED"))
+    assertEquals("REFUSED · not allowed by policy", unlabelled.statusLabel)
+  }
+
+  @Test
   fun `the list row folds its own identifiers`() {
     val rows = actionSummaryTechnicalRows(summary()).toMap()
     assertEquals("act-77c1", rows["actionId"])

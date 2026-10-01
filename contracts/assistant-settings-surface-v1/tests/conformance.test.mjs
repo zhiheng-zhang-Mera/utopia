@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ASSISTANT_MODES, EDITABLE_FIELDS, EMBODIMENT_STATES, IDENTITY_KINDS, RESERVED_ADAPTERS, SettingsError,
-  SURFACE_ACTIONS, createInteractionSurface,
+  SURFACE_ACTIONS, createInteractionSurface, isIsoInstant,
 } from '../index.mjs';
 
 const T0 = '2026-01-01T00:00:00Z';
@@ -221,4 +221,96 @@ test('the surface is strict, frozen and independent of ambient state', () => {
   assert.equal(surface.journal().some(entry => entry.event === 'FOREGROUND_SWITCHED'), false, 'nothing happened that was not asked for');
   assert.equal(surface.journal().some(entry => entry.event === 'PROFILE_COMMITTED'), true);
   assert.equal(failure(() => surface.surfaceView({ device_ref: 'device:nope' })).code, 'INVALID_REQUEST');
+});
+// ---------------------------------------------------------------- Alien Correction regressions
+// Every test below fails against the Development head and passes against the corrected head.
+
+test('an editable field carries the kind of value its name promises', () => {
+  const { surface } = surfaceAt();
+  for (const changes of [{ display_name: 42 }, { verbosity: { evil: true } }, { locale: ['x'] }, { proactivity: true }, { display_name: '' }]) {
+    assert.equal(failure(() => surface.editProfile({ assistant_ref: BUTLER, expected_profile_version: 1, changes })).code, 'INVALID_FIELD', JSON.stringify(changes));
+  }
+  // An explicit undefined would silently clear the field rather than change it.
+  assert.equal(failure(() => surface.editProfile({ assistant_ref: BUTLER, expected_profile_version: 1, changes: { mode: undefined } })).code, 'INVALID_FIELD');
+  const profile = surface.assistant(BUTLER).profile;
+  assert.equal(profile.mode, 'BUTLER', 'the refused edits changed nothing');
+  assert.equal(profile.display_name, 'Butler');
+  assert.equal(profile.verbosity, null);
+  assert.equal(surface.assistant(BUTLER).profile_version, 1, 'no version was consumed');
+  // A genuine typed edit still lands, including clearing a nullable field.
+  const update = surface.editProfile({ assistant_ref: BUTLER, expected_profile_version: 1, changes: { display_name: 'Alfred', verbosity: 'LOW', locale: null } });
+  assert.equal(update.profile.display_name, 'Alfred');
+  assert.equal(update.profile.verbosity, 'LOW');
+  assert.deepEqual(update.changed_fields, ['display_name', 'verbosity', 'locale']);
+});
+
+test('a change the surface cannot read is refused rather than dropped', () => {
+  const { surface } = surfaceAt();
+  const symbol = { display_name: 'Alfred' };
+  symbol[Symbol('user_name')] = 'Hijack';
+  assert.equal(failure(() => surface.editProfile({ assistant_ref: BUTLER, expected_profile_version: 1, changes: symbol })).code, 'INVALID_FIELD', 'a symbol key would be dropped in silence');
+  const hidden = { display_name: 'Alfred' };
+  Object.defineProperty(hidden, 'user_name', { value: 'X', enumerable: false });
+  assert.equal(failure(() => surface.editProfile({ assistant_ref: BUTLER, expected_profile_version: 1, changes: hidden })).code, 'DIGITAL_ME_IS_READ_ONLY', 'a hidden own field is still a declared change');
+  class FakeChanges { constructor() { this.display_name = 'Alfred'; } }
+  assert.equal(failure(() => surface.editProfile({ assistant_ref: BUTLER, expected_profile_version: 1, changes: new FakeChanges() })).code, 'INVALID_REQUEST');
+  assert.equal(surface.assistant(BUTLER).profile.display_name, 'Butler', 'nothing was written');
+  assert.equal(surface.committedUpdates().length, 0, 'and nothing was committed');
+});
+
+test('the version guard is not switchable off by policy', () => {
+  for (const policy of [{ profile_version_required: false }, { unknown_key: 1 }, { allow_reserved_adapters: 'yes' }, { policy_ref: '' }]) {
+    assert.equal(failure(() => createInteractionSurface({ clock: () => T0, policy })).code, 'INVALID_REQUEST', JSON.stringify(policy));
+  }
+  const { surface } = surfaceAt({ allow_reserved_adapters: true });
+  assert.equal(failure(() => surface.editProfile({ assistant_ref: BUTLER, expected_profile_version: 99, changes: { display_name: 'Lost update' } })).code, 'STALE_UPDATE', 'a stale write is still refused');
+  assert.equal(surface.assistant(BUTLER).profile.display_name, 'Butler');
+});
+
+test('re-registering a device never discards the binding the user chose', () => {
+  const { surface } = surfaceAt();
+  surface.switchForeground({ device_ref: DEVICE, to_assistant_ref: SECRETARY });
+  surface.observeEmbodiment({ device_ref: DEVICE, state: 'STALE' });
+  assert.equal(failure(() => surface.registerEmbodiment({ device_ref: DEVICE, assistant_ref: BUTLER, state: 'FRESH' })).code, 'INVALID_REQUEST');
+  assert.equal(surface.listAssistants({ device_ref: DEVICE }).foreground_assistant_ref, SECRETARY, 'the foreground switch survived');
+  assert.equal(surface.surfaceView({ device_ref: DEVICE }).foreground_binding.state, 'STALE', 'and the observed state survived');
+  const refreshed = surface.registerEmbodiment({ device_ref: DEVICE, assistant_ref: SECRETARY, state: 'FRESH' });
+  assert.equal(refreshed.foreground_assistant_ref, SECRETARY);
+  assert.equal(surface.assertFresh({ device_ref: DEVICE }).fresh_confirmed, true);
+  // Registration fields are typed like any other record.
+  assert.equal(failure(() => surface.registerEmbodiment({ device_ref: 'device:new', assistant_ref: BUTLER, executor_for: [7, {}] })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => surface.registerEmbodiment({ device_ref: 'device:new', assistant_ref: BUTLER, last_seen_at: 'not-an-instant' })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => surface.observeEmbodiment({ device_ref: DEVICE, state: 'FRESH', last_seen_at: 12345 })).code, 'INVALID_REQUEST');
+  assert.deepEqual([...surface.registerEmbodiment({ device_ref: 'device:new', assistant_ref: BUTLER, executor_for: ['task:1', 'task:1'] }).executor_for], ['task:1']);
+});
+
+test('a task the surface cannot read is reported, not hidden', () => {
+  const { surface } = surfaceAt();
+  const mixed = surface.surfaceView({ device_ref: DEVICE, tasks: [{ task_ref: 'task:bg', foreground: false, owner_ref: BUTLER }, { owner_ref: BUTLER }, { task_ref: null, foreground: false }] });
+  assert.deepEqual([...mixed.background_tasks].map(task => task.task_ref), ['task:bg']);
+  assert.equal(mixed.unreadable_tasks.length, 2, 'unreadable tasks are surfaced');
+  assert.equal(mixed.background_tasks_hidden, true, 'the view no longer claims nothing is hidden');
+  assert.deepEqual([...mixed.unreadable_tasks].map(entry => entry.reason), ['MISSING_TASK_REF', 'MISSING_TASK_REF']);
+  const clean = surface.surfaceView({ device_ref: DEVICE, tasks: [{ task_ref: 'task:bg', foreground: false }, { task_ref: 'task:fg', foreground: true }] });
+  assert.equal(clean.background_tasks_hidden, false);
+  assert.deepEqual([...clean.unreadable_tasks], []);
+  assert.deepEqual([...clean.foreground_tasks].map(task => task.task_ref), ['task:fg']);
+});
+
+test('the committed-update cursor must be a version and the instants must be real', () => {
+  const { surface } = surfaceAt();
+  surface.editProfile({ assistant_ref: BUTLER, expected_profile_version: 1, changes: { display_name: 'Alfred' } });
+  assert.equal(surface.committedUpdates({ since_profile_version: 1 }).length, 1);
+  assert.deepEqual([...surface.committedUpdates({ since_profile_version: 2 })], []);
+  for (const cursor of [NaN, 'x', -1, 1.5, Infinity]) {
+    assert.equal(failure(() => surface.committedUpdates({ since_profile_version: cursor })).code, 'INVALID_REQUEST', String(cursor));
+  }
+  assert.equal(surface.committedUpdates().length, 1, 'the default cursor still works');
+
+  assert.equal(isIsoInstant('2026-13-45T99:99:99Z'), false);
+  assert.equal(isIsoInstant('2026-01-01T00:00:00.000Z'), true);
+  const fresh = createInteractionSurface({ clock: () => T0 });
+  assert.equal(failure(() => fresh.registerAssistant({ assistant_ref: BUTLER, display_name: 'Butler', at: '2026-13-45T99:99:99Z' })).code, 'INVALID_REQUEST');
+  assert.equal(fresh.assistant(BUTLER), null, 'nothing was registered from an unusable instant');
+  assert.equal(failure(() => createInteractionSurface({ clock: () => '2026-13-45T99:99:99Z' }).listAssistants()).code, 'INVALID_CLOCK');
 });

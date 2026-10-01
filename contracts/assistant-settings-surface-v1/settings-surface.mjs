@@ -46,15 +46,67 @@ export class SettingsError extends Error {
   }
 }
 
-const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
-const isText = value => typeof value === 'string' && value.trim().length > 0;
-const clone = value => (value === undefined ? undefined : structuredClone(value));
-const freeze = value => {
-  if (value === null || typeof value !== 'object') return value;
-  for (const child of Object.values(value)) freeze(child);
-  return Object.freeze(value);
+const isPlainObject = value => {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 };
-export const isIsoInstant = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+const isText = value => typeof value === 'string' && value.trim().length > 0;
+const nullableText = value => value === null || isText(value);
+const clone = value => (value === undefined ? undefined : structuredClone(value));
+/** Cycle-safe: a caller-supplied structure must not be able to blow the stack. */
+const freeze = value => {
+  const seen = new WeakSet();
+  const walk = node => {
+    if (node === null || typeof node !== 'object') return node;
+    if (seen.has(node)) return node;
+    seen.add(node);
+    for (const child of Object.values(node)) walk(child);
+    return Object.freeze(node);
+  };
+  return walk(value);
+};
+export const isIsoInstant = value => typeof value === 'string'
+  && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)
+  && !Number.isNaN(Date.parse(value));
+
+const INSTANT_PARTS = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?Z$/;
+const isRealInstant = value => {
+  if (!isIsoInstant(value)) return false;
+  const parts = INSTANT_PARTS.exec(value);
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return false;
+  return date.getUTCFullYear() === Number(parts[1])
+    && date.getUTCMonth() + 1 === Number(parts[2])
+    && date.getUTCDate() === Number(parts[3])
+    && date.getUTCHours() === Number(parts[4])
+    && date.getUTCMinutes() === Number(parts[5])
+    && date.getUTCSeconds() === Number(parts[6]);
+};
+
+/** A settings field carries the kind of value its name promises; nothing else reaches the profile. */
+const EDITABLE_FIELD_RULES = Object.freeze({
+  display_name: { kind: 'text' },
+  mode: { kind: 'enum', values: ASSISTANT_MODES },
+  voice_ref: { kind: 'ref' },
+  avatar_ref: { kind: 'ref' },
+  locale: { kind: 'ref' },
+  verbosity: { kind: 'token' },
+  proactivity: { kind: 'token' },
+});
+
+/** Returns a list of 'field: reason' strings; an empty list means every declared value is usable. */
+function checkEditableValue(field, value) {
+  const rule = EDITABLE_FIELD_RULES[field];
+  if (rule === undefined) return null;
+  if (value === undefined) return 'an explicit undefined would silently clear the field instead of changing it';
+  if (value === null) return rule.kind === 'text' || rule.kind === 'enum' ? 'this field may not be cleared' : null;
+  if (rule.kind === 'text') return isText(value) ? null : 'must be nonempty text';
+  if (rule.kind === 'enum') return rule.values.includes(value) ? null : `must be one of ${rule.values.join(', ')}`;
+  if (rule.kind === 'ref') return isText(value) ? null : 'must be a nonempty reference or null';
+  if (rule.kind === 'token') return isText(value) ? null : 'must be a nonempty token or null';
+  return null;
+}
 
 export const DEFAULT_SURFACE_POLICY = Object.freeze({
   policy_ref: 'policy:ba-settings-default',
@@ -64,7 +116,16 @@ export const DEFAULT_SURFACE_POLICY = Object.freeze({
 
 export function createInteractionSurface({ clock = () => new Date().toISOString(), policy = {} } = {}) {
   if (typeof clock !== 'function') throw new SettingsError('INVALID_CLOCK', 'clock must be a function returning an ISO-8601 UTC instant');
+  if (policy !== undefined && policy !== null && !isPlainObject(policy)) throw new SettingsError('INVALID_REQUEST', 'policy must be a plain object');
   const config = { ...DEFAULT_SURFACE_POLICY, ...(isPlainObject(policy) ? policy : {}) };
+  for (const key of Reflect.ownKeys(config)) {
+    if (typeof key !== 'string' || !Object.hasOwn(DEFAULT_SURFACE_POLICY, key)) throw new SettingsError('INVALID_REQUEST', `policy.${String(key)} is not part of the settings policy`);
+  }
+  if (typeof config.allow_reserved_adapters !== 'boolean') throw new SettingsError('INVALID_REQUEST', 'policy.allow_reserved_adapters must be a boolean');
+  // Version-checked writes are how a committed profile update stays safe across embodiments; a caller may
+  // not switch that guard off for the same profile it is editing.
+  if (config.profile_version_required !== true) throw new SettingsError('INVALID_REQUEST', 'an assistant profile edit must be version-checked, so policy.profile_version_required must be true');
+  if (!isText(config.policy_ref)) throw new SettingsError('INVALID_REQUEST', 'policy.policy_ref must be nonempty text');
   const assistants = new Map();
   const embodiments = new Map();
   const committedUpdates = [];
@@ -73,8 +134,22 @@ export function createInteractionSurface({ clock = () => new Date().toISOString(
 
   const now = () => {
     const produced = clock();
-    if (!isIsoInstant(produced)) throw new SettingsError('INVALID_CLOCK', 'clock() must return an ISO-8601 UTC instant');
+    if (!isRealInstant(produced)) throw new SettingsError('INVALID_CLOCK', 'clock() must return a real ISO-8601 UTC instant');
     return produced;
+  };
+
+  /** A caller-supplied instant is validated: a recorded timestamp is evidence, including its reality. */
+  const atFrom = when => {
+    if (when === undefined || when === null) return now();
+    if (!isRealInstant(when)) throw new SettingsError('INVALID_REQUEST', `at must be a real ISO-8601 UTC instant, got ${String(when)}`);
+    return when;
+  };
+
+  /** A device's observation instant is rendered in the UI, so it is validated like any other evidence. */
+  const seenAtFrom = (value, fallback) => {
+    if (value === undefined || value === null) return fallback;
+    if (!isRealInstant(value)) throw new SettingsError('INVALID_REQUEST', `last_seen_at must be a real ISO-8601 UTC instant, got ${String(value)}`);
+    return value;
   };
 
   const note = (event, at, detail = {}) => {
@@ -96,7 +171,11 @@ export function createInteractionSurface({ clock = () => new Date().toISOString(
       if (!isText(assistant_ref) || !isText(display_name)) throw new SettingsError('INVALID_REQUEST', 'assistant_ref and display_name are required');
       if (assistants.has(assistant_ref)) throw new SettingsError('DUPLICATE_ASSISTANT', `assistant ${assistant_ref} is already registered`);
       if (!ASSISTANT_MODES.includes(mode)) throw new SettingsError('INVALID_FIELD', `mode must be one of ${ASSISTANT_MODES.join(', ')}`);
-      const at = when ?? now();
+      const at = atFrom(when);
+      for (const [field, value] of [['display_name', display_name], ['mode', mode], ['voice_ref', voice_ref], ['avatar_ref', avatar_ref], ['locale', locale], ['verbosity', verbosity], ['proactivity', proactivity]]) {
+        const problem = checkEditableValue(field, value);
+        if (problem !== null) throw new SettingsError('INVALID_FIELD', `${field} ${problem}`, { field, editable_fields: freeze([...EDITABLE_FIELDS]) });
+      }
       const assistant = {
         assistant_ref,
         profile: freeze({ display_name, mode, voice_ref, avatar_ref, locale, verbosity, proactivity }),
@@ -112,7 +191,7 @@ export function createInteractionSurface({ clock = () => new Date().toISOString(
 
     /** Listing shows the five identities distinctly rather than as one "current assistant" blob. */
     listAssistants({ device_ref = null, at: when } = {}) {
-      const at = when ?? now();
+      const at = atFrom(when);
       const foreground = device_ref === null ? null : embodiments.get(device_ref)?.foreground_assistant_ref ?? null;
       return freeze({
         contract_version: SETTINGS_SURFACE_CONTRACT_VERSION,
@@ -142,16 +221,24 @@ export function createInteractionSurface({ clock = () => new Date().toISOString(
      */
     editProfile({ assistant_ref, expected_profile_version, changes = {}, at: when } = {}) {
       const assistant = requireAssistant(assistant_ref);
-      if (!isPlainObject(changes) || Object.keys(changes).length === 0) throw new SettingsError('INVALID_REQUEST', 'changes must contain at least one editable field');
-      const rejected = Object.keys(changes).filter(field => !EDITABLE_FIELDS.includes(field));
-      if (rejected.length > 0) {
-        const digitalMe = rejected.filter(field => field.startsWith('user_') || field === 'digital_me' || field === 'canonical_user');
-        if (digitalMe.length > 0) {
-          throw new SettingsError('DIGITAL_ME_IS_READ_ONLY', 'assistant settings never edit Digital-Me canonical user records', { fields: freeze(digitalMe), canonical_source: 'DIGITAL_ME_CANONICAL', written: false });
+      // The declared fields are the only thing this surface may change, and the shape is decided on the
+      // object itself: a symbol key or a non-enumerable own key would otherwise be dropped in silence and
+      // the caller would believe it had been written.
+      if (!isPlainObject(changes)) throw new SettingsError('INVALID_REQUEST', 'changes must be a plain object of editable fields');
+      for (const key of Reflect.ownKeys(changes)) {
+        if (typeof key === 'string' && EDITABLE_FIELDS.includes(key)) continue;
+        const field = String(key);
+        if (typeof key === 'string' && (field.startsWith('user_') || field === 'digital_me' || field === 'canonical_user')) {
+          throw new SettingsError('DIGITAL_ME_IS_READ_ONLY', 'assistant settings never edit Digital-Me canonical user records', { fields: freeze([field]), canonical_source: 'DIGITAL_ME_CANONICAL', written: false });
         }
-        throw new SettingsError('INVALID_FIELD', `${rejected.join(', ')} is not an editable assistant profile field`, { editable_fields: freeze([...EDITABLE_FIELDS]) });
+        throw new SettingsError('INVALID_FIELD', `${field} is not an editable assistant profile field`, { field, editable_fields: freeze([...EDITABLE_FIELDS]) });
       }
+      if (Object.keys(changes).length === 0) throw new SettingsError('INVALID_REQUEST', 'changes must contain at least one editable field');
       if (changes.mode !== undefined && !ASSISTANT_MODES.includes(changes.mode)) throw new SettingsError('INVALID_FIELD', `mode must be one of ${ASSISTANT_MODES.join(', ')}`);
+      for (const field of Object.keys(changes)) {
+        const problem = checkEditableValue(field, changes[field]);
+        if (problem !== null) throw new SettingsError('INVALID_FIELD', `${field} ${problem}`, { field, editable_fields: freeze([...EDITABLE_FIELDS]) });
+      }
       for (const reserved of ['voice_ref', 'avatar_ref']) {
         if (changes[reserved] !== undefined && changes[reserved] !== null && config.allow_reserved_adapters !== true) {
           throw new SettingsError('RESERVED_ADAPTER_UNAVAILABLE', `${reserved} is reserved for a future editor adapter and is not enabled`, {
@@ -164,7 +251,7 @@ export function createInteractionSurface({ clock = () => new Date().toISOString(
           assistant_ref, current_profile_version: assistant.profile_version,
         });
       }
-      const at = when ?? now();
+      const at = atFrom(when);
       counter += 1;
       const update = freeze({
         contract_version: SETTINGS_SURFACE_CONTRACT_VERSION,
@@ -191,19 +278,37 @@ export function createInteractionSurface({ clock = () => new Date().toISOString(
     },
 
     /** The committed updates another embodiment would read from shared state. */
-    committedUpdates: ({ since_profile_version = 0 } = {}) => freeze(committedUpdates.filter(update => update.to_profile_version > since_profile_version).map(update => freeze(clone(update)))),
+    committedUpdates: ({ since_profile_version = 0 } = {}) => {
+      // An unreadable cursor must not read as "there is nothing to synchronise".
+      if (!Number.isSafeInteger(since_profile_version) || since_profile_version < 0) {
+        throw new SettingsError('INVALID_REQUEST', `since_profile_version must be a non-negative integer, got ${String(since_profile_version)}`);
+      }
+      return freeze(committedUpdates.filter(update => update.to_profile_version > since_profile_version).map(update => freeze(clone(update))));
+    },
 
     registerEmbodiment({ device_ref, assistant_ref, state = 'FRESH', last_seen_at = null, executor_for = [], at: when } = {}) {
       if (!isText(device_ref)) throw new SettingsError('INVALID_REQUEST', 'device_ref is required');
       requireAssistant(assistant_ref);
       if (!EMBODIMENT_STATES.includes(state)) throw new SettingsError('INVALID_REQUEST', `state must be one of ${EMBODIMENT_STATES.join(', ')}`);
-      const at = when ?? now();
+      if (!Array.isArray(executor_for) || executor_for.some(entry => !isText(entry))) {
+        throw new SettingsError('INVALID_REQUEST', 'executor_for must be a list of task references', { device_ref });
+      }
+      const at = atFrom(when);
+      const seen = seenAtFrom(last_seen_at, at);
+      const existing = embodiments.get(device_ref) ?? null;
+      // Re-registering a device under a different assistant would silently discard the foreground binding
+      // the user chose on that device, so it is a refusal rather than a quiet overwrite.
+      if (existing !== null && existing.foreground_assistant_ref !== assistant_ref) {
+        throw new SettingsError('INVALID_REQUEST', `device ${device_ref} is bound to ${String(existing.foreground_assistant_ref)}; use switchForeground to change the binding`, {
+          device_ref, current_foreground_assistant_ref: existing.foreground_assistant_ref, requested_assistant_ref: assistant_ref,
+        });
+      }
       embodiments.set(device_ref, {
         device_ref,
-        foreground_assistant_ref: assistant_ref,
+        foreground_assistant_ref: existing === null ? assistant_ref : existing.foreground_assistant_ref,
         state,
-        last_seen_at: last_seen_at ?? at,
-        executor_for: freeze([...executor_for]),
+        last_seen_at: seen,
+        executor_for: freeze([...new Set(executor_for)]),
         updated_at: at,
       });
       note('EMBODIMENT_REGISTERED', at, { device_ref, assistant_ref, state });
@@ -214,9 +319,9 @@ export function createInteractionSurface({ clock = () => new Date().toISOString(
       const embodiment = embodiments.get(device_ref);
       if (!embodiment) throw new SettingsError('INVALID_REQUEST', `no embodiment ${String(device_ref)}`);
       if (!EMBODIMENT_STATES.includes(state)) throw new SettingsError('INVALID_REQUEST', `state must be one of ${EMBODIMENT_STATES.join(', ')}`);
-      const at = when ?? now();
+      const at = atFrom(when);
       embodiment.state = state;
-      embodiment.last_seen_at = last_seen_at ?? at;
+      embodiment.last_seen_at = seenAtFrom(last_seen_at, at);
       embodiment.updated_at = at;
       note('EMBODIMENT_OBSERVED', at, { device_ref, state });
       return freeze(clone(embodiment));
@@ -225,7 +330,7 @@ export function createInteractionSurface({ clock = () => new Date().toISOString(
     /** Where else the same logical assistant is present — identity, not a second assistant. */
     embodimentsOf({ assistant_ref, current_device_ref = null, at: when } = {}) {
       requireAssistant(assistant_ref);
-      const at = when ?? now();
+      const at = atFrom(when);
       return freeze({
         contract_version: SETTINGS_SURFACE_CONTRACT_VERSION,
         assistant_ref,
@@ -250,7 +355,7 @@ export function createInteractionSurface({ clock = () => new Date().toISOString(
       const embodiment = embodiments.get(device_ref);
       if (!embodiment) throw new SettingsError('INVALID_REQUEST', `no embodiment ${String(device_ref)}`);
       requireAssistant(to_assistant_ref);
-      const at = when ?? now();
+      const at = atFrom(when);
       const previous = embodiment.foreground_assistant_ref;
       embodiment.foreground_assistant_ref = to_assistant_ref;
       embodiment.updated_at = at;
@@ -279,7 +384,7 @@ export function createInteractionSurface({ clock = () => new Date().toISOString(
       if (!embodiment) throw new SettingsError('INVALID_REQUEST', `no embodiment ${String(device_ref)}`);
       if (!isText(task_ref)) throw new SettingsError('INVALID_REQUEST', 'task_ref is required');
       requireAssistant(to_assistant_ref);
-      const at = when ?? now();
+      const at = atFrom(when);
       note('HANDOFF_REQUESTED', at, { device_ref, task_ref, to_assistant_ref });
       return freeze({
         contract_version: SETTINGS_SURFACE_CONTRACT_VERSION,
@@ -304,10 +409,20 @@ export function createInteractionSurface({ clock = () => new Date().toISOString(
     surfaceView({ device_ref, tasks = [], at: when } = {}) {
       const embodiment = embodiments.get(device_ref);
       if (!embodiment) throw new SettingsError('INVALID_REQUEST', `no embodiment ${String(device_ref)}`);
-      const at = when ?? now();
+      const at = atFrom(when);
       const stale = ['STALE', 'OFFLINE', 'RECONNECTING', 'UNKNOWN'].includes(embodiment.state);
-      const backgroundTasks = tasks.filter(task => isPlainObject(task) && task.task_ref !== undefined && task.foreground !== true);
-      const foregroundTasks = tasks.filter(task => isPlainObject(task) && task.foreground === true);
+      // A task the surface cannot read must be reported, not dropped: hiding an active background task is
+      // exactly what the workbook forbids, and "nothing is hidden" must not be an unchecked claim.
+      const unreadable = [];
+      const backgroundTasks = [];
+      const foregroundTasks = [];
+      for (const task of tasks) {
+        const task_ref = isPlainObject(task) && isText(task.task_ref) ? task.task_ref : null;
+        if (task_ref === null) { unreadable.push({ reason: 'MISSING_TASK_REF', foreground: isPlainObject(task) && task.foreground === true }); continue; }
+        if (isPlainObject(task) && task.foreground === true) foregroundTasks.push({ ...task, task_ref });
+        else if (isPlainObject(task)) backgroundTasks.push({ ...task, task_ref });
+        else unreadable.push({ reason: 'NOT_A_TASK_RECORD', foreground: false });
+      }
       return freeze({
         contract_version: SETTINGS_SURFACE_CONTRACT_VERSION,
         device_ref,
@@ -322,7 +437,8 @@ export function createInteractionSurface({ clock = () => new Date().toISOString(
           role: 'LOGICAL_OWNER_AND_EXECUTOR_SEPARATE',
         }))),
         foreground_tasks: freeze(foregroundTasks.map(task => freeze({ task_ref: task.task_ref, foreground: true }))),
-        background_tasks_hidden: false,
+        unreadable_tasks: freeze(unreadable.map(entry => freeze(clone(entry)))),
+        background_tasks_hidden: unreadable.length > 0,
         identity_roles_are_distinct: true,
         foreground_is_not_ownership: true,
         ownership_is_not_execution: true,
@@ -345,7 +461,7 @@ export function createInteractionSurface({ clock = () => new Date().toISOString(
     assertFresh({ device_ref, at: when } = {}) {
       const embodiment = embodiments.get(device_ref);
       if (!embodiment) throw new SettingsError('INVALID_REQUEST', `no embodiment ${String(device_ref)}`);
-      const at = when ?? now();
+      const at = atFrom(when);
       if (['STALE', 'OFFLINE', 'RECONNECTING', 'UNKNOWN'].includes(embodiment.state)) {
         throw new SettingsError('STALE_CACHE_IS_NOT_AUTHORITY', `device ${device_ref} is ${embodiment.state}; cached task/binding state is not current authority`, {
           device_ref, state: embodiment.state, cached_view_is_authority: false, refresh_required: true,

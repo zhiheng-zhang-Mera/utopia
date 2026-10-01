@@ -40,6 +40,12 @@ export const messages = {
   "event.taskCancelled": "A task was cancelled",
   "event.nodeHeartbeat": "A device heartbeat",
   "event.other": "An update",
+  /* Ask/Do protocol states are internal; the surface shows these, the raw token
+     stays inside the folded record. */
+  "terminal.status.matched": "Ready",
+  "terminal.status.awaiting": "Needs your confirmation",
+  "terminal.status.ambiguous": "Pick a target",
+  "terminal.status.unmatched": "No match",
   "common.runDetails": "Run details",
   /* Home's character slot. The assistant is configured later, so these describe a
      slot that is deliberately empty rather than implying finished artwork. */

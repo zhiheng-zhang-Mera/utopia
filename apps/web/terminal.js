@@ -140,6 +140,11 @@ function askCandidates(candidates, action) {
     + '</div>';
 }
 
+/* UI-101 step 4: the protocol status is internal vocabulary. The badge keeps the raw
+   token as its CSS class (styling) but shows a localised label, and the raw token stays
+   reachable in the folded record below. */
+const STATUS_LABELS={AWAITING_CONFIRMATION:'terminal.status.awaiting',AMBIGUOUS:'terminal.status.ambiguous',UNMATCHED:'terminal.status.unmatched',MATCHED:'terminal.status.matched'};
+const statusLabel=(value)=>tr(STATUS_LABELS[value]||'terminal.status.matched');
 function askResultMarkup() {
   const ask = state.ask;
   const result = ask.result ?? {};
@@ -153,7 +158,7 @@ function askResultMarkup() {
     + `<p class="muted">${esc(text(result.text) ? result.text : '')}</p>`
     + (text(result.message) ? `<p>${esc(result.message)}</p>` : '')
     + (text(result.route) || text(result.target) ? `<small class="task-id">${esc([result.route, result.target, result.operation].filter(Boolean).join(' · '))}</small>` : '')
-    + '</div>' + badge(status) + '</div>';
+    + '</div>' + badge(status, statusLabel(status)) + '</div>';
   const candidates = list(result.candidates);
   if (status === 'AWAITING_CONFIRMATION') {
     const candidate = result.confirmation ?? {};
@@ -245,7 +250,7 @@ function actionRow(action) {
   const progress = action?.progress === undefined || action?.progress === null ? '' : ` · ${tr('terminal.actions.progress')}: ${esc(action.progress)}`;
   return `<button class="row terminal-action${state.actions.selected === action?.actionId ? ' selected' : ''}" data-terminal="action-open" data-action="${esc(action?.actionId ?? '')}">`
     + `<span class="terminal-action-main"><strong>${esc(text(action?.requestedIntent) ? action.requestedIntent : t('terminal.actions.noIntent'))}</strong>`
-    + `<small class="task-id">${esc(action?.actionId ?? '')} · ${esc(action?.route ?? '')} · ${esc(label)}${progress}</small>`
+    + `<small class="task-id">${esc(label)}${progress}</small><details><summary>${esc(t('common.runDetails'))}</summary><div class="task-id">${esc(action?.actionId ?? '')} · ${esc(action?.route ?? '')}</div></details>`
     + (outcome ? `<small class="muted">${outcome}</small>` : '') + '</span>'
     + badge(action?.status ?? t('terminal.unknown')) + '</button>';
 }

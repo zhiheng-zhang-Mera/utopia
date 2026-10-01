@@ -39,6 +39,11 @@ export const messages = {
   "event.taskCancelled": "一件事被取消",
   "event.nodeHeartbeat": "设备心跳",
   "event.other": "一次状态更新",
+  /* Ask/Do 的协议状态属内部词表：界面显示这些标签，原始 token 留在折叠记录里。 */
+  "terminal.status.matched": "已就绪",
+  "terminal.status.awaiting": "需要你确认",
+  "terminal.status.ambiguous": "请选择目标",
+  "terminal.status.unmatched": "没有匹配",
   "common.runDetails": "运行详情",
   /* 主页人物位。助理是后期配置的，所以这里描述的是一个明确为空的槽位，
      不暗示已有成品立绘。 */

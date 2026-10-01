@@ -26,8 +26,27 @@ const OUT = resolve(ROOT, arg('out', 'evidence/raw/ui-000'));
 const fail = [];
 const results = [];
 
+/**
+ * UI-000 review repair: this used to hardcode `channel: 'chrome'`, so on any host that has
+ * Edge but not Google Chrome the parity runner died before its first assertion and the
+ * "285/285" evidence could not be reproduced. Fall back the same way the repo's own browser
+ * tests do. An explicit PLAYWRIGHT_CHANNEL still wins, and an empty value forces the bundled
+ * browser.
+ */
+async function launchBrowser() {
+  const explicit = process.env.PLAYWRIGHT_CHANNEL;
+  const candidates = explicit !== undefined
+    ? [{ channel: explicit || undefined }]
+    : [{ channel: process.platform === 'win32' ? 'msedge' : undefined }, { channel: 'chrome' }, {}];
+  const errors = [];
+  for (const options of candidates) {
+    try { return await chromium.launch(options.channel ? options : {}); } catch (error) { errors.push(`${options.channel ?? 'bundled'}: ${error.message.split('\n')[0]}`); }
+  }
+  throw new Error(`no usable browser for the parity runner — ${errors.join('; ')}`);
+}
+
 async function run() {
-  const browser = await chromium.launch({ channel: 'chrome' });
+  const browser = await launchBrowser();
   try {
     for (const id of CANDIDATE_IDS) {
       const page = await browser.newPage({ viewport: { width: 1440, height: 960 } });

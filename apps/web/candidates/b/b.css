@@ -217,4 +217,8 @@ body[data-inspector="open"] .inspector { display: flex; }
   .objects { flex-direction: row; flex-wrap: wrap; }
   .object-zh, .object-count { display: none; }
   .canvas { padding: 16px 14px 32px; }
+  /* UI-000 review repair: a data table holding an unbreakable token (a capability id or a
+     digest) could not shrink below its content, so the Services surface pushed the whole
+     page 37px wide at 390px instead of scrolling inside its own box. */
+  table.data { display: block; max-width: 100%; overflow-x: auto; }
 }

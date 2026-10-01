@@ -259,3 +259,70 @@ test('the governor is strict, frozen, and free of ambient state', () => {
   assert.equal(governor.journal().length > 0, true);
   assert.equal(typeof createResilienceGovernor, 'function');
 });
+
+// ---------------------------------------------------------------- Alien Correction regressions
+// Every test below fails against the Development head and passes against the corrected head.
+
+test('the resilience policy bounds are real bounds', () => {
+  for (const policy of [
+    { max_attempts: Infinity }, { max_attempts: NaN }, { circuit_cooldown_ms: NaN },
+    { health_ttl_ms: NaN }, { backoff_cap_ms: 0 }, { backoff_factor: 0.5 }, { health_ttl_ms: 1200000 }, 'nonsense',
+  ]) {
+    assert.equal(failure(() => governorAt(policy).governor).code, 'INVALID_REQUEST', `policy ${JSON.stringify(policy)}`);
+  }
+  const { governor } = governorAt({ max_attempts: 2, circuit_cooldown_ms: 1000, health_ttl_ms: 1000 });
+  assert.equal(governor.retryDecision({ action_ref: 'action:x', attempt: 2, code: 'TIMEOUT' }).reason, 'ATTEMPTS_EXHAUSTED', 'the bound still bites');
+  governor.recordOutcome({ scope_kind: 'PROVIDER', scope_ref: 'provider:a', outcome: 'FAILURE' });
+  governor.recordOutcome({ scope_kind: 'PROVIDER', scope_ref: 'provider:a', outcome: 'FAILURE' });
+  governor.recordOutcome({ scope_kind: 'PROVIDER', scope_ref: 'provider:a', outcome: 'FAILURE' });
+  assert.equal(typeof governor.circuitState({ scope_kind: 'PROVIDER', scope_ref: 'provider:a' }).open_until, 'string', 'a finite cooldown still opens and dates the circuit');
+});
+
+test('a malformed caller instant is refused as a typed error', () => {
+  const { governor } = governorAt();
+  governor.observeHealth({ scope_kind: 'PROVIDER', scope_ref: 'p:1', observed_at: T0 });
+  for (const at of ['garbage', '2026-13-45T99:99:99Z', '2026-02-30T00:00:00Z', 123]) {
+    assert.equal(failure(() => governor.observeHealth({ scope_kind: 'PROVIDER', scope_ref: 'p:1', observed_at: at })).code, 'INVALID_REQUEST', `observed_at=${String(at)}`);
+    assert.equal(failure(() => governor.healthAt({ scope_kind: 'PROVIDER', scope_ref: 'p:1', at })).code, 'INVALID_REQUEST');
+    assert.equal(failure(() => governor.retryDecision({ action_ref: 'a', attempt: 1, code: 'TIMEOUT', at })).code, 'INVALID_REQUEST');
+    assert.equal(failure(() => governor.recordOutcome({ scope_kind: 'PROVIDER', scope_ref: 'p:1', outcome: 'FAILURE', at })).code, 'INVALID_REQUEST');
+    assert.equal(failure(() => governor.circuitState({ scope_kind: 'PROVIDER', scope_ref: 'p:1', at })).code, 'INVALID_REQUEST');
+    assert.equal(failure(() => governor.degradeChannel({ at })).code, 'INVALID_REQUEST');
+    assert.equal(failure(() => governor.faultIsolation({ at })).code, 'INVALID_REQUEST');
+    assert.equal(failure(() => governor.resilienceReport({ at })).code, 'INVALID_REQUEST');
+  }
+  assert.equal(governor.healthAt({ scope_kind: 'PROVIDER', scope_ref: 'p:1', at: T0 }).health, 'HEALTHY', 'a real instant still works');
+  const badClock = createResilienceGovernor({ clock: () => '2026-13-45T99:99:99Z' });
+  assert.equal(failure(() => badClock.resilienceReport()).code, 'INVALID_CLOCK');
+});
+
+test('a side-effecting failure is not retried without an idempotency key', () => {
+  const { governor } = governorAt();
+  const withheld = governor.retryDecision({ action_ref: 'action:pay', attempt: 1, code: 'TIMEOUT', side_effecting: true });
+  assert.equal(withheld.retry, false, 'a destructive retry could apply the effect twice');
+  assert.equal(withheld.reason, 'IDEMPOTENCY_REQUIRED');
+  assert.equal(withheld.idempotency_required, true);
+  assert.equal(withheld.requires_reconciliation, true);
+  const permitted = governor.retryDecision({ action_ref: 'action:pay', attempt: 1, code: 'TIMEOUT', side_effecting: true, idempotency_key: 'idem:1' });
+  assert.equal(permitted.retry, true);
+  assert.equal(permitted.idempotency_key_present, true);
+  assert.equal(governor.retryDecision({ action_ref: 'action:read', attempt: 1, code: 'TIMEOUT' }).retry, true, 'a read-only retry is unaffected');
+});
+
+test('a cyclic value cannot crash the freezer, and a degraded availability is named', () => {
+  const { governor } = governorAt();
+  const cycle = {};
+  cycle.self = cycle;
+  assert.equal(failure(() => governor.degradeChannel({ reason: cycle })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => governor.degradeChannel({ channel: cycle })).code, 'INVALID_REQUEST');
+  assert.equal(governor.degradeChannel({ reason: 'WEB_UNAVAILABLE' }).state, 'UNAVAILABLE');
+  const degraded = governor.observeHealth({ scope_kind: 'PROVIDER', scope_ref: 'provider:a', availability: 'DEGRADED', observed_at: T0 });
+  assert.equal(degraded.reason, 'AVAILABILITY_DEGRADED', 'a degraded availability is not reported as healthy');
+  assert.equal(degraded.stale, false);
+});
+
+test('the governor policy is a plain record', () => {
+  class Policy {}
+  const instance = Object.assign(new Policy(), { max_attempts: 99 });
+  assert.equal(failure(() => createResilienceGovernor({ clock: () => T0, policy: instance })).code, 'INVALID_REQUEST');
+});

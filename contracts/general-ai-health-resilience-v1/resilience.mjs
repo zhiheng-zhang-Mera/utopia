@@ -48,15 +48,45 @@ export class ResilienceError extends Error {
   }
 }
 
-const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+const isPlainObject = value => {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+};
 const isText = value => typeof value === 'string' && value.trim().length > 0;
 const clone = value => (value === undefined ? undefined : structuredClone(value));
 const freeze = value => {
-  if (value === null || typeof value !== 'object') return value;
-  for (const child of Object.values(value)) freeze(child);
-  return Object.freeze(value);
+  const seen = new WeakSet();
+  const walk = node => {
+    if (node === null || typeof node !== 'object') return node;
+    if (seen.has(node)) return node;
+    seen.add(node);
+    for (const child of Object.values(node)) walk(child);
+    return Object.freeze(node);
+  };
+  return walk(value);
 };
 export const isIsoInstant = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+
+const INSTANT_PARTS = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?Z$/;
+/** Shape is not enough: the regex accepts a calendar-impossible date, so components must round trip. */
+const isRealInstant = value => {
+  if (!isIsoInstant(value)) return false;
+  const parts = INSTANT_PARTS.exec(value);
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return false;
+  return date.getUTCFullYear() === Number(parts[1])
+    && date.getUTCMonth() + 1 === Number(parts[2])
+    && date.getUTCDate() === Number(parts[3])
+    && date.getUTCHours() === Number(parts[4])
+    && date.getUTCMinutes() === Number(parts[5])
+    && date.getUTCSeconds() === Number(parts[6]);
+};
+
+const callerInstant = (value, label = 'at') => {
+  if (!isRealInstant(value)) throw new ResilienceError('INVALID_REQUEST', `${label} must be an ISO-8601 UTC instant such as 2026-01-01T00:00:00Z, got ${String(value)}`);
+  return value;
+};
 
 /**
  * Failure classification. The codes are deliberately the ones a provider or transport actually produces, and
@@ -95,7 +125,19 @@ export const DEFAULT_RESILIENCE_POLICY = Object.freeze({
 
 export function createResilienceGovernor({ clock = () => new Date().toISOString(), policy = {} } = {}) {
   if (typeof clock !== 'function') throw new ResilienceError('INVALID_CLOCK', 'clock must be a function returning an ISO-8601 UTC instant');
-  const config = { ...DEFAULT_RESILIENCE_POLICY, ...(isPlainObject(policy) ? policy : {}) };
+  if (policy !== undefined && policy !== null && !isPlainObject(policy)) throw new ResilienceError('INVALID_REQUEST', 'policy must be an object');
+  const config = { ...DEFAULT_RESILIENCE_POLICY, ...(policy ?? {}) };
+  for (const key of ['max_attempts', 'backoff_base_ms', 'backoff_cap_ms', 'failure_threshold', 'circuit_cooldown_ms', 'health_ttl_ms', 'max_health_ttl_ms']) {
+    if (!Number.isSafeInteger(config[key]) || config[key] <= 0) {
+      throw new ResilienceError('INVALID_REQUEST', `policy.${key} must be a positive safe integer, got ${String(config[key])}`);
+    }
+  }
+  if (!Number.isFinite(config.backoff_factor) || config.backoff_factor < 1) {
+    throw new ResilienceError('INVALID_REQUEST', `policy.backoff_factor must be a finite number >= 1, got ${String(config.backoff_factor)}`);
+  }
+  if (config.health_ttl_ms > config.max_health_ttl_ms) {
+    throw new ResilienceError('INVALID_REQUEST', 'policy.health_ttl_ms may not exceed policy.max_health_ttl_ms');
+  }
   const observations = new Map();
   const circuits = new Map();
   const humanBlocked = new Map();
@@ -105,7 +147,7 @@ export function createResilienceGovernor({ clock = () => new Date().toISOString(
 
   const now = () => {
     const produced = clock();
-    if (!isIsoInstant(produced)) throw new ResilienceError('INVALID_CLOCK', 'clock() must return an ISO-8601 UTC instant');
+    if (!isRealInstant(produced)) throw new ResilienceError('INVALID_CLOCK', 'clock() must return an ISO-8601 UTC instant');
     return produced;
   };
 
@@ -135,7 +177,7 @@ export function createResilienceGovernor({ clock = () => new Date().toISOString(
   const healthProjection = (observation, at) => {
     const staleAfter = observation.stale_after_ms;
     const age = Date.parse(at) - Date.parse(observation.observed_at);
-    const stale = age > staleAfter;
+    const stale = !Number.isFinite(age) || !Number.isFinite(staleAfter) || age > staleAfter;
     const availability = observation.availability;
     const health = stale ? 'UNKNOWN' : observation.health;
     const auth_state = stale ? 'UNKNOWN' : observation.auth_state;
@@ -167,7 +209,7 @@ export function createResilienceGovernor({ clock = () => new Date().toISOString(
       stale,
       stale_health_is_not_healthy: true,
       freshness: freeze({ observed_at: observation.observed_at, evaluated_at: at, age_ms: age, stale_after_ms: staleAfter }),
-      reason: stale ? 'STALE_OBSERVATION' : availability === 'UNAVAILABLE' ? 'UNAVAILABLE' : auth_state !== 'READY' ? `AUTH_${auth_state}` : rate_limit_state === 'LIMITED' ? 'RATE_LIMITED' : budget_state === 'EXHAUSTED' ? 'BUDGET_EXHAUSTED' : health === 'HEALTHY' ? 'HEALTHY' : `HEALTH_${health}`,
+      reason: stale ? 'STALE_OBSERVATION' : availability === 'UNAVAILABLE' ? 'UNAVAILABLE' : availability === 'DEGRADED' ? 'AVAILABILITY_DEGRADED' : auth_state !== 'READY' ? `AUTH_${auth_state}` : rate_limit_state === 'LIMITED' ? 'RATE_LIMITED' : budget_state === 'EXHAUSTED' ? 'BUDGET_EXHAUSTED' : health === 'HEALTHY' ? 'HEALTHY' : `HEALTH_${health}`,
     });
   };
 
@@ -186,8 +228,7 @@ export function createResilienceGovernor({ clock = () => new Date().toISOString(
       if (!AUTH_STATES.includes(auth_state)) throw new ResilienceError('INVALID_SIGNAL', `auth_state must be one of ${AUTH_STATES.join(', ')}`);
       if (!RATE_LIMIT_STATES.includes(rate_limit_state)) throw new ResilienceError('INVALID_SIGNAL', `rate_limit_state must be one of ${RATE_LIMIT_STATES.join(', ')}`);
       if (!BUDGET_STATES.includes(budget_state)) throw new ResilienceError('INVALID_SIGNAL', `budget_state must be one of ${BUDGET_STATES.join(', ')}`);
-      const at = observed_at ?? now();
-      if (!isIsoInstant(at)) throw new ResilienceError('INVALID_REQUEST', 'observed_at must be an ISO-8601 UTC instant');
+      const at = observed_at === undefined || observed_at === null ? now() : callerInstant(observed_at, 'observed_at');
       const ttl = ttl_ms ?? config.health_ttl_ms;
       if (!Number.isSafeInteger(ttl) || ttl <= 0 || ttl > config.max_health_ttl_ms) throw new ResilienceError('INVALID_REQUEST', `ttl_ms must be a positive integer up to ${config.max_health_ttl_ms}`);
       const observation = {
@@ -212,7 +253,7 @@ export function createResilienceGovernor({ clock = () => new Date().toISOString(
           stale: true, reason: 'NO_OBSERVATION', signals_are_separate: true, stale_health_is_not_healthy: true,
         });
       }
-      return healthProjection(observation, when ?? now());
+      return healthProjection(observation, when === undefined || when === null ? now() : callerInstant(when));
     },
 
     classifyFailure,
@@ -221,7 +262,7 @@ export function createResilienceGovernor({ clock = () => new Date().toISOString(
     retryDecision({ action_ref, attempt = 1, code, retry_after_ms = null, idempotency_key = null, side_effecting = false, scope_kind = null, scope_ref = null, at: when } = {}) {
       if (!isText(action_ref)) throw new ResilienceError('INVALID_REQUEST', 'action_ref is required');
       if (!Number.isSafeInteger(attempt) || attempt < 1) throw new ResilienceError('INVALID_REQUEST', 'attempt must be a positive integer');
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       const classification = classifyFailure({ code, retry_after_ms });
       const base = {
         contract_version: RESILIENCE_CONTRACT_VERSION,
@@ -255,6 +296,12 @@ export function createResilienceGovernor({ clock = () => new Date().toISOString(
         note('RETRY_BUDGET_EXHAUSTED', at, { action_ref, attempt });
         return freeze({ ...base, retry: false, auto_resume: false, reason: 'ATTEMPTS_EXHAUSTED', attempts_remaining: 0, max_attempts: config.max_attempts });
       }
+      // A destructive retry without an idempotency key could apply the same effect twice, so it is
+      // withheld for reconciliation exactly like an ambiguous failure.
+      if (side_effecting === true && !isText(idempotency_key)) {
+        note('RETRY_WITHHELD_FOR_IDEMPOTENCY', at, { action_ref, code: classification.code });
+        return freeze({ ...base, retry: false, auto_resume: false, reason: 'IDEMPOTENCY_REQUIRED', requires_reconciliation: true, idempotency_required: true, side_effecting: true });
+      }
       const backoff = Math.min(config.backoff_cap_ms, config.backoff_base_ms * config.backoff_factor ** (attempt - 1));
       const honourRetryAfter = classification.retry_after_ms !== null ? Math.max(backoff, classification.retry_after_ms) : backoff;
       note('RETRY_ALLOWED', at, { action_ref, attempt, backoff_ms: honourRetryAfter });
@@ -275,7 +322,7 @@ export function createResilienceGovernor({ clock = () => new Date().toISOString(
     recordOutcome({ scope_kind, scope_ref, outcome, at: when } = {}) {
       const key = requireScope(scope_kind, scope_ref);
       if (!['SUCCESS', 'FAILURE'].includes(outcome)) throw new ResilienceError('INVALID_REQUEST', 'outcome must be SUCCESS or FAILURE');
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       const circuit = circuits.get(key) ?? { scope_kind, scope_ref, state: 'CLOSED', consecutive_failures: 0, opened_at: null, open_until: null, half_open_probes: 0 };
       if (outcome === 'SUCCESS') {
         circuit.consecutive_failures = 0;
@@ -306,7 +353,7 @@ export function createResilienceGovernor({ clock = () => new Date().toISOString(
 
     circuitState({ scope_kind, scope_ref, at: when } = {}) {
       const key = requireScope(scope_kind, scope_ref);
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       const circuit = circuitFor(key, at);
       if (circuit === null) {
         return freeze({ contract_version: RESILIENCE_CONTRACT_VERSION, scope_kind, scope_ref, state: 'CLOSED', consecutive_failures: 0, open_until: null, circuit_is_global: false });
@@ -326,7 +373,9 @@ export function createResilienceGovernor({ clock = () => new Date().toISOString(
      * A Web failure may propose another device or stay unavailable. It never silently becomes an API call.
      */
     degradeChannel({ channel = 'WEB_CHANNEL', reason = 'WEB_UNAVAILABLE', other_device_available = false, at: when } = {}) {
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
+      if (!isText(channel)) throw new ResilienceError('INVALID_REQUEST', 'channel must be nonempty text');
+      if (!isText(reason)) throw new ResilienceError('INVALID_REQUEST', 'reason must be nonempty text');
       note('CHANNEL_DEGRADED', at, { channel, reason });
       return freeze({
         contract_version: RESILIENCE_CONTRACT_VERSION,
@@ -356,7 +405,7 @@ export function createResilienceGovernor({ clock = () => new Date().toISOString(
 
     /** Fault isolation statement: one failing scope does not poison the rest of the platform. */
     faultIsolation({ failing_scope_kind = null, failing_scope_ref = null, at: when } = {}) {
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       const affected = [...circuits.values()].filter(circuit => circuit.state === 'OPEN');
       return freeze({
         contract_version: RESILIENCE_CONTRACT_VERSION,
@@ -377,7 +426,7 @@ export function createResilienceGovernor({ clock = () => new Date().toISOString(
       const pending = humanBlocked.get(action_ref);
       if (!pending) return freeze({ action_ref, acknowledged: false, reason: 'NOT_BLOCKED' });
       if (pending.resolved === true) return freeze({ action_ref, acknowledged: true, duplicate: true, reason: 'ALREADY_ACKNOWLEDGED' });
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       humanBlocked.set(action_ref, freeze({ ...pending, resolved: true, acknowledged_at: at, acknowledged_by_ref: by_ref }));
       note('HUMAN_ACTION_ACKNOWLEDGED', at, { action_ref });
       return freeze({ action_ref, acknowledged: true, duplicate: false, by_ref, acknowledged_at: at, auto_resume_still_required: true });
@@ -387,7 +436,7 @@ export function createResilienceGovernor({ clock = () => new Date().toISOString(
 
     /** Aggregate honest view: stale and unknown are reported as such, never as healthy. */
     resilienceReport({ at: when } = {}) {
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       const scopes = [...observations.values()].map(observation => healthProjection(observation, at));
       return freeze({
         contract_version: RESILIENCE_CONTRACT_VERSION,

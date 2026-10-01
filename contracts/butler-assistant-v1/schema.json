@@ -1,0 +1,131 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "https://utopia.digital-city/contracts/butler-assistant-v1/schema.json",
+ "title": "Butler Assistant Zone contract v1",
+ "description": "Assistant identity, replaceable personalization profile and portable export bundle. A profile is descriptive state only and MUST NOT grant authority.",
+ "$defs": {
+  "label": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$" },
+  "nullableId": { "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1, "maxLength": 128 }] },
+  "nullableText": { "oneOf": [{ "type": "null" }, { "type": "string", "minLength": 1 }] },
+  "address": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["assistantName", "userFormOfAddress", "pronouns"],
+   "properties": {
+    "assistantName": { "$ref": "#/$defs/nullableText" },
+    "userFormOfAddress": { "$ref": "#/$defs/nullableText" },
+    "pronouns": { "$ref": "#/$defs/nullableText" }
+   }
+  },
+  "voice": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["voiceId", "locale", "speakingRate", "pitch"],
+   "properties": {
+    "voiceId": { "$ref": "#/$defs/nullableId" },
+    "locale": { "$ref": "#/$defs/nullableText" },
+    "speakingRate": { "type": "number", "minimum": 0, "maximum": 1 },
+    "pitch": { "type": "number", "minimum": 0, "maximum": 1 }
+   }
+  },
+  "appearance": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["avatarId", "themeId"],
+   "properties": {
+    "avatarId": { "$ref": "#/$defs/nullableId" },
+    "themeId": { "$ref": "#/$defs/nullableId" }
+   }
+  },
+  "personality": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["tone", "traits"],
+   "properties": {
+    "tone": { "enum": ["neutral", "warm", "formal", "playful", "reserved"] },
+    "traits": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/label" } }
+   }
+  },
+  "duties": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["labels"],
+   "description": "Descriptive duty labels. Holding a label never confers the corresponding action.",
+   "properties": { "labels": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/label" } } }
+  },
+  "companion": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["relationshipMode", "companionName", "notes"],
+   "description": "Assistant-scoped relationship state; never canonical user identity data.",
+   "properties": {
+    "relationshipMode": { "enum": ["assistant", "butler", "secretary", "companion"] },
+    "companionName": { "$ref": "#/$defs/nullableText" },
+    "notes": { "$ref": "#/$defs/nullableText" }
+   }
+  },
+  "extensionEntry": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["version", "value"],
+   "properties": { "version": { "type": "integer", "minimum": 1 }, "value": true }
+  },
+  "profile": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["schema_version", "address", "voice", "appearance", "personality", "duties", "companion", "extensions"],
+   "properties": {
+    "schema_version": { "type": "integer", "minimum": 1, "maximum": 1 },
+    "address": { "$ref": "#/$defs/address" },
+    "voice": { "$ref": "#/$defs/voice" },
+    "appearance": { "$ref": "#/$defs/appearance" },
+    "personality": { "$ref": "#/$defs/personality" },
+    "duties": { "$ref": "#/$defs/duties" },
+    "companion": { "$ref": "#/$defs/companion" },
+    "extensions": {
+     "type": "object",
+     "maxProperties": 64,
+     "propertyNames": { "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$" },
+     "additionalProperties": { "$ref": "#/$defs/extensionEntry" }
+    }
+   }
+  },
+  "assistantIdentity": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["assistant_id", "id_source", "created_at", "profile"],
+   "properties": {
+    "assistant_id": { "type": "string", "pattern": "^[a-zA-Z0-9][a-zA-Z0-9._:-]{0,127}$" },
+    "id_source": { "enum": ["provided", "minted"] },
+    "created_at": { "$ref": "#/$defs/nullableText" },
+    "profile": { "$ref": "#/$defs/profile" }
+   }
+  },
+  "bundle": {
+   "type": "object",
+   "additionalProperties": false,
+   "required": ["kind", "bundle_version", "exported_at", "assistant"],
+   "properties": {
+    "kind": { "const": "butler-assistant-profile-bundle" },
+    "bundle_version": { "type": "integer", "minimum": 1, "maximum": 1 },
+    "exported_at": { "$ref": "#/$defs/nullableText" },
+    "assistant": { "$ref": "#/$defs/assistantIdentity" }
+   }
+  }
+ },
+ "oneOf": [
+  { "$ref": "#/$defs/profile" },
+  { "$ref": "#/$defs/bundle" }
+ ],
+ "x-authority-boundary": {
+  "profileGrantsAuthority": false,
+  "forbiddenFieldNames": [
+   "authority", "grant", "grants", "permission", "permissions", "capability", "capabilities",
+   "lease", "leases", "executionLease", "actionKey", "actionKeys", "allowedActions", "policy",
+   "scope", "scopes", "accessToken", "token", "credential", "credentials", "secret", "secrets"
+  ],
+  "forbiddenEffectValues": ["allow", "grant", "permit", "authorize"],
+  "forbiddenPrototypeKeys": ["__proto__", "prototype", "constructor"],
+  "note": "A profile that names any authority field, or carries an allowing effect, is rejected by validateProfile. Reserved prototype keys are rejected at every depth of a profile and of a bundle, and a patch that contains one is refused before any assignment: assigning `__proto__` would rewrite an object's prototype instead of adding a key, which `Object.keys` (and therefore validation) cannot see."
+ }
+}

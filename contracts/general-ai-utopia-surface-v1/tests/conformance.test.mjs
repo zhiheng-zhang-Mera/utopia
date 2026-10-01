@@ -462,3 +462,15 @@ test('the canonical history names the device that acted', () => {
   assert.equal(entries.some(entry => entry.event === 'ASK_ACCEPTED'), true);
   assert.equal(entries.some(entry => entry.event === 'CONTROL_PAUSE'), true);
 });
+// GAI-009-CORRECTION-PASS-3 - a confirmed device switch may not revive a finished action.
+
+test('a device-switch confirmation cannot revive a cancelled action', () => {
+  const { facade } = facadeWith();
+  const asked = askGeneralAi(facade);
+  facade.proposeDeviceSwitch({ action_ref: asked.action_ref, remote_device_ref: PHONE });
+  facade.control({ action_ref: asked.action_ref, operation: 'CANCEL', by_device_ref: LAPTOP });
+  const refused = failure(() => facade.confirmDeviceSwitch({ action_ref: asked.action_ref, confirmed: true }));
+  assert.equal(refused.code, 'FALSE_SUCCESS_REFUSED');
+  assert.equal(facade.render({ action_ref: asked.action_ref }).state, 'CANCELLED');
+  assert.equal(facade.action(asked.action_ref).execution_device_ref, LAPTOP, 'a cancelled action stays on its interaction device');
+});

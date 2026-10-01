@@ -373,7 +373,7 @@ export function createAskDoFacade({
     },
 
     confirmDeviceSwitch({ action_ref, confirmed = false, at: when } = {}) {
-      const action = requireAction(action_ref);
+      const action = requireLiveAction(action_ref, 'a device-switch confirmation');
       const proposal = action.device_switch_proposal;
       if (proposal === null) throw new GaiSurfaceError('INVALID_REQUEST', `no device-switch proposal for ${action_ref}`);
       const at = atFrom(when);

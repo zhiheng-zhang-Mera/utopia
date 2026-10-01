@@ -67,6 +67,60 @@ export const STATE_FOR_KIND = Object.freeze({
  */
 export const REMOTE_STATES = Object.freeze(['ONLINE', 'UNKNOWN', 'RECOVERING']);
 
+/**
+ * STEP 4 - keeping provider-unavailable and device-unavailable APART.
+ *
+ * The workbook requires the two to be handled separately and requires that a fallback "must not
+ * confuse the reasons". The existing `EXCLUSION_REASONS` vocabulary is a flat list that MIXES both
+ * axes - `OFFLINE` next to `NO_SESSION` - so a caller reading only that list cannot tell whether the
+ * device was gone or the provider was, which is exactly the confusion to prevent. This classifies
+ * that existing vocabulary rather than replacing it: same codes, one axis each.
+ *
+ * INPUT is a third domain and is not a fault of either side - `INPUT_NOT_LOCAL` means the material
+ * is not on the device, so reporting it as a device outage or a provider outage would both be
+ * wrong, and giving it its own domain is the honest answer.
+ */
+export const UNAVAILABILITY_DOMAINS = Object.freeze(['DEVICE', 'PROVIDER', 'INPUT']);
+
+export const DOMAIN_OF_REASON = Object.freeze({
+  OFFLINE: 'DEVICE',
+  UNKNOWN_PRESENCE: 'DEVICE',
+  STALE_ENDPOINT: 'DEVICE',
+  NO_SESSION: 'PROVIDER',
+  OVERLOADED: 'PROVIDER',
+  NOT_WEB_READY: 'PROVIDER',
+  INPUT_NOT_LOCAL: 'INPUT',
+});
+
+/**
+ * Partition reasons by axis WITHOUT losing any. A reason outside the known vocabulary lands in
+ * `unclassified` and is reported rather than dropped, because silently discarding an unknown cause
+ * is how a fallback ends up explaining something other than what happened.
+ */
+export function classifyUnavailability({ reasons = [] } = {}) {
+  const byDomain = { DEVICE: [], PROVIDER: [], INPUT: [] };
+  const unclassified = [];
+  for (const reason of reasons) {
+    const domain = DOMAIN_OF_REASON[reason];
+    if (domain) byDomain[domain].push(reason); else unclassified.push(reason);
+  }
+  const present = UNAVAILABILITY_DOMAINS.filter((d) => byDomain[d].length > 0);
+  return Object.freeze({
+    by_domain: Object.freeze({
+      DEVICE: Object.freeze([...byDomain.DEVICE]),
+      PROVIDER: Object.freeze([...byDomain.PROVIDER]),
+      INPUT: Object.freeze([...byDomain.INPUT]),
+    }),
+    domains: Object.freeze(present),
+    unclassified: Object.freeze([...unclassified]),
+    // `mixed` is the flag that makes conflation impossible to do accidentally: a caller that wants a
+    // single cause has to look at this first and decide, rather than receiving one silently.
+    mixed: present.length > 1,
+    any: present.length > 0 || unclassified.length > 0,
+  });
+}
+
+
 export const BRIDGE_CODES = Object.freeze([
   'INVALID_REQUEST', 'INVALID_CLOCK', 'INVALID_SURFACE_RESOLVER', 'UNKNOWN_CORRELATION',
   'DUPLICATE_CORRELATION', 'UNKNOWN_EVENT_KIND', 'OUT_OF_ORDER', 'DUPLICATE_EVENT',
@@ -389,6 +443,58 @@ export function createReturnBridge({ resolveSurface, clock = () => new Date().to
     });
   }
 
+  /**
+   * STEP 4's decision half. Chooses a fallback for a set of unavailability reasons and states its
+   * cause EXPLICITLY, so a caller never has to infer which side failed.
+   *
+   * The rule this enforces: the fallback's stated cause must be the classified cause, and when more
+   * than one axis is down the result must say so rather than picking a favourite. A fallback that
+   * reported "provider unavailable" for a device outage would send the user to fix the wrong thing,
+   * which is the concrete harm the workbook's wording is aimed at.
+   */
+  function planFallback({ actionRef, reasons = [], alternates = [] } = {}) {
+    const record = correlations.get(actionRef);
+    if (!record) throw new ReturnBridgeError('UNKNOWN_CORRELATION', `no correlation for ${String(actionRef)}`);
+    const classified = classifyUnavailability({ reasons });
+
+    if (!classified.any) {
+      return Object.freeze({
+        action_ref: actionRef, action: 'NONE', cause: null, causes: Object.freeze([]),
+        mixed_cause: false, preserves_cause: true, detail: 'no unavailability was reported', classified,
+      });
+    }
+
+    // Mixed causes are NOT collapsed. The action is deliberately conservative and the caller is told
+    // both axes are down, because either single-cause fallback would be a guess.
+    if (classified.mixed) {
+      return Object.freeze({
+        action_ref: actionRef, action: alternates.length > 0 ? 'ALTERNATE_DEVICE' : 'QUEUE_AND_EXPLAIN',
+        cause: null,                       // deliberately null: there is no single cause to name
+        causes: Object.freeze([...classified.domains]),
+        mixed_cause: true, preserves_cause: true,
+        detail: `more than one axis is unavailable (${classified.domains.join(' and ')}), so no single cause is claimed`,
+        classified,
+      });
+    }
+
+    const domain = classified.domains[0] ?? null;
+    const action = domain === 'DEVICE'
+      ? (alternates.length > 0 ? 'ALTERNATE_DEVICE' : 'QUEUE_FOR_DEVICE')
+      : domain === 'PROVIDER'
+        ? 'PROVIDER_FALLBACK'
+        : 'ASK_USER_FOR_INPUT';
+    return Object.freeze({
+      action_ref: actionRef, action, cause: domain, causes: Object.freeze(domain ? [domain] : []),
+      mixed_cause: false, preserves_cause: true,
+      detail: domain === 'DEVICE'
+        ? 'the executing device is unavailable; the provider is not implicated'
+        : domain === 'PROVIDER'
+          ? 'the provider is unavailable; the device is not implicated'
+          : 'neither the device nor the provider is at fault: the material is not present on the device',
+      classified,
+    });
+  }
+
   return Object.freeze({
     register,
     handoff,
@@ -397,6 +503,7 @@ export function createReturnBridge({ resolveSurface, clock = () => new Date().to
     requestConfirmation,
     respond,
     expire,
+    planFallback,
     confirmation: (promptRef) => (confirmations.has(promptRef) ? Object.freeze({ ...confirmations.get(promptRef) }) : null),
     correlation: (actionRef) => (correlations.has(actionRef) ? Object.freeze({ ...correlations.get(actionRef) }) : null),
     stats: () => Object.freeze({ ...counters }),

@@ -4,3 +4,4 @@
 import '../contracts/rs-cross-device-return-v1/tests/return-bridge.test.mjs';
 import '../contracts/rs-cross-device-return-v1/tests/step2-scenarios.test.mjs';
 import '../contracts/rs-cross-device-return-v1/tests/step3-confirmation.test.mjs';
+import '../contracts/rs-cross-device-return-v1/tests/step4-unavailability.test.mjs';

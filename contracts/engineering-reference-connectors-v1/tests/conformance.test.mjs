@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ACCEPTANCE_DEFERRED, AUTH_STATES, CANONICAL_CAPABILITIES, CONNECTOR_KINDS, CONNECTOR_PORT, ConnectorError,
-  INSTALL_STATES, JOB_STATES, READINESS, createConnectorRegistry, createReferenceConnector,
+  INSTALL_STATES, JOB_STATES, READINESS, createConnectorRegistry, createReferenceConnector, isIsoInstant,
 } from '../index.mjs';
 
 const T0 = '2026-01-01T00:00:00Z';
@@ -309,4 +309,139 @@ test('the connector contract is strict, frozen and independent of ambient state'
   assert.equal(connector.journal().some(entry => entry.event === 'STARTED'), true);
   assert.equal(connector.health().emulated, false);
   assert.equal(connector.auth().emulated, false);
+});
+
+// ---------------------------------------------------------------- Alien Correction regressions
+// Every test below fails against the Development head and passes against the corrected head.
+
+/** A host runtime whose individual channels can refuse, throw or answer with the wrong shape. */
+const hostWith = (overrides = {}) => {
+  const calls = { start: 0, submit: 0, control: 0, events: 0 };
+  return {
+    calls,
+    runtime: {
+      probe: () => ({ installed: true, version_output: 'v1.2.3', host_path_ref: 'host:bin' }),
+      auth: () => ({ state: 'READY' }),
+      start: overrides.start ?? (() => { calls.start += 1; return { backend_run_ref: 'backend:run:1', backend_session_ref: 'backend:session:1' }; }),
+      submit: overrides.submit ?? (() => { calls.submit += 1; return { result_ref: 'result:1' }; }),
+      control: overrides.control ?? (() => { calls.control += 1; return { accepted: true }; }),
+      events: overrides.events ?? (() => { calls.events += 1; return [{ kind: 'PROGRESS', text: 'working' }]; }),
+      result: overrides.result ?? (() => ({ state: 'RUNNING' })),
+      acceptanceEvidence: overrides.acceptanceEvidence ?? (() => null),
+    },
+  };
+};
+const connectorWith = (overrides = {}, kind = 'CODEX') => {
+  const { runtime, calls } = hostWith(overrides);
+  return { connector: createReferenceConnector({ kind, runtime, clock: () => T0 }), calls };
+};
+
+test('component acceptance needs a real terminal state, not an assumed one', () => {
+  const full = { real: true, submit_ref: 'submit:1', progress_ref: 'progress:1', terminal_ref: 'terminal:1' };
+  const noTerminal = connectorWith({ acceptanceEvidence: () => full }).connector.acceptanceReport();
+  assert.equal(noTerminal.component_stage_acceptance, false, 'a run with no reported terminal outcome is not accepted');
+  assert.equal(noTerminal.deferred_marker, ACCEPTANCE_DEFERRED);
+  assert.equal(noTerminal.terminal_state_provided, null);
+  const unknownTerminal = connectorWith({ acceptanceEvidence: () => ({ ...full, terminal_state: 'WHATEVER' }) }).connector.acceptanceReport();
+  assert.equal(unknownTerminal.component_stage_acceptance, false, 'an unrecognised terminal state is not a proven outcome');
+  const sameRef = connectorWith({ acceptanceEvidence: () => ({ real: true, submit_ref: 'same', progress_ref: 'same', terminal_ref: 'same', terminal_state: 'SUCCEEDED' }) }).connector.acceptanceReport();
+  assert.equal(sameRef.component_stage_acceptance, false, 'one reference cannot stand in for submit, progress and terminal');
+  const failed = connectorWith({ acceptanceEvidence: () => ({ ...full, terminal_state: 'FAILED' }) }).connector.acceptanceReport();
+  assert.equal(failed.component_stage_acceptance, true);
+  assert.equal(failed.real_submit_evidence.terminal_state, 'FAILED', 'the reported terminal state is the runtime\'s, never a default');
+  assert.equal(failed.evidence_source, 'HOST_RUNTIME');
+});
+
+test('a submit the backend refused is never reported as submitted', () => {
+  const refused = connectorWith({ submit: () => ({ submitted: false, reason: 'QUOTA' }) });
+  const refusedSession = refused.connector.startOrAttach({ canonical_job_ref: 'job:1' });
+  const error = failure(() => refused.connector.submit({ session_ref: refusedSession.session_ref, operation: 'code.generate', action_key: 'k' }));
+  assert.equal(error.code, 'REFUSED');
+  assert.equal(error.submitted, false);
+  assert.equal(refused.connector.sessions()[0].submits.length, 0, 'a refused submit records no submission');
+
+  const throwing = connectorWith({ submit: () => { throw new Error('backend gone'); } });
+  const throwingSession = throwing.connector.startOrAttach({ canonical_job_ref: 'job:2' });
+  assert.equal(failure(() => throwing.connector.submit({ session_ref: throwingSession.session_ref, operation: 'code.generate' })).code, 'REFUSED');
+
+  const silent = connectorWith({ submit: () => ({}) });
+  const silentSession = silent.connector.startOrAttach({ canonical_job_ref: 'job:3' });
+  const submitted = silent.connector.submit({ session_ref: silentSession.session_ref, operation: 'code.generate', action_key: 'k' });
+  assert.equal(submitted.submitted, true);
+  assert.equal(submitted.result_ref, null, 'a backend correlation reference is never invented');
+  assert.equal(submitted.backend_result_ref_known, false);
+  assert.equal(submitted.canonical_job_ref, 'job:3', 'the canonical job id is still the identity');
+});
+
+test('a control the backend refused does not close the session', () => {
+  const refused = connectorWith({ control: () => ({ accepted: false, reason: 'BUSY' }) });
+  const session = refused.connector.startOrAttach({ canonical_job_ref: 'job:1' });
+  const error = failure(() => refused.connector.control({ session_ref: session.session_ref, operation: 'CANCEL' }));
+  assert.equal(error.code, 'REFUSED');
+  assert.equal(error.applied, false);
+  assert.equal(refused.connector.sessions()[0].state, 'STARTED', 'a refused cancel leaves the session open');
+
+  const throwing = connectorWith({ control: () => { throw new Error('no control channel'); } });
+  const throwingSession = throwing.connector.startOrAttach({ canonical_job_ref: 'job:2' });
+  assert.equal(failure(() => throwing.connector.control({ session_ref: throwingSession.session_ref, operation: 'CANCEL' })).code, 'REFUSED');
+  assert.equal(throwing.connector.sessions()[0].state, 'STARTED');
+
+  const accepted = connectorWith({});
+  const acceptedSession = accepted.connector.startOrAttach({ canonical_job_ref: 'job:3' });
+  assert.equal(accepted.connector.control({ session_ref: acceptedSession.session_ref, operation: 'CANCEL' }).applied, true);
+  assert.equal(accepted.connector.sessions()[0].state, 'CLOSED');
+});
+
+test('an unreadable event stream is not an empty one', () => {
+  const broken = connectorWith({ events: () => ({ not: 'a list' }) });
+  const session = broken.connector.startOrAttach({ canonical_job_ref: 'job:1' });
+  assert.equal(failure(() => broken.connector.events({ session_ref: session.session_ref })).code, 'INVALID_RUNTIME');
+  const throwing = connectorWith({ events: () => { throw new Error('stream closed'); } });
+  const throwingSession = throwing.connector.startOrAttach({ canonical_job_ref: 'job:2' });
+  assert.equal(failure(() => throwing.connector.events({ session_ref: throwingSession.session_ref })).code, 'REFUSED');
+  const quiet = connectorWith({ events: () => [] });
+  const quietSession = quiet.connector.startOrAttach({ canonical_job_ref: 'job:3' });
+  assert.deepEqual([...quiet.connector.events({ session_ref: quietSession.session_ref }).events], [], 'a genuinely empty stream is still empty');
+});
+
+test('a result about another backend run is not this job outcome', () => {
+  const connector = connectorWith({ result: () => ({ state: 'SUCCEEDED', result_ref: 'result:other', backend_run_ref: 'backend:run:OTHER' }) }).connector;
+  const session = connector.startOrAttach({ canonical_job_ref: 'job:1' });
+  const result = connector.result({ session_ref: session.session_ref });
+  assert.equal(result.state, 'UNKNOWN', 'another run\'s success is not attributed to this job');
+  assert.equal(result.terminal, false);
+  assert.equal(result.correlation_mismatch, true);
+  assert.equal(result.declared_backend_run_ref, 'backend:run:OTHER');
+  assert.equal(result.backend_run_ref, 'backend:run:1', 'the session keeps its own provenance');
+
+  const matching = connectorWith({ result: () => ({ state: 'SUCCEEDED', result_ref: 'result:1', backend_run_ref: 'backend:run:1' }) }).connector;
+  const matchingSession = matching.startOrAttach({ canonical_job_ref: 'job:2' });
+  assert.equal(matching.result({ session_ref: matchingSession.session_ref }).state, 'SUCCEEDED', 'a correctly correlated result still reports its outcome');
+});
+
+test('a session the backend refused is not created', () => {
+  const refused = connectorWith({ start: () => ({ started: false, reason: 'NO_CAPACITY' }) });
+  assert.equal(failure(() => refused.connector.startOrAttach({ canonical_job_ref: 'job:1' })).code, 'REFUSED');
+  assert.equal(refused.connector.sessions().length, 0, 'a refused start creates no session');
+  const throwing = connectorWith({ start: () => { throw new Error('spawn failed'); } });
+  assert.equal(failure(() => throwing.connector.startOrAttach({ canonical_job_ref: 'job:2' })).code, 'REFUSED');
+  assert.equal(throwing.connector.sessions().length, 0);
+  const badProvenance = connectorWith({});
+  assert.equal(failure(() => badProvenance.connector.startOrAttach({ canonical_job_ref: 'job:3', backend_run_ref: 42 })).code, 'INVALID_REQUEST');
+  assert.equal(badProvenance.connector.sessions().length, 0);
+  assert.equal(connectorWith({}).connector.startOrAttach({ canonical_job_ref: 'job:4' }).started, true);
+});
+
+test('an uninterpretable instant is refused rather than recorded', () => {
+  assert.equal(isIsoInstant('2026-13-45T99:99:99Z'), false, 'a shape-valid but unparseable instant is not an instant');
+  assert.equal(isIsoInstant('2026-01-01T00:00:00.000Z'), true);
+  const { connector } = connectorFor('CODEX');
+  assert.equal(failure(() => connector.startOrAttach({ canonical_job_ref: 'job:1', at: '2026-13-45T99:99:99Z' })).code, 'INVALID_REQUEST');
+  assert.equal(connector.sessions().length, 0, 'nothing was created from an unusable instant');
+  const session = connector.startOrAttach({ canonical_job_ref: 'job:1' });
+  assert.equal(failure(() => connector.submit({ session_ref: session.session_ref, operation: 'code.generate', at: 'yesterday' })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => connector.control({ session_ref: session.session_ref, operation: 'CANCEL', at: 5 })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => connector.result({ session_ref: session.session_ref, at: 'not-an-instant' })).code, 'INVALID_REQUEST');
+  const registry = createConnectorRegistry({ clock: () => '2026-13-45T99:99:99Z' });
+  assert.equal(failure(() => registry.coverage()).code, 'INVALID_CLOCK');
 });

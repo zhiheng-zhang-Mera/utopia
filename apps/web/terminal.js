@@ -238,7 +238,7 @@ function renderRooms(container) {
       + `<button data-terminal="room-close">${tr('terminal.rooms.close')}</button></div>`
       + (hub ? `<iframe class="terminal-frame" src="${esc(hub)}" title="${tr('terminal.rooms.frameTitle')}" sandbox="allow-scripts allow-forms allow-same-origin allow-popups allow-downloads allow-modals" referrerpolicy="no-referrer" allow="clipboard-read; clipboard-write; downloads"></iframe>`
         : `<p class="muted">${tr('terminal.rooms.frameLoading')}</p>`)
-      + `<p class="muted">${tr('terminal.rooms.linkNote')} ${rawLink(hub ?? '', tr('terminal.rooms.openTab'))}</p>`
+      + `<p class="muted">${tr('terminal.rooms.linkNote')} ${rawLink(rooms.hubStandalone ?? hub ?? '', tr('terminal.rooms.openTab'))}</p>`
       + (rooms.note ? `<p class="muted terminal-note">${esc(rooms.note)}</p>` : '')
       + '</section>' : '');
 }
@@ -370,7 +370,27 @@ function openRoom(roomId) {
   if (!roomId || !roomIdSet().has(roomId) || rooms.data?.available !== true) return;
   const base = text(rooms.data.hubUrl).replace(/\/$/, '');
   if (!base) { rooms.error = t('terminal.rooms.noHubUrl'); controller.render(); return; }
-  rooms.open = roomId; rooms.hub = `${base}/#/${encodeURIComponent(roomId)}`; rooms.note = '';
+  rooms.open = roomId;
+  /* UI-101 post-review delta: UI-103's frontmatter records a pending_seam whose CONSUMER
+     side is this file - the embedded hub drops its own rail so the Web shell owns the
+     frame (hub.css: body[data-embedded="true"] .rail { display:none }), and the hub reads
+     the flag from location.search. The flag therefore has to go BEFORE the '#' fragment;
+     appending it after would leave location.search empty and the rail would reappear
+     inside the shell. Built through URL rather than string concatenation so an existing
+     query on hubUrl cannot produce a second '?'. The new-tab link deliberately does NOT
+     carry the flag: standalone must stay complete. */
+  const frameUrl = new URL(`${base}/`);
+  frameUrl.searchParams.set('embedded', '1');
+  frameUrl.hash = `/${encodeURIComponent(roomId)}`;
+  rooms.hub = frameUrl.toString();
+  /* The new-tab link must stay STANDALONE (the hub keeps its own rail there), so it needs
+     the same URL WITHOUT the flag. Sharing one value for both was a defect this delta
+     introduced and its own probe caught: the remove-and-re-add is done through URL so the
+     parameter is dropped cleanly rather than by string surgery. */
+  const standalone = new URL(frameUrl.toString());
+  standalone.searchParams.delete('embedded');
+  rooms.hubStandalone = standalone.toString();
+  rooms.note = '';
   clearTimeout(frameTimer);
   controller.render();
   const frame = node('terminal-hub')?.querySelector('iframe');
@@ -437,7 +457,7 @@ const controller = {
     if (!target || !host?.contains(target)) return;
     const action = target.dataset.terminal;
     if (action === 'room-open') openRoom(target.dataset.room);
-    else if (action === 'room-close') { state.rooms.open = null; state.rooms.hub = null; controller.render(); }
+    else if (action === 'room-close') { state.rooms.open = null; state.rooms.hub = null; state.rooms.hubStandalone = null; controller.render(); }
     else if (action === 'action-open') openAction(target.dataset.action).catch(() => {});
     else if (action === 'ask-open') {
       context.go?.('Actions');

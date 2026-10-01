@@ -58,6 +58,32 @@ try {
     if (of > 1) findings.push(`${name}: desktop horizontal overflow ${of}px`);
   }
 
+  /* ---- post-review delta: the embedded-hub seam -------------------------------
+     The shell's room iframe must carry embedded=1 BEFORE the '#' fragment, because the
+     hub reads it from location.search and drops its own rail when it is set; the
+     standalone new-tab link must NOT carry it. If no iframe is present the hub was not
+     reachable in this run, and that is reported as NOT COVERED rather than silently
+     passing - a probe that cannot fail for the thing it names is the defect this task
+     already had once. */
+  await page.locator('nav button[data-page="Rooms"]').first().click();
+  await page.waitForTimeout(700);
+  const openBtn = page.locator('#view [data-terminal="room-open"]').first();
+  if (await openBtn.count()) { await openBtn.click(); await page.waitForTimeout(1500); }
+  const frame = page.locator('iframe.terminal-frame').first();
+  if (await frame.count()) {
+    const src = await frame.getAttribute('src');
+    if (!src || !src.includes('embedded=1')) findings.push(`rooms iframe: embedded flag missing from src ${JSON.stringify(src)}`);
+    else if (src.indexOf('embedded=1') > src.indexOf('#')) findings.push(`rooms iframe: embedded flag sits AFTER the fragment, so location.search is empty: ${JSON.stringify(src)}`);
+    console.log(`[rooms] iframe src = ${src}`);
+  } else {
+    console.log('[rooms] NOT COVERED: no room iframe rendered because the hub was not reachable in this run');
+  }
+  const links = page.locator('#view a[href]');
+  for (let i = 0; i < await links.count(); i += 1) {
+    const href = await links.nth(i).getAttribute('href');
+    if (href && href.includes('embedded=1')) findings.push(`rooms new-tab link must stay standalone but carries embedded=1: ${href}`);
+  }
+
   await page.setViewportSize({ width: 390, height: 844 });
   for (const name of ['Home', 'Rooms', 'Devices']) {
     await page.locator(`nav button[data-page="${name}"]`).first().click();

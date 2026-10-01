@@ -71,6 +71,9 @@ export const BRIDGE_CODES = Object.freeze([
   'INVALID_REQUEST', 'INVALID_CLOCK', 'INVALID_SURFACE_RESOLVER', 'UNKNOWN_CORRELATION',
   'DUPLICATE_CORRELATION', 'UNKNOWN_EVENT_KIND', 'OUT_OF_ORDER', 'DUPLICATE_EVENT',
   'LATE_EVENT_AFTER_TERMINAL', 'SURFACE_UNAVAILABLE',
+  // step 3
+  'UNKNOWN_CONFIRMATION', 'CONFIRMATION_ALREADY_ANSWERED', 'CONFIRMATION_EXPIRED',
+  'INVALID_DECISION', 'NOT_AUTHORIZED_SURFACE',
 ]);
 
 export class ReturnBridgeError extends Error {
@@ -98,7 +101,7 @@ export function createReturnBridge({ resolveSurface, clock = () => new Date().to
 
   /** actionRef -> correlation record */
   const correlations = new Map();
-  const counters = { registered: 0, applied: 0, duplicates: 0, out_of_order: 0, late: 0, unprojected: 0, disconnected: 0 };
+  const counters = { registered: 0, applied: 0, duplicates: 0, out_of_order: 0, late: 0, unprojected: 0, disconnected: 0, confirmations_requested: 0, confirmations_undeliverable: 0, confirmations_answered: 0, confirmations_refused: 0, confirmations_expired: 0 };
 
   function register({ actionRef, interactionDeviceRef, executionDeviceRef, ownerRef = null } = {}) {
     if (!isText(actionRef)) throw new ReturnBridgeError('INVALID_REQUEST', 'actionRef is required');
@@ -272,11 +275,129 @@ export function createReturnBridge({ resolveSurface, clock = () => new Date().to
     });
   }
 
+  /**
+   * STEP 3 - confirmation routing, timeout and the offline path.
+   *
+   * The workbook's requirement is exact and has two halves that pull against each other: the
+   * confirmation must return to the CURRENT AUTHORIZED interaction surface, and a timeout or an
+   * offline surface must follow an EXPLAINABLE recovery path rather than either being dropped or
+   * being recorded as a failure. Both are implemented here, and neither is allowed to weaken the
+   * other.
+   *
+   * Note what is NOT here: nothing in this section moves the interaction surface. A handoff changes
+   * which device EXECUTES; it must never move where the user is asked, which is the workbook's
+   * "handoff does not transfer permissions" read as a routing guarantee.
+   */
+  const confirmations = new Map();   // promptRef -> record
+
+  const surfaceRefOf = (resolved) => (resolved ? (resolved.device_ref ?? resolved.surface_ref ?? null) : null);
+
+  function resolveNow(ownerRef) {
+    try { return resolveSurface({ ownerRef }) ?? null; } catch { return null; }
+  }
+
+  function requestConfirmation({ actionRef, promptRef, deadlineMs = 60000, at = clock() } = {}) {
+    const record = correlations.get(actionRef);
+    if (!record) throw new ReturnBridgeError('UNKNOWN_CORRELATION', `no correlation for ${String(actionRef)}`);
+    if (!isText(promptRef)) throw new ReturnBridgeError('INVALID_REQUEST', 'promptRef is required');
+    if (!Number.isSafeInteger(deadlineMs) || deadlineMs <= 0) throw new ReturnBridgeError('INVALID_REQUEST', 'deadlineMs must be a positive integer');
+    if (confirmations.has(promptRef)) throw new ReturnBridgeError('DUPLICATE_CORRELATION', `${promptRef} already exists`);
+
+    const surface = resolveNow(record.owner_ref);
+    const target = surfaceRefOf(surface);
+    // Offline/unresolvable is NOT a failure and NOT a silent drop: it is UNDELIVERABLE with a reason
+    // and a named recovery path, and it stays open so the user can still answer when they return.
+    const status = target === null ? 'UNDELIVERABLE' : 'PENDING';
+    const entry = {
+      prompt_ref: promptRef, action_ref: actionRef, status,
+      delivered_to: target,
+      asked_on: target,
+      deadline_at: at,
+      deadline_ms: deadlineMs,
+      answer: null,
+      reason: target === null ? 'no authorized interaction surface is currently reachable' : null,
+      recovery: target === null
+        ? Object.freeze({ code: 'AWAIT_SURFACE', detail: 'the prompt is held, not lost, and will be delivered when an authorized surface returns', next: 'RESUME_WHEN_AUTHORIZED' })
+        : Object.freeze({ code: 'ANSWERABLE', detail: 'awaiting a response on the current authorized surface', next: 'RESPOND' }),
+    };
+    confirmations.set(promptRef, entry);
+    counters.confirmations_requested += 1;
+    if (status === 'UNDELIVERABLE') counters.confirmations_undeliverable += 1;
+    return Object.freeze({ ...entry });
+  }
+
+  /**
+   * A response is only accepted from the CURRENT authorized surface. This is the half of step 3
+   * that is easy to fake: accepting a response from any device that knows the prompt id would let a
+   * stale or wrong device answer for the user.
+   */
+  function respond({ promptRef, command = 'RESPOND', decision, viaDeviceRef } = {}) {
+    const entry = confirmations.get(promptRef);
+    if (!entry) throw new ReturnBridgeError('UNKNOWN_CONFIRMATION', `no confirmation for ${String(promptRef)}`);
+    if (entry.status === 'ANSWERED') throw new ReturnBridgeError('CONFIRMATION_ALREADY_ANSWERED', `${promptRef} was already answered with ${entry.answer}`);
+    if (!['APPROVE', 'DENY'].includes(decision)) throw new ReturnBridgeError('INVALID_DECISION', `decision must be APPROVE or DENY, not ${String(decision)}`);
+    if (command !== 'RESPOND') throw new ReturnBridgeError('INVALID_REQUEST', `the only control command here is RESPOND, not ${String(command)}`);
+
+    const record = correlations.get(entry.action_ref);
+    const surface = resolveNow(record.owner_ref);
+    const current = surfaceRefOf(surface);
+    const from = isText(viaDeviceRef) ? viaDeviceRef : null;
+    if (current === null || from === null || from !== current) {
+      counters.confirmations_refused += 1;
+      return Object.freeze({
+        prompt_ref: promptRef, accepted: false, verdict: 'NOT_AUTHORIZED_SURFACE',
+        via_device_ref: from, current_surface_ref: current,
+        detail: current === null
+          ? 'no authorized interaction surface is currently reachable, so no response can be attributed'
+          : `${String(from)} is not the current authorized interaction surface (${current})`,
+      });
+    }
+
+    entry.status = 'ANSWERED';
+    entry.answer = decision;
+    entry.answered_via = from;
+    counters.confirmations_answered += 1;
+    return Object.freeze({
+      prompt_ref: promptRef, accepted: true, verdict: 'ANSWERED', answer: decision,
+      via_device_ref: from, current_surface_ref: current,
+      action_ref: entry.action_ref,
+    });
+  }
+
+  /**
+   * The timeout path. An expired prompt is EXPLAINED and RECOVERABLE, never a failure: the run keeps
+   * whatever state it had, an open prompt stays open for a later answer, and the caller is told the
+   * reason and the next step.
+   */
+  function expire({ promptRef, now = clock() } = {}) {
+    const entry = confirmations.get(promptRef);
+    if (!entry) throw new ReturnBridgeError('UNKNOWN_CONFIRMATION', `no confirmation for ${String(promptRef)}`);
+    if (entry.status === 'ANSWERED') return Object.freeze({ prompt_ref: promptRef, status: 'ANSWERED', expired: false, reason: 'already answered; a timeout cannot retract an answer' });
+    entry.status = 'EXPIRED';
+    counters.confirmations_expired += 1;
+    return Object.freeze({
+      prompt_ref: promptRef,
+      action_ref: entry.action_ref,
+      status: 'EXPIRED',
+      expired: true,
+      at: now,
+      // Explainable, and explicitly not terminal: the workbook forbids turning a timeout into a
+      // failure, and it forbids asking the user to go to another device.
+      reason: 'the user did not answer within the deadline',
+      recovery: Object.freeze({ code: 'STILL_ANSWERABLE', detail: 'the prompt remains open and the run is unchanged; no device change is required of the user', next: 'RESPOND_WHEN_READY' }),
+      truthful_success: false,
+    });
+  }
+
   return Object.freeze({
     register,
     handoff,
     apply,
     markDisconnected,
+    requestConfirmation,
+    respond,
+    expire,
+    confirmation: (promptRef) => (confirmations.has(promptRef) ? Object.freeze({ ...confirmations.get(promptRef) }) : null),
     correlation: (actionRef) => (correlations.has(actionRef) ? Object.freeze({ ...correlations.get(actionRef) }) : null),
     stats: () => Object.freeze({ ...counters }),
   });

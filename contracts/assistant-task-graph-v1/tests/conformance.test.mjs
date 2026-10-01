@@ -335,3 +335,59 @@ test('every contract surface is closed, frozen and free of ambient state', () =>
   assert.throws(() => createTaskGraph({ now: 'not-a-function' }), error => error.code === 'INVALID_CLOCK');
   assert.equal(isIsoInstant('2026-01-01T00:00:00Z'), true);
 });
+
+// ---------------------------------------------------------------- Alien Correction regressions
+// Every test below fails against the Development head and passes against the corrected head.
+
+const T0_LOCAL = '2026-01-01T00:00:00Z';
+const refuse = operation => {
+  try { operation(); } catch (error) { return error; }
+  throw new Error('expected a refusal, but nothing was thrown');
+};
+
+test('the canonical contract allow-list is decided by own keys', () => {
+  const graph = createTaskGraph({ now: () => T0_LOCAL });
+  for (const key of ['toString', 'constructor', 'valueOf', '__proto__']) {
+    assert.equal(refuse(() => graph.createTask({ ...baseTask({ task_id: `task:${key}` }), [key]: 'smuggled' })).code, 'INVALID_TASK', `${key} is not part of the canonical contract`);
+  }
+  assert.equal(graph.taskCount(), 0, 'nothing was admitted');
+});
+
+test('a hidden authority field in a handoff is found, and a cycle does not crash the scan', () => {
+  const graph = createTaskGraph({ now: () => T0_LOCAL });
+  const created = graph.createTask(baseTask({ task_id: 'task:1' }));
+  const hidden = { kind: 'RESPONSIBILITY_TRANSFER', state: 'ACCEPTED', task_ref: 'task:1', task_version: created.task_version, to: { assistant_ref: 'assistant:beta' } };
+  Object.defineProperty(hidden, 'grants', { value: ['camera'], enumerable: false });
+  assert.equal(refuse(() => graph.transferOwnership({ task_id: 'task:1', expected_version: created.task_version, handoff: hidden })).code, 'HANDOFF_TRANSFERS_NO_AUTHORITY', 'a non-enumerable authority field is still authority');
+  assert.equal(graph.getTask('task:1').owner_ref, created.owner_ref, 'the refused handoff moved no ownership');
+
+  const cyclic = { kind: 'RESPONSIBILITY_TRANSFER', state: 'ACCEPTED', task_ref: 'task:1', task_version: created.task_version, to: { assistant_ref: 'assistant:beta' } };
+  cyclic.self = cyclic;
+  const moved = graph.transferOwnership({ task_id: 'task:1', expected_version: created.task_version, handoff: cyclic });
+  assert.equal(moved.owner_ref, 'assistant:beta', 'a structural cycle is not authority');
+});
+
+test('a caller instant must be real, not merely well shaped', () => {
+  const graph = createTaskGraph({ now: () => T0_LOCAL });
+  for (const at of ['garbage', '2026-13-45T99:99:99Z', '2026-02-30T00:00:00Z', 123]) {
+    assert.equal(refuse(() => graph.createTask(baseTask({ task_id: `task:${String(at)}`, at }))).code, 'INVALID_TASK', `at=${String(at)}`);
+  }
+  const created = graph.createTask(baseTask({ task_id: 'task:ok' }));
+  assert.equal(refuse(() => graph.updateTask({ task_id: 'task:ok', expected_version: created.task_version, role: 'OWNER', actor_ref: 'assistant:alpha', patch: { state: 'RUNNING' }, at: 'garbage' })).code, 'INVALID_TASK');
+  const badClock = createTaskGraph({ now: () => '2026-13-45T99:99:99Z' });
+  assert.equal(refuse(() => badClock.createTask(baseTask({ task_id: 'task:clock' }))).code, 'INVALID_CLOCK', 'a shape-valid but impossible clock instant is refused too');
+});
+
+test('a refused patch changes nothing', () => {
+  const graph = createTaskGraph({ now: () => T0_LOCAL });
+  const created = graph.createTask(baseTask({ task_id: 'task:1' }));
+  const refused = refuse(() => graph.updateTask({
+    task_id: 'task:1', expected_version: created.task_version, role: 'OWNER', actor_ref: 'assistant:alpha',
+    patch: { state: 'RUNNING', checkpoint_ref: 'checkpoint:1', watchers: ['session:ui'] },
+  }));
+  assert.equal(refused.code, 'SESSION_IS_NOT_OWNER');
+  const after = graph.getTask('task:1');
+  assert.equal(after.state, 'PENDING', 'the refused patch did not change the state');
+  assert.equal(after.checkpoint_ref, null, 'nor the checkpoint');
+  assert.equal(after.task_version, created.task_version, 'and the record was not audited');
+});

@@ -63,16 +63,41 @@ export class TaskGraphError extends Error {
   }
 }
 
-const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+const isPlainObject = value => {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+};
 const isText = value => typeof value === 'string' && value.trim().length > 0;
 const clone = value => (value === undefined ? undefined : structuredClone(value));
 const freeze = value => {
-  if (value === null || typeof value !== 'object') return value;
-  for (const child of Object.values(value)) freeze(child);
-  return Object.freeze(value);
+  const seen = new WeakSet();
+  const walk = node => {
+    if (node === null || typeof node !== 'object') return node;
+    if (seen.has(node)) return node;
+    seen.add(node);
+    for (const child of Object.values(node)) walk(child);
+    return Object.freeze(node);
+  };
+  return walk(value);
 };
 const snapshot = record => freeze(clone(record));
 export const isIsoInstant = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+
+const INSTANT_PARTS = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?Z$/;
+/** Shape is not enough: the regex accepts a calendar-impossible date, so components must round trip. */
+const isRealInstant = value => {
+  if (!isIsoInstant(value)) return false;
+  const parts = INSTANT_PARTS.exec(value);
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return false;
+  return date.getUTCFullYear() === Number(parts[1])
+    && date.getUTCMonth() + 1 === Number(parts[2])
+    && date.getUTCDate() === Number(parts[3])
+    && date.getUTCHours() === Number(parts[4])
+    && date.getUTCMinutes() === Number(parts[5])
+    && date.getUTCSeconds() === Number(parts[6]);
+};
 
 const SESSION_SHAPE = /^(session|sessions|ui|ui_session|foreground|foreground_session|chat|conversation)[:/]/i;
 const DEVICE_SHAPE = /^(device|dev|node|worker|executor|machine)[:/]/i;
@@ -82,16 +107,22 @@ export const isSessionShapedRef = ref => isText(ref) && SESSION_SHAPE.test(ref);
 export const isDeviceShapedRef = ref => isText(ref) && DEVICE_SHAPE.test(ref);
 
 /** Recursive scan for authority-bearing fields anywhere in a handoff package. */
-export function findAuthorityFields(value, path = 'handoff', found = []) {
+export function findAuthorityFields(value, path = 'handoff', found = [], seen = new WeakSet()) {
   if (Array.isArray(value)) {
-    value.forEach((item, index) => findAuthorityFields(item, `${path}[${index}]`, found));
+    if (seen.has(value)) return found;
+    seen.add(value);
+    value.forEach((item, index) => findAuthorityFields(item, `${path}[${index}]`, found, seen));
     return found;
   }
   if (!isPlainObject(value)) return found;
-  for (const [key, child] of Object.entries(value)) {
+  if (seen.has(value)) return found;
+  seen.add(value);
+  // Every own key is inspected: a non-enumerable or symbol-keyed authority field is still authority.
+  for (const key of Reflect.ownKeys(value)) {
+    if (typeof key !== 'string') { found.push(`${path}.${String(key)}`); continue; }
     const childPath = `${path}.${key}`;
     if (AUTHORITY_FIELDS.includes(key)) found.push(childPath);
-    findAuthorityFields(child, childPath, found);
+    findAuthorityFields(value[key], childPath, found, seen);
   }
   return found;
 }
@@ -117,7 +148,7 @@ const UPDATE_SPEC = Object.freeze({
 
 function checkShape(value, path, spec, errors) {
   if (!isPlainObject(value)) { errors.push(`${path} must be an object`); return; }
-  for (const key of Object.keys(value)) if (!(key in spec)) errors.push(`${path}.${key} is not part of the canonical contract`);
+  for (const key of Reflect.ownKeys(value)) if (typeof key !== 'string' || !Object.hasOwn(spec, key)) errors.push(`${path}.${String(key)} is not part of the canonical contract`);
   for (const [key, rule] of Object.entries(spec)) {
     const present = Object.hasOwn(value, key);
     if (!present) { if (rule.required) errors.push(`${path}.${key} is required`); continue; }
@@ -139,10 +170,10 @@ export function createTaskGraph({ now = () => new Date().toISOString() } = {}) {
   const at = value => {
     if (value === undefined) {
       const produced = now();
-      if (!isIsoInstant(produced)) throw new TaskGraphError('INVALID_CLOCK', 'now() must return an ISO-8601 UTC instant');
+      if (!isRealInstant(produced)) throw new TaskGraphError('INVALID_CLOCK', 'now() must return an ISO-8601 UTC instant');
       return produced;
     }
-    if (!isIsoInstant(value)) throw new TaskGraphError('INVALID_TASK', 'at must be an ISO-8601 UTC instant');
+    if (!isRealInstant(value)) throw new TaskGraphError('INVALID_TASK', 'at must be a real ISO-8601 UTC instant');
     return value;
   };
 
@@ -275,13 +306,14 @@ export function createTaskGraph({ now = () => new Date().toISOString() } = {}) {
       if (patch.state !== undefined && TERMINAL_TASK_STATES.includes(patch.state) && record.side_effect === 'EXCLUSIVE' && record.executor_ref) {
         throw new TaskGraphError('EXPLICIT_OPERATION_REQUIRED', 'a terminal state for an exclusive side effect must be applied by the leased executor through submitExecutorResult', { task_id });
       }
+      // Validate the whole patch before touching the record: a refused patch must change nothing.
+      if (patch.watchers !== undefined) {
+        for (const watcher of patch.watchers) if (isSessionShapedRef(watcher)) throw new TaskGraphError('SESSION_IS_NOT_OWNER', `watcher ${watcher} is a session, not a durable watcher identity`, { task_id });
+      }
       const timestamp = at(when);
       if (patch.state !== undefined) record.state = patch.state;
       if (patch.checkpoint_ref !== undefined) record.checkpoint_ref = patch.checkpoint_ref;
-      if (patch.watchers !== undefined) {
-        for (const watcher of patch.watchers) if (isSessionShapedRef(watcher)) throw new TaskGraphError('SESSION_IS_NOT_OWNER', `watcher ${watcher} is a session, not a durable watcher identity`, { task_id });
-        record.watchers = clone(patch.watchers);
-      }
+      if (patch.watchers !== undefined) record.watchers = clone(patch.watchers);
       audit(record, { kind: 'TASK_UPDATED', at: timestamp, actor_ref, caused_by: null });
       return snapshot(record);
     },

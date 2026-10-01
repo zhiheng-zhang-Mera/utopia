@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   AUTH_MODES, AUTH_STATUSES, PERSISTABLE_MODES, SECURE_HANDLE_STORE_PORT, AuthProfileError,
-  createAuthProfileLayer, findSecretFields, looksLikeSecretValue, redact,
+  createAuthProfileLayer, findSecretFields, isIsoInstant, looksLikeSecretValue, redact,
 } from '../index.mjs';
 
 const T0 = '2026-01-01T00:00:00Z';
@@ -315,4 +315,146 @@ test('the profile contract is declarative, versioned and lifecycle-honest', () =
   const frozen = layer.registerProfile({ profile_id: 'profile:frozen', connector_kind: 'X', mode: 'OAUTH' });
   assert.throws(() => { frozen.status = 'READY'; }, TypeError, 'records are frozen');
   assert.throws(() => createAuthProfileLayer({ clock: 'now' }), error => error.code === 'INVALID_PROFILE');
+});
+
+// ---------------------------------------------------------------- Alien Correction regressions
+// Every test below fails against the Development head and passes against the corrected head.
+
+test('a handle reference that is secret material never reaches canonical state', () => {
+  const { layer } = layerAt();
+  layer.registerProfile({ profile_id: 'profile:key', connector_kind: 'DEEPSEEK', mode: 'API_KEY' });
+  expectCode('PLAINTEXT_REFUSED', () => layer.bindSecret({ profile_id: 'profile:key', expected_version: 1, handle_ref: SECRET }));
+  assert.equal(layer.getProfile('profile:key').handle_ref, null, 'nothing was recorded');
+  assert.equal(layer.getProfile('profile:key').references_only, true);
+  assert.equal(containsSecret(layer.getProfile('profile:key')), false);
+  assert.equal(containsSecret(layer.diagnosticSnapshot()), false);
+  assert.equal(layer.getProfile('profile:key').profile_version, 1, 'the refused bind did not bump the version');
+
+  // A store that hands the value back instead of a handle would put plaintext straight into the record.
+  const echoing = Object.freeze({ putHandle: ({ value }) => ({ handle_ref: value }), resolveHandle: () => ({ ok: true }), revokeHandle: () => ({ revoked: false }) });
+  const echoingLayer = createAuthProfileLayer({ handleStore: echoing, clock: () => T0 });
+  echoingLayer.registerProfile({ profile_id: 'profile:echo', connector_kind: 'DEEPSEEK', mode: 'API_KEY' });
+  expectCode('PLAINTEXT_REFUSED', () => echoingLayer.bindSecret({ profile_id: 'profile:echo', expected_version: 1, secret_value: SECRET }));
+  assert.equal(containsSecret(echoingLayer.getProfile('profile:echo')), false);
+  assert.equal(containsSecret(echoingLayer.diagnosticSnapshot()), false);
+  assert.equal(containsSecret(echoingLayer.logEntries()), false);
+});
+
+test('binding refuses an ambiguous secret-or-handle request', () => {
+  const { layer } = layerAt();
+  layer.registerProfile({ profile_id: 'profile:key', connector_kind: 'DEEPSEEK', mode: 'API_KEY' });
+  expectCode('INVALID_PROFILE', () => layer.bindSecret({ profile_id: 'profile:key', expected_version: 1, secret_value: SECRET, handle_ref: 'handle:CREDENTIAL:1' }));
+  assert.equal(layer.getProfile('profile:key').handle_ref, null, 'neither input was applied');
+  assert.equal(layer.getProfile('profile:key').profile_version, 1);
+  assert.equal(layer.bindSecret({ profile_id: 'profile:key', expected_version: 1, secret_value: SECRET }).status, 'READY');
+});
+
+test('an uninterpretable instant is never fresh, READY or recorded', () => {
+  const { layer } = layerAt();
+  assert.equal(isIsoInstant('2026-13-45T99:99:99Z'), false, 'a shape-valid but unparseable instant is not an instant');
+  assert.equal(isIsoInstant('2026-01-01T00:00:00.000Z'), true);
+  expectCode('INVALID_PROFILE', () => layer.registerProfile({ profile_id: 'profile:bad-expiry', connector_kind: 'X', mode: 'CLI_SESSION', persistence: 'PERSISTENT', expires_at: '2026-13-45T99:99:99Z' }));
+  expectCode('INVALID_PROFILE', () => layer.registerProfile({ profile_id: 'profile:bad-at', connector_kind: 'X', mode: 'API_KEY', at: '2026-02-30T00:00:00Z' }));
+  assert.equal(layer.getProfile('profile:bad-expiry'), null, 'nothing was registered');
+  const restored = layerAt().layer;
+  expectCode('INVALID_PROFILE', () => restored.restore({ snapshot: { profiles: [{ profile_id: 'q', connector_kind: 'X', mode: 'CLI_SESSION', persistence: 'PERSISTENT', expires_at: '2026-13-45T99:99:99Z' }] } }));
+  expectCode('INVALID_PROFILE', () => restored.restore({ snapshot: { profiles: [{ profile_id: 'q', connector_kind: 'X', mode: 'CLI_SESSION', persistence: 'PERSISTENT' }] }, at: '2026-02-30T00:00:00Z' }));
+  assert.equal(restored.getProfile('q'), null);
+  // a real expiry still expires, and no expiry is still valid
+  const live = layerAt().layer;
+  live.registerProfile({ profile_id: 'profile:cli', connector_kind: 'X', mode: 'CLI_SESSION', persistence: 'PERSISTENT', expires_at: '2026-01-01T00:30:00Z' });
+  live.bindSecret({ profile_id: 'profile:cli', expected_version: 1, secret_value: 'blob' });
+  assert.equal(live.authStatusFor({ profile_id: 'profile:cli' }).status, 'READY');
+  assert.equal(live.authStatusFor({ profile_id: 'profile:cli', at: T1 }).status, 'EXPIRED');
+});
+
+test('a user-action requirement is a boolean, not a truthy flag', () => {
+  const { layer } = layerAt();
+  layer.registerProfile({ profile_id: 'profile:oauth', connector_kind: 'X', mode: 'OAUTH' });
+  layer.markUserActionRequired({ profile_id: 'profile:oauth' });
+  assert.equal(layer.getProfile('profile:oauth').requires_user_action, true);
+  expectCode('INVALID_PROFILE', () => layer.markUserActionRequired({ profile_id: 'profile:oauth', required: 'yes' }));
+  expectCode('INVALID_PROFILE', () => layer.markUserActionRequired({ profile_id: 'profile:oauth', required: 1 }));
+  assert.equal(layer.getProfile('profile:oauth').requires_user_action, true, 'the requirement was not silently cleared');
+  assert.equal(layer.authStatusFor({ profile_id: 'profile:oauth' }).status, 'NEEDS_USER');
+  layer.markUserActionRequired({ profile_id: 'profile:oauth', required: false });
+  assert.equal(layer.getProfile('profile:oauth').requires_user_action, false);
+  assert.equal(layer.authStatusFor({ profile_id: 'profile:oauth' }).status, 'MISSING');
+});
+
+test('canonical records are plain own-key objects', () => {
+  const { layer } = layerAt();
+  for (const key of ['toString', 'constructor', 'valueOf']) {
+    expectCode('INVALID_PROFILE', () => layer.registerProfile({ profile_id: `profile:${key}`, connector_kind: 'X', mode: 'API_KEY', [key]: 'smuggled' }));
+  }
+  const hidden = { profile_id: 'profile:hidden', connector_kind: 'X', mode: 'API_KEY' };
+  Object.defineProperty(hidden, 'api_key', { value: SECRET, enumerable: false });
+  expectCode('INVALID_PROFILE', () => layer.registerProfile(hidden));
+  const symbol = { profile_id: 'profile:sym', connector_kind: 'X', mode: 'API_KEY' };
+  symbol[Symbol('extra')] = 'x';
+  expectCode('INVALID_PROFILE', () => layer.registerProfile(symbol));
+  class Fabricated { constructor() { this.profile_id = 'profile:class'; this.connector_kind = 'X'; this.mode = 'API_KEY'; } }
+  expectCode('INVALID_PROFILE', () => layer.registerProfile(new Fabricated()));
+  expectCode('INVALID_PROFILE', () => layer.registerProfile(Object.assign(Object.create({ api_key: SECRET }), { profile_id: 'profile:proto', connector_kind: 'X', mode: 'API_KEY' })));
+  assert.equal(layer.getProfile('profile:hidden'), null, 'nothing was admitted');
+  assert.equal(layer.diagnosticSnapshot().profiles.length, 0);
+});
+
+test('a cyclic caller value is refused instead of crashing the scan', () => {
+  const { layer } = layerAt();
+  const cyclic = { profile_id: 'profile:cyclic', connector_kind: 'X', mode: 'API_KEY' };
+  cyclic.self = cyclic;
+  expectCode('INVALID_PROFILE', () => layer.registerProfile(cyclic));
+  assert.equal(layer.getProfile('profile:cyclic'), null);
+  const inner = {};
+  inner.self = inner;
+  expectCode('INVALID_PROFILE', () => layer.restore({ snapshot: { profiles: [inner] } }));
+  assert.equal(JSON.stringify(redact({ nested: cyclic })).includes('CIRCULAR'), true, 'redaction survives a cycle instead of recursing forever');
+  assert.deepEqual(findSecretFields({ api_key: SECRET }), ['record.api_key']);
+});
+
+test('restore validates a snapshot entry as strictly as a registration', () => {
+  const { layer } = layerAt();
+  expectCode('INVALID_PROFILE', () => layer.restore({ snapshot: { profiles: [{ profile_id: 'q', mode: 'CLI_SESSION', persistence: 'PERSISTENT' }] } }));
+  expectCode('INVALID_PROFILE', () => layer.restore({ snapshot: { profiles: [{ profile_id: 'q', connector_kind: 'X', mode: 'CLI_SESSION', persistence: 'PERSISTENT', handle_ref: 42 }] } }));
+  expectCode('INVALID_PROFILE', () => layer.restore({ snapshot: { profiles: [{ profile_id: 'q', connector_kind: 'X', mode: 'CLI_SESSION', persistence: 'PERSISTENT', account_ref: { evil: true } }] } }));
+  expectCode('INVALID_PROFILE', () => layer.restore({ snapshot: { profiles: [{ profile_id: 'q', connector_kind: 'X', mode: 'CLI_SESSION', persistence: 'PERSISTENT', profile_version: 1.5 }] } }));
+  expectCode('PLAINTEXT_REFUSED', () => layer.restore({ snapshot: { profiles: [{ profile_id: 'q', connector_kind: 'X', mode: 'CLI_SESSION', persistence: 'PERSISTENT', handle_ref: SECRET }] } }));
+  assert.equal(layer.getProfile('q'), null, 'nothing was restored from an invalid snapshot');
+  const good = layer.restore({ snapshot: { profiles: [{ profile_id: 'q', connector_kind: 'X', mode: 'CLI_SESSION', persistence: 'PERSISTENT', handle_ref: 'handle:SESSION:1' }] } });
+  assert.deepEqual(good.restored_profiles, ['q']);
+  assert.equal(layer.getProfile('q').connector_kind, 'X');
+  const skipped = layer.restore({ snapshot: { profiles: [{ profile_id: 'api', connector_kind: 'X', mode: 'API_KEY', persistence: 'EPHEMERAL' }] } });
+  assert.deepEqual(skipped.skipped_non_persistent, ['api'], 'a non-persistent entry is still skipped rather than refused');
+});
+
+test('revocation stays observable after the handle is cleared', () => {
+  const { layer } = layerAt();
+  layer.registerProfile({ profile_id: 'profile:key', connector_kind: 'DEEPSEEK', mode: 'API_KEY' });
+  layer.bindSecret({ profile_id: 'profile:key', expected_version: 1, secret_value: SECRET });
+  assert.equal(layer.getProfile('profile:key').revoked_at, null, 'an active profile is not marked revoked');
+  const revoked = layer.revoke({ profile_id: 'profile:key' });
+  assert.equal(revoked.handle_ref, null);
+  assert.equal(revoked.revoked_at, T0, 'the revocation instant is part of the lifecycle record');
+  assert.equal(revoked.revoked_reason, 'HANDLE_REVOKED');
+  assert.equal(layer.getProfile('profile:key').revoked_at, T0, 'and it survives a later read');
+  assert.equal(layer.authStatusFor({ profile_id: 'profile:key' }).status, 'MISSING');
+  // re-binding clears the revocation rather than leaving a stale lifecycle marker
+  assert.equal(layer.getProfile('profile:key').profile_version, 3);
+  layer.bindSecret({ profile_id: 'profile:key', expected_version: 3, secret_value: SECRET });
+  assert.equal(layer.getProfile('profile:key').revoked_at, null);
+});
+
+test('a rotation revokes the handle it replaces instead of abandoning it', () => {
+  const { store, layer } = layerAt();
+  layer.registerProfile({ profile_id: 'profile:cli', connector_kind: 'X', mode: 'CLI_SESSION', persistence: 'PERSISTENT' });
+  const first = layer.bindSecret({ profile_id: 'profile:cli', expected_version: 1, secret_value: 'session-one' });
+  const second = layer.bindSecret({ profile_id: 'profile:cli', expected_version: 2, secret_value: 'session-two' });
+  assert.notEqual(first.session_ref, second.session_ref);
+  assert.throws(() => store.resolveHandle(first.session_ref), 'the superseded handle is no longer live');
+  assert.equal(store.resolveHandle(second.session_ref).value, 'session-two');
+  assert.equal(layer.logEntries().some(entry => entry.event === 'HANDLE_BOUND' && entry.previous_handle_revoked === true), true);
+  // a caller-supplied reference the layer did not create is never revoked behind the caller's back
+  const reused = layer.bindSecret({ profile_id: 'profile:cli', expected_version: 3, handle_ref: 'handle:SESSION:99' });
+  assert.equal(reused.session_ref, 'handle:SESSION:99');
 });

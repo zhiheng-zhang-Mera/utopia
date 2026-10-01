@@ -1,10 +1,17 @@
 // Credential references + persistent connector profiles/sessions (EM-008).
 //
 // Auth is connector-neutral. A profile says HOW a connector authenticates (mode), WHERE its secret
-// handle lives and HOW FRESH that answer is 鈥?it never holds a secret itself. Raw secret material is
+// handle lives and HOW FRESH that answer is — it never holds a secret itself. Raw secret material is
 // handed to the neutral 00-Foundation `SecureHandleStorePort` and only the returned handle reference is
 // kept, so canonical job/connector/task state, logs, reports, artifacts and diagnostics carry references
 // instead of plaintext.
+//
+// What is enforced rather than assumed: a handle reference may never itself be secret material (neither a
+// caller-supplied one nor one a store hands back), a superseded handle is revoked instead of abandoned,
+// canonical records are plain own-key objects, instants must survive a calendar round trip so an
+// uninterpretable expiry can never read as READY, a restart snapshot is validated as strictly as a fresh
+// registration, revocation stays observable, and no recursion over caller data can blow the stack or leak a
+// secret into a log.
 //
 // If no secure store is available the layer degrades HONESTLY: it reports UNAVAILABLE / MISSING and
 // refuses to bind a secret. There is no plaintext fallback, ever.
@@ -66,15 +73,43 @@ export class AuthProfileError extends Error {
   }
 }
 
-const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+const isPlainObject = value => {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+};
 const isText = value => typeof value === 'string' && value.trim().length > 0;
 const clone = value => (value === undefined ? undefined : structuredClone(value));
+/** Cycle-safe: a self-referential caller value must not be able to blow the stack. */
 const freeze = value => {
-  if (value === null || typeof value !== 'object') return value;
-  for (const child of Object.values(value)) freeze(child);
-  return Object.freeze(value);
+  const seen = new WeakSet();
+  const walk = node => {
+    if (node === null || typeof node !== 'object') return node;
+    if (seen.has(node)) return node;
+    seen.add(node);
+    for (const child of Object.values(node)) walk(child);
+    return Object.freeze(node);
+  };
+  return walk(value);
 };
-export const isIsoInstant = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+/** Account for the calendar: a well-shaped string can still be an impossible date, or not parse at all. */
+export const isIsoInstant = value => typeof value === 'string'
+  && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)
+  && !Number.isNaN(Date.parse(value));
+
+const INSTANT_PARTS = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?Z$/;
+const isRealInstant = value => {
+  if (!isIsoInstant(value)) return false;
+  const parts = INSTANT_PARTS.exec(value);
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return false;
+  return date.getUTCFullYear() === Number(parts[1])
+    && date.getUTCMonth() + 1 === Number(parts[2])
+    && date.getUTCDate() === Number(parts[3])
+    && date.getUTCHours() === Number(parts[4])
+    && date.getUTCMinutes() === Number(parts[5])
+    && date.getUTCSeconds() === Number(parts[6]);
+};
 
 const SECRET_KEY_SHAPE = /(secret|token|password|passwd|passphrase|api_?key|private_?key|bearer|client_secret|access_key|credential_?value|^value$)/i;
 const SECRET_VALUE_SHAPE = /^(sk|pk|ghp|gho|xox[baprs]|AKIA)-?[A-Za-z0-9_\-]{8,}$/;
@@ -86,9 +121,11 @@ export const looksLikeSecretValue = value => isText(value) && SECRET_VALUE_SHAPE
 const redactString = value => (typeof value === 'string' ? value.replace(SECRET_SUBSTRING_SHAPE, '[REDACTED]') : value);
 
 /** Recursive scan for secret material. `*_ref` keys are handle references and booleans are assertions. */
-export function findSecretFields(value, path = 'record', found = []) {
+export function findSecretFields(value, path = 'record', found = [], seen = new WeakSet()) {
   if (Array.isArray(value)) {
-    value.forEach((item, index) => findSecretFields(item, `${path}[${index}]`, found));
+    if (seen.has(value)) return found;
+    seen.add(value);
+    value.forEach((item, index) => findSecretFields(item, `${path}[${index}]`, found, seen));
     return found;
   }
   if (typeof value === 'string') {
@@ -97,7 +134,8 @@ export function findSecretFields(value, path = 'record', found = []) {
     return found;
   }
   if (typeof value === 'boolean' || value === null) return found;
-  if (!isPlainObject(value)) return found;
+  if (!isPlainObject(value) || seen.has(value)) return found;
+  seen.add(value);
   for (const [key, child] of Object.entries(value)) {
     const childPath = `${path}.${key}`;
     const keyIsSecret = SECRET_KEY_SHAPE.test(key) && !/_ref$/.test(key) && typeof child !== 'boolean';
@@ -105,22 +143,28 @@ export function findSecretFields(value, path = 'record', found = []) {
       if (!found.includes(childPath)) found.push(childPath);
       continue;
     }
-    findSecretFields(child, childPath, found);
+    findSecretFields(child, childPath, found, seen);
   }
   return found;
 }
 
-/** Redact secret-shaped keys and values anywhere in a diagnostic payload. */
-export function redact(value, key = null) {
-  if (Array.isArray(value)) return value.map(item => redact(item));
+/** Redact secret-shaped keys and values anywhere in a diagnostic payload. A cycle is replaced, not walked. */
+export function redact(value, key = null, seen = new WeakSet()) {
+  if (Array.isArray(value)) {
+    if (seen.has(value)) return '[CIRCULAR]';
+    seen.add(value);
+    return value.map(item => redact(item, null, seen));
+  }
   if (typeof value === 'string') {
     if (key !== null && SECRET_KEY_SHAPE.test(key) && !/_ref$/.test(key)) return '[REDACTED]';
     return redactString(value);
   }
   if (!isPlainObject(value)) return value;
+  if (seen.has(value)) return '[CIRCULAR]';
+  seen.add(value);
   const out = {};
   for (const [childKey, child] of Object.entries(value)) {
-    out[childKey] = SECRET_KEY_SHAPE.test(childKey) && !/_ref$/.test(childKey) && typeof child !== 'boolean' ? '[REDACTED]' : redact(child, childKey);
+    out[childKey] = SECRET_KEY_SHAPE.test(childKey) && !/_ref$/.test(childKey) && typeof child !== 'boolean' ? '[REDACTED]' : redact(child, childKey, seen);
   }
   return out;
 }
@@ -146,8 +190,10 @@ const BIND_SPEC = Object.freeze({
 });
 
 function checkShape(value, path, spec, errors) {
-  if (!isPlainObject(value)) { errors.push(`${path} must be an object`); return; }
-  for (const key of Object.keys(value)) if (!(key in spec)) errors.push(`${path}.${key} is not part of the canonical contract`);
+  if (!isPlainObject(value)) { errors.push(`${path} must be a plain object`); return; }
+  for (const key of Reflect.ownKeys(value)) {
+    if (typeof key !== 'string' || !Object.hasOwn(spec, key)) errors.push(`${path}.${String(key)} is not part of the canonical contract`);
+  }
   for (const [key, rule] of Object.entries(spec)) {
     const present = Object.hasOwn(value, key);
     if (!present) { if (rule.required) errors.push(`${path}.${key} is required`); continue; }
@@ -155,7 +201,7 @@ function checkShape(value, path, spec, errors) {
     const fieldPath = `${path}.${key}`;
     if (field === null || field === undefined) { if (!rule.nullable) errors.push(`${fieldPath} must not be null`); continue; }
     if (rule.type === 'text' && !isText(field)) errors.push(`${fieldPath} must be nonempty text`);
-    if (rule.type === 'instant' && !isIsoInstant(field)) errors.push(`${fieldPath} must be an ISO-8601 UTC instant`);
+    if (rule.type === 'instant' && !isRealInstant(field)) errors.push(`${fieldPath} must be an ISO-8601 UTC instant`);
     if (rule.type === 'int' && !Number.isSafeInteger(field)) errors.push(`${fieldPath} must be an integer`);
     if (rule.type === 'bool' && typeof field !== 'boolean') errors.push(`${fieldPath} must be a boolean`);
     if (rule.type === 'enum' && !rule.values.includes(field)) errors.push(`${fieldPath} must be one of ${rule.values.join(', ')}`);
@@ -173,10 +219,10 @@ export function createAuthProfileLayer({ handleStore = null, clock = () => new D
   const at = value => {
     if (value === undefined || value === null) {
       const produced = clock();
-      if (!isIsoInstant(produced)) throw new AuthProfileError('INVALID_PROFILE', 'clock() must return an ISO-8601 UTC instant');
+      if (!isRealInstant(produced)) throw new AuthProfileError('INVALID_PROFILE', 'clock() must return a real ISO-8601 UTC instant');
       return produced;
     }
-    if (!isIsoInstant(value)) throw new AuthProfileError('INVALID_PROFILE', 'at must be an ISO-8601 UTC instant');
+    if (!isRealInstant(value)) throw new AuthProfileError('INVALID_PROFILE', 'at must be a real ISO-8601 UTC instant');
     return value;
   };
 
@@ -197,7 +243,11 @@ export function createAuthProfileLayer({ handleStore = null, clock = () => new D
   const project = (profile, evaluatedAt) => {
     const reference = MODE_REFERENCE[profile.mode];
     const expires = profile.expires_at;
-    const expired = isIsoInstant(expires) && Date.parse(expires) <= Date.parse(evaluatedAt);
+    // Calendar reality, not shape: an expiry this layer cannot interpret is never "fresh", and an
+    // uninterpretable evaluation instant cannot silently make an expired session look READY.
+    const expiresParsed = isRealInstant(expires) ? Date.parse(expires) : null;
+    const evaluatedParsed = isRealInstant(evaluatedAt) ? Date.parse(evaluatedAt) : null;
+    const expired = expiresParsed !== null && (evaluatedParsed === null || expiresParsed <= evaluatedParsed);
     let status = profile.status;
     let reason = profile.reason;
     let handleResolvable = null;
@@ -230,7 +280,7 @@ export function createAuthProfileLayer({ handleStore = null, clock = () => new D
     if (profile.handle_ref !== null && reference === 'CREDENTIAL') reference_out.credential_ref = profile.handle_ref;
     if (profile.handle_ref !== null && reference === 'PROFILE') reference_out.profile_ref = profile.handle_ref;
     if (profile.handle_ref !== null && reference === 'SESSION') reference_out.session_ref = profile.handle_ref;
-    return freeze({
+    const projection = {
       contract_version: AUTH_PROFILE_CONTRACT_VERSION,
       profile_id: profile.profile_id,
       profile_version: profile.profile_version,
@@ -249,18 +299,21 @@ export function createAuthProfileLayer({ handleStore = null, clock = () => new D
       attention_required: status === 'EXPIRED' || status === 'NEEDS_USER' || status === 'MISSING' || status === 'UNAVAILABLE',
       handle_resolvable: handleResolvable,
       store_available: storeAvailable(),
+      revoked_at: profile.revoked_at ?? null,
+      revoked_reason: profile.revoked_reason ?? null,
       freshness: freeze({ evaluated_at: evaluatedAt, expires_at: expires, expired, fresh: !expired && status === 'READY' }),
-      references_only: true,
-      plaintext_fallback_used: false,
-    });
+    };
+    // The claim is measured on the record that is actually returned, not asserted about it.
+    return freeze({ ...projection, references_only: findSecretFields(projection).length === 0, plaintext_fallback_used: false });
   };
 
-  /** Register a profile. Only the mode/persistence/expiry shape is known here 鈥?never a secret. */
+  /** Register a profile. Only the mode/persistence/expiry shape is known here — never a secret. */
   const registerProfile = input => {
       const errors = [];
       checkShape(input, 'profile', PROFILE_SPEC, errors);
       if (errors.length) {
-        if (isPlainObject(input) && findSecretFields(input).length) throw new AuthProfileError('PLAINTEXT_REFUSED', `profile input carries secret material at ${findSecretFields(input).join(', ')}`);
+        const secrets = isPlainObject(input) ? findSecretFields(input) : [];
+        if (secrets.length) throw new AuthProfileError('PLAINTEXT_REFUSED', `profile input carries secret material at ${secrets.join(', ')}`);
         throw new AuthProfileError('INVALID_PROFILE', errors.join('; '));
       }
       if (!AUTH_MODES.includes(input.mode)) throw new AuthProfileError('INVALID_MODE', `unknown auth mode ${input.mode}`);
@@ -280,8 +333,11 @@ export function createAuthProfileLayer({ handleStore = null, clock = () => new D
         expires_at: input.expires_at ?? null,
         requires_user_action: input.requires_user_action ?? false,
         handle_ref: null,
+        handle_bound_by_layer: false,
         status: 'MISSING',
         reason: 'NO_HANDLE_BOUND',
+        revoked_at: null,
+        revoked_reason: null,
         created_at: timestamp,
         updated_at: timestamp,
       };
@@ -292,7 +348,8 @@ export function createAuthProfileLayer({ handleStore = null, clock = () => new D
 
   /**
    * Bind a secret to a profile. The value goes straight into the neutral handle store; only the handle
-   * reference is retained. Without a store this refuses 鈥?it never writes plaintext into a record.
+   * reference is retained. Without a store this refuses — it never writes plaintext into a record, and a
+   * "reference" that is itself secret material is refused on both the caller and the store side.
    */
   const bindSecret = input => {
       const errors = [];
@@ -303,29 +360,61 @@ export function createAuthProfileLayer({ handleStore = null, clock = () => new D
         throw new AuthProfileError('PROFILE_VERSION_CONFLICT', `profile ${profile.profile_id} is at version ${profile.profile_version}, bind assumed ${input.expected_version}`);
       }
       if (profile.mode === 'NONE') throw new AuthProfileError('MODE_REQUIRES_NO_HANDLE', 'mode NONE authenticates with nothing and takes no handle');
-      if (!isText(input.secret_value) && !isText(input.handle_ref)) throw new AuthProfileError('SECRET_VALUE_REQUIRED', 'bindSecret needs a secret_value to store or an existing handle_ref');
-      if (isText(input.handle_ref)) {
+      const hasSecret = isText(input.secret_value);
+      const hasHandle = isText(input.handle_ref);
+      if (hasSecret && hasHandle) throw new AuthProfileError('INVALID_PROFILE', 'bindSecret takes either a secret_value to store or an existing handle_ref, never both');
+      if (!hasSecret && !hasHandle) throw new AuthProfileError('SECRET_VALUE_REQUIRED', 'bindSecret needs a secret_value to store or an existing handle_ref');
+      const previousHandleRef = profile.handle_ref;
+      const previousBoundByLayer = profile.handle_bound_by_layer === true;
+      if (hasHandle) {
         if (!storeAvailable()) throw new AuthProfileError('SECURE_STORE_UNAVAILABLE', 'no secure handle store is available; refusing to record a handle this layer cannot resolve');
+        if (looksLikeSecretValue(input.handle_ref)) {
+          record('PLAINTEXT_REFUSED', { profile_id: profile.profile_id, source: 'caller_handle_ref' });
+          throw new AuthProfileError('PLAINTEXT_REFUSED', 'the supplied handle_ref carries what looks like secret material; only a reference may be recorded');
+        }
         profile.handle_ref = input.handle_ref;
+        profile.handle_bound_by_layer = false;
       } else {
         if (!storeAvailable()) {
           record('SECURE_STORE_UNAVAILABLE', { profile_id: profile.profile_id, secret_present: true });
           throw new AuthProfileError('SECURE_STORE_REQUIRED', 'the neutral SecureHandleStorePort is required; this layer must not store plaintext secrets itself');
         }
+        let storedRef = null;
         try {
           const stored = handleStore.putHandle({ kind: MODE_REFERENCE[profile.mode], value: input.secret_value });
           if (!isText(stored?.handle_ref)) throw new Error('handle store returned no handle_ref');
-          profile.handle_ref = stored.handle_ref;
+          storedRef = stored.handle_ref;
         } catch (error) {
           record('SECURE_STORE_FAILED', { profile_id: profile.profile_id, error: String(error?.message ?? error) });
           throw new AuthProfileError('SECURE_STORE_FAILED', 'the secure handle store failed; no handle was recorded and no secret was retained');
+        }
+        // A store that hands back the value instead of a handle would put plaintext straight into
+        // canonical state, so the returned reference is checked before it is recorded.
+        if (looksLikeSecretValue(storedRef)) {
+          record('PLAINTEXT_REFUSED', { profile_id: profile.profile_id, source: 'handle_store' });
+          throw new AuthProfileError('PLAINTEXT_REFUSED', 'the secure handle store returned what looks like secret material instead of a handle reference; no reference was recorded');
+        }
+        profile.handle_ref = storedRef;
+        profile.handle_bound_by_layer = true;
+      }
+      // A rotation must not abandon the handle it replaces: this layer is the only holder of that
+      // reference, and leaving it live in the store would keep a superseded secret usable.
+      let previousHandleRevoked = null;
+      if (isText(previousHandleRef) && previousHandleRef !== profile.handle_ref && previousBoundByLayer && typeof handleStore.revokeHandle === 'function') {
+        try {
+          previousHandleRevoked = handleStore.revokeHandle(previousHandleRef)?.revoked === true;
+        } catch (error) {
+          previousHandleRevoked = false;
+          record('REVOKE_FAILED', { profile_id: profile.profile_id, handle_ref: previousHandleRef, error: String(error?.message ?? error) });
         }
       }
       if (input.expires_at !== undefined) profile.expires_at = input.expires_at;
       profile.profile_version += 1;
       profile.updated_at = at(input.at);
       profile.requires_user_action = false;
-      record('HANDLE_BOUND', { profile_id: profile.profile_id, handle_ref: profile.handle_ref });
+      profile.revoked_at = null;
+      profile.revoked_reason = null;
+      record('HANDLE_BOUND', { profile_id: profile.profile_id, handle_ref: profile.handle_ref, previous_handle_revoked: previousHandleRevoked });
       return project(profile, profile.updated_at);
   };
 
@@ -370,10 +459,12 @@ export function createAuthProfileLayer({ handleStore = null, clock = () => new D
       return freeze({ ...status, attention, attention_skipped_reason });
     },
 
-    /** Record that a human completed the sign-in for a profile whose mode needs one. */
+    /** Record whether a human still has to complete the sign-in for a profile. */
     markUserActionRequired({ profile_id, required = true, at: when } = {}) {
       const profile = requireProfile(profile_id);
-      profile.requires_user_action = required === true;
+      // A truthy non-boolean would silently clear a user-action requirement, so the flag is a boolean.
+      if (typeof required !== 'boolean') throw new AuthProfileError('INVALID_PROFILE', `required must be true or false, got ${String(required)}`);
+      profile.requires_user_action = required;
       profile.profile_version += 1;
       profile.updated_at = at(when);
       record('USER_ACTION_FLAG', { profile_id: profile.profile_id, required: profile.requires_user_action });
@@ -390,11 +481,15 @@ export function createAuthProfileLayer({ handleStore = null, clock = () => new D
           record('REVOKE_FAILED', { profile_id: profile.profile_id, error: String(error?.message ?? error) });
         }
       }
+      const timestamp = at(when);
       profile.handle_ref = null;
+      profile.handle_bound_by_layer = false;
       profile.status = 'MISSING';
       profile.reason = 'HANDLE_REVOKED';
+      profile.revoked_at = timestamp;
+      profile.revoked_reason = 'HANDLE_REVOKED';
       profile.profile_version += 1;
-      profile.updated_at = at(when);
+      profile.updated_at = timestamp;
       record('PROFILE_REVOKED', { profile_id: profile.profile_id, store_revoked: revoked });
       return project(profile, profile.updated_at);
     },
@@ -424,6 +519,7 @@ export function createAuthProfileLayer({ handleStore = null, clock = () => new D
     /**
      * Restart. Persistent session references come back; a reference the store can no longer resolve is
      * reported honestly instead of being presented as READY, and ephemeral profiles simply do not return.
+     * A snapshot entry is validated as strictly as a fresh registration would be.
      */
     restore({ snapshot, at: when } = {}) {
       if (!isPlainObject(snapshot) || !Array.isArray(snapshot.profiles)) throw new AuthProfileError('INVALID_PROFILE', 'restore needs a snapshot with a profiles array');
@@ -434,20 +530,38 @@ export function createAuthProfileLayer({ handleStore = null, clock = () => new D
       const skipped = [];
       const degraded = [];
       for (const entry of snapshot.profiles) {
-        if (!isPlainObject(entry) || !isText(entry.profile_id) || !AUTH_MODES.includes(entry.mode)) throw new AuthProfileError('INVALID_PROFILE', 'snapshot entry is not a valid profile reference');
-        if (entry.persistence !== 'PERSISTENT' || !PERSISTABLE_MODES.includes(entry.mode)) { skipped.push(entry.profile_id ?? 'unknown'); continue; }
+        if (!isPlainObject(entry)) throw new AuthProfileError('INVALID_PROFILE', 'snapshot entry is not a valid profile reference');
+        const profile_id = entry.profile_id;
+        const connector_kind = entry.connector_kind;
+        const mode = entry.mode;
+        const persistence = entry.persistence;
+        const entryHandle = entry.handle_ref ?? null;
+        const entryExpires = entry.expires_at ?? null;
+        const entryAccount = entry.account_ref ?? null;
+        if (!isText(profile_id) || !isText(connector_kind) || !AUTH_MODES.includes(mode)) throw new AuthProfileError('INVALID_PROFILE', 'snapshot entry is not a valid profile reference');
+        if (entryHandle !== null && !isText(entryHandle)) throw new AuthProfileError('INVALID_PROFILE', `snapshot entry ${profile_id} has a handle_ref that is not a reference`);
+        if (entryHandle !== null && looksLikeSecretValue(entryHandle)) throw new AuthProfileError('PLAINTEXT_REFUSED', `snapshot entry ${profile_id} carries a handle reference that is secret material`);
+        if (entryExpires !== null && !isRealInstant(entryExpires)) throw new AuthProfileError('INVALID_PROFILE', `snapshot entry ${profile_id} has an expires_at that is not a real instant`);
+        if (entryAccount !== null && !isText(entryAccount)) throw new AuthProfileError('INVALID_PROFILE', `snapshot entry ${profile_id} has an account_ref that is not a reference`);
+        if (entry.profile_version !== undefined && (!Number.isSafeInteger(entry.profile_version) || entry.profile_version < 0)) throw new AuthProfileError('INVALID_PROFILE', `snapshot entry ${profile_id} has a profile_version that is not a version`);
+        if (persistence !== 'PERSISTENT' || !PERSISTABLE_MODES.includes(mode)) { skipped.push(profile_id); continue; }
         const stored = {
-          profile_id: entry.profile_id,
+          profile_id,
           profile_version: Number.isSafeInteger(entry.profile_version) ? entry.profile_version : 1,
-          connector_kind: entry.connector_kind,
-          mode: entry.mode,
+          connector_kind,
+          mode,
           persistence: 'PERSISTENT',
-          account_ref: entry.account_ref ?? null,
-          expires_at: entry.expires_at ?? null,
+          account_ref: entryAccount,
+          expires_at: entryExpires,
           requires_user_action: entry.requires_user_action === true,
-          handle_ref: entry.handle_ref ?? null,
+          handle_ref: entryHandle,
+          // The layer did not create this handle in this process, so it may not revoke it behind the
+          // caller's back; it is a reference the snapshot vouched for.
+          handle_bound_by_layer: false,
           status: 'MISSING',
           reason: 'RESTORED',
+          revoked_at: null,
+          revoked_reason: null,
           created_at: timestamp,
           updated_at: timestamp,
         };
@@ -461,7 +575,7 @@ export function createAuthProfileLayer({ handleStore = null, clock = () => new D
         restored_profiles: restored,
         skipped_non_persistent: skipped,
         degraded_profiles: degraded,
-        references_only: true,
+        references_only: findSecretFields({ restored_profiles: restored, skipped_non_persistent: skipped, degraded_profiles: degraded }).length === 0,
         plaintext_fallback_used: false,
         at: timestamp,
       });
@@ -487,7 +601,7 @@ export function createAuthProfileLayer({ handleStore = null, clock = () => new D
     clearLog() { log.length = 0; },
 
     /**
-     * Legacy DeepSeek .env discovery, bridged. The result is a NEUTRAL profile descriptor 鈥?it has no
+     * Legacy DeepSeek .env discovery, bridged. The result is a NEUTRAL profile descriptor — it has no
      * provider-specific field, so it cannot become the universal schema, and the key itself is only ever
      * handed to the handle store.
      */

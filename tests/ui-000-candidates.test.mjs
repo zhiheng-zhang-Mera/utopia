@@ -85,6 +85,11 @@ test('UI-000 parity probes only reference real surfaces and capabilities', async
     if (id.startsWith('ask-')) continue; /* covered by the ask-state probes */
     assert.ok(covered.has(id), `capability ${id} has no parity probe`);
   }
+  /* Every shared-runtime action must be probed, or a dead control can return. */
+  const runtime = await import('../apps/web/candidates/shared/runtime.js');
+  for (const action of runtime.ACTIONS) {
+    assert.ok(probes.ACTION_PROBES.some((p) => p.action === action), `runtime action ${action} has no action probe`);
+  }
 });
 
 test('UI-000 candidates are real, glyph-free and genuinely different', { skip: !PRESENT && 'candidate surface retired' }, async () => {
@@ -106,6 +111,10 @@ test('UI-000 candidates are real, glyph-free and genuinely different', { skip: !
     assert.match(html, /type="module" src="\.\/app\.js"/, `${id}: html must load its module`);
     assert.match(js, /surfaces:\s*SURFACES\.map/, `${id}: app must declare the full surface set`);
     assert.match(js, /revealAll/, `${id}: app must expose the demoted-value reveal hook`);
+    /* A control that renders but does nothing is a false affordance, and it turns
+       "same functional facts" into a claim. Review found 17 of them. */
+    assert.ok(!/=>\s*\{\s*\}/.test(js), `${id}: contains a control with an empty handler (dead control)`);
+    assert.match(js, /from '\.\.\/shared\/runtime\.js'/, `${id}: every control must act on the shared runtime`);
 
     for (const source of [html, css, js]) {
       for (const glyph of probes.FORBIDDEN_GLYPHS) {

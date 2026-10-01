@@ -15,7 +15,7 @@ import { chromium } from 'playwright';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SURFACE_PROBES, TECHNICAL_PROBES, ASK_PROBES } from '../../apps/web/candidates/shared/parity-probes.js';
+import { SURFACE_PROBES, TECHNICAL_PROBES, ASK_PROBES, ACTION_PROBES } from '../../apps/web/candidates/shared/parity-probes.js';
 import { REQUIRED_SURFACES, REQUIRED_CAPABILITIES, CANDIDATE_IDS } from '../../apps/web/candidates/shared/facts.js';
 
 const ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)));
@@ -81,6 +81,41 @@ async function run() {
           const ok = text.includes(token);
           results.push({ candidate: id, probe: 'ask', where: `ask:${probe.state}`, cap: 'ask-states', token, ok });
           if (!ok) fail.push(`${id}: ask/${probe.state} missing ${JSON.stringify(token)}`);
+        }
+      }
+
+      /* Pass 3 — actions: click the real control and assert the produced fact.
+         A control that renders but does nothing fails here. */
+      const actionOrder = ['openRoom', 'openHub', 'invoke', 'createDemoTask', 'cancelTask', 'startPairing', 'disconnect'];
+      for (const action of actionOrder) {
+        const probe = ACTION_PROBES.find((p) => p.action === action);
+        if (!probe) continue;
+        await page.evaluate((s) => window.__ui000.go(s), probe.surface);
+        await page.evaluate(() => { window.__opened = []; window.open = (u) => { window.__opened.push(String(u)); return null; }; });
+        let clicked = null;
+        for (const label of probe.labels) {
+          /* Only enabled controls count: a disabled button is not an affordance,
+             and clicking one would time out rather than prove anything. */
+          const handle = page.locator('button:enabled', { hasText: label }).first();
+          if (await handle.count()) {
+            try { await handle.click({ timeout: 3000 }); clicked = label; break; } catch { /* try next wording */ }
+          }
+        }
+        if (!clicked) {
+          fail.push(`${id}: action ${probe.action} has no clickable control on ${probe.surface} (labels: ${probe.labels.join(' / ')})`);
+          continue;
+        }
+        await page.waitForTimeout(60);
+        const after = await page.evaluate(() => document.body.textContent);
+        const opened = await page.evaluate(() => window.__opened ?? []);
+        results.push({ candidate: id, probe: 'action', where: `${probe.surface}:${clicked}`, cap: probe.action, token: `click:${clicked}`, ok: true });
+        if (probe.expectOpened && !opened.some((u) => u.includes(probe.expectOpened))) {
+          fail.push(`${id}: action ${probe.action} did not open ${probe.expectOpened} (opened: ${JSON.stringify(opened)})`);
+        }
+        for (const token of probe.expect ?? []) {
+          const ok = after.includes(token);
+          results.push({ candidate: id, probe: 'action', where: `${probe.surface}:${clicked}`, cap: probe.action, token, ok });
+          if (!ok) fail.push(`${id}: action ${probe.action} did not produce ${JSON.stringify(token)}`);
         }
       }
 

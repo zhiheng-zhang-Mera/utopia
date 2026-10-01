@@ -13,6 +13,7 @@
  */
 import { DEMO, SURFACES, PRIMARY_SURFACES, ADVANCED_SURFACES } from '../shared/facts.js';
 import { icon } from '../shared/icons.js';
+import { createRuntime } from '../shared/runtime.js';
 
 const el = (tag, attrs = {}, ...kids) => {
   const node = document.createElement(tag);
@@ -39,6 +40,9 @@ const hhmm = (iso) => new Date(iso).toISOString().slice(11, 16);
 const city = DEMO.city;
 const rooms = DEMO.rooms;
 const node = city.nodes[0];
+/* Every control in this direction acts on the shared local runtime, so the same
+   click produces the same fact here as in the other two directions. */
+const rt = createRuntime();
 
 /* Objects, not pages. Each object opens one or more canvas views. */
 const OBJECTS = [
@@ -106,7 +110,7 @@ function stateTag(s) {
 /* ---------------------------------------------------------------- canvas */
 
 function viewHome() {
-  const open = city.tasks.filter((t) => !['COMPLETED', 'FAILED', 'CANCELLED'].includes(t.state));
+  const open = rt.state.tasks.filter((t) => !['COMPLETED', 'FAILED', 'CANCELLED'].includes(t.state));
   return el('div', { class: 'view', dataset: { view: 'home' } }, [
     el('header', { class: 'view-head' }, [
       el('h1', { class: 'view-title', text: '现在' }),
@@ -137,7 +141,7 @@ function viewHome() {
     ]),
     el('section', { class: 'zone wide' }, [
       label('最近记录'),
-      grid(['时间', '事件', '详情'], city.events.slice(0, 4).map((e) => row([
+      grid(['时间', '事件', '详情'], rt.state.events.slice(0, 4).map((e) => row([
         el('span', { class: 'num', text: hhmm(e.timestamp) }),
         e.type,
         el('button', { class: 'link tiny', text: '检查器', onclick: (ev) => { ev.stopPropagation(); openInspector('事件 · 运行细节', e); } }),
@@ -224,15 +228,22 @@ function viewTools() {
       el('div', { class: 'facet' }, tags.map((t) => el('button', { class: 'btn tiny', text: t, onclick: () => { setQ(t); render(); } }))),
       el('button', { class: 'link tiny inspect', text: '房间服务详情', onclick: () => openInspector('工具 · 房间服务', { hubUrl: rooms.hubUrl, checkedAt: rooms.checkedAt, product: rooms.product, version: rooms.version, count: rooms.count }) }),
     ]),
-    grid(['#', '工具', '说明', '保存'], list.map((r) =>
+    grid(['#', '工具', '说明', '保存', ''], list.map((r) =>
       row([
         el('span', { class: 'num', text: r.number }),
         el('span', { class: 'cell-strong' }, [el('span', { text: r.label }), el('span', { class: 'cell-zh', text: r.zh })]),
         el('span', { class: 'cell-note', text: r.summary }),
         r.persistent ? el('span', { class: 'tag tag-ok', text: '保存' }) : el('span', { class: 'tag tag-idle', text: '不留痕' }),
+        el('button', { class: 'link tiny', text: '打开', onclick: (e) => { e.stopPropagation(); rt.openRoom(r.id); render(); } }),
       ], { id: r.id, number: r.number, lifecycle: r.lifecycle, tags: r.tags, persistent: r.persistent }, '工具 · 房间细节')
     )),
-    el('button', { class: 'btn', text: '打开房间服务', onclick: () => {} }),
+    rt.state.openedRoom
+      ? el('p', { class: 'foot-note', text: `已打开 ${rt.state.openedRoom.id} · ${rt.state.openedRoom.url}` })
+      : null,
+    el('button', { class: 'btn', text: '打开房间服务', onclick: () => { rt.openHub(); render(); } }),
+    rt.state.openedHub
+      ? el('p', { class: 'foot-note', text: `已在房间服务中打开 · ${rooms.hubUrl}` })
+      : null,
   ]);
 }
 
@@ -259,7 +270,7 @@ function viewDevices() {
     ]),
     el('section', { class: 'zone wide' }, [
       label('这台机器上的作业'),
-      grid(['作业', '状态', '进度'], city.tasks.map((x) => row([x.type, stateTag(x.state), bar(x.progress, 100)],
+      grid(['作业', '状态', '进度'], rt.state.tasks.map((x) => row([x.type, stateTag(x.state), bar(x.progress, 100)],
         { taskId: x.id, lastCheckpoint: x.lastCheckpoint, result: x.result, error: x.error }, '作业 · 检查点'))),
     ]),
   ]);
@@ -269,9 +280,9 @@ function viewActivity() {
   return el('div', { class: 'view', dataset: { view: 'activity' } }, [
     el('header', { class: 'view-head' }, [
       el('h1', { class: 'view-title', text: '记录' }),
-      el('p', { class: 'view-sub', text: `${city.events.length} 条事件，按时间倒序。` }),
+      el('p', { class: 'view-sub', text: `${rt.state.events.length} 条事件，按时间倒序。` }),
     ]),
-    grid(['序号', '时间', '事件', '相关作业'], city.events.map((e) =>
+    grid(['序号', '时间', '事件', '相关作业'], rt.state.events.map((e) =>
       row([
         el('span', { class: 'num', text: '#' + e.seq }),
         el('span', { class: 'num', text: hhmm(e.timestamp) }),
@@ -286,16 +297,21 @@ function viewTasks() {
     el('header', { class: 'view-head' }, [
       el('h1', { class: 'view-title', text: '作业' }),
       el('p', { class: 'view-sub', text: '作业注册表。检查点与结果在检查器中。' }),
-      el('button', { class: 'btn', text: '运行演示作业', onclick: () => {} }),
+      el('button', { class: 'btn', text: '运行演示作业', onclick: () => { rt.createDemoTask(); render(); } }),
     ]),
-    grid(['作业', '状态', '进度', ''], city.tasks.map((t) => row([
+    grid(['作业', '状态', '进度', ''], rt.state.tasks.map((t) => row([
       el('span', { class: 'cell-strong' }, [
         el('span', { text: t.type }),
         el('span', { class: 'cell-zh', text: `${t.id} · ${t.assignedNodeId}` }),
       ]),
       stateTag(t.state),
       bar(t.progress, 100),
-      el('button', { class: 'link tiny', text: '取消', onclick: (e) => e.stopPropagation() }),
+      el('button', {
+        class: 'link tiny',
+        text: '取消',
+        disabled: ['COMPLETED', 'FAILED', 'CANCELLED'].includes(t.state),
+        onclick: (e) => { e.stopPropagation(); rt.cancelTask(t.id); render(); },
+      }),
     ], { taskId: t.id, type: t.type, lastCheckpoint: t.lastCheckpoint, result: t.result, error: t.error, assignedNodeId: t.assignedNodeId }, '作业 · 检查点'))),
   ]);
 }
@@ -327,11 +343,11 @@ function viewServices() {
       el('span', { class: 'num', text: c.capabilityId }),
       el('span', { class: `tag tag-${c.bridgeState === 'READY' ? 'ok' : 'idle'}`, text: c.bridgeState }),
       c.cityLifecycle,
-      el('button', { class: 'link tiny', text: '调用', onclick: (e) => e.stopPropagation() }),
+      el('button', { class: 'link tiny', text: '调用', onclick: (e) => { e.stopPropagation(); rt.invoke(c.capabilityId); render(); } }),
     ], c, '能力 · 调用细节'))),
     el('section', { class: 'zone wide' }, [
       label('调用历史'),
-      grid(['调用', '能力', '状态', '摘要'], city.invocations.map((i) => row([
+      grid(['调用', '能力', '状态', '摘要'], rt.state.invocations.map((i) => row([
         el('span', { class: 'num', text: i.invocationId }),
         el('span', { class: 'num', text: i.capabilityId }),
         stateTag(i.status),
@@ -350,8 +366,11 @@ function viewPairing() {
     el('div', { class: 'zones' }, [
       el('section', { class: 'zone' }, [
         label('配对码'),
-        el('p', { class: 'big-num', text: '— — — —' }),
-        el('button', { class: 'btn primary', text: '生成配对码', onclick: () => {} }),
+        el('p', { class: 'big-num', text: rt.state.pairing ? rt.state.pairing.shortCode : '— — — —' }),
+        el('button', { class: 'btn primary', text: '生成配对码', onclick: () => { rt.startPairing(); render(); } }),
+        rt.state.pairing
+          ? el('p', { class: 'foot-note', text: `有效期 ${rt.state.pairing.expiresInSeconds} 秒 · 城市 ${rt.state.pairing.cityId}` })
+          : null,
       ]),
       el('section', { class: 'zone' }, [
         label('发现与协议'),
@@ -381,10 +400,10 @@ function viewSettings() {
       el('section', { class: 'zone' }, [
         label('连接'),
         el('ul', { class: 'kv' }, [
-          el('li', {}, [el('span', { class: 'kv-k', text: '会话令牌' }), el('span', { class: 'kv-v', text: '已设置' })]),
+          el('li', {}, [el('span', { class: 'kv-k', text: '会话令牌' }), el('span', { class: 'kv-v', text: rt.state.connected ? '已设置' : '已断开' })]),
           el('li', {}, [el('span', { class: 'kv-k', text: '源' }), el('span', { class: 'kv-v num', text: 'http://127.0.0.1:4310' })]),
         ]),
-        el('button', { class: 'btn', text: '更换令牌', onclick: () => {} }),
+        el('button', { class: 'btn', text: rt.state.connected ? '更换令牌' : '已断开', disabled: !rt.state.connected, onclick: () => { rt.disconnect(); render(); } }),
         el('button', { class: 'link tiny inspect', text: '协议细节', onclick: () => openInspector('设置 · 协议细节', { apiVersion: 0, schemaVersion: 0, origin: 'http://127.0.0.1:4310' }) }),
       ]),
     ]),

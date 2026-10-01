@@ -7,7 +7,9 @@
 
 1. **功能 / 信息地图** — 见下方 §2 与机器可读的 [`shared/facts.js`](./shared/facts.js)；
 2. **三套可运行、可截图、结构明显不同的视觉候选** — `a/` `b/` `c/`；
-3. **机器可验证的“功能事实相同”契约** — [`shared/parity-probes.js`](./shared/parity-probes.js) + `scripts/ui-000/parity.mjs`。
+3. **机器可验证的"功能事实相同"契约** — [`shared/parity-probes.js`](./shared/parity-probes.js) + `scripts/ui-000/parity.mjs`；
+4. **共享本地运行时** — [`shared/runtime.js`](./shared/runtime.js)，三套候选的每个控件都作用在同一个模型上，
+   因此同一个点击在三套里产生同一个事实。
 
 ## 1. 怎么运行 / How to run
 
@@ -101,6 +103,14 @@ provenance、apiVersion、schemaVersion、hubUrl、lastCheckpoint、discovery re
 三者共享同一份 `shared/facts.js` 与同一套 `shared/icons.js` SVG 图标；
 `tests/ui-000-candidates.test.mjs` 会断言三者背景色、强调色、圆角**两两不同**，
 防止“只换配色”。**候选 C 的 Ask/Do 是 spotlight 覆盖层，另设一个可寻址的 `ask` scene 以满足信息架构一致性。**
+
+**行为一致性（Development 后修正的真实缺陷）：** 首轮候选里有 17 个控件渲染出来却什么都不做——
+这是假可供性，等于把"功能事实相同"变成一句声明。修正方式是引入 `shared/runtime.js`：
+三套候选的每个控件都调用同一个本地模型，同一个点击在三套里产生同一个事实。
+`parity.mjs` 的 `ACTION_PROBES` 现在会**真的点击**每个控件并断言产生的事实；
+`openRoom`/`openHub` 还会断言确实发生了真实跳转（`window.open` 的目标 URL）。
+契约测试同时禁止 `=> {}` 空处理器再次出现。这次修正确实找出了两处真实缺口：
+候选 B 完全没有"打开房间"控件、候选 A 没有"打开房间服务"控件。
 
 ## 4. Rooms 代表页
 

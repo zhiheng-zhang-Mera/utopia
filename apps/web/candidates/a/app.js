@@ -13,6 +13,7 @@
  */
 import { DEMO, PRIMARY_SURFACES, ADVANCED_SURFACES, SURFACES } from '../shared/facts.js';
 import { icon } from '../shared/icons.js';
+import { createRuntime } from '../shared/runtime.js';
 
 const el = (tag, attrs = {}, ...kids) => {
   const node = document.createElement(tag);
@@ -49,6 +50,9 @@ const city = DEMO.city;
 const rooms = DEMO.rooms;
 const node = city.nodes[0];
 const online = true;
+/* Every control in this direction acts on the shared local runtime, so the same
+   click produces the same fact here as in the other two directions. */
+const rt = createRuntime();
 
 /* ------------------------------------------------------------------ chrome */
 
@@ -102,8 +106,8 @@ function badge(kind, text) {
 /* -------------------------------------------------------------- surfaces */
 
 function home() {
-  const running = city.tasks.filter((t) => !['COMPLETED', 'FAILED', 'CANCELLED'].includes(t.state));
-  const failed = city.tasks.filter((t) => t.state === 'FAILED');
+  const running = rt.state.tasks.filter((t) => !['COMPLETED', 'FAILED', 'CANCELLED'].includes(t.state));
+  const failed = rt.state.tasks.filter((t) => t.state === 'FAILED');
   const headline = failed.length
     ? `有 ${failed.length} 件事没做成，需要你看一眼。`
     : running.length
@@ -129,7 +133,7 @@ function home() {
     ]),
 
     el('h2', { class: 'sub', text: '最近发生' }),
-    el('ol', { class: 'rail' }, city.events.slice(0, 4).map((e) =>
+    el('ol', { class: 'rail' }, rt.state.events.slice(0, 4).map((e) =>
       el('li', {}, [
         el('span', { class: 'rail-time', text: clock(e.timestamp) }),
         el('span', { class: 'rail-text', text: readable(e.type) }),
@@ -152,6 +156,7 @@ function readable(type) {
   return ({
     'task.completed': '一个任务完成了',
     'task.progress': '一个任务正在推进',
+    'task.cancelled': '一个任务被取消了',
     'node.heartbeat': '设备发来一次心跳',
   })[type] ?? type;
 }
@@ -243,10 +248,19 @@ function tools() {
           el('span', { class: 'room-summary', text: r.summary }),
         ]),
         r.persistent ? el('span', { class: 'room-flag', text: '会保存' }) : el('span', { class: 'room-flag quiet', text: '不留痕' }),
-        el('button', { class: 'room-open', text: '打开', onclick: () => {} }),
+        el('button', { class: 'room-open', text: '打开', onclick: () => { rt.openRoom(r.id); render(); } }),
       ]),
     )),
+    rt.state.openedRoom
+      ? el('p', { class: 'note' }, ['已在房间服务中打开 ', el('strong', { text: rt.state.openedRoom.id }), ' · ', el('span', { class: 'muted-text', text: rt.state.openedRoom.url })])
+      : null,
     el('p', { class: 'note', text: '房间只监听本机回环地址，因此只有这台机器上的浏览器能打开它们。' }),
+    el('div', { class: 'actions' }, [
+      el('button', { class: 'room-open', text: '打开房间服务', onclick: () => { rt.openHub(); render(); } }),
+    ]),
+    rt.state.openedHub
+      ? el('p', { class: 'note', text: `已在房间服务中打开 · ${rooms.hubUrl}` })
+      : null,
     el('div', { class: 'disclosure' }, [
       technical('房间服务详情', {
         hubUrl: rooms.hubUrl, checkedAt: rooms.checkedAt, product: rooms.product, version: rooms.version,
@@ -280,7 +294,7 @@ function devices() {
         capabilities: node.capabilities,
       }),
       el('h3', { class: 'sub', text: '这台设备上的任务' }),
-      el('ul', { class: 'plain-list' }, city.tasks.map((t) =>
+      el('ul', { class: 'plain-list' }, rt.state.tasks.map((t) =>
         el('li', {}, [
           el('a', { class: 'text-link', href: '#tasks', text: t.type }),
           el('span', { class: 'muted-text', text: t.state === 'RUNNING' ? `进行中 ${t.progress}%` : t.state === 'COMPLETED' ? '已完成' : t.state }),
@@ -298,7 +312,7 @@ function activity() {
   return el('section', { class: 'scene', dataset: { surface: 'activity' } }, [
     el('p', { class: 'kicker', text: '动态' }),
     el('h1', { class: 'display', text: '城市里发生过什么。' }),
-    el('ol', { class: 'rail wide' }, city.events.map((e) =>
+    el('ol', { class: 'rail wide' }, rt.state.events.map((e) =>
       el('li', {}, [
         el('span', { class: 'rail-time', text: clock(e.timestamp) }),
         el('span', { class: 'rail-text', text: readable(e.type) }),
@@ -318,11 +332,11 @@ function services() {
         el('span', { class: 'cap-name', text: c.capabilityId }),
         badge(c.bridgeState === 'READY' ? 'ok' : 'muted', c.bridgeState),
         el('span', { class: 'muted-text', text: c.cityLifecycle }),
-        el('button', { class: 'quiet small', text: '调用', onclick: () => {} }),
+        el('button', { class: 'quiet small', text: '调用', onclick: () => { rt.invoke(c.capabilityId); render(); } }),
       ]),
     )),
     el('h2', { class: 'sub', text: '调用历史' }),
-    el('ul', { class: 'plain-list' }, city.invocations.map((i) =>
+    el('ul', { class: 'plain-list' }, rt.state.invocations.map((i) =>
       el('li', {}, [
         el('span', { text: i.capabilityId }),
         badge(i.status === 'COMPLETED' ? 'ok' : 'warn', i.status),
@@ -336,13 +350,13 @@ function tasks() {
   return el('section', { class: 'scene advanced-scene', dataset: { surface: 'tasks' } }, [
     el('p', { class: 'kicker', text: '高级 · 任务' }),
     el('h1', { class: 'title', text: '任务' }),
-    el('button', { class: 'quiet', text: '运行一个演示任务', onclick: () => {} }),
-    el('ul', { class: 'plain-list' }, city.tasks.map((t) =>
+    el('button', { class: 'quiet', text: '运行一个演示任务', onclick: () => { rt.createDemoTask(); render(); } }),
+    el('ul', { class: 'plain-list' }, rt.state.tasks.map((t) =>
       el('li', {}, [
         el('span', { class: 'cap-name', text: t.type }),
         badge(t.state === 'COMPLETED' ? 'ok' : t.state === 'RUNNING' ? 'warn' : 'muted', t.state),
         el('span', { class: 'muted-text', text: `${t.progress}%` }),
-        el('button', { class: 'quiet small', text: '取消', onclick: () => {} }),
+        el('button', { class: 'quiet small', text: '取消', disabled: ['COMPLETED', 'FAILED', 'CANCELLED'].includes(t.state), onclick: () => { rt.cancelTask(t.id); render(); } }),
         technical('检查点与结果', { lastCheckpoint: t.lastCheckpoint, result: t.result, error: t.error, taskId: t.id }),
       ]),
     )),
@@ -369,9 +383,10 @@ function pairing() {
   return el('section', { class: 'scene advanced-scene', dataset: { surface: 'pairing' } }, [
     el('p', { class: 'kicker', text: '高级 · 配对' }),
     el('h1', { class: 'title', text: '把一台新设备带进来。' }),
-    el('button', { class: 'primary', text: '生成配对码', onclick: () => {} }),
+    el('button', { class: 'primary', text: '生成配对码', onclick: () => { rt.startPairing(); render(); } }),
     el('dl', { class: 'facts' }, [
-      line('配对码', '—— 未生成 ——'),
+      line('配对码', rt.state.pairing ? rt.state.pairing.shortCode : '—— 未生成 ——'),
+      line('有效期', rt.state.pairing ? `${rt.state.pairing.expiresInSeconds} 秒` : '——'),
       line('地址', `${city.descriptor.endpoint.host}:${city.descriptor.endpoint.port}`),
       line('发现', `mDNS ${city.discovery.mdns.state} · 蓝牙 ${city.discovery.ble.state}`),
     ]),
@@ -389,8 +404,8 @@ function settings() {
       el('button', { class: i === 0 ? 'chip is-on' : 'chip', text: n }),
     )),
     el('h2', { class: 'sub', text: '连接' }),
-    el('p', { class: 'muted-text', text: '当前会话使用一次性配对令牌。更换令牌会断开连接。' }),
-    el('button', { class: 'quiet', text: '更换令牌', onclick: () => {} }),
+    el('p', { class: 'muted-text', text: rt.state.connected ? '当前会话使用一次性配对令牌。更换令牌会断开连接。' : '已断开。重新输入配对令牌即可连接。' }),
+    el('button', { class: 'quiet', text: rt.state.connected ? '更换令牌' : '已断开', disabled: !rt.state.connected, onclick: () => { rt.disconnect(); render(); } }),
     technical('协议详情', { apiVersion: 0, schemaVersion: 0, origin: 'http://127.0.0.1:4310' }),
   ]);
 }

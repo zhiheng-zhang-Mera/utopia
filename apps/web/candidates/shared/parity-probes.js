@@ -102,7 +102,30 @@ export const ASK_PROBES = [
   { state: 'working', expect: ['hash C:\\tmp\\a.txt', '执行'] },
 ];
 
+/**
+ * Actions, probed by actually CLICKING the control on its surface.
+ *
+ * Showing a button is not the same as having the capability. Review found 17
+ * controls across the three directions that rendered but did nothing — a false
+ * affordance that quietly turned "same functional facts" into a claim. These
+ * probes click by label and then assert the produced fact, so a dead control
+ * fails instead of passing.
+ *
+ * `labels` lists every accepted wording, because the three directions word the
+ * same control differently on purpose; `expectOpened` asserts a real navigation
+ * was performed, which is the strongest available check for the room controls.
+ */
+export const ACTION_PROBES = [
+  { action: 'openRoom', surface: 'tools', labels: ['打开'], expectOpened: '#/knowledge', expect: ['127.0.0.1:4320'] },
+  { action: 'openHub', surface: 'tools', labels: ['打开房间服务'], expectOpened: '127.0.0.1:4320' },
+  { action: 'invoke', surface: 'services', labels: ['调用'], expect: ['inv-11'] },
+  { action: 'createDemoTask', surface: 'tasks', labels: ['运行演示任务', '运行演示作业', '运行一个演示任务'], expect: ['tsk-101'] },
+  { action: 'cancelTask', surface: 'tasks', labels: ['取消'], expect: ['CANCELLED'] },
+  { action: 'startPairing', surface: 'pairing', labels: ['生成配对码'], expect: ['4821'] },
+  { action: 'disconnect', surface: 'settings', labels: ['更换令牌'], expect: ['已断开'] },
+];
+
 /** Text/Unicode geometry the hard rules forbid as an icon system. */
 export const FORBIDDEN_GLYPHS = ['◈', '▦', '◇', '≋', '◉', '▤', '≣', '⊞', '⚙', '▣', '✦', '❖', '◆', '■', '▲'];
 
-export default { SURFACE_PROBES, TECHNICAL_PROBES, ASK_PROBES, FORBIDDEN_GLYPHS };
+export default { SURFACE_PROBES, TECHNICAL_PROBES, ASK_PROBES, ACTION_PROBES, FORBIDDEN_GLYPHS };

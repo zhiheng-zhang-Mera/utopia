@@ -13,6 +13,7 @@
  */
 import { DEMO, SURFACES, PRIMARY_SURFACES, ADVANCED_SURFACES } from '../shared/facts.js';
 import { icon } from '../shared/icons.js';
+import { createRuntime } from '../shared/runtime.js';
 
 const el = (tag, attrs = {}, ...kids) => {
   const node = document.createElement(tag);
@@ -38,6 +39,9 @@ const hhmm = (iso) => new Date(iso).toISOString().slice(11, 16);
 const city = DEMO.city;
 const rooms = DEMO.rooms;
 const node = city.nodes[0];
+/* Every control in this direction acts on the shared local runtime, so the same
+   click produces the same fact here as in the other two directions. */
+const rt = createRuntime();
 const ROOM_ICONS = ['room', 'clock', 'search', 'shield', 'cpu', 'disk', 'filter', 'check', 'expand', 'user'];
 
 const ACTS = [
@@ -65,7 +69,7 @@ const tag = (kind, text) => el('span', { class: `tag tag-${kind}`, text });
 /* ----------------------------------------------------------------- scenes */
 
 function sceneHome() {
-  const open = city.tasks.filter((t) => !['COMPLETED', 'FAILED', 'CANCELLED'].includes(t.state));
+  const open = rt.state.tasks.filter((t) => !['COMPLETED', 'FAILED', 'CANCELLED'].includes(t.state));
   return el('div', { class: 'act', dataset: { view: 'home' } }, [
     el('p', { class: 'act-kicker', text: `NOW · ${hhmm(city.updatedAt)}` }),
     el('h1', { class: 'act-title', html: '你的城市<br><em>现在</em>是这样。' }),
@@ -96,7 +100,7 @@ function sceneHome() {
       ]),
       panel('std', [
         el('p', { class: 'panel-label', text: '最近动态' }),
-        el('ul', { class: 'beats' }, city.events.slice(0, 3).map((e) =>
+        el('ul', { class: 'beats' }, rt.state.events.slice(0, 3).map((e) =>
           el('li', {}, [
             el('span', { class: 'beat-time', text: hhmm(e.timestamp) }),
             el('span', { text: readable(e.type) }),
@@ -127,12 +131,15 @@ function sceneTools() {
           el('span', { class: 'poster-tags', text: r.tags.join(' · ') }),
         ]),
         tech('运行详情', { id: r.id, number: r.number, lifecycle: r.lifecycle, tags: r.tags, persistent: r.persistent }),
-        el('button', { class: 'cta poster-open', text: '打开', onclick: () => {} }),
+        el('button', { class: 'cta poster-open', text: '打开', onclick: () => { rt.openRoom(r.id); render(); } }),
       ]),
     )),
+    rt.state.openedRoom
+      ? el('p', { class: 'act-lede dim', text: `已打开 ${rt.state.openedRoom.id} · ${rt.state.openedRoom.url}` })
+      : null,
     el('p', { class: 'act-lede dim', text: '房间只监听本机回环地址，只有这台机器上的浏览器能打开。' }),
     el('div', { class: 'btn-row' }, [
-      el('button', { class: 'cta', text: '打开房间服务', onclick: () => {} }),
+      el('button', { class: 'cta', text: '打开房间服务', onclick: () => { rt.openHub(); render(); } }),
       tech('房间服务详情', { hubUrl: rooms.hubUrl, checkedAt: rooms.checkedAt, product: rooms.product, version: rooms.version, count: rooms.count }),
     ]),
   ]);
@@ -165,7 +172,7 @@ function sceneDevices() {
       ]),
       panel('wide', [
         el('p', { class: 'panel-label', text: '这台机器上的作业' }),
-        el('div', { class: 'poster-row' }, city.tasks.map((x) =>
+        el('div', { class: 'poster-row' }, rt.state.tasks.map((x) =>
           el('button', { class: 'mini mini-sm' }, [
             el('span', { class: 'mini-label', text: x.type }),
             el('span', { class: 'mini-meta', text: `${x.state} · ${x.progress}%` }),
@@ -185,8 +192,8 @@ const meter = (k, v, ratio) => el('li', {}, [
 function sceneActivity() {
   return el('div', { class: 'act', dataset: { view: 'activity' } }, [
     el('p', { class: 'act-kicker', text: 'ACTIVITY' }),
-    el('h1', { class: 'act-title', html: `城市里<br>发生过 <em>${city.events.length}</em> 件事。` }),
-    el('ul', { class: 'beats big' }, city.events.map((e) =>
+    el('h1', { class: 'act-title', html: `城市里<br>发生过 <em>${rt.state.events.length}</em> 件事。` }),
+    el('ul', { class: 'beats big' }, rt.state.events.map((e) =>
       el('li', {}, [
         el('span', { class: 'beat-time', text: hhmm(e.timestamp) }),
         el('span', { class: 'beat-text', text: readable(e.type) }),
@@ -205,12 +212,12 @@ function sceneBackstage() {
         el('span', { class: 'lt-key', text: c.capabilityId }),
         tag(c.bridgeState === 'READY' ? 'ok' : 'idle', c.bridgeState),
         el('span', { class: 'lt-note', text: c.cityLifecycle }),
-        el('button', { class: 'link', text: '调用', onclick: () => {} }),
+        el('button', { class: 'link', text: '调用', onclick: () => { rt.invoke(c.capabilityId); render(); } }),
         tech('运行详情', c),
       ]),
     )),
     el('h2', { class: 'act-sub', text: '调用历史' }),
-    el('div', { class: 'list-table' }, city.invocations.map((i) =>
+    el('div', { class: 'list-table' }, rt.state.invocations.map((i) =>
       el('div', { class: 'lt-row' }, [
         el('span', { class: 'lt-key', text: i.capabilityId }),
         tag('ok', i.status),
@@ -225,13 +232,13 @@ function sceneTasks() {
   return el('div', { class: 'act', dataset: { view: 'tasks' } }, [
     el('p', { class: 'act-kicker', text: 'BACKSTAGE' }),
     el('h1', { class: 'act-title', html: '任务' }),
-    el('div', { class: 'btn-row' }, [el('button', { class: 'cta', text: '运行演示任务', onclick: () => {} })]),
-    el('div', { class: 'list-table' }, city.tasks.map((t) =>
+    el('div', { class: 'btn-row' }, [el('button', { class: 'cta', text: '运行演示任务', onclick: () => { rt.createDemoTask(); render(); } })]),
+    el('div', { class: 'list-table' }, rt.state.tasks.map((t) =>
       el('div', { class: 'lt-row' }, [
         el('span', { class: 'lt-key', text: t.type }),
         tag(t.state === 'COMPLETED' ? 'ok' : t.state === 'RUNNING' ? 'run' : 'idle', t.state),
         el('span', { class: 'lt-note', text: `${t.progress}%` }),
-        el('button', { class: 'link', text: '取消', onclick: () => {} }),
+        el('button', { class: 'link', text: '取消', disabled: ['COMPLETED', 'FAILED', 'CANCELLED'].includes(t.state), onclick: () => { rt.cancelTask(t.id); render(); } }),
         tech('检查点与结果', { taskId: t.id, lastCheckpoint: t.lastCheckpoint, result: t.result, error: t.error }),
       ]),
     )),
@@ -261,8 +268,11 @@ function scenePairing() {
     el('div', { class: 'deck' }, [
       panel('hero', [
         el('p', { class: 'panel-label', text: '配对码' }),
-        el('p', { class: 'code', text: '— — — —' }),
-        el('button', { class: 'cta', text: '生成配对码', onclick: () => {} }),
+        el('p', { class: 'code', text: rt.state.pairing ? rt.state.pairing.shortCode : '— — — —' }),
+        el('button', { class: 'cta', text: '生成配对码', onclick: () => { rt.startPairing(); render(); } }),
+        rt.state.pairing
+          ? el('p', { class: 'panel-note', text: `有效期 ${rt.state.pairing.expiresInSeconds} 秒` })
+          : null,
       ]),
       panel('std', [
         el('p', { class: 'panel-label', text: '发现' }),
@@ -282,8 +292,8 @@ function sceneSettings() {
     el('p', { class: 'act-lede', text: '界面语言' }),
     el('div', { class: 'chips' }, ['English', '简体中文'].map((n, i) => el('button', { class: i === 0 ? 'chip is-on' : 'chip', text: n }))),
     el('p', { class: 'act-lede', text: '连接' }),
-    el('p', { class: 'panel-note', text: '当前会话使用一次性配对令牌。更换令牌会断开连接。' }),
-    el('div', { class: 'btn-row' }, [el('button', { class: 'cta', text: '更换令牌', onclick: () => {} })]),
+    el('p', { class: 'panel-note', text: rt.state.connected ? '当前会话使用一次性配对令牌。更换令牌会断开连接。' : '已断开。重新输入配对令牌即可连接。' }),
+    el('div', { class: 'btn-row' }, [el('button', { class: 'cta', text: rt.state.connected ? '更换令牌' : '已断开', disabled: !rt.state.connected, onclick: () => { rt.disconnect(); render(); } })]),
     tech('协议细节', { apiVersion: 0, schemaVersion: 0, origin: 'http://127.0.0.1:4310' }),
   ]);
 }

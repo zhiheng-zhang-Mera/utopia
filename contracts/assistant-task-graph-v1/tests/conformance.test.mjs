@@ -397,8 +397,8 @@ test('a released executor must revalidate its lease instead of re-issuing it', (
   const created = graph.createTask(baseTask({ task_id: 'task:1', side_effect: 'EXCLUSIVE' }));
   const assigned = graph.changeExecutor({ task_id: 'task:1', expected_version: created.task_version, executor_ref: 'device:alpha', actor_ref: 'assistant:alpha', action_key: 'action-key:1' });
   graph.releaseDevice({ device_ref: 'device:alpha' });
-  assert.equal(refuse(() => graph.submitExecutorResult({ task_id: 'task:1', expected_version: assigned.task.task_version, actor_ref: 'device:alpha', lease_ref: assigned.lease.lease_ref, lease_epoch: assigned.lease.lease_epoch, action_key: 'action-key:1', outcome: 'SUCCEEDED' })).code, 'LEASE_SUSPENDED', 'submitting needs revalidation');
-  assert.equal(refuse(() => graph.changeExecutor({ task_id: 'task:1', expected_version: assigned.task.task_version, executor_ref: 'device:alpha', actor_ref: 'assistant:alpha', action_key: 'action-key:1' })).code, 'LEASE_SUSPENDED', 'nor may it re-issue its own lease');
+  assert.equal(refuse(() => graph.submitExecutorResult({ task_id: 'task:1', expected_version: graph.getTask('task:1').task_version, actor_ref: 'device:alpha', lease_ref: assigned.lease.lease_ref, lease_epoch: assigned.lease.lease_epoch, action_key: 'action-key:1', outcome: 'SUCCEEDED' })).code, 'LEASE_SUSPENDED', 'submitting needs revalidation');
+  assert.equal(refuse(() => graph.changeExecutor({ task_id: 'task:1', expected_version: graph.getTask('task:1').task_version, executor_ref: 'device:alpha', actor_ref: 'assistant:alpha', action_key: 'action-key:1' })).code, 'LEASE_SUSPENDED', 'nor may it re-issue its own lease');
   graph.revalidateLease({ task_id: 'task:1', lease_ref: assigned.lease.lease_ref, lease_epoch: assigned.lease.lease_epoch, executor_ref: 'device:alpha' });
   assert.equal(graph.submitExecutorResult({ task_id: 'task:1', expected_version: graph.getTask('task:1').task_version, actor_ref: 'device:alpha', lease_ref: assigned.lease.lease_ref, lease_epoch: assigned.lease.lease_epoch, action_key: 'action-key:1', outcome: 'SUCCEEDED' }).applied_outcome, 'SUCCEEDED');
 });

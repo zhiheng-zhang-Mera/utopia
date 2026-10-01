@@ -50,15 +50,72 @@ export class ForemanError extends Error {
   }
 }
 
-const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+const isPlainObject = value => {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+};
 const isText = value => typeof value === 'string' && value.trim().length > 0;
 const clone = value => (value === undefined ? undefined : structuredClone(value));
+/** Cycle-safe: a caller-supplied structure must not be able to blow the stack. */
 const freeze = value => {
-  if (value === null || typeof value !== 'object') return value;
-  for (const child of Object.values(value)) freeze(child);
-  return Object.freeze(value);
+  const seen = new WeakSet();
+  const walk = node => {
+    if (node === null || typeof node !== 'object') return node;
+    if (seen.has(node)) return node;
+    seen.add(node);
+    for (const child of Object.values(node)) walk(child);
+    return Object.freeze(node);
+  };
+  return walk(value);
 };
-export const isIsoInstant = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+export const isIsoInstant = value => typeof value === 'string'
+  && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)
+  && !Number.isNaN(Date.parse(value));
+
+const INSTANT_PARTS = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?Z$/;
+const isRealInstant = value => {
+  if (!isIsoInstant(value)) return false;
+  const parts = INSTANT_PARTS.exec(value);
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return false;
+  return date.getUTCFullYear() === Number(parts[1])
+    && date.getUTCMonth() + 1 === Number(parts[2])
+    && date.getUTCDate() === Number(parts[3])
+    && date.getUTCHours() === Number(parts[4])
+    && date.getUTCMinutes() === Number(parts[5])
+    && date.getUTCSeconds() === Number(parts[6]);
+};
+const callerInstant = (value, label) => {
+  if (!isRealInstant(value)) throw new ForemanError('INVALID_REQUEST', `${label} must be a real ISO-8601 UTC instant, got ${String(value)}`);
+  return value;
+};
+
+const NODE_FIELDS = Object.freeze(['node_id', 'job_ref', 'depends_on', 'write_scope', 'acceptance', 'capability_required', 'exclusive_writes', 'max_attempts', 'task_ref', 'action_key']);
+const nullableText = value => value === null || value === undefined || isText(value);
+
+/** A ceiling that can be switched off is not a ceiling: every policy bound is checked, not trusted. */
+function validateForemanPolicy(policy) {
+  const errors = [];
+  const allowed = ['policy_ref', 'max_workers', 'min_workers', 'scale_up_after_ticks', 'scale_down_immediately', 'pressure_pause_threshold', 'max_attempts', 'placement'];
+  for (const key of Reflect.ownKeys(policy)) {
+    if (typeof key !== 'string' || !allowed.includes(key)) errors.push(`policy.${String(key)} is not part of the foreman policy`);
+  }
+  for (const key of ['max_workers', 'min_workers', 'scale_up_after_ticks', 'max_attempts']) {
+    if (!Number.isSafeInteger(policy[key]) || policy[key] < 1) errors.push(`policy.${key} must be a positive integer, got ${String(policy[key])}`);
+  }
+  if (Number.isSafeInteger(policy.min_workers) && Number.isSafeInteger(policy.max_workers) && policy.min_workers > policy.max_workers) {
+    errors.push('policy.min_workers may not exceed policy.max_workers');
+  }
+  if (typeof policy.pressure_pause_threshold !== 'number' || !Number.isFinite(policy.pressure_pause_threshold) || policy.pressure_pause_threshold <= 0 || policy.pressure_pause_threshold > 1) {
+    errors.push(`policy.pressure_pause_threshold must be a number in (0, 1], got ${String(policy.pressure_pause_threshold)}`);
+  }
+  if (typeof policy.scale_down_immediately !== 'boolean') errors.push('policy.scale_down_immediately must be a boolean');
+  if (!PLACEMENTS.includes(policy.placement)) errors.push(`policy.placement must be one of ${PLACEMENTS.join(', ')}`);
+  if (!isText(policy.policy_ref)) errors.push('policy.policy_ref must be nonempty text');
+  if (errors.length) throw new ForemanError('INVALID_REQUEST', errors.join('; '));
+  return policy;
+}
 
 /** Overlap is equality or containment, so `scope:src/` protects everything beneath it. */
 export function scopesOverlap(left, right) {
@@ -84,7 +141,8 @@ export const DEFAULT_FOREMAN_POLICY = Object.freeze({
 
 export function createForemanScheduler({ connectorPort = null, localDeviceRef = null, clock = () => new Date().toISOString(), policy = {} } = {}) {
   if (typeof clock !== 'function') throw new ForemanError('INVALID_CLOCK', 'clock must be a function returning an ISO-8601 UTC instant');
-  const config = { ...DEFAULT_FOREMAN_POLICY, ...(isPlainObject(policy) ? policy : {}) };
+  if (policy !== undefined && policy !== null && !isPlainObject(policy)) throw new ForemanError('INVALID_REQUEST', 'policy must be a plain object');
+  const config = validateForemanPolicy({ ...DEFAULT_FOREMAN_POLICY, ...(isPlainObject(policy) ? policy : {}) });
   const nodes = new Map();
   const attempts = new Map();
   const workers = new Map();
@@ -98,8 +156,22 @@ export function createForemanScheduler({ connectorPort = null, localDeviceRef = 
 
   const now = () => {
     const produced = clock();
-    if (!isIsoInstant(produced)) throw new ForemanError('INVALID_CLOCK', 'clock() must return an ISO-8601 UTC instant');
+    if (!isRealInstant(produced)) throw new ForemanError('INVALID_CLOCK', 'clock() must return a real ISO-8601 UTC instant');
     return produced;
+  };
+
+  /** A caller-supplied instant is validated: a recorded timestamp is evidence, including its reality. */
+  const atFrom = when => (when === undefined || when === null ? now() : callerInstant(when, 'at'));
+
+  /** One worker's eligibility for one node: the same rule for selection and for an explicit choice. */
+  const workerAdmissible = (worker, node) => {
+    if (!isPlainObject(worker)) return false;
+    if (node.capability_required !== null && !(worker.capabilities ?? []).includes(node.capability_required)) return false;
+    if (worker.auth_ready !== true && worker.ready !== true) return false;
+    if (worker.busy === true) return false;
+    const running = Number.isFinite(worker.running) ? worker.running : 0;
+    const max_concurrent = Number.isFinite(worker.max_concurrent) ? worker.max_concurrent : 1;
+    return running < max_concurrent;
   };
 
   const note = (event, at, detail = {}) => {
@@ -145,18 +217,36 @@ export function createForemanScheduler({ connectorPort = null, localDeviceRef = 
     submitGraph({ graph_ref, task_ref = null, nodes: definitions = [], replace = false, at: when } = {}) {
       if (!isText(graph_ref)) throw new ForemanError('INVALID_GRAPH', 'graph_ref is required');
       if (!Array.isArray(definitions) || definitions.length === 0) throw new ForemanError('INVALID_GRAPH', 'a graph needs at least one node');
-      const at = when ?? now();
+      const at = atFrom(when);
       const staged = new Map();
       for (const definition of definitions) {
         if (!isPlainObject(definition) || !isText(definition.node_id)) throw new ForemanError('INVALID_GRAPH', 'each node needs a node_id');
         if (staged.has(definition.node_id)) throw new ForemanError('DUPLICATE_NODE', `node ${definition.node_id} is declared twice`);
-        for (const key of Object.keys(definition)) {
-          if (!['node_id', 'job_ref', 'depends_on', 'write_scope', 'acceptance', 'capability_required', 'exclusive_writes', 'max_attempts', 'task_ref', 'action_key'].includes(key)) {
-            throw new ForemanError('INVALID_GRAPH', `node field ${key} is not part of the canonical node`);
+        // Own keys, not enumerable keys: a hidden own field would ride along with a canonical node.
+        for (const key of Reflect.ownKeys(definition)) {
+          if (typeof key !== 'string' || !NODE_FIELDS.includes(key)) {
+            throw new ForemanError('INVALID_GRAPH', `node field ${String(key)} is not part of the canonical node`);
           }
         }
         const depends_on = Array.isArray(definition.depends_on) ? definition.depends_on : [];
         if (depends_on.some(entry => !isText(entry))) throw new ForemanError('INVALID_GRAPH', `node ${definition.node_id} has a malformed dependency`);
+        // An exclusive writer with a truthy-but-not-true flag would silently stop being exclusive, and a
+        // non-text action key would silently drop the duplicate-effect guard.
+        if (definition.exclusive_writes !== undefined && typeof definition.exclusive_writes !== 'boolean') {
+          throw new ForemanError('INVALID_GRAPH', `node ${definition.node_id} has a non-boolean exclusive_writes; two writers must not be admitted by accident`);
+        }
+        if (definition.action_key !== undefined && !nullableText(definition.action_key)) {
+          throw new ForemanError('INVALID_GRAPH', `node ${definition.node_id} has a non-text action_key; an external effect needs a usable idempotency key`);
+        }
+        if (definition.max_attempts !== undefined && (!Number.isSafeInteger(definition.max_attempts) || definition.max_attempts < 1)) {
+          throw new ForemanError('INVALID_GRAPH', `node ${definition.node_id} has a max_attempts that is not a positive integer`);
+        }
+        if (!nullableText(definition.write_scope) || !nullableText(definition.capability_required) || !nullableText(definition.job_ref)) {
+          throw new ForemanError('INVALID_GRAPH', `node ${definition.node_id} has a non-text reference field`);
+        }
+        if (definition.acceptance !== undefined && (!Array.isArray(definition.acceptance) || definition.acceptance.some(entry => !isText(entry)))) {
+          throw new ForemanError('INVALID_GRAPH', `node ${definition.node_id} has a malformed acceptance list`);
+        }
         staged.set(definition.node_id, {
           node_id: definition.node_id,
           job_ref: definition.job_ref ?? null,
@@ -232,8 +322,16 @@ export function createForemanScheduler({ connectorPort = null, localDeviceRef = 
 
     registerWorker({ worker_ref, device_ref, capabilities = [], auth_ready = true, max_concurrent = 1, at: when } = {}) {
       if (!isText(worker_ref) || !isText(device_ref)) throw new ForemanError('INVALID_REQUEST', 'worker_ref and device_ref are required');
-      if (!Array.isArray(capabilities)) throw new ForemanError('INVALID_REQUEST', 'capabilities must be an array');
-      const at = when ?? now();
+      if (!Array.isArray(capabilities) || capabilities.some(entry => !isText(entry))) throw new ForemanError('INVALID_REQUEST', 'capabilities must be a list of capability refs');
+      // A concurrency ceiling that is NaN/zero/negative is not a ceiling.
+      if (!Number.isSafeInteger(max_concurrent) || max_concurrent < 1) throw new ForemanError('INVALID_REQUEST', `max_concurrent must be a positive integer, got ${String(max_concurrent)}`);
+      const at = atFrom(when);
+      const existing = workers.get(worker_ref);
+      if (existing && existing.running > 0) {
+        // Re-registering a busy worker would reset its capacity accounting and admit a second node beyond
+        // the ceiling while the first attempt is still running.
+        throw new ForemanError('INVALID_REQUEST', `worker ${worker_ref} has ${existing.running} running attempt(s) and cannot be re-registered`);
+      }
       const worker = { worker_ref, device_ref, capabilities: freeze([...capabilities]), auth_ready: auth_ready === true, max_concurrent, running: 0, registered_at: at };
       workers.set(worker_ref, worker);
       note('WORKER_REGISTERED', at, { worker_ref, device_ref });
@@ -243,7 +341,7 @@ export function createForemanScheduler({ connectorPort = null, localDeviceRef = 
     /** Capability/readiness/auth/placement based selection. No provider-name conditionals exist here. */
     selectWorker({ node_id, connectors = null, at: when } = {}) {
       const node = requireNode(node_id);
-      const at = when ?? now();
+      const at = atFrom(when);
       const candidates = connectors === null
         ? [...workers.values()].map(worker => ({ connector_ref: worker.worker_ref, device_ref: worker.device_ref, capabilities: worker.capabilities, ready: worker.auth_ready, busy: worker.running >= worker.max_concurrent }))
         : (typeof connectorPort?.listConnectors === 'function' ? connectorPort.listConnectors() : connectors);
@@ -288,7 +386,7 @@ export function createForemanScheduler({ connectorPort = null, localDeviceRef = 
     /** Resource view drives adaptive worker count with hysteresis, and pauses new work under pressure. */
     observeResources({ pressure = 0, queue_depth = 0, at: when } = {}) {
       if (!Number.isFinite(pressure) || pressure < 0 || pressure > 1) throw new ForemanError('INVALID_REQUEST', 'pressure must be a number between 0 and 1');
-      const at = when ?? now();
+      const at = atFrom(when);
       const wasPaused = paused;
       const previousTarget = workerTarget;
       if (pressure >= config.pressure_pause_threshold) {
@@ -327,13 +425,18 @@ export function createForemanScheduler({ connectorPort = null, localDeviceRef = 
 
     /** The runnable set, honouring dependencies, write scopes, worker capacity and pressure. */
     schedule({ at: when } = {}) {
-      const at = when ?? now();
+      const at = atFrom(when);
       const running = runningNodes();
       const capacity = Math.max(0, effectiveWorkers() - running.length);
       const runnable = [];
       const blocked = [];
       for (const node of nodes.values()) {
         if (node.state === 'SUCCEEDED' || node.state === 'FAILED' || node.state === 'CANCELLED' || node.state === 'RUNNING') continue;
+        // An exhausted node stays blocked: re-admitting it would restart an unbounded retry loop.
+        if (node.state === 'BLOCKED' && node.blocker === 'REASSIGNMENT_EXHAUSTED') {
+          blocked.push({ node_id: node.node_id, reason: 'REASSIGNMENT_EXHAUSTED' });
+          continue;
+        }
         const dependency = dependencyOutcome(node);
         if (dependency.outcome !== 'SATISFIED') {
           node.state = dependency.outcome === 'FAILED_DEPENDENCY' ? 'BLOCKED' : 'BLOCKED_ON_DEPS';
@@ -375,13 +478,23 @@ export function createForemanScheduler({ connectorPort = null, localDeviceRef = 
 
     dispatch({ node_id, worker_ref = null, action_key = null, checkpoint_ref = null, at: when } = {}) {
       const node = requireNode(node_id);
-      const at = when ?? now();
+      const at = atFrom(when);
       if (TERMINAL_NODE_STATES.includes(node.state)) throw new ForemanError('TERMINAL_RESULT_IMMUTABLE', `node ${node_id} is ${node.state}`, { node_id, state: node.state });
       if (node.state === 'INTERRUPTED') {
         // Work interrupted by a restart is not authority to run again: it must be revalidated first.
         throw new ForemanError('INTERRUPTED_REQUIRES_REVALIDATION', `node ${node_id} was interrupted by a restart and must be revalidated before it can run`, {
           node_id, state: node.state, revalidated: false, dispatched: false,
         });
+      }
+      // A second dispatch of a running node would create two concurrent attempts of the same work.
+      if (node.state === 'RUNNING') {
+        throw new ForemanError('INVALID_TRANSITION', `node ${node_id} is already RUNNING as ${String(node.attempt_ref)}`, { node_id, state: node.state, attempt_ref: node.attempt_ref, dispatched: false });
+      }
+      // The attempt budget is a bound at dispatch, not only in the stall path.
+      if (node.attempts >= node.max_attempts) {
+        node.state = 'BLOCKED';
+        node.blocker = 'REASSIGNMENT_EXHAUSTED';
+        throw new ForemanError('REASSIGNMENT_EXHAUSTED', `node ${node_id} exhausted ${node.max_attempts} attempt(s)`, { node_id, attempts: node.attempts, max_attempts: node.max_attempts, requires_attention: true, dispatched: false });
       }
       const dependency = dependencyOutcome(node);
       if (dependency.outcome !== 'SATISFIED') throw new ForemanError('DEPENDENCY_NOT_SATISFIED', `node ${node_id} is waiting on ${dependency.dependency}`, { node_id, dependency: dependency.dependency, reason: dependency.reason });
@@ -391,6 +504,10 @@ export function createForemanScheduler({ connectorPort = null, localDeviceRef = 
           node_id, action_key: node.action_key, completed: clone(completedEffects.get(node.action_key)), repeated: false,
         });
       }
+      // A node's external effect has one identity: re-keying it at dispatch would launder a repeated effect.
+      if (node.action_key !== null && action_key !== null && action_key !== node.action_key) {
+        throw new ForemanError('INVALID_REQUEST', `node ${node_id} is bound to action key ${node.action_key}; it cannot be dispatched under ${action_key}`, { node_id, action_key: node.action_key, dispatched: false });
+      }
       const conflicts = writeConflicts(node, at);
       if (conflicts.length > 0) {
         note('WRITE_CONFLICT_REPORTED', at, { node_id, conflicts: conflicts.length });
@@ -398,7 +515,17 @@ export function createForemanScheduler({ connectorPort = null, localDeviceRef = 
           node_id, write_scope: node.write_scope, conflicts: freeze(clone(conflicts)), auto_merged: false, deferred: true,
         });
       }
-      const selection = worker_ref === null ? api.selectWorker({ node_id, at }) : { selected: true, worker_ref, device_ref: workers.get(worker_ref)?.device_ref ?? null };
+      let selection;
+      if (worker_ref === null) {
+        selection = api.selectWorker({ node_id, at });
+      } else {
+        // A named worker is a choice, not a bypass: it passes the same capability/readiness/capacity rules.
+        const chosen = workers.get(worker_ref);
+        if (!workerAdmissible(chosen, node)) {
+          throw new ForemanError('NO_CAPABLE_WORKER', `${String(worker_ref)} cannot take ${node_id}: unknown, unauthenticated, incapable or at its concurrency ceiling`, { node_id, worker_ref, capability_required: node.capability_required, dispatched: false });
+        }
+        selection = { selected: true, worker_ref, device_ref: chosen.device_ref };
+      }
       if (selection.selected !== true) throw new ForemanError('NO_CAPABLE_WORKER', `no worker satisfies ${node.capability_required ?? 'the node'}`, { node_id, capability_required: node.capability_required });
       counter += 1;
       const attempt = {
@@ -439,12 +566,21 @@ export function createForemanScheduler({ connectorPort = null, localDeviceRef = 
       if (!attempt) throw new ForemanError('UNKNOWN_ATTEMPT', `no attempt ${String(attempt_ref)}`);
       if (!['SUCCEEDED', 'FAILED'].includes(outcome)) throw new ForemanError('INVALID_REQUEST', 'outcome must be SUCCEEDED or FAILED');
       const node = requireNode(attempt.node_id);
-      const at = when ?? now();
+      const at = atFrom(when);
       if (outcome === 'SUCCEEDED' && node.acceptance.length > 0 && !isText(acceptance_ref)) {
         throw new ForemanError('ACCEPTANCE_NOT_RUN', `node ${node.node_id} declares acceptance tests, so a success needs acceptance evidence`, { node_id: node.node_id, acceptance: clone(node.acceptance), executed: false });
       }
       if (outcome === 'SUCCEEDED' && node.result_ref !== null) {
         throw new ForemanError('DUPLICATE_TERMINAL_RESULT', `node ${node.node_id} already has a terminal result`, { node_id: node.node_id, existing_result_ref: node.result_ref, executed: false });
+      }
+      // A late failure must not overwrite a completed result, and a late success must not resurrect a
+      // failed or cancelled node.
+      if (TERMINAL_NODE_STATES.includes(node.state)) {
+        throw new ForemanError('TERMINAL_RESULT_IMMUTABLE', `node ${node.node_id} is already ${node.state}`, { node_id: node.node_id, state: node.state, executed: false });
+      }
+      // Only the node's current attempt may complete it: a superseded attempt is not authority.
+      if (node.attempt_ref !== attempt.attempt_ref) {
+        throw new ForemanError('INVALID_TRANSITION', `attempt ${attempt_ref} was superseded by ${String(node.attempt_ref)}`, { node_id: node.node_id, attempt_ref, current_attempt_ref: node.attempt_ref, executed: false });
       }
       attempt.state = outcome;
       attempt.ended_at = at;
@@ -477,7 +613,10 @@ export function createForemanScheduler({ connectorPort = null, localDeviceRef = 
     reportSignal({ node_id, kind, at: when } = {}) {
       const node = requireNode(node_id);
       if (!STALL_KINDS.includes(kind)) throw new ForemanError('INVALID_REQUEST', `kind must be one of ${STALL_KINDS.join(', ')}`);
-      const at = when ?? now();
+      const at = atFrom(when);
+      if (TERMINAL_NODE_STATES.includes(node.state)) {
+        throw new ForemanError('TERMINAL_RESULT_IMMUTABLE', `node ${node_id} is ${node.state}; a ${kind} signal cannot re-open it`, { node_id, state: node.state, retry_allowed: false, reassigned: false });
+      }
       const attempt = node.attempt_ref === null ? null : attempts.get(node.attempt_ref);
       if (attempt) {
         attempt.state = kind === 'CRASH' ? 'CRASHED' : 'STALLED';
@@ -523,7 +662,7 @@ export function createForemanScheduler({ connectorPort = null, localDeviceRef = 
     /** Reassignment picks another capable worker; the terminal result and effect guards still hold. */
     reassign({ node_id, reason = 'WORKER_LOST', at: when } = {}) {
       const node = requireNode(node_id);
-      const at = when ?? now();
+      const at = atFrom(when);
       if (TERMINAL_NODE_STATES.includes(node.state)) throw new ForemanError('TERMINAL_RESULT_IMMUTABLE', `node ${node_id} is ${node.state}`, { node_id, state: node.state });
       if (node.attempts >= node.max_attempts) {
         node.state = 'BLOCKED';
@@ -562,14 +701,43 @@ export function createForemanScheduler({ connectorPort = null, localDeviceRef = 
 
     resumeFrom({ snapshot, at: when } = {}) {
       if (!isPlainObject(snapshot) || !Array.isArray(snapshot.nodes) || !isPlainObject(snapshot.graph)) throw new ForemanError('INVALID_REQUEST', 'a snapshot with a graph and nodes is required');
-      const at = when ?? now();
+      if (!isText(snapshot.graph.graph_ref)) throw new ForemanError('INVALID_REQUEST', 'the snapshot graph needs a graph_ref');
+      const at = atFrom(when);
+      // Nothing is cleared until the whole snapshot is admissible: a refused resume used to wipe the live
+      // queue and then throw.
+      const stagedEntries = [];
+      snapshot.nodes.forEach((entry, index) => {
+        const where = `snapshot.nodes[${index}]`;
+        if (!isPlainObject(entry)) throw new ForemanError('INVALID_REQUEST', `${where} is not a node record`);
+        if (!isText(entry.node_id)) throw new ForemanError('INVALID_REQUEST', `${where} has no node_id`);
+        if (!NODE_STATES.includes(entry.state)) throw new ForemanError('INVALID_REQUEST', `${where} has unknown state ${String(entry.state)}`);
+        if (!Array.isArray(entry.depends_on) || entry.depends_on.some(dependency => !isText(dependency))) throw new ForemanError('INVALID_REQUEST', `${where} has a malformed depends_on`);
+        if (!nullableText(entry.write_scope) || !nullableText(entry.result_ref) || !nullableText(entry.acceptance_ref) || !nullableText(entry.checkpoint_ref) || !nullableText(entry.action_key)) {
+          throw new ForemanError('INVALID_REQUEST', `${where} has a malformed reference field`);
+        }
+        if (typeof entry.exclusive_writes !== 'boolean') throw new ForemanError('INVALID_REQUEST', `${where} has a non-boolean exclusive_writes`);
+        if (!Number.isSafeInteger(entry.max_attempts) || entry.max_attempts < 1) throw new ForemanError('INVALID_REQUEST', `${where} has a malformed max_attempts`);
+        if (!Number.isSafeInteger(entry.attempts) || entry.attempts < 0) throw new ForemanError('INVALID_REQUEST', `${where} has a malformed attempts counter`);
+        if (!Array.isArray(entry.acceptance) || entry.acceptance.some(item => !isText(item))) throw new ForemanError('INVALID_REQUEST', `${where} has a malformed acceptance list`);
+        stagedEntries.push(entry);
+      });
+      const seenNodes = new Set();
+      for (const entry of stagedEntries) {
+        if (seenNodes.has(entry.node_id)) throw new ForemanError('DUPLICATE_NODE', `snapshot node ${entry.node_id} appears twice`);
+        seenNodes.add(entry.node_id);
+      }
+      for (const entry of stagedEntries) {
+        for (const dependency of entry.depends_on) {
+          if (!seenNodes.has(dependency)) throw new ForemanError('UNKNOWN_DEPENDENCY', `snapshot node ${entry.node_id} depends on unknown node ${dependency}`);
+        }
+      }
       const resumed = [];
       const interrupted = [];
       const preserved = [];
       nodes.clear();
       attempts.clear();
       graph = { ...clone(snapshot.graph) };
-      for (const entry of snapshot.nodes) {
+      for (const entry of stagedEntries) {
         const node = { ...clone(entry), attempt_ref: null, worker_ref: null, blocker: null, acceptance_ref: entry.acceptance_ref ?? null, result_ref: entry.result_ref ?? null, checkpoint_ref: entry.checkpoint_ref ?? null, created_at: at };
         if (TERMINAL_NODE_STATES.includes(entry.state)) {
           node.state = entry.state;
@@ -602,7 +770,7 @@ export function createForemanScheduler({ connectorPort = null, localDeviceRef = 
     revalidateInterrupted({ node_id, revalidated, at: when } = {}) {
       const node = requireNode(node_id);
       if (node.state !== 'INTERRUPTED') throw new ForemanError('INVALID_TRANSITION', `node ${node_id} is ${node.state}, not INTERRUPTED`, { node_id, state: node.state });
-      const at = when ?? now();
+      const at = atFrom(when);
       if (revalidated !== true) {
         return freeze({ contract_version: FOREMAN_CONTRACT_VERSION, node_id, revalidated: false, state: node.state, reason: 'REVALIDATION_REFUSED', resumed: false });
       }
@@ -615,7 +783,7 @@ export function createForemanScheduler({ connectorPort = null, localDeviceRef = 
     cancelNode({ node_id, reason = 'CANCELLED', at: when } = {}) {
       const node = requireNode(node_id);
       if (TERMINAL_NODE_STATES.includes(node.state)) throw new ForemanError('TERMINAL_RESULT_IMMUTABLE', `node ${node_id} is ${node.state}`, { node_id, state: node.state });
-      const at = when ?? now();
+      const at = atFrom(when);
       node.state = 'CANCELLED';
       node.blocker = reason;
       note('NODE_CANCELLED', at, { node_id, reason });

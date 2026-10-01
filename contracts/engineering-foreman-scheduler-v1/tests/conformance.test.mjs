@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  RUN_MODES, ForemanError, NODE_STATES, PLACEMENTS, createForemanScheduler, scopesOverlap,
+  RUN_MODES, ForemanError, NODE_STATES, PLACEMENTS, createForemanScheduler, isIsoInstant, scopesOverlap,
 } from '../index.mjs';
 
 const T0 = '2026-01-01T00:00:00Z';
@@ -329,4 +329,162 @@ test('a controlled restart keeps completed work and never resumes stale state as
   assert.equal(failure(() => createForemanScheduler({ clock: 'now' })).code, 'INVALID_CLOCK');
   assert.equal(failure(() => scheduler.completeAttempt({ attempt_ref: 'attempt:nope', outcome: 'SUCCEEDED' })).code, 'UNKNOWN_ATTEMPT');
   assert.equal(failure(() => scheduler.cancelNode({ node_id: 'done' })).code, 'TERMINAL_RESULT_IMMUTABLE');
+});
+
+// ---------------------------------------------------------------- Alien Correction regressions
+// Every test below fails against the Development head and passes against the corrected head.
+
+test('a terminal result is immutable against late and out-of-order reports', () => {
+  const { scheduler } = schedulerAt();
+  scheduler.submitGraph(graph([node({ node_id: 'a' })]));
+  const attempt = scheduler.dispatch({ node_id: 'a' });
+  scheduler.completeAttempt({ attempt_ref: attempt.attempt_ref, outcome: 'SUCCEEDED', result_ref: 'result:a' });
+  assert.equal(failure(() => scheduler.completeAttempt({ attempt_ref: attempt.attempt_ref, outcome: 'FAILED', error: { code: 'LATE' } })).code, 'TERMINAL_RESULT_IMMUTABLE');
+  assert.equal(scheduler.node('a').state, 'SUCCEEDED', 'completed work was not falsely failed');
+  assert.equal(scheduler.node('a').result_ref, 'result:a');
+  assert.equal(scheduler.metrics().completed_work_falsely_failed.length, 0);
+
+  // a superseded attempt is not authority over the node that moved on
+  scheduler.submitGraph({ ...graph([node({ node_id: 'b', max_attempts: 2 })]), replace: true });
+  const firstB = scheduler.dispatch({ node_id: 'b' });
+  scheduler.reportSignal({ node_id: 'b', kind: 'STALL' });
+  const secondB = scheduler.reassign({ node_id: 'b' });
+  assert.equal(failure(() => scheduler.completeAttempt({ attempt_ref: firstB.attempt_ref, outcome: 'SUCCEEDED', result_ref: 'result:stale' })).code, 'INVALID_TRANSITION');
+  assert.equal(scheduler.node('b').state, 'RUNNING', 'the current attempt is still the authority');
+  assert.equal(scheduler.completeAttempt({ attempt_ref: secondB.attempt_ref, outcome: 'SUCCEEDED', result_ref: 'result:b' }).state, 'SUCCEEDED');
+});
+
+test('a stall or crash report cannot re-open completed work', () => {
+  const { scheduler } = schedulerAt();
+  scheduler.submitGraph(graph([node({ node_id: 'a' })]));
+  const attempt = scheduler.dispatch({ node_id: 'a' });
+  scheduler.completeAttempt({ attempt_ref: attempt.attempt_ref, outcome: 'SUCCEEDED', result_ref: 'result:a' });
+  assert.equal(failure(() => scheduler.reportSignal({ node_id: 'a', kind: 'CRASH' })).code, 'TERMINAL_RESULT_IMMUTABLE');
+  assert.equal(scheduler.node('a').state, 'SUCCEEDED');
+  assert.deepEqual([...scheduler.schedule().runnable], [], 'completed work is never re-admitted');
+});
+
+test('the attempt budget is a bound at dispatch, not only in the stall path', () => {
+  const { scheduler } = schedulerAt();
+  scheduler.submitGraph(graph([node({ node_id: 'x', max_attempts: 2 })]));
+  scheduler.dispatch({ node_id: 'x' });
+  scheduler.reportSignal({ node_id: 'x', kind: 'CRASH' });
+  assert.equal(scheduler.node('x').state, 'READY');
+  scheduler.dispatch({ node_id: 'x' });
+  const exhausted = scheduler.reportSignal({ node_id: 'x', kind: 'CRASH' });
+  assert.equal(exhausted.state, 'BLOCKED');
+  assert.equal(exhausted.reason, 'REASSIGNMENT_EXHAUSTED');
+  assert.deepEqual([...scheduler.schedule().runnable], [], 'an exhausted node is not re-admitted by a schedule tick');
+  assert.equal(scheduler.schedule().blocked.some(entry => entry.node_id === 'x' && entry.reason === 'REASSIGNMENT_EXHAUSTED'), true);
+  assert.equal(failure(() => scheduler.dispatch({ node_id: 'x' })).code, 'REASSIGNMENT_EXHAUSTED');
+  assert.equal(scheduler.metrics().by_state.RUNNING, 0);
+});
+
+test('a running node cannot be dispatched twice into two concurrent attempts', () => {
+  const { scheduler } = schedulerAt();
+  scheduler.submitGraph(graph([node({ node_id: 'a' })]));
+  const first = scheduler.dispatch({ node_id: 'a' });
+  assert.equal(failure(() => scheduler.dispatch({ node_id: 'a' })).code, 'INVALID_TRANSITION');
+  assert.equal(scheduler.metrics().by_state.RUNNING, 1, 'one attempt, not two');
+  assert.equal(scheduler.completeAttempt({ attempt_ref: first.attempt_ref, outcome: 'SUCCEEDED', result_ref: 'result:a' }).state, 'SUCCEEDED');
+});
+
+test('a named worker is a choice, not a bypass of capability, readiness or capacity', () => {
+  const { scheduler } = schedulerAt();
+  scheduler.submitGraph(graph([node({ node_id: 'b', capability_required: 'TEST' })]));
+  assert.equal(failure(() => scheduler.dispatch({ node_id: 'b', worker_ref: 'worker:remote' })).code, 'NO_CAPABLE_WORKER', 'worker:remote advertises only BUILD');
+  assert.equal(failure(() => scheduler.dispatch({ node_id: 'b', worker_ref: 'worker:ghost' })).code, 'NO_CAPABLE_WORKER', 'an unregistered worker cannot be named into existence');
+  assert.equal(scheduler.node('b').state, 'READY', 'the refused dispatch ran nothing');
+
+  const { scheduler: unauth } = schedulerAt();
+  unauth.registerWorker({ worker_ref: 'worker:unauth', device_ref: 'device:local', capabilities: ['BUILD'], auth_ready: false });
+  unauth.submitGraph(graph([node({ node_id: 'a' })]));
+  assert.equal(failure(() => unauth.dispatch({ node_id: 'a', worker_ref: 'worker:unauth' })).code, 'NO_CAPABLE_WORKER');
+  assert.equal(unauth.dispatch({ node_id: 'a', worker_ref: 'worker:local' }).state, 'RUNNING', 'a capable named worker is still accepted');
+
+  const { scheduler: busy } = schedulerAt({ max_workers: 4 });
+  busy.submitGraph(graph([node({ node_id: 'one' }), node({ node_id: 'two' })]));
+  busy.dispatch({ node_id: 'one', worker_ref: 'worker:local' });
+  busy.dispatch({ node_id: 'two', worker_ref: 'worker:local' });
+  busy.registerWorker({ worker_ref: 'worker:tight', device_ref: 'device:local', capabilities: ['BUILD'], max_concurrent: 1 });
+  busy.submitGraph({ ...graph([node({ node_id: 'three' })]), replace: true });
+  busy.dispatch({ node_id: 'three', worker_ref: 'worker:tight' });
+  assert.equal(failure(() => busy.dispatch({ node_id: 'three', worker_ref: 'worker:tight' })).code, 'INVALID_TRANSITION', 'the node itself is already running');
+});
+
+test('every foreman bound is validated rather than trusted', () => {
+  for (const policy of [
+    { max_workers: NaN }, { max_workers: 0 }, { max_workers: 2.5 }, { min_workers: 0 }, { min_workers: 5, max_workers: 2 },
+    { scale_up_after_ticks: NaN }, { scale_up_after_ticks: 0 }, { max_attempts: 0 }, { max_attempts: Infinity },
+    { pressure_pause_threshold: NaN }, { pressure_pause_threshold: 0 }, { pressure_pause_threshold: 2 },
+    { placement: 'WHATEVER' }, { scale_down_immediately: 'yes' }, { unknown_bound: 1 },
+  ]) {
+    assert.equal(failure(() => createForemanScheduler({ clock: () => T0, policy })).code, 'INVALID_REQUEST', `policy ${JSON.stringify(policy)}`);
+  }
+  const { scheduler } = schedulerAt();
+  assert.equal(scheduler.policy().max_workers, 4, 'a bounded policy still works');
+  assert.equal(failure(() => scheduler.registerWorker({ worker_ref: 'w', device_ref: 'device:local', max_concurrent: 0 })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => scheduler.registerWorker({ worker_ref: 'w', device_ref: 'device:local', max_concurrent: NaN })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => scheduler.registerWorker({ worker_ref: 'w', device_ref: 'device:local', capabilities: ['ok', 7] })).code, 'INVALID_REQUEST');
+});
+
+test('a worker with running attempts cannot be re-registered', () => {
+  const { scheduler } = schedulerAt();
+  scheduler.submitGraph(graph([node({ node_id: 'a' })]));
+  scheduler.dispatch({ node_id: 'a' });
+  assert.equal(scheduler.metrics().workers.find(worker => worker.worker_ref === 'worker:local').running, 1);
+  assert.equal(failure(() => scheduler.registerWorker({ worker_ref: 'worker:local', device_ref: 'device:local', capabilities: ['BUILD'], max_concurrent: 4 })).code, 'INVALID_REQUEST');
+  assert.equal(scheduler.metrics().workers.find(worker => worker.worker_ref === 'worker:local').running, 1, 'capacity accounting was not reset');
+});
+
+test('a node declaration is validated where it is used', () => {
+  const { scheduler } = schedulerAt();
+  for (const definition of [
+    node({ node_id: 'e1', exclusive_writes: 'true' }),
+    node({ node_id: 'e2', action_key: 7 }),
+    node({ node_id: 'e3', max_attempts: 0 }),
+    node({ node_id: 'e4', write_scope: 42 }),
+    node({ node_id: 'e5', acceptance: 'tests/x.test.mjs' }),
+    node({ node_id: 'e6', capability_required: 9 }),
+  ]) {
+    assert.equal(failure(() => scheduler.submitGraph(graph([definition]))).code, 'INVALID_GRAPH', JSON.stringify(definition));
+  }
+  const hidden = node({ node_id: 'e7' });
+  Object.defineProperty(hidden, 'nickname', { value: 'n', enumerable: false });
+  assert.equal(failure(() => scheduler.submitGraph(graph([hidden]))).code, 'INVALID_GRAPH', 'a hidden own field is not part of the canonical node');
+  class Fabricated { constructor() { this.node_id = 'e8'; } }
+  assert.equal(failure(() => scheduler.submitGraph(graph([new Fabricated()]))).code, 'INVALID_GRAPH');
+  assert.equal(scheduler.submitGraph(graph([node({ node_id: 'ok', exclusive_writes: true, write_scope: 'scope:src/', action_key: 'effect:ok' })])).node_count, 1);
+});
+
+test('a refused resume leaves the live queue intact, and a cyclic entry cannot overflow', () => {
+  const { scheduler } = schedulerAt();
+  scheduler.submitGraph(graph([node({ node_id: 'a' })]));
+  const running = scheduler.dispatch({ node_id: 'a' });
+  assert.equal(failure(() => scheduler.resumeFrom({ snapshot: { graph: { graph_ref: 'graph:1' }, nodes: [{ node_id: 'a', state: 'NOPE' }] } })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => scheduler.resumeFrom({ snapshot: { graph: { graph_ref: 'graph:1' }, nodes: [{ node_id: 'a', state: 'READY', depends_on: [], max_attempts: 0 }] } })).code, 'INVALID_REQUEST');
+  assert.equal(scheduler.node('a').state, 'RUNNING', 'the live queue survived the refused resumes');
+  assert.equal(scheduler.metrics().node_count, 1);
+
+  const cyclic = {
+    node_id: 'z', depends_on: [], write_scope: null, exclusive_writes: false, acceptance: [], capability_required: null,
+    max_attempts: 1, state: 'READY', attempts: 0, result_ref: null, acceptance_ref: null, checkpoint_ref: null, action_key: null,
+  };
+  cyclic.self = cyclic;
+  const resumed = scheduler.resumeFrom({ snapshot: { graph: { graph_ref: 'graph:1' }, nodes: [cyclic] } });
+  assert.deepEqual(resumed.resumed_nodes, ['z']);
+  assert.equal(scheduler.node('z').node_id, 'z');
+  assert.equal(scheduler.node('z').self.node_id, 'z', 'a self-referential record survives without a stack overflow');
+  assert.equal(running.state, 'RUNNING', 'the interrupted attempt reference was dropped by the deliberate resume');
+});
+
+test('an uninterpretable instant is refused rather than recorded', () => {
+  assert.equal(isIsoInstant('2026-13-45T99:99:99Z'), false, 'a shape-valid but unparseable instant is not an instant');
+  assert.equal(isIsoInstant('2026-01-01T00:00:00.000Z'), true);
+  const { scheduler } = schedulerAt();
+  assert.equal(failure(() => scheduler.submitGraph({ ...graph([node({ node_id: 'a' })]), at: '2026-13-45T99:99:99Z' })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => scheduler.observeResources({ pressure: 0.1, at: '2026-13-45T99:99:99Z' })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => scheduler.submitGraph({ ...graph([node({ node_id: 'a' })]), at: 12345 })).code, 'INVALID_REQUEST');
+  assert.equal(scheduler.metrics().node_count, 0);
+  assert.equal(scheduler.submitGraph(graph([node({ node_id: 'a' })])).node_count, 1);
 });

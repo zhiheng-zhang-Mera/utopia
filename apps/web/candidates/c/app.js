@@ -84,6 +84,61 @@ function kv(pairs) {
   return el('dl', { class: 'kv' }, pairs.flatMap(([k, v]) => [el('dt', { text: k }), el('dd', { text: v })]));
 }
 
+/**
+ * Home's character slot — the assistant the Owner configures later.
+ *
+ * There is no character art in this repository, so this is an honest line-art
+ * silhouette rather than an implied finished asset: the slot is deliberately
+ * UNASSIGNED, and it only states what will be bound later (naming, appearance,
+ * voice, duty). Per the v2 invariants the assistant's identity is configurable and
+ * a profile field can never grant authority, so nothing here is a control — a
+ * rendered control that does nothing is exactly the false-affordance defect the
+ * review already caught once.
+ */
+function assistantArt() {
+  return `<svg viewBox="0 0 200 240" fill="none" stroke="#5ee7ff" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+    <path d="M26 240c0-38 18-58 44-66l30-8 30 8c26 8 44 28 44 66" stroke="#8b5cf6"/>
+    <path d="M70 174l30 22 30-22"/>
+    <path d="M100 196v44" stroke="#8b5cf6"/>
+    <path d="M86 140v22c0 7 6 12 14 12s14-5 14-12v-22"/>
+    <path d="M62 96c0-26 17-44 38-44s38 18 38 44c0 30-17 50-38 50S62 126 62 96Z"/>
+    <path d="M56 92c2-30 20-50 44-50s42 20 44 50" stroke="#c6f24e"/>
+    <path d="M56 92c8 4 14 2 20-4M144 92c-8 4-14 2-20-4" stroke="#c6f24e"/>
+    <path d="M100 42c-6 12-6 26 2 36" stroke="#c6f24e"/>
+    <path d="M74 100h20M106 100h20"/>
+    <path d="M78 112c8 5 16 5 24 0" opacity=".65"/>
+    <circle cx="100" cy="184" r="4" stroke="#c6f24e"/>
+  </svg>`;
+}
+
+function operatorHero() {
+  const t = node.telemetry;
+  return el('section', { class: 'operator' }, [
+    el('div', { class: 'op-frame' }, [
+      el('span', { class: 'op-side' }),
+      el('span', { class: 'op-tag', text: 'ASSISTANT' }),
+      el('div', { class: 'op-art', html: assistantArt() }),
+      el('span', { class: 'op-slot', text: 'SLOT 01' }),
+    ]),
+    el('div', { class: 'op-body' }, [
+      el('p', { class: 'op-role', text: '助理 · ASSISTANT' }),
+      el('p', { class: 'op-name', html: '未指派<small>UNASSIGNED</small>' }),
+      el('p', { class: 'op-sub', text: '主页人物就是你的助理。命名、形象、语气与职务在后续设置中绑定，现在只是占位。' }),
+      kv([
+        ['绑定设备', node.displayName],
+        ['形象', '占位剪影'],
+        ['语音', '未启用'],
+        ['职务', '待设定'],
+      ]),
+      el('ul', { class: 'meters op-vitals' }, [
+        meter('负载', `${t.cpu.usagePercent}%`, t.cpu.usagePercent / 100),
+        meter('内存', gb(t.memory.usedBytes), t.memory.usedBytes / t.memory.totalBytes),
+        meter('链路', rt.state.connected ? '已连接' : '已断开', rt.state.connected ? 1 : 0),
+      ]),
+    ]),
+  ]);
+}
+
 /* ----------------------------------------------------------------- scenes */
 
 function sceneHome() {
@@ -91,17 +146,19 @@ function sceneHome() {
   return el('div', { class: 'act', dataset: { view: 'home' } }, [
     el('p', { class: 'act-kicker', text: `NOW · ${hhmm(city.updatedAt)}` }),
     el('h1', { class: 'act-title', html: '你的城市<em>现在</em>是这样。' }),
+    operatorHero(),
     el('div', { class: 'board' }, [
-      /* 1 — machine, as a dense reading block rather than a hero card */
+      /* 1 — machine readings NOT already shown on the assistant card above:
+         the assistant carries 负载/内存/绑定设备, so this cell keeps storage,
+         platform and heartbeat rather than repeating them. */
       cell(4, '设备', node.online ? 'ONLINE' : 'OFFLINE', [
-        el('p', { class: 'hero-line', text: node.displayName }),
         kv([
-          ['处理器', `${node.telemetry.cpu.usagePercent}%`],
-          ['内存', `${gb(node.telemetry.memory.usedBytes)} / ${gb(node.telemetry.memory.totalBytes)}`],
           ['磁盘剩余', gb(node.telemetry.disk.freeBytes)],
+          ['磁盘占用', gb(node.telemetry.disk.usedBytes)],
+          ['平台', node.metadata.platform],
           ['心跳', hhmm(node.lastHeartbeatAt)],
         ]),
-        tech('运行详情', { nodeId: node.id, platform: node.metadata.platform, agentVersion: node.agentVersion, telemetry: node.telemetry }),
+        tech('运行详情', { nodeId: node.id, displayName: node.displayName, agentVersion: node.agentVersion, telemetry: node.telemetry }),
       ]),
       /* 2 — what is running now */
       cell(4, '正在发生', open.length ? `${open.length} 运行中` : 'IDLE', [

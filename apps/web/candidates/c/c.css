@@ -381,3 +381,81 @@ b, strong { font-variant-numeric: tabular-nums; }
   .act-title { font-size: 21px; }
   .spot { left: 13px; right: 13px; transform: none; justify-content: center; }
 }
+
+/* ==========================================================================
+   Register pass 2 — Owner ruling 2026-10-01 (second round):
+   "继续向日系科幻二次元主题偏移，参考明日方舟/战双帕弥什/鸣潮的感觉，
+    主页人物就是后期设置的助理。"
+   Density is already accepted and is NOT changed here; this pass only shifts the
+   visual register and adds the assistant presence to Home.
+
+   Decision recorded: the anime register is carried by GEOMETRY, TYPE and COLOUR,
+   not by Japanese copy. Utopia is a bilingual zh-CN/en product with i18n keys, so
+   inventing Japanese strings would create untranslatable text and would not be a
+   style decision. The Latin tracked sub-labels already in the HUD carry the same
+   register honestly.
+   ========================================================================== */
+
+:root {
+  --cyan: #5ee7ff;              /* hologram secondary — the 二次元 sci-fi signal */
+  --cyan-dim: rgba(94, 231, 255, .32);
+  --glow-lime: rgba(198, 242, 78, .38);
+  --glow-violet: rgba(139, 92, 246, .45);
+}
+
+/* neon edge on the framed surfaces, the way an operator card is lit */
+.cell, .panel { box-shadow: inset 0 0 0 1px rgba(139, 92, 246, .10), 0 0 18px -12px var(--glow-violet); }
+.cell-head { background-image: repeating-linear-gradient(135deg, rgba(94, 231, 255, .10) 0 1px, transparent 1px 5px); }
+.cell-label { color: var(--cyan); }
+.cell-meta { color: var(--ink-3); }
+
+/* ---------------------------------------------------------- assistant hero */
+/* Home's character slot. It is deliberately an empty, unassigned assistant —
+   naming / avatar / voice are Owner-configurable later (v2 invariant 4), so this
+   shows a placeable silhouette plus the fields that will be filled in, and it
+   exposes NO control that does nothing. */
+
+.operator {
+  display: grid; grid-template-columns: minmax(0, 268px) minmax(0, 1fr);
+  gap: 10px; margin-top: 14px; align-items: stretch;
+}
+.op-frame {
+  position: relative; overflow: hidden; min-height: 208px;
+  background:
+    radial-gradient(120% 80% at 50% 8%, rgba(94, 231, 255, .14), transparent 62%),
+    linear-gradient(160deg, rgba(139, 92, 246, .22), var(--layer-1) 66%);
+  border: 1px solid var(--line-2); clip-path: var(--clip); --cut: 22px;
+}
+/* scanline veil — the single strongest "anime sci-fi terminal" cue */
+.op-frame::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(255, 255, 255, .045) 0 1px, transparent 1px 3px);
+  mix-blend-mode: screen;
+}
+.op-art { position: absolute; inset: 0; }
+/* the silhouette fills its frame instead of floating in it */
+.op-art svg { width: 100%; height: 100%; display: block; padding: 16px 6px 0; filter: drop-shadow(0 0 14px var(--cyan-dim)); }
+.op-tag {
+  position: absolute; top: 9px; left: 10px; z-index: 2;
+  font-size: 8.5px; letter-spacing: .26em; color: var(--cyan); font-weight: 700;
+  border: 1px solid var(--cyan-dim); padding: 2px 7px; background: rgba(8, 7, 15, .55);
+}
+.op-slot {
+  position: absolute; right: 9px; bottom: 8px; z-index: 2;
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .14em; color: var(--ink-3);
+}
+.op-side { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: linear-gradient(to bottom, var(--cyan), transparent 72%); z-index: 2; }
+
+.op-body { min-width: 0; display: flex; flex-direction: column; justify-content: flex-start; }
+.op-role { margin: 0; font-size: 9.5px; letter-spacing: .26em; color: var(--cyan); font-weight: 700; text-transform: uppercase; }
+.op-name { font-family: var(--display); font-size: clamp(22px, 2.8vw, 30px); font-weight: 700; margin: 5px 0 3px; letter-spacing: -.01em; }
+.op-name small { font-size: 12px; font-weight: 600; color: var(--ink-3); letter-spacing: .14em; margin-left: 8px; }
+.op-sub { margin: 0 0 9px; color: var(--ink-2); font-size: 12px; max-width: 56ch; }
+/* compact vitals — a full-width instrument strip looked like a progress banner */
+.op-vitals { display: flex; flex-direction: column; gap: 6px; margin-top: 2px; max-width: 330px; }
+
+@media (max-width: 900px) {
+  .operator { grid-template-columns: 1fr; }
+  .op-frame { min-height: 190px; }
+}
+

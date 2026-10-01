@@ -20,9 +20,10 @@ Utopia/city/      = 当前实际的城市模块实现层
 | 孵化身份 | 记录位置 | 含义 |
 | --- | --- | --- |
 | Room Pack 孵化房间 | `apps/rooms/promotions/<room>.json` | `apps/rooms/rooms/<room>/` 下真实存在过一个房间，本地验收后才晋升 |
-| mission-book 迁移孵化 | module 上的 `mission` 块 + `Digital-City/mission-book/reports/<MISSION_ID>/` | `Digital-City/mission-book` 是另一套由 Owner 定义的施工控制面：它在 `mission/<MISSION_ID>-<slug>` 分支上直接把代码落到 `city/`，并由**另一台**主机独立验证后才合并 |
+| mission-book 迁移孵化 | module 上的 `mission` 块 + `DONOR.json` + `Digital-City/mission-book/reports/<MISSION_ID>/` | `Digital-City/mission-book` 是另一套由 Owner 定义的施工控制面：它在 `mission/<MISSION_ID>-<slug>` 分支上直接把代码落到 `city/`，并由**另一台**主机独立验证后才合并 |
+| mission-book 项目任务孵化 | module 上的 `mission` 块 + `PROVENANCE.json` + `Digital-City/mission-book/reports/<TASK_ID>/` | 同一控制面下的异步 `BA-`/`RF-`/`GAI-`/`EM-` 任务池；属于 Owner 定义的全新施工，没有 donor，落在 `<programme>/<TASK_ID>-<slug>` 分支上并由另一台主机独立验证 |
 
-mission 形式的孵化 id 形如 `mb-<mission>-<module>-lab`。`city/tests/manifest.test.mjs` 会拒绝：声称该形式却没有对应 `mission` 块的模块，以及清单条目与该模块自己的 `DONOR.json` 不一致的模块。同一个 module 内不得混用两种身份：mission 迁移不是 Room Pack 晋升，混写会让房间晋升记录失去可验证性。
+mission 形式的孵化 id 形如 `mb-<task>-<module>-lab`。`city/tests/manifest.test.mjs` 会拒绝：声称该形式却没有对应 `mission` 块的模块，以及清单条目与该模块自己的溯源文件（迁移是 `DONOR.json`，项目任务是 `PROVENANCE.json`）不一致的模块。同一个 module 内不得混用这些身份：mission-book 任务不是 Room Pack 晋升，混写会让房间晋升记录失去可验证性。项目任务为何必须记 `donor: null` 而不是写一个 donor，见 §4。
 
 ---
 
@@ -66,6 +67,8 @@ city/
 │   │   ├── task-lifecycle/
 │   │   ├── fleet-routing/
 │   │   └── audit-ledger/
+│   ├── 02-city-node-network/
+│   │   └── device-identity/
 │   └── 03-capability-fabric/
 │       └── capability-fabric/
 ├── 02-engineering/
@@ -144,9 +147,18 @@ Wave 2 起，同一个 city module 可以被**多次孵化**逐步增强，例�
 
 mission 孵化的 module 另有三条强制规则：
 
-- `incubationRooms` 的每一项都必须是 mission 形式 `mb-<mission>-<module>-lab`，且同一个 module 内不得与 Room Pack 房间混用；
-- 该 module 必须带 `mission` 块，写明它属于哪个 mission、迁移的是哪个 cluster；
-- 清单条目必须与该 module 自己的 `DONOR.json` 在 module id、city path、孵化房间列表、donor 仓库、donor commit、mission id、cluster 上完全一致。
+- `incubationRooms` 的每一项都必须是 mission 形式 `mb-<task>-<module>-lab`，且同一个 module 内不得与 Room Pack 房间混用；
+- 该 module 必须带 `mission` 块，写明它属于哪个任务、覆盖的是哪个 cluster；
+- 清单条目必须与该 module 自己的、落在磁盘上的溯源文件在 module id、city path、孵化房间列表、任务 id、cluster 上完全一致。
+
+第三条规则对 mission-book 的两种任务形态有不同落法，因为它们不是同一类工作：
+
+| mission-book 任务形态 | 示例 id | 溯源文件 | donor |
+| --- | --- | --- | --- |
+| 迁移 mission | `MB-001` | `DONOR.json` | 钉死的仓库 + commit，清单必须与两者一致 |
+| 项目任务（`BA` / `RF` / `GAI` / `EM`） | `RF-001` | `PROVENANCE.json` | **没有**——属于 Owner 定义的全新施工，记为 `donor: null` |
+
+项目任务没有 donor，是因为根本没有可移植的东西。给它写一份 `DONOR.json` 就必须编造一个 commit，而这正是迁移规则要防的伪造；所以清单要求 `donor: null` 加一份 `PROVENANCE.json`，说明该 module 是什么、占用城市地图上哪栋楼、以及它刻意不跨越哪些接缝。
 
 ### 为什么 mission 孵化不是伪造的晋升
 
@@ -250,3 +262,39 @@ MB-003（donor 为 `Codex-Boss @ 8df428e` 与 `DS-Hns @ eeb57ca`）在既有的 
 ### 冻结，与 mission-book 的消费要求
 
 §5 冻结产品面，是为了不让某个 city module 悄悄改掉 Android 与 Web 依赖的协议。而 mission-book 迁移有一个更晚的要求：MB-003 必须被某个既有 task/control 流程真实消费。两者的调和方式仅限如下：当 mission-book 要求时消费接线可以进入 `services/**`，且必须是等价重构——City Control Protocol、Gateway API v0 形状、Runtime Node 任务状态名、事件名与 payload 形状、Android 协议契约都不得改变。因此 `services/capability-bridge/bridge.mjs` 的按能力降级判定改由迁移后的 `provider-resilience` 熔断器作出，而 Utopia 自己的策略（阈值 1、两个 provider 技术性错误码）作为数据传入。
+
+## 9. RF-001 设备身份——第一个项目任务孵化
+
+`Digital-City/mission-book` 后来从单一的迁移队列重整为四个异步项目：Butler Assistant（`BA-`）、Remote Fabric（`RF-`）、General AI Gateway（`GAI-`）与 Engineering Manager（`EM-`），由 `CROSS_PROGRAMME_EXECUTION_CONTRACT.md` 统一调度。这些任务与当年的迁移 mission 一样把代码落到 `city/` 下，但它们是**全新施工**：没有 donor，也就没有可钉死的东西、没有 `DONOR.json` 可写。这就是 §4 描述的第三种孵化身份。
+
+RF-001 新增了一栋楼 `00-foundation/02-city-node-network`——城市地图早已把它保留为「城市节点网 City Node Network — Device Node Fabric」，其产权声明包含「Owner/Root 权限之下的节点/设备主体身份」。楼内一个 module：
+
+| Module | 溯源 | 提供什么 |
+| --- | --- | --- |
+| `device-identity` | 全新施工（`PROVENANCE.json`，`donor: null`） | 带版本的 `DeviceIdentity`/`device_id` 与安装记录、首次安装登记、重装/重绑、密钥轮换、改名、退役、凭据克隆检测与隔离，以及 MAC/元数据非权威规则 |
+
+该 module 的孵化房间是 `mb-rf-001-device-identity-lab`，生命周期为 `PROMOTED`（代码已在本树中，分支尚未合并），且不声明任何能力：它属于身份基础设施，因此和 `01-city-core` 一样不进能力注册表。
+
+### 为什么这不是 Room Pack 晋升
+
+没有任何房间孵化过 `device-identity`。把它写成一个 `device-identity-lab` 的 Room Pack 房间，就需要为从未跑过的房间补一份 `apps/rooms/promotions/<room>.json` 记录，而这正是 §4 拒绝的伪造来源。项目任务形态存在的意义，就是让诚实的说法——「某个 mission-book 项目任务落了这份代码，这是它的 `PROVENANCE.json`」——可以被写出来。
+
+### 冻结，与项目任务的消费要求
+
+§5 冻结产品面。RF-001 是组件任务，因此不接任何消费者：天然接缝在 `services/dev-gateway` 的节点注册，它今天存的是 `{id, devicePrincipalId, displayName, metadata.platform, agentVersion, capabilities, online, lastHeartbeatAt}`，且 `devicePrincipalId === id`，没有密钥材料、没有逻辑设备与安装的分离、也没有克隆检测。`migrateDeviceIdentity` 正好接受这个行形状，所以升级路径是真实且被测试的，但本分支不改变任何运行时行为。未解决的接缝记录在该 module 的 `PROVENANCE.json` 中，并按 `CROSS_PROGRAMME_EXECUTION_CONTRACT.md` §5 推迟到 Remote Fabric 合并工程书——推迟不等于成功。
+
+## 10. RF-002 配对与信任——设备节点互联层那栋楼
+
+`Digital-City/mission-book` 后来从单一的迁移队列重整为四个异步项目（`BA-`、`RF-`、`GAI-`、`EM-`），由 `CROSS_PROGRAMME_EXECUTION_CONTRACT.md` 统一调度。这些任务与当年的迁移 mission 一样把代码落到 `city/` 下，但它们是**全新施工**：没有 donor，因此适用 §1 的第三种孵化身份。
+
+RF-002 声明了城市地图早已保留的那栋楼——「城市节点网 City Node Network — Device Node Fabric」，其产权声明覆盖节点/设备主体身份、成员关系与信任：
+
+| Module | 溯源 | 提供什么 |
+| --- | --- | --- |
+| `pairing-trust` | 全新施工（`PROVENANCE.json`，`donor: null`） | 所有加入入口共同收敛到的唯一配对/信任状态机：会话阶段与合法迁移、绑定稳定指纹的临时密钥交换、带可选非权威 MAC 证据的面向人的设备预览、带重放防护的一次性 Owner 确认、过期/取消/拒绝/失败清理、把信任角色当分类而非授权、凭据轮换、撤销、丢失设备撤销、隔离与重新配对、重连再校验，以及一份只证明状态迁移、不携带密钥材料的审计日志 |
+
+其孵化房间为 `mb-rf-002-pairing-trust-lab`，生命周期为 `PROMOTED`，且不声明任何能力：信任是分类，因此该 module 和 `01-city-core` 一样不进能力注册表。
+
+### 冻结，与项目任务的消费要求
+
+§5 冻结产品面。RF-002 是组件任务，不接任何消费者：天然接缝在 `services/dev-gateway/pairing.mjs` 与 `discovery.mjs`，它们今天实现的是一条 descriptor/二维码/短码流程，既没有会话状态机也没有信任记录。`PROVENANCE.json` 记录了这个接缝，并按 `CROSS_PROGRAMME_EXECUTION_CONTRACT.md` §5 推迟到 Remote Fabric 合并工程书——推迟不等于成功。

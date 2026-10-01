@@ -1,0 +1,55 @@
+{
+  "module": "pairing-trust",
+  "cityPath": "city/00-foundation/02-city-node-network/pairing-trust",
+  "district": "00-foundation",
+  "building": "02-city-node-network",
+  "incubationRooms": [
+    "mb-rf-002-pairing-trust-lab"
+  ],
+  "mission": {
+    "missionId": "RF-002",
+    "programme": "REMOTE_FABRIC_ENGINEERING",
+    "book": "Digital-City/mission-book/remote/RF-002-unified-pairing-trust-lifecycle.md",
+    "role": "DEVELOPMENT",
+    "architectureContract": "REMOTE_FABRIC_V1",
+    "cluster": "one unified pairing and trust state machine for every join entry point: session phases and legal transitions, ephemeral key exchange bound to stable fingerprints, human-readable device preview with optional non-authoritative MAC evidence, one-time Owner confirmation with replay protection, expiry/cancel/reject/fail cleanup, trust roles as classifications rather than grants, credential rotation, revoke, lost-device revoke, quarantine and re-pair, reconnect revalidation, and an audit log that proves transitions without carrying key material"
+  },
+  "newConstruction": true,
+  "donor": null,
+  "programmeBaselineSha": "82ed36933fb4c5b00e44768d9e1aedec1d525d9c",
+  "branch": "remote/RF-002-unified-pairing-trust-lifecycle",
+  "developmentHost": "Alien",
+  "implementationRepo": "zhiheng-zhang-Mera/Utopia",
+  "controlRepo": "zhiheng-zhang-Mera/Digital-City",
+  "whyNoDonor": "RF-002 is new Owner-defined construction, not a donor migration. There is no upstream file to port and therefore no donor commit to pin: writing a DONOR.json here would have to invent provenance. The manifest records `donor: null` for the same reason, and the city manifest test requires exactly that for a programme-task incubator.",
+  "cityPlacement": {
+    "decision": "city/00-foundation/02-city-node-network/pairing-trust",
+    "why": "RF-001 already declared the City map's own building for this ownership: 00-foundation/02-city-node-network, 'City Node Network - Device Node Fabric', whose declared ownership is node/device principal identity plus membership and trust. RF-002 is the trust half of that building and belongs beside device-identity rather than in a building of its own, because a pairing cannot be understood apart from the identity it binds.",
+    "rejectedAlternatives": [
+      "A separate building: rejected because the City map already assigns node identity and trust to one building, and splitting them would let the two drift.",
+      "08-device-edge: rejected for the same reason as RF-001 - that district is about physical sensor/actuator capability, not node trust."
+    ]
+  },
+  "provenanceForm": {
+    "decision": "Registered under the mission-book programme-task incubator id `mb-rf-002-pairing-trust-lab`, carrying this PROVENANCE.json and `donor: null`.",
+    "why": "Same honest form RF-001 established: no Room ever incubated this code, and it is not a migration, so neither the Room Pack identity nor the `mb-<MB-ID>` migration identity would be true."
+  },
+  "knownBoundaries": [
+    "No transport, discovery, Bluetooth or rendezvous implementation. RF-003..RF-005 own those; this module receives an entry point as data and never performs discovery itself, which is exactly what makes 'many join methods, one trust protocol' enforceable.",
+    "No transport encryption. Invariant 4 requires authenticated encryption on every path; this module establishes trust and binds fingerprints, but RF-006 owns the secure transport path manager.",
+    "No capability resolution, permission computation or task/action semantics. `capabilitiesFromTrustRole` always answers none, and `checkReconnect` returning `allowed: true` is explicitly not a permission.",
+    "No persistence. The authority is in-memory; a durable store and its reload semantics are not in this task's scope and are recorded as an integration seam.",
+    "No product or service consumer is wired in this component task. The natural seam is `services/dev-gateway/pairing.mjs` + `services/dev-gateway/discovery.mjs`, which today implement a descriptor/QR/short-code flow with no session state machine and no trust record. Recorded as an integration seam for the Remote merge workbook, per mission-book/CROSS_PROGRAMME_EXECUTION_CONTRACT.md section 5.",
+    "The audit log is bounded (2048 entries) and in-memory; a durable audit sink is RF-009 scope.",
+    "`checkReconnect` treats a rotated credential as a refusal. Whether a rotated credential should instead trigger an automatic re-pair is a policy decision for the Owner; this module refuses and names the reason (`credential_rotated`) rather than guessing."
+  ],
+  "acceptanceMapping": {
+    "local discovery, Bluetooth and remote invite feed the same state model": "ENTRY_POINTS + startSession; every entry point creates the same session and walks the same PAIRING_TRANSITIONS",
+    "two sides display stable fingerprints for confirmation": "exchangeEphemeralKeys binds both fingerprints; buildDevicePreview carries the responder fingerprint and confirmPairing re-checks it",
+    "reused/expired pairing attempts are rejected": "seenChallenges replay guard (challenge_replayed), one-time confirmation_token_ref (confirmation_replayed), lazy expiry (session_expired) and cleanupExpired",
+    "revoked devices cannot reconnect with old credentials": "revokeTrust/revokeLostDevice + checkReconnect returning trust_revoked",
+    "trust role changes are explicit and auditable": "changeTrustRole records from/to in the trust history and the audit log",
+    "MAC mismatch may warn but cannot replace cryptographic identity": "buildDevicePreview.mac_evidence.mismatch_warning plus MAC_AUTHORITY = NOT_AUTHORITY and trustFromMacEvidence always refusing",
+    "logs prove state transitions without leaking private key material": "auditLog records state transitions; auditLeakScan proves no PEM block or named secret appears"
+  }
+}

@@ -1,0 +1,17 @@
+// RF-008 — typed RPC / EVENT / STREAM + reliable commands.
+export {
+  DATAPLANE_CONTRACT_VERSION,
+  ENVELOPE_KINDS,
+  DOMAINS,
+  COMMAND_STATES,
+  TERMINAL_COMMAND_STATES,
+  SUCCESS_STATES,
+  EVIDENCE_KINDS,
+  STREAM_STATES,
+  STREAM_KINDS,
+  DATAPLANE_CODES,
+  DEFAULT_DATAPLANE_POLICY,
+  DataplaneError,
+  createDataplane,
+  isIsoInstant,
+} from './dataplane.mjs';

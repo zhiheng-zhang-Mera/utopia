@@ -1,0 +1,56 @@
+{
+  "module": "device-identity",
+  "cityPath": "city/00-foundation/02-city-node-network/device-identity",
+  "district": "00-foundation",
+  "building": "02-city-node-network",
+  "incubationRooms": [
+    "mb-rf-001-device-identity-lab"
+  ],
+  "mission": {
+    "missionId": "RF-001",
+    "programme": "REMOTE_FABRIC_ENGINEERING",
+    "book": "Digital-City/mission-book/remote/RF-001-node-identity-installation-lifecycle.md",
+    "role": "DEVELOPMENT",
+    "architectureContract": "REMOTE_FABRIC_V1",
+    "cluster": "logical device identity and installation lifecycle: versioned DeviceIdentity/device_id and installation_id records, first-install enrollment, reinstall/rebind, key rotation, rename, retirement, cloned-credential detection/quarantine, and the non-authoritative MAC/metadata rule"
+  },
+  "newConstruction": true,
+  "donor": null,
+  "programmeBaselineSha": "82ed36933fb4c5b00e44768d9e1aedec1d525d9c",
+  "branch": "remote/RF-001-node-identity-installation-lifecycle",
+  "developmentHost": "Alien",
+  "implementationRepo": "zhiheng-zhang-Mera/Utopia",
+  "controlRepo": "zhiheng-zhang-Mera/Digital-City",
+  "whyNoDonor": "RF-001 is new Owner-defined construction, not a donor migration. There is no upstream file to port and therefore no donor commit to pin: writing a DONOR.json here would have to invent provenance. The manifest records `donor: null` for the same reason, and the city manifest test requires exactly that for a programme-task incubator.",
+  "cityPlacement": {
+    "decision": "city/00-foundation/02-city-node-network/device-identity",
+    "why": "The City map already reserves 00-foundation/02-city-node-network as 'City Node Network - Device Node Fabric', whose declared ownership includes 'node/device principal identity below Owner/Root authority' (Digital-City 00-.../02-城市节点网.../README.md). The building did not exist in city/CITY_IMPLEMENTATION_MANIFEST.json, so RF-001 declares it as the building that owns Remote Fabric/node identity, and later RF tasks add their modules there. The building number 02 was free between the two existing 00-foundation buildings 01-city-core and 03-capability-fabric, matching the City map's own numbering.",
+    "rejectedAlternatives": [
+      "08-device-edge: rejected because the City map draws that district boundary explicitly as 'which physical sensor/actuator capability exists', while device/node *identity* is Node Fabric.",
+      "A new top-level district for Remote Fabric: rejected because the City map already assigns node identity to 00-foundation, and inventing a district would contradict the published map."
+    ]
+  },
+  "provenanceForm": {
+    "decision": "The module is registered under a mission-book programme-task incubator id `mb-rf-001-device-identity-lab`, and the manifest validator/test recognition was extended from MB-only to every mission-book task id (MB/BA/RF/GAI/EM).",
+    "why": "city/tests/manifest.test.mjs recognises exactly two incubation identities: a Room Pack room and a mission-book migration `mb-<MB-ID>-<module>-lab`. RF-001 is neither - no Room Pack room ever ran for it, and it is not a migration. Labelling it as a Room Pack room would be false provenance of the exact kind the architecture doc forbids; labelling it `mb-001-...` would be a lie about the mission. So the honest fix is a third, explicitly-named identity: a mission-book *programme task* incubator, which carries no donor and must instead prove its provenance through this file.",
+    "rejectedAlternatives": [
+      "Register as a Room Pack room with an apps/rooms/promotions/<id>.json record: rejected as fabrication - no room ever incubated this code.",
+      "Do not register in the city manifest: rejected because city/CITY_IMPLEMENTATION_MANIFEST.json is the tree's statement of what really exists, and every prior mission registered its modules."
+    ]
+  },
+  "knownBoundaries": [
+    "No product or service consumer is wired in this component task. The natural seam is services/dev-gateway (node register/heartbeat/offline), which today stores {id, devicePrincipalId, displayName, metadata.platform, agentVersion, capabilities, online, lastHeartbeatAt} with devicePrincipalId === id and no key material, no installation separation and no clone detection. `migrateDeviceIdentity` accepts exactly that row shape so the upgrade path is real and tested, but nothing in this branch changes runtime behaviour. Recorded as an integration seam for the Remote merge workbook, per mission-book/CROSS_PROGRAMME_EXECUTION_CONTRACT.md section 5.",
+    "A legacy gateway row carries no key material. The migration therefore derives a placeholder key fingerprint from the record itself and names it `legacy-gateway`; it does not claim the device has a real key it was never issued. A real enrollment must rotate that key.",
+    "This module decides document validity and lifecycle meaning only. It never decides permission, reachability, presence or task ownership: those belong to RF-006/RF-009/RF-010 and to the shared Core.",
+    "Bluetooth, LAN discovery, pairing UI, transport encryption and rendezvous are other RF tasks. This module supplies the identity they converge on and no transport."
+  ],
+  "acceptanceMapping": {
+    "device_id survives network change": "recordNetworkMetadata",
+    "rename changes metadata not authority": "renameDevice",
+    "reinstall mints a new installation_id and requires explicit rebind": "reinstallInstallation + rebindInstallation",
+    "cloned credential detected/rejected/quarantined": "resolveInstallationPresentation + detectCredentialClones + quarantineInstallation",
+    "missing/randomised MAC does not block pairing": "macPairingEvidence + normalizeMac + isLocallyAdministeredMac",
+    "spoofed MAC alone cannot impersonate": "trustFromMacEvidence (always refuses)",
+    "schema/version tests cover upgrade and malformed records": "validateDeviceIdentity/validateInstallation/migrateDeviceIdentity"
+  }
+}

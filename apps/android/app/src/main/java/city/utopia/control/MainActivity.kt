@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -21,7 +22,9 @@ import city.utopia.control.theme.Space
 import city.utopia.control.theme.UtopiaColors
 import city.utopia.control.theme.UtopiaIcons
 import city.utopia.control.theme.UtopiaTheme
+import city.utopia.control.ui.TechnicalDetails
 import city.utopia.control.ui.UtFeedback
+import city.utopia.control.ui.UtLabel
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -136,6 +139,32 @@ class MainActivity : ComponentActivity() {
   }
  }
 }
-@Composable fun Panel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) { Column(modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(16.dp)).padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp), content = content) }
-@Composable private fun Metric(label: String, count: Int, modifier: Modifier) { Panel(modifier) { Text(label, fontSize = 12.sp, color = Color.Gray); Text(count.toString(), fontSize = 32.sp, color = Ink) } }
-@Composable private fun EventRow(e: JSONObject) { Panel { Text(e.optString("type"), fontSize = 13.sp, fontWeight = FontWeight.Medium); Text("#${e.optInt("seq")} · ${e.optString("taskId")}", fontSize = 10.sp, color = Color.Gray); Text(e.optString("timestamp"), fontSize = 10.sp, color = Color.Gray) } }
+/* UI-102: this used to be `.background(Color.White, RoundedCornerShape(16.dp))`. After
+   increment 1 changed the theme it was painting white 16dp-rounded cards on a dark HUD -
+   a defect increment 1 introduced and did not propagate. It now uses the theme surface,
+   the direction's cut corners and the spacing scale, which fixes every call site at once. */
+@Composable fun Panel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+ Column(
+  modifier.fillMaxWidth().clip(MaterialTheme.shapes.large).background(MaterialTheme.colorScheme.surface).padding(Space.lg),
+  verticalArrangement = Arrangement.spacedBy(Space.sm),
+  content = content,
+ )
+}
+@Composable private fun Metric(label: String, count: Int, modifier: Modifier) {
+ Panel(modifier) {
+  UtLabel(label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+  Text(count.toString(), style = MaterialTheme.typography.displaySmall, color = MaterialTheme.colorScheme.primary)
+ }
+}
+/* The event's ordering number and task id are internal identifiers: folded, not deleted.
+   The surface keeps what happened and when. */
+@Composable private fun EventRow(e: JSONObject) {
+ Panel {
+  Text(e.optString("type"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+  Text(e.optString("timestamp"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+  TechnicalDetails(listOf(
+   "seq" to e.optInt("seq").toString(),
+   "taskId" to e.optString("taskId"),
+  ))
+ }
+}

@@ -326,3 +326,58 @@ test('the governor policy is a plain record', () => {
   const instance = Object.assign(new Policy(), { max_attempts: 99 });
   assert.equal(failure(() => createResilienceGovernor({ clock: () => T0, policy: instance })).code, 'INVALID_REQUEST');
 });
+
+test('a caller instant cannot extend or shorten a circuit cooldown', () => {
+  const scope = { scope_kind: 'PROVIDER', scope_ref: 'provider:a' };
+  const { governor, clock } = governorAt({ failure_threshold: 3, circuit_cooldown_ms: 1000 });
+  for (let index = 0; index < 3; index += 1) governor.recordOutcome({ ...scope, outcome: 'FAILURE' });
+  assert.equal(governor.circuitState(scope).state, 'OPEN');
+  clock.advance(500);
+  assert.equal(governor.circuitState({ ...scope, at: '2030-01-01T00:00:00Z' }).state, 'OPEN', 'a future instant does not open the half-open probe');
+  clock.advance(600);
+  assert.equal(governor.circuitState(scope).state, 'HALF_OPEN', 'the registry clock elapses the cooldown');
+
+  // A backdated failure cannot make the cooldown already elapsed.
+  const backdated = governorAt({ failure_threshold: 3, circuit_cooldown_ms: 1000 });
+  for (let index = 0; index < 3; index += 1) backdated.governor.recordOutcome({ ...scope, outcome: 'FAILURE', at: '1999-01-01T00:00:00Z' });
+  assert.equal(backdated.governor.circuitState(scope).state, 'OPEN', 'the cooldown runs from the registry clock');
+});
+
+test('an acknowledgment survives a replayed failure', () => {
+  const { governor } = governorAt();
+  governor.retryDecision({ action_ref: 'action:blocked', attempt: 1, code: 'AUTH_REQUIRED' });
+  assert.equal(governor.acknowledgeHumanAction({ action_ref: 'action:blocked', by_ref: 'user:1' }).acknowledged, true);
+  const replay = governor.retryDecision({ action_ref: 'action:blocked', attempt: 1, code: 'AUTH_REQUIRED' });
+  assert.equal(replay.previously_acknowledged, true, 'the durable acknowledgment is not erased');
+  const stored = governor.humanBlockedAction('action:blocked');
+  assert.equal(stored.resolved, true);
+  assert.equal(stored.acknowledged_by_ref, 'user:1');
+  assert.equal(stored.requires_new_acknowledgment, true);
+  assert.deepEqual(governor.resilienceReport().human_blocked_actions, [], 'an acknowledged action is not pending again');
+});
+
+test('a non-boolean flag cannot silently drop a proposal or an idempotency requirement', () => {
+  const { governor } = governorAt();
+  assert.equal(failure(() => governor.degradeChannel({ other_device_available: 1 })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => governor.retryDecision({ action_ref: 'action:a', attempt: 1, code: 'TIMEOUT', side_effecting: 1 })).code, 'INVALID_REQUEST');
+  assert.equal(governor.degradeChannel({ other_device_available: true }).proposal.kind, 'DEVICE_SWITCH_PROPOSAL');
+  assert.equal(governor.retryDecision({ action_ref: 'action:a', attempt: 1, code: 'TIMEOUT', side_effecting: false }).retry, true);
+});
+
+test('a degraded or unknown availability is never ready, and the report agrees with the query', () => {
+  const scope = { scope_kind: 'PROVIDER', scope_ref: 'provider:a' };
+  const { governor, clock } = governorAt({ failure_threshold: 3, circuit_cooldown_ms: 1000 });
+  assert.equal(governor.observeHealth({ ...scope, availability: 'DEGRADED', observed_at: T0 }).readiness, 'NOT_READY', 'a degraded availability is not readiness');
+  assert.equal(governor.observeHealth({ ...scope, availability: 'UNKNOWN', observed_at: T0 }).readiness, 'UNKNOWN');
+  assert.equal(governor.observeHealth({ ...scope, availability: 'AVAILABLE', observed_at: T0 }).readiness, 'READY');
+
+  for (let index = 0; index < 3; index += 1) governor.recordOutcome({ ...scope, outcome: 'FAILURE' });
+  assert.deepEqual(governor.resilienceReport().open_circuits, ['PROVIDER:provider:a']);
+  clock.advance(2000);
+  assert.deepEqual(governor.resilienceReport().open_circuits, [], 'the report projects the elapsed cooldown');
+  assert.equal(governor.circuitState(scope).state, 'HALF_OPEN');
+  assert.deepEqual(governor.resilienceReport().open_circuits, [], 'and the query did not change the answer');
+
+  assert.equal(failure(() => governor.degradeChannel({ channel: 'NONSENSE' })).code, 'INVALID_REQUEST');
+  assert.equal(governor.degradeChannel({ channel: 'WEB_CHANNEL' }).state, 'UNAVAILABLE');
+});

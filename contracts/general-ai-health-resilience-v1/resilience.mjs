@@ -168,10 +168,18 @@ export function createResilienceGovernor({ clock = () => new Date().toISOString(
   const circuitFor = (key, at) => {
     const circuit = circuits.get(key) ?? null;
     if (circuit === null) return null;
-    if (circuit.state === 'OPEN' && Date.parse(circuit.open_until) <= Date.parse(at)) {
+    // The cooldown elapses on the registry's clock: a caller-supplied instant may neither extend nor
+    // shorten it.
+    if (circuit.state === 'OPEN' && Date.parse(circuit.open_until) <= Date.parse(now())) {
       circuit.state = 'HALF_OPEN';
     }
     return circuit;
+  };
+
+  /** The effective state at the registry clock, so a query and a report cannot disagree. */
+  const effectiveCircuitState = circuit => {
+    if (circuit.state === 'OPEN' && Date.parse(circuit.open_until) <= Date.parse(now())) return 'HALF_OPEN';
+    return circuit.state;
   };
 
   const healthProjection = (observation, at) => {
@@ -186,6 +194,8 @@ export function createResilienceGovernor({ clock = () => new Date().toISOString(
     let readonly = 'UNKNOWN';
     if (!stale) {
       if (availability === 'UNAVAILABLE') readonly = 'NOT_READY';
+      else if (availability === 'DEGRADED') readonly = 'NOT_READY';
+      else if (availability === 'UNKNOWN') readonly = 'UNKNOWN';
       else if (health === 'UNHEALTHY' || health === 'UNKNOWN') readonly = 'UNKNOWN';
       else if (auth_state !== 'READY') readonly = 'NOT_READY';
       else if (rate_limit_state === 'LIMITED') readonly = 'NOT_READY';
@@ -262,6 +272,7 @@ export function createResilienceGovernor({ clock = () => new Date().toISOString(
     retryDecision({ action_ref, attempt = 1, code, retry_after_ms = null, idempotency_key = null, side_effecting = false, scope_kind = null, scope_ref = null, at: when } = {}) {
       if (!isText(action_ref)) throw new ResilienceError('INVALID_REQUEST', 'action_ref is required');
       if (!Number.isSafeInteger(attempt) || attempt < 1) throw new ResilienceError('INVALID_REQUEST', 'attempt must be a positive integer');
+      if (typeof side_effecting !== 'boolean') throw new ResilienceError('INVALID_REQUEST', 'side_effecting must be a boolean when given, so the idempotency requirement cannot be silently skipped');
       const at = when === undefined || when === null ? now() : callerInstant(when);
       const classification = classifyFailure({ code, retry_after_ms });
       const base = {
@@ -271,9 +282,21 @@ export function createResilienceGovernor({ clock = () => new Date().toISOString(
       };
 
       if (classification.fault_class === 'HUMAN_BLOCKED') {
-        humanBlocked.set(action_ref, freeze({ action_ref, since: at, reason: classification.code, resolved: false }));
+        const previousBlock = humanBlocked.get(action_ref) ?? null;
+        const wasAcknowledged = previousBlock?.resolved === true;
+        humanBlocked.set(action_ref, freeze({
+          action_ref,
+          since: previousBlock?.since ?? at,
+          reason: classification.code,
+          resolved: wasAcknowledged,
+          acknowledged_at: previousBlock?.acknowledged_at ?? null,
+          acknowledged_by_ref: previousBlock?.acknowledged_by_ref ?? null,
+          reblocked_at: wasAcknowledged ? at : null,
+          previously_acknowledged: wasAcknowledged,
+          requires_new_acknowledgment: wasAcknowledged,
+        }));
         note('HUMAN_BLOCKED', at, { action_ref, code: classification.code });
-        return freeze({ ...base, retry: false, auto_resume: false, one_shot_retry_is_not_resume: true, reason: 'HUMAN_ACTION_REQUIRED', human_action_required: true, acknowledged: false });
+        return freeze({ ...base, retry: false, auto_resume: false, one_shot_retry_is_not_resume: true, reason: 'HUMAN_ACTION_REQUIRED', human_action_required: true, acknowledged: false, previously_acknowledged: wasAcknowledged });
       }
       if (classification.fault_class === 'PERMANENT') {
         return freeze({ ...base, retry: false, auto_resume: false, reason: 'PERMANENT_FAILURE' });
@@ -334,7 +357,7 @@ export function createResilienceGovernor({ clock = () => new Date().toISOString(
         if (circuit.state === 'HALF_OPEN' || circuit.consecutive_failures >= config.failure_threshold) {
           circuit.state = 'OPEN';
           circuit.opened_at = at;
-          circuit.open_until = new Date(Date.parse(at) + config.circuit_cooldown_ms).toISOString();
+          circuit.open_until = new Date(Date.parse(now()) + config.circuit_cooldown_ms).toISOString();
         }
       }
       circuits.set(key, circuit);
@@ -374,8 +397,9 @@ export function createResilienceGovernor({ clock = () => new Date().toISOString(
      */
     degradeChannel({ channel = 'WEB_CHANNEL', reason = 'WEB_UNAVAILABLE', other_device_available = false, at: when } = {}) {
       const at = when === undefined || when === null ? now() : callerInstant(when);
-      if (!isText(channel)) throw new ResilienceError('INVALID_REQUEST', 'channel must be nonempty text');
+      if (!isText(channel) || !SCOPE_KINDS.includes(channel)) throw new ResilienceError('INVALID_REQUEST', `channel must be one of ${SCOPE_KINDS.join(', ')}`);
       if (!isText(reason)) throw new ResilienceError('INVALID_REQUEST', 'reason must be nonempty text');
+      if (typeof other_device_available !== 'boolean') throw new ResilienceError('INVALID_REQUEST', 'other_device_available must be a boolean when given, so a proposal cannot be silently dropped');
       note('CHANNEL_DEGRADED', at, { channel, reason });
       return freeze({
         contract_version: RESILIENCE_CONTRACT_VERSION,
@@ -406,7 +430,7 @@ export function createResilienceGovernor({ clock = () => new Date().toISOString(
     /** Fault isolation statement: one failing scope does not poison the rest of the platform. */
     faultIsolation({ failing_scope_kind = null, failing_scope_ref = null, at: when } = {}) {
       const at = when === undefined || when === null ? now() : callerInstant(when);
-      const affected = [...circuits.values()].filter(circuit => circuit.state === 'OPEN');
+      const affected = [...circuits.values()].filter(circuit => effectiveCircuitState(circuit) === 'OPEN');
       return freeze({
         contract_version: RESILIENCE_CONTRACT_VERSION,
         failing_scope_kind,
@@ -444,7 +468,7 @@ export function createResilienceGovernor({ clock = () => new Date().toISOString(
         scopes: freeze(scopes),
         healthy_scopes: freeze(scopes.filter(scope => scope.health === 'HEALTHY' && scope.stale === false).map(scope => `${scope.scope_kind}:${scope.scope_ref}`)),
         stale_scopes: freeze(scopes.filter(scope => scope.stale === true).map(scope => `${scope.scope_kind}:${scope.scope_ref}`)),
-        open_circuits: freeze([...circuits.values()].filter(circuit => circuit.state === 'OPEN').map(circuit => `${circuit.scope_kind}:${circuit.scope_ref}`)),
+        open_circuits: freeze([...circuits.values()].filter(circuit => effectiveCircuitState(circuit) === 'OPEN').map(circuit => `${circuit.scope_kind}:${circuit.scope_ref}`)),
         human_blocked_actions: freeze([...humanBlocked.values()].filter(entry => entry.resolved !== true).map(entry => entry.action_ref)),
         api_escalation_automatically_triggered: false,
         local_surfaces_available: freeze([...LOCAL_SURFACES]),

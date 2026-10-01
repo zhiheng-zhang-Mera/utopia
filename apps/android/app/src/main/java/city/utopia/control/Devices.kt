@@ -9,23 +9,25 @@ import org.json.JSONObject
 import java.time.Instant
 private fun bytes(value:Long) = if(value<0) "Unavailable" else "%.1f GB".format(value/1073741824.0)
 /**
- * UI-102 review repair: the card used to print the gateway's raw ISO-8601
- * `lastHeartbeatAt` verbatim on the default surface, while Web renders the same fact as
- * a relative age, so the two surfaces disagreed about one gateway truth - the exact
- * parity property this task set out to fix in its increment 6. The `now` parameter that
- * DeviceCard already receives is used here rather than reading the clock, which keeps
- * the function pure and directly testable.
+ * UI-102 review repair R-1 (authored by the review host): the card used to print the
+ * gateway's raw ISO-8601 `lastHeartbeatAt` verbatim on the default surface, while Web
+ * renders the same fact as a relative age, so the two surfaces disagreed about one gateway
+ * truth - the exact parity property this task set out to fix in its increment 6. The `now`
+ * parameter that DeviceCard already receives is used here rather than reading the clock,
+ * which keeps the function pure and directly testable.
  *
  * The wording intentionally matches Web's `age()` exactly ("Ns ago") rather than
  * introducing a second, nicer ladder here: this task's goal is parity, and a reviewer
  * inventing its own convention would create the divergence it is meant to remove.
+ *
+ * Parsing is delegated to `parseIsoInstant` so this and `clockLabel` accept the same
+ * inputs. That is what lets the offset-bearing form Web's `Date.parse` accepts be handled
+ * here too; `Instant.parse` alone rejects it.
  */
 internal fun relativeAge(iso:String?, now:Instant):String {
   if(iso==null) return "Unavailable"
-  return try {
-    val seconds=java.time.Duration.between(Instant.parse(iso),now).seconds.coerceAtLeast(0)
-    "${seconds}s ago"
-  } catch(e:Exception) { "Unavailable" }
+  val instant=parseIsoInstant(iso) ?: return "Unavailable"
+  return "${java.time.Duration.between(instant,now).seconds.coerceAtLeast(0)}s ago"
 }
 @Composable fun DeviceCard(node:JSONObject, online:Boolean, now:Instant, detail:Boolean=false, tasks:List<JSONObject> = emptyList(), events:List<JSONObject> = emptyList(), click:()->Unit={}) {
  val t=node.optJSONObject("telemetry"); val status=telemetryStatus(online,node.optBoolean("online"),t?.optString("observedAt"),now)
@@ -39,12 +41,12 @@ internal fun relativeAge(iso:String?, now:Instant):String {
  Text("Identity: ${node.optString("id")}")
  val disk=t?.optJSONObject("disk"); Text("Disk: ${bytes(disk?.optLong("usedBytes",-1)?:-1)} / ${bytes(disk?.optLong("totalBytes",-1)?:-1)} · Free ${bytes(disk?.optLong("freeBytes",-1)?:-1)}")
  Text("Uptime: ${if(t==null || t.isNull("uptimeSeconds")) "Unavailable" else "${t.optLong("uptimeSeconds")} seconds"}")
- Text("Observed: ${t?.optString("observedAt")?:"Unavailable"}")
+ Text("Observed: ${relativeAge(t?.optString("observedAt",null),now)}")
  Text("Capabilities: ${node.optJSONArray("capabilities")?:"Unavailable"}")
  Text("Current task",style=MaterialTheme.typography.titleMedium)
  val current=tasks.filter { it.optString("assignedNodeId")==node.optString("id") && canCancel(it.optString("state")) }; if(current.isEmpty()) Text("No active task"); current.forEach { Text("${it.optString("id")} · ${it.optString("state")}") }
  Text("Recent node events",style=MaterialTheme.typography.titleMedium)
- events.filter { it.optJSONObject("payload")?.optString("nodeId")==node.optString("id") || tasks.any { task -> task.optString("assignedNodeId")==node.optString("id") && task.optString("id")==it.optString("taskId") } }.takeLast(8).reversed().forEach { Text("${it.optString("type")} · ${it.optString("timestamp")}") }
+ events.filter { it.optJSONObject("payload")?.optString("nodeId")==node.optString("id") || tasks.any { task -> task.optString("assignedNodeId")==node.optString("id") && task.optString("id")==it.optString("taskId") } }.takeLast(8).reversed().forEach { Text("${it.optString("type")} · ${clockLabel(it.optString("timestamp"))}") }
  }
  } }
 }

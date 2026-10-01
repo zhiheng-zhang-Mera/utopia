@@ -135,7 +135,7 @@ class MainActivity : ComponentActivity() {
      }
      if (page == "Activity") events.reversed().forEach { e -> item { EventRow(e) } }
     }
-    if (state.snapshot != null && page != "Settings") item { Text("Last snapshot: " + state.snapshot?.optString("updatedAt"), color = Color.Gray, fontSize = 10.sp) }
+    if (state.snapshot != null && page != "Settings") item { Text("Last snapshot: " + clockLabel(state.snapshot?.optString("updatedAt")), color = Color.Gray, fontSize = 10.sp) }
    }
   }
  }
@@ -162,7 +162,7 @@ class MainActivity : ComponentActivity() {
 @Composable private fun EventRow(e: JSONObject) {
  Panel {
   Text(e.optString("type"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
-  Text(e.optString("timestamp"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+  Text(clockLabel(e.optString("timestamp")), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
   TechnicalDetails(listOf(
    "seq" to e.optInt("seq").toString(),
    "taskId" to e.optString("taskId"),

@@ -32,6 +32,32 @@ fun telemetryStatus(connected: Boolean, nodeOnline: Boolean, observedAt: String?
 }
 fun discoveryPermission(granted: Boolean, enabled: Boolean, available: Boolean) = when { !granted -> "Permission denied"; !enabled -> "Bluetooth disabled"; !available -> "Scanner unavailable"; else -> "Scanning" }
 fun pairingTransition(state: String, event: String) = when(event) { "start" -> "DISCOVERING"; "submit" -> "PAIRING"; "authenticated" -> "AUTHENTICATED"; "error" -> "ERROR"; "clear" -> "UNPAIRED"; else -> state }
+/**
+ * Web truth-parity for an absolute timestamp. Mirrors `formatTime()` in apps/web/i18n:
+ * a locale-aware LOCAL clock time, falling back to the raw value when it does not parse
+ * (`String(iso ?? '')`), and to "" when the value is absent. A browser and the JVM do not
+ * agree on exact typography, so this matches the SEMANTICS - local, locale-aware, human
+ * clock time rather than a machine ISO string - not the byte-for-byte output.
+ *
+ * The relative-age half of the same parity work lives in `relativeAge` (Devices.kt), which
+ * the review host authored for repair R-1. There is deliberately only one such helper.
+ */
+fun clockLabel(value: String?): String {
+ if (value.isNullOrBlank()) return ""
+ val instant = parseIsoInstant(value) ?: return value
+ return java.time.format.DateTimeFormatter.ofLocalizedTime(java.time.format.FormatStyle.MEDIUM)
+  .withLocale(java.util.Locale.getDefault())
+  .withZone(java.time.ZoneId.systemDefault())
+  .format(instant)
+}
+/** Accepts the strict `Instant` form the Gateway sends and the offset-bearing form, so an
+ *  offset timestamp parses here as it does under JavaScript's more lenient Date.parse.
+ *  Shared by `clockLabel` and `relativeAge` so both accept exactly the same inputs. */
+internal fun parseIsoInstant(value: String?): Instant? {
+ if (value.isNullOrBlank()) return null
+ return runCatching { Instant.parse(value) }.getOrNull()
+  ?: runCatching { java.time.OffsetDateTime.parse(value).toInstant() }.getOrNull()
+}
 fun bleEndpoint(data: ByteArray): String { require(data.size == 7 && data[0].toInt() == 1) { "Unsupported BLE locator" }; val port = ((data[5].toInt() and 255) shl 8) or (data[6].toInt() and 255); require(port > 0); return endpoint("http://${data.slice(1..4).joinToString(".") { (it.toInt() and 255).toString() }}:$port") }
 val BLE_PREFIX = byteArrayOf(0x6f,0x9a.toByte(),0x00,0x01,0x6c,0x53,0x4b,0x92.toByte(),0xa3.toByte(),0x19,0x75,0x74,0x6f,0x70,0x69,0x61)
 fun bleAdvertisementEndpoint(data: ByteArray): String { require(data.size==23 && data.copyOfRange(0,16).contentEquals(BLE_PREFIX)) { "Unknown BLE advertisement" }; return bleEndpoint(data.copyOfRange(16,23)) }

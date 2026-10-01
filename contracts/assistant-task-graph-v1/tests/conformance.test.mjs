@@ -391,3 +391,53 @@ test('a refused patch changes nothing', () => {
   assert.equal(after.checkpoint_ref, null, 'nor the checkpoint');
   assert.equal(after.task_version, created.task_version, 'and the record was not audited');
 });
+
+test('a released executor must revalidate its lease instead of re-issuing it', () => {
+  const graph = createTaskGraph({ now: () => T0_LOCAL });
+  const created = graph.createTask(baseTask({ task_id: 'task:1', side_effect: 'EXCLUSIVE' }));
+  const assigned = graph.changeExecutor({ task_id: 'task:1', expected_version: created.task_version, executor_ref: 'device:alpha', actor_ref: 'assistant:alpha', action_key: 'action-key:1' });
+  graph.releaseDevice({ device_ref: 'device:alpha' });
+  assert.equal(refuse(() => graph.submitExecutorResult({ task_id: 'task:1', expected_version: assigned.task.task_version, actor_ref: 'device:alpha', lease_ref: assigned.lease.lease_ref, lease_epoch: assigned.lease.lease_epoch, action_key: 'action-key:1', outcome: 'SUCCEEDED' })).code, 'LEASE_SUSPENDED', 'submitting needs revalidation');
+  assert.equal(refuse(() => graph.changeExecutor({ task_id: 'task:1', expected_version: assigned.task.task_version, executor_ref: 'device:alpha', actor_ref: 'assistant:alpha', action_key: 'action-key:1' })).code, 'LEASE_SUSPENDED', 'nor may it re-issue its own lease');
+  graph.revalidateLease({ task_id: 'task:1', lease_ref: assigned.lease.lease_ref, lease_epoch: assigned.lease.lease_epoch, executor_ref: 'device:alpha' });
+  assert.equal(graph.submitExecutorResult({ task_id: 'task:1', expected_version: graph.getTask('task:1').task_version, actor_ref: 'device:alpha', lease_ref: assigned.lease.lease_ref, lease_epoch: assigned.lease.lease_epoch, action_key: 'action-key:1', outcome: 'SUCCEEDED' }).applied_outcome, 'SUCCEEDED');
+});
+
+test('an exclusive side effect cannot complete without a lease', () => {
+  const graph = createTaskGraph({ now: () => T0_LOCAL });
+  assert.equal(refuse(() => graph.createTask(baseTask({ task_id: 'task:born', side_effect: 'EXCLUSIVE', state: 'SUCCEEDED' }))).code, 'EXPLICIT_OPERATION_REQUIRED', 'an exclusive task cannot be born terminal');
+  const created = graph.createTask(baseTask({ task_id: 'task:1', side_effect: 'EXCLUSIVE' }));
+  assert.equal(refuse(() => graph.updateTask({ task_id: 'task:1', expected_version: created.task_version, role: 'OWNER', actor_ref: 'assistant:alpha', patch: { state: 'SUCCEEDED' } })).code, 'EXPLICIT_OPERATION_REQUIRED', 'the guarded path is the only completion route');
+  assert.equal(graph.getTask('task:1').state, 'PENDING');
+  const plain = graph.createTask(baseTask({ task_id: 'task:plain' }));
+  assert.equal(graph.updateTask({ task_id: 'task:plain', expected_version: plain.task_version, role: 'OWNER', actor_ref: 'assistant:alpha', patch: { state: 'SUCCEEDED' } }).state, 'SUCCEEDED', 'a task with no externally visible side effect may still be completed by its owner');
+});
+
+test('a refused foreground change leaves the binding untouched', () => {
+  const graph = createTaskGraph({ now: () => T0_LOCAL });
+  graph.bindForeground({ device_ref: 'device:alpha', assistant_ref: 'assistant:butler-a' });
+  assert.equal(refuse(() => graph.bindForeground({ device_ref: 'device:alpha', assistant_ref: 'assistant:attacker', at: 'garbage' })).code, 'INVALID_TASK');
+  assert.equal(graph.projectFor({ device_ref: 'device:alpha' }).foreground_assistant_ref, 'assistant:butler-a', 'the refused bind changed nothing');
+  assert.equal(refuse(() => graph.bindForeground({ device_ref: 'device:alpha', assistant_ref: 'assistant:attacker', workspace_refs: 'workspace:city' })).code, 'INVALID_TASK', 'a workspace set must be an array of text');
+  assert.equal(graph.projectFor({ device_ref: 'device:alpha' }).foreground_assistant_ref, 'assistant:butler-a');
+  assert.equal(refuse(() => graph.releaseDevice({ device_ref: 'device:alpha', at: 'garbage' })).code, 'INVALID_TASK');
+  assert.equal(graph.projectFor({ device_ref: 'device:alpha' }).foreground_assistant_ref, 'assistant:butler-a', 'the refused release changed nothing');
+});
+
+test('a device release never rewrites a settled task, and a handoff checkpoint is text', () => {
+  const graph = createTaskGraph({ now: () => T0_LOCAL });
+  const created = graph.createTask(baseTask({ task_id: 'task:1', side_effect: 'EXCLUSIVE' }));
+  const assigned = graph.changeExecutor({ task_id: 'task:1', expected_version: created.task_version, executor_ref: 'device:alpha', actor_ref: 'assistant:alpha', action_key: 'k' });
+  const done = graph.submitExecutorResult({ task_id: 'task:1', expected_version: assigned.task.task_version, actor_ref: 'device:alpha', lease_ref: assigned.lease.lease_ref, lease_epoch: assigned.lease.lease_epoch, action_key: 'k', outcome: 'SUCCEEDED' });
+  const before = done.task.task_version;
+  graph.releaseDevice({ device_ref: 'device:alpha' });
+  const after = graph.getTask('task:1');
+  assert.equal(after.task_version, before, 'a settled task is not re-versioned by a release');
+  assert.equal(after.causal_log.filter(entry => entry.kind === 'LEASE_SUSPENDED_BY_DEVICE_RELEASE').length, 0, 'nor audited');
+
+  const other = createTaskGraph({ now: () => T0_LOCAL });
+  const target = other.createTask(baseTask({ task_id: 'task:2' }));
+  const handoff = { kind: 'RESPONSIBILITY_TRANSFER', state: 'ACCEPTED', task_ref: 'task:2', task_version: target.task_version, to: { assistant_ref: 'assistant:beta' }, checkpoint_ref: { evil: 'object' } };
+  assert.equal(refuse(() => other.transferOwnership({ task_id: 'task:2', expected_version: target.task_version, handoff })).code, 'HANDOFF_NOT_ACCEPTED');
+  assert.equal(other.getTask('task:2').owner_ref, target.owner_ref, 'the refused handoff moved no ownership');
+});

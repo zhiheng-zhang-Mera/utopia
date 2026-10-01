@@ -259,6 +259,10 @@ export function createTaskGraph({ now = () => new Date().toISOString() } = {}) {
       const timestamp = at(input.at);
       const watchers = clone(input.watchers ?? []);
       for (const watcher of watchers) if (isSessionShapedRef(watcher)) throw new TaskGraphError('SESSION_IS_NOT_OWNER', `watcher ${watcher} is a session, not a durable watcher identity`);
+      // An exclusive side effect has no lease and no action key yet, so it cannot be born complete.
+      if ((input.side_effect ?? 'NONE') === 'EXCLUSIVE' && TERMINAL_TASK_STATES.includes(input.state ?? 'PENDING')) {
+        throw new TaskGraphError('EXPLICIT_OPERATION_REQUIRED', 'an exclusive side effect cannot be created in a terminal state; it must complete through submitExecutorResult', { task_id: input.task_id, side_effect: 'EXCLUSIVE' });
+      }
       const record = {
         contract_version: TASK_GRAPH_CONTRACT_VERSION,
         task_id: input.task_id,
@@ -303,7 +307,7 @@ export function createTaskGraph({ now = () => new Date().toISOString() } = {}) {
         throw new TaskGraphError('INVALID_TASK', errors.join('; '), { task_id });
       }
       if (!isPlainObject(patch) || Object.keys(patch).length === 0) throw new TaskGraphError('INVALID_TASK', 'patch must change at least one field', { task_id });
-      if (patch.state !== undefined && TERMINAL_TASK_STATES.includes(patch.state) && record.side_effect === 'EXCLUSIVE' && record.executor_ref) {
+      if (patch.state !== undefined && TERMINAL_TASK_STATES.includes(patch.state) && record.side_effect === 'EXCLUSIVE') {
         throw new TaskGraphError('EXPLICIT_OPERATION_REQUIRED', 'a terminal state for an exclusive side effect must be applied by the leased executor through submitExecutorResult', { task_id });
       }
       // Validate the whole patch before touching the record: a refused patch must change nothing.
@@ -339,6 +343,9 @@ export function createTaskGraph({ now = () => new Date().toISOString() } = {}) {
       if (isText(handoff.from?.assistant_ref) && handoff.from.assistant_ref !== record.owner_ref) {
         throw new TaskGraphError('HANDOFF_TASK_MISMATCH', `handoff was sent by ${handoff.from.assistant_ref}, but the authoritative owner is ${record.owner_ref}`, { task_id });
       }
+      if (handoff.checkpoint_ref !== undefined && handoff.checkpoint_ref !== null && !isText(handoff.checkpoint_ref)) {
+        throw new TaskGraphError('HANDOFF_NOT_ACCEPTED', 'handoff.checkpoint_ref must be nonempty text when present', { task_id });
+      }
       const previous_owner = record.owner_ref;
       const previous_executor = record.executor_ref;
       const timestamp = at(when);
@@ -369,6 +376,11 @@ export function createTaskGraph({ now = () => new Date().toISOString() } = {}) {
       if (!isDeviceShapedRef(executor_ref)) throw new TaskGraphError('EXECUTOR_IS_NOT_A_DEVICE', `executor_ref must be a physical device/worker identity, got ${executor_ref}`, { task_id });
       if (!isText(actor_ref)) throw new TaskGraphError('ROLE_NOT_PERMITTED', 'actor_ref is required for an audited executor change', { task_id });
       if (record.side_effect === 'EXCLUSIVE' && !isText(action_key)) throw new TaskGraphError('ACTION_KEY_REQUIRED', 'an exclusive side effect requires an idempotency/action key', { task_id });
+      // A suspended lease (its device was released) is not live: the executor must revalidate it, not
+      // re-issue it, so a released device cannot resume a side effect on its own authority.
+      if (record.lease && !record.lease.superseded && record.lease.suspended === true) {
+        throw new TaskGraphError('LEASE_SUSPENDED', `the lease on ${task_id} is suspended; revalidate it before resuming`, { task_id, current_lease_ref: record.lease.lease_ref });
+      }
       const live = record.lease && !record.lease.superseded;
       if (live && record.executor_ref !== executor_ref) {
         if (take_over !== true) {
@@ -439,6 +451,10 @@ export function createTaskGraph({ now = () => new Date().toISOString() } = {}) {
     bindForeground({ device_ref, assistant_ref, workspace_refs = [], at: when } = {}) {
       if (!isDeviceShapedRef(device_ref)) throw new TaskGraphError('EXECUTOR_IS_NOT_A_DEVICE', `device_ref must be device-shaped, got ${device_ref}`);
       if (!isText(assistant_ref)) throw new TaskGraphError('INVALID_TASK', 'assistant_ref is required');
+      if (!Array.isArray(workspace_refs) || workspace_refs.some(entry => !isText(entry))) {
+        throw new TaskGraphError('INVALID_TASK', 'workspace_refs must be an array of nonempty text');
+      }
+      const timestamp = at(when);
       const previous = foreground.get(device_ref)?.assistant_ref ?? null;
       foreground.set(device_ref, { assistant_ref, workspace_refs: clone(workspace_refs) });
       return freeze({
@@ -450,20 +466,22 @@ export function createTaskGraph({ now = () => new Date().toISOString() } = {}) {
         role_changes: [],
         ownership_changed: false,
         executor_changed: false,
-        at: at(when),
+        at: timestamp,
       });
     },
 
     /** Releasing a device (shutdown, disconnect) never orphans a task or moves ownership. */
     releaseDevice({ device_ref, at: when } = {}) {
       if (!isDeviceShapedRef(device_ref)) throw new TaskGraphError('EXECUTOR_IS_NOT_A_DEVICE', `device_ref must be device-shaped, got ${device_ref}`);
+      const timestamp = at(when);
       const binding = foreground.get(device_ref) ?? null;
       foreground.delete(device_ref);
-      const timestamp = at(when);
       const suspended = [];
       const retained = [];
       for (const record of tasks.values()) {
         if (record.scope === 'DEVICE' && record.scope_ref === device_ref) retained.push(record.task_id);
+        // A terminal task's version and causal log are immutable: a device release never rewrites them.
+        if (TERMINAL_TASK_STATES.includes(record.state)) continue;
         if (record.lease && !record.lease.superseded && record.executor_ref === device_ref && !record.lease.suspended) {
           record.lease.suspended = true;
           audit(record, { kind: 'LEASE_SUSPENDED_BY_DEVICE_RELEASE', at: timestamp, actor_ref: device_ref, caused_by: record.lease.lease_ref });

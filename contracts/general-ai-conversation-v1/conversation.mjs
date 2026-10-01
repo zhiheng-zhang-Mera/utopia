@@ -52,12 +52,39 @@ const isPlainObject = value => value !== null && typeof value === 'object' && !A
 const isText = value => typeof value === 'string' && value.trim().length > 0;
 const clone = value => (value === undefined ? undefined : structuredClone(value));
 const freeze = value => {
-  if (value === null || typeof value !== 'object') return value;
-  for (const child of Object.values(value)) freeze(child);
-  return Object.freeze(value);
+  const seen = new WeakSet();
+  const walk = node => {
+    if (node === null || typeof node !== 'object') return node;
+    if (seen.has(node)) return node;
+    seen.add(node);
+    for (const child of Object.values(node)) walk(child);
+    return Object.freeze(node);
+  };
+  return walk(value);
 };
 export const isIsoInstant = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
 export const isDigest = value => isText(value) && /^sha256:[0-9a-f]{8,64}$/i.test(value);
+
+const INSTANT_PARTS = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?Z$/;
+/** The shape regex accepts a calendar-impossible date, so every component must survive a round trip. */
+const isRealInstant = value => {
+  if (!isIsoInstant(value)) return false;
+  const parts = INSTANT_PARTS.exec(value);
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return false;
+  return date.getUTCFullYear() === Number(parts[1])
+    && date.getUTCMonth() + 1 === Number(parts[2])
+    && date.getUTCDate() === Number(parts[3])
+    && date.getUTCHours() === Number(parts[4])
+    && date.getUTCMinutes() === Number(parts[5])
+    && date.getUTCSeconds() === Number(parts[6]);
+};
+
+/** A caller-supplied instant is validated exactly like the injected clock. */
+const callerInstant = (value, label = 'at') => {
+  if (!isRealInstant(value)) throw new ConversationError('INVALID_REQUEST', `${label} must be an ISO-8601 UTC instant such as 2026-01-01T00:00:00Z, got ${String(value)}`);
+  return value;
+};
 
 export const DEFAULT_CONVERSATION_POLICY = Object.freeze({
   policy_ref: 'policy:gai-conversation-default',
@@ -90,7 +117,7 @@ const STAGING_SPEC = Object.freeze({
 
 function checkShape(value, path, spec, errors) {
   if (!isPlainObject(value)) { errors.push(`${path} must be an object`); return; }
-  for (const key of Object.keys(value)) if (!(key in spec)) errors.push(`${path}.${key} is not part of the canonical contract`);
+  for (const key of Reflect.ownKeys(value)) if (typeof key !== 'string' || !Object.hasOwn(spec, key)) errors.push(`${path}.${String(key)} is not part of the canonical contract`);
   for (const [key, rule] of Object.entries(spec)) {
     const present = Object.hasOwn(value, key);
     if (!present) { if (rule.required) errors.push(`${path}.${key} is required`); continue; }
@@ -98,7 +125,7 @@ function checkShape(value, path, spec, errors) {
     const fieldPath = `${path}.${key}`;
     if (field === null || field === undefined) { if (!rule.nullable) errors.push(`${fieldPath} must not be null`); continue; }
     if (rule.type === 'text' && !isText(field)) errors.push(`${fieldPath} must be nonempty text`);
-    if (rule.type === 'instant' && !isIsoInstant(field)) errors.push(`${fieldPath} must be an ISO-8601 UTC instant`);
+    if (rule.type === 'instant' && !isRealInstant(field)) errors.push(`${fieldPath} must be an ISO-8601 UTC instant`);
     if (rule.type === 'digest' && !isDigest(field)) errors.push(`${fieldPath} must be a sha256 digest`);
     if (rule.type === 'int' && (!Number.isSafeInteger(field) || field < 0)) errors.push(`${fieldPath} must be a non-negative integer`);
     if (rule.type === 'object' && !isPlainObject(field)) errors.push(`${fieldPath} must be an object`);
@@ -110,7 +137,19 @@ function checkShape(value, path, spec, errors) {
 export function createConversationRegistry({ entropy, digest = null, clock = () => new Date().toISOString(), policy = {} } = {}) {
   if (typeof entropy !== 'function') throw new ConversationError('ENTROPY_REQUIRED', 'an entropy source is required; this module must not invent its own conversation identity');
   if (typeof clock !== 'function') throw new ConversationError('INVALID_CLOCK', 'clock must be a function returning an ISO-8601 UTC instant');
-  const config = { ...DEFAULT_CONVERSATION_POLICY, ...(isPlainObject(policy) ? policy : {}) };
+  if (policy !== undefined && policy !== null && !isPlainObject(policy)) throw new ConversationError('INVALID_REQUEST', 'policy must be an object');
+  const config = { ...DEFAULT_CONVERSATION_POLICY, ...(policy ?? {}) };
+  for (const key of ['max_text_chars', 'max_files', 'max_images', 'max_references', 'max_context_refs', 'max_file_bytes', 'max_partials_per_turn']) {
+    if (!Number.isSafeInteger(config[key]) || config[key] <= 0) {
+      throw new ConversationError('INVALID_REQUEST', `policy.${key} must be a positive safe integer, got ${String(config[key])}`);
+    }
+  }
+  if (!Array.isArray(config.allowed_media_types) || config.allowed_media_types.length === 0 || config.allowed_media_types.some(entry => !isText(entry))) {
+    throw new ConversationError('INVALID_REQUEST', 'policy.allowed_media_types must be a non-empty list of media types');
+  }
+  if (typeof config.require_digest !== 'boolean') {
+    throw new ConversationError('INVALID_REQUEST', 'policy.require_digest must be a boolean, so the verification requirement cannot be disabled by a non-boolean value');
+  }
   const digestPort = typeof digest === 'function' ? digest : null;
   const conversations = new Map();
   const bundles = new Map();
@@ -122,7 +161,7 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
 
   const now = () => {
     const produced = clock();
-    if (!isIsoInstant(produced)) throw new ConversationError('INVALID_CLOCK', 'clock() must return an ISO-8601 UTC instant');
+    if (!isRealInstant(produced)) throw new ConversationError('INVALID_CLOCK', 'clock() must return an ISO-8601 UTC instant');
     return produced;
   };
 
@@ -191,7 +230,7 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
       checkShape(item.staging, `${path}.staging`, STAGING_SPEC, stagingErrors);
       if (stagingErrors.length) throw new ConversationError('STAGING_POLICY_REQUIRED', stagingErrors.join('; '));
       if (item.staging.policy !== 'NO_STAGING') {
-        if (item.staging.cleanup_by !== undefined && !isIsoInstant(item.staging.cleanup_by)) {
+        if (item.staging.cleanup_by !== undefined && !isRealInstant(item.staging.cleanup_by)) {
           throw new ConversationError('STAGING_POLICY_REQUIRED', `${path}.staging.cleanup_by must be an ISO-8601 UTC instant`);
         }
         if (item.staging.policy === 'DELETE_AFTER_USE' && item.staging.cleanup_by === undefined) {
@@ -214,7 +253,7 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
     policy: () => freeze(clone(config)),
 
     createConversation({ subject_ref = null, at: when } = {}) {
-      const created_at = when ?? now();
+      const created_at = when === undefined || when === null ? now() : callerInstant(when);
       counter += 1;
       const conversation = {
         conversation_id: `conversation:${randomHex(16)}`,
@@ -235,7 +274,7 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
       const conversation = requireConversation(conversation_id);
       if (conversation.state !== 'OPEN') throw new ConversationError('CONVERSATION_CLOSED', `conversation ${conversation_id} is closed`);
       if (!isText(channel)) throw new ConversationError('INVALID_REQUEST', 'a backend binding needs a channel');
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       const previous = activeBinding(conversation);
       if (previous) previous.state = 'SUPERSEDED';
       conversation.binding_version += 1;
@@ -269,7 +308,7 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
     /** Backend thread loss is reported honestly; the conversation does not silently "continue". */
     reportBackendLoss({ conversation_id, thread_ref = null, reason = 'BACKEND_THREAD_LOST', at: when } = {}) {
       const conversation = requireConversation(conversation_id);
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       const binding = activeBinding(conversation);
       if (!binding) throw new ConversationError('NO_BACKEND_BINDING', `conversation ${conversation_id} has no active backend binding`);
       binding.state = 'LOST';
@@ -294,7 +333,7 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
     /** Bounded, digests-verified, provenance-carrying input. */
     createInputBundle({ conversation_id, text = null, files = [], images = [], references = [], context_refs = [], provenance, at: when } = {}) {
       requireConversation(conversation_id);
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       if (text !== null && typeof text !== 'string') throw new ConversationError('INVALID_BUNDLE', 'text must be a string when present');
       if (text !== null && text.length > config.max_text_chars) throw new ConversationError('BOUNDS_EXCEEDED', `text exceeds ${config.max_text_chars} characters`);
       for (const [name, list, max] of [['files', files, config.max_files], ['images', images, config.max_images], ['references', references, config.max_references], ['context_refs', context_refs, config.max_context_refs]]) {
@@ -304,13 +343,14 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
       if (!isPlainObject(provenance) || !isText(provenance.source_channel) || !isText(provenance.device_ref)) {
         throw new ConversationError('PROVENANCE_REQUIRED', 'a bundle needs provenance naming the source channel and device');
       }
-      if (provenance.created_at !== undefined && !isIsoInstant(provenance.created_at)) throw new ConversationError('PROVENANCE_REQUIRED', 'provenance.created_at must be an ISO-8601 UTC instant');
+      if (provenance.created_at !== undefined && !isRealInstant(provenance.created_at)) throw new ConversationError('PROVENANCE_REQUIRED', 'provenance.created_at must be an ISO-8601 UTC instant');
 
       const bundleFiles = files.map((item, index) => validateItem(item, `files[${index}]`, 'file'));
       const bundleImages = images.map((item, index) => validateItem(item, `images[${index}]`, 'image'));
       const bundleReferences = references.map((item, index) => {
         if (!isPlainObject(item) || !isText(item.ref) || !isText(item.kind)) throw new ConversationError('INVALID_BUNDLE', `references[${index}] needs a ref and a kind`);
         for (const key of Object.keys(item)) if (!['ref', 'kind', 'note'].includes(key)) throw new ConversationError('INVALID_BUNDLE', `references[${index}].${key} is not part of the canonical contract`);
+        if (item.note !== undefined && item.note !== null && !isText(item.note)) throw new ConversationError('INVALID_BUNDLE', `references[${index}].note must be text`);
         return freeze({ ref: item.ref, kind: item.kind, note: item.note ?? null });
       });
       const bundleContextRefs = context_refs.map((item, index) => {
@@ -362,7 +402,7 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
           ? 'the backend thread was lost; rebind before starting more work instead of pretending to continue'
           : 'no active backend binding');
       }
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       counter += 1;
       const turn = {
         turn_ref: `turn:${conversation_id}:${counter}`,
@@ -399,7 +439,7 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
       if (TERMINAL_TURN_STATES.includes(turn.state)) throw new ConversationError('TURN_ALREADY_COMPLETE', `turn ${turn_ref} is ${turn.state}`, { turn_ref });
       if (!isText(text)) throw new ConversationError('INVALID_REQUEST', 'a partial needs text');
       if (turn.partial_count >= config.max_partials_per_turn) throw new ConversationError('PARTIAL_LIMIT', `turn ${turn_ref} exceeded ${config.max_partials_per_turn} partials`);
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       const nextSeq = turn.partial_seq + 1;
       if (seq !== undefined && seq !== nextSeq) {
         throw new ConversationError('PARTIAL_OUT_OF_ORDER', `partial seq ${seq} is not the expected ${nextSeq}`, { turn_ref, expected_seq: nextSeq });
@@ -430,6 +470,10 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
       const partial = partials.get(partial_ref);
       if (!partial) throw new ConversationError('INVALID_REQUEST', `no partial ${String(partial_ref)}`);
       if (!isText(transport_ref)) throw new ConversationError('INVALID_REQUEST', 'transport_ref is required');
+      // A settled turn is immutable: a late transport attachment may not rewrite its record.
+      const owningTurn = requireTurn(partial.turn_ref);
+      if (owningTurn.state === 'CANCELLED') throw new ConversationError('TURN_CANCELLED', `turn ${partial.turn_ref} was cancelled`, { turn_ref: partial.turn_ref, partial_ref });
+      if (TERMINAL_TURN_STATES.includes(owningTurn.state)) throw new ConversationError('TURN_ALREADY_COMPLETE', `turn ${partial.turn_ref} is ${owningTurn.state}`, { turn_ref: partial.turn_ref, partial_ref });
       partial.transport_ref = transport_ref;
       return freeze({
         partial_ref,
@@ -444,7 +488,7 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
     finalizeTurn({ turn_ref, result_ref, text = null, attachments = [], at: when } = {}) {
       const turn = requireTurn(turn_ref);
       if (!isText(result_ref)) throw new ConversationError('INVALID_REQUEST', 'a result needs a reference');
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       if (turn.state === 'CANCELLED') {
         const reconciliation_ref = `reconciled:${turn_ref}:${turn.partial_count + 1}`;
         turn.reconciled_results = [...(turn.reconciled_results ?? []), { result_ref, at, reconciliation_ref }];
@@ -463,6 +507,16 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
         });
       }
       if (turn.state === 'COMPLETED') throw new ConversationError('TURN_ALREADY_COMPLETE', `turn ${turn_ref} already completed`, { turn_ref });
+      // Validate the attachments before any state change: a malformed or cyclic attachment must not
+      // complete the turn, and the terminal record must not be rewritable afterwards.
+      if (!Array.isArray(attachments)) throw new ConversationError('INVALID_BUNDLE', 'attachments must be an array');
+      for (const [index, item] of attachments.entries()) {
+        if (!isPlainObject(item) || !isText(item.logical_ref)) throw new ConversationError('INVALID_BUNDLE', `attachments[${index}] must be a plain record carrying a logical_ref`);
+        if (item.media_type !== undefined && !isText(item.media_type)) throw new ConversationError('INVALID_BUNDLE', `attachments[${index}].media_type must be text`);
+        if (item.size_bytes !== undefined && (!Number.isSafeInteger(item.size_bytes) || item.size_bytes < 0)) throw new ConversationError('INVALID_BUNDLE', `attachments[${index}].size_bytes must be a non-negative integer`);
+        if (item.digest !== undefined && item.digest !== null && !isDigest(item.digest)) throw new ConversationError('INVALID_DIGEST', `attachments[${index}].digest must be a sha256 digest`);
+        if (item.origin_device_ref !== undefined && !isText(item.origin_device_ref)) throw new ConversationError('INVALID_BUNDLE', `attachments[${index}].origin_device_ref must be text`);
+      }
       turn.state = 'COMPLETED';
       const result = {
         result_envelope_ref: `result:${turn_ref}`,
@@ -485,7 +539,7 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
     /** Cancellation is idempotent and survives a backend/device change. */
     cancelTurn({ turn_ref, reason = 'USER_CANCELLED', at: when } = {}) {
       const turn = requireTurn(turn_ref);
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       if (!isText(reason)) throw new ConversationError('INVALID_CANCEL', 'a cancellation needs a reason');
       if (turn.cancellation !== null) {
         return freeze({
@@ -555,7 +609,7 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
     releaseStaging({ bundle_ref, at: when } = {}) {
       const bundle = bundles.get(bundle_ref);
       if (!bundle) throw new ConversationError('UNKNOWN_BUNDLE', `no bundle ${String(bundle_ref)}`);
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       // Release state lives beside the immutable bundle record, not inside it.
       const releasedSet = stagingReleased.get(bundle_ref) ?? new Set();
       const released = [];
@@ -572,7 +626,7 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
 
     closeConversation({ conversation_id, at: when } = {}) {
       const conversation = requireConversation(conversation_id);
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       conversation.state = 'CLOSED';
       note('CONVERSATION_CLOSED', at, { conversation_id });
       return conversationProjection(conversation);

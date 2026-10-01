@@ -343,3 +343,82 @@ test('the conversation contract is closed, frozen and identity-independent', () 
   assert.throws(() => createConversationRegistry({ entropy: () => 'ab', clock: 'now' }), error => error.code === 'INVALID_CLOCK');
   assert.equal(registry.policy().policy_ref, 'policy:gai-conversation-default');
 });
+
+// ---------------------------------------------------------------- Alien Correction regressions
+// Every test below fails against the Development head and passes against the corrected head.
+
+test('the canonical contract allow-list is decided by own keys', () => {
+  const { registry } = registryAt();
+  const conversation = registry.createConversation();
+  registry.bindBackend({ conversation_id: conversation.conversation_id, channel: 'WEB' });
+  for (const key of ['toString', 'constructor', 'valueOf', 'isPrototypeOf', '__proto__']) {
+    const item = { ...FILE, [key]: 'smuggled' };
+    assert.equal(failure(() => registry.createInputBundle({ conversation_id: conversation.conversation_id, files: [item], provenance: PROVENANCE })).code, 'INVALID_BUNDLE', `${key} is not part of the canonical contract`);
+  }
+  const staging = { ...FILE, staging: { policy: 'NO_STAGING', toString: 'smuggled' } };
+  assert.equal(failure(() => registry.createInputBundle({ conversation_id: conversation.conversation_id, files: [staging], provenance: PROVENANCE })).code, 'STAGING_POLICY_REQUIRED');
+  assert.equal(registry.bundle('bundle:none'), null, 'nothing was admitted');
+});
+
+test('the conversation policy is a bound, and a non-boolean cannot disable verification', () => {
+  const base = { entropy: () => 'a1b2c3d4e5f60718293a4b5c6d7e8f90', clock: () => T0 };
+  for (const policy of [{ require_digest: 'yes' }, { require_digest: 1 }, { max_files: Infinity }, { max_text_chars: 0 }, { allowed_media_types: 'text/plain' }, 'nonsense']) {
+    assert.equal(failure(() => createConversationRegistry({ ...base, policy })).code, 'INVALID_REQUEST', `policy ${JSON.stringify(policy)}`);
+  }
+  // The requirement still means what it says when it is a boolean.
+  const strict = createConversationRegistry({ ...base, policy: { require_digest: true } });
+  const conversation = strict.createConversation();
+  strict.bindBackend({ conversation_id: conversation.conversation_id, channel: 'WEB' });
+  const noDigest = { logical_ref: 'file:x', media_type: 'application/pdf', size_bytes: 10, origin_device_ref: 'device:a' };
+  assert.equal(failure(() => strict.createInputBundle({ conversation_id: conversation.conversation_id, files: [noDigest], provenance: PROVENANCE })).code, 'DIGEST_REQUIRED');
+});
+
+test('a cyclic caller value cannot crash the freezer, and attachments are canonical records', () => {
+  const { registry } = registryAt();
+  const conversation = registry.createConversation();
+  registry.bindBackend({ conversation_id: conversation.conversation_id, channel: 'WEB' });
+  const turn = openTurnWith(registry, conversation.conversation_id);
+  const cycle = {};
+  cycle.self = cycle;
+
+  assert.equal(failure(() => registry.finalizeTurn({ turn_ref: turn.turn_ref, result_ref: 'result:c', attachments: [cycle] })).code, 'INVALID_BUNDLE');
+  assert.equal(failure(() => registry.finalizeTurn({ turn_ref: turn.turn_ref, result_ref: 'result:c', attachments: ['plain-string'] })).code, 'INVALID_BUNDLE');
+  assert.equal(failure(() => registry.finalizeTurn({ turn_ref: turn.turn_ref, result_ref: 'result:c', attachments: [{ logical_ref: 'file:out', digest: 'not-a-digest' }] })).code, 'INVALID_DIGEST');
+  assert.equal(registry.turn(turn.turn_ref).state, 'PENDING', 'no refused result changed the turn');
+  assert.equal(registry.finalizeTurn({ turn_ref: turn.turn_ref, result_ref: 'result:ok', attachments: [{ logical_ref: 'file:out', media_type: 'text/plain', digest: 'sha256:99999999' }] }).attachments.length, 1);
+
+  assert.equal(failure(() => registry.createInputBundle({ conversation_id: conversation.conversation_id, references: [{ ref: 'task:1', kind: 'TASK', note: cycle }], provenance: PROVENANCE })).code, 'INVALID_BUNDLE');
+});
+
+test('a malformed caller instant is refused as a typed error', () => {
+  const { registry } = registryAt();
+  const conversation = registry.createConversation();
+  registry.bindBackend({ conversation_id: conversation.conversation_id, channel: 'WEB' });
+  for (const at of ['garbage', '2026-13-45T99:99:99Z', '2026-02-30T00:00:00Z', 123, {}]) {
+    assert.equal(failure(() => registry.createConversation({ at })).code, 'INVALID_REQUEST', `createConversation at=${String(at)}`);
+    assert.equal(failure(() => registry.bindBackend({ conversation_id: conversation.conversation_id, channel: 'WEB', at })).code, 'INVALID_REQUEST');
+    assert.equal(failure(() => registry.createInputBundle({ conversation_id: conversation.conversation_id, text: 'x', provenance: PROVENANCE, at })).code, 'INVALID_REQUEST');
+    assert.equal(failure(() => registry.closeConversation({ conversation_id: conversation.conversation_id, at })).code, 'INVALID_REQUEST');
+    assert.equal(failure(() => registry.createInputBundle({ conversation_id: conversation.conversation_id, text: 'x', provenance: { ...PROVENANCE, created_at: at } })).code, 'PROVENANCE_REQUIRED');
+  }
+  assert.equal(registry.conversation(conversation.conversation_id).state, 'OPEN', 'no refused call changed a state');
+  const badClock = createConversationRegistry({ entropy: () => 'a1b2c3d4e5f60718293a4b5c6d7e8f90', clock: () => '2026-13-45T99:99:99Z' });
+  assert.equal(failure(() => badClock.createConversation()).code, 'INVALID_CLOCK', 'a shape-valid but impossible clock instant is refused too');
+});
+
+test('a settled turn cannot accept further transport data', () => {
+  const { registry } = registryAt();
+  const conversation = registry.createConversation();
+  registry.bindBackend({ conversation_id: conversation.conversation_id, channel: 'WEB' });
+  const turn = openTurnWith(registry, conversation.conversation_id);
+  const partial = registry.emitPartial({ turn_ref: turn.turn_ref, text: 'streaming' });
+  registry.finalizeTurn({ turn_ref: turn.turn_ref, result_ref: 'result:1' });
+  assert.equal(failure(() => registry.attachTransport({ partial_ref: partial.partial_ref, transport_ref: 'rf:1' })).code, 'TURN_ALREADY_COMPLETE');
+  assert.equal(registry.eventsFor(conversation.conversation_id)[0].transport_ref, null, 'the settled partial was not rewritten');
+  assert.equal(failure(() => registry.emitPartial({ turn_ref: turn.turn_ref, text: 'late' })).code, 'TURN_ALREADY_COMPLETE');
+
+  const cancelled = openTurnWith(registry, conversation.conversation_id);
+  const cancelledPartial = registry.emitPartial({ turn_ref: cancelled.turn_ref, text: 'streaming' });
+  registry.cancelTurn({ turn_ref: cancelled.turn_ref });
+  assert.equal(failure(() => registry.attachTransport({ partial_ref: cancelledPartial.partial_ref, transport_ref: 'rf:2' })).code, 'TURN_CANCELLED');
+});

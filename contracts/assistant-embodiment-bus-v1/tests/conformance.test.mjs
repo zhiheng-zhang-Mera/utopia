@@ -3,7 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   AUDIENCES, CANONICAL_STATE_SOURCE, EmbodimentError, EVENT_KINDS, LEASE_STATES, PRIVACY_SCOPES,
-  createEmbodimentBus,
+  createEmbodimentBus, isIsoInstant,
 } from '../index.mjs';
 
 const T0 = '2026-01-01T00:00:00Z';
@@ -347,4 +347,212 @@ test('the bus policy bounds are validated rather than trusted', () => {
   }
   const bus = createEmbodimentBus({ clock: () => T0, policy: { default_lease_ttl_ms: 500, max_lease_ttl_ms: 1000 } });
   assert.equal(bus.policy().max_lease_ttl_ms, 1000, 'a bounded policy still works');
+});
+
+test('a reconnecting device never revives a lease another holder has taken over', () => {
+  const { bus } = busAt();
+  const first = acquire(bus);
+  bus.onDisconnect({ device_ref: 'device:alpha' });
+  const takeover = acquire(bus, { device_ref: 'device:beta', holder_ref: 'assistant:butler-b', action_key: 'k-takeover' });
+  assert.equal(bus.validExclusiveLeaseCount({ action_scope: 'action:camera-capture' }), 1);
+
+  // Authoritative state still lists the suspended lease, but the scope belongs to a newer holder.
+  const reconciled = bus.reconcile({
+    device_ref: 'device:alpha',
+    authoritative: { assistant_ref: ASSISTANT, task_versions: { 'task:1': 1 }, lease_refs: [first.lease_ref] },
+    local_intents: [{ intent_ref: 'intent:resume', task_ref: 'task:1', task_version: 1, lease_ref: first.lease_ref, holder_ref: 'assistant:butler-a', requires_side_effect: true }],
+  });
+  assert.deepEqual(reconciled.revalidated_lease_refs, [], 'a superseded lease is never revalidated');
+  assert.deepEqual(reconciled.invalidated_lease_refs, [first.lease_ref]);
+  assert.equal(bus.leaseState({ lease_ref: first.lease_ref }).state, 'REVOKED');
+  assert.equal(bus.leaseState({ lease_ref: takeover.lease_ref }).state, 'ACTIVE', 'the takeover keeps the scope');
+  assert.equal(bus.validExclusiveLeaseCount({ action_scope: 'action:camera-capture' }), 1, 'still exactly one valid exclusive lease');
+  assert.deepEqual(reconciled.dropped_intents.map(entry => [entry.intent_ref, entry.reason]), [['intent:resume', 'LEASE_NOT_REVALIDATED']]);
+  assert.equal(failure(() => bus.commitSideEffect({ lease_ref: first.lease_ref, holder_ref: 'assistant:butler-a', action_key: 'split-brain' })).code, 'LEASE_REVOKED');
+  assert.equal(bus.journal().filter(entry => entry.event === 'SIDE_EFFECT_COMMITTED').length, 0, 'no side effect came out of the reconnect');
+});
+
+test('an action key stays the same action across renewal and reassignment', () => {
+  const { bus } = busAt();
+  const lease = acquire(bus);
+  assert.equal(bus.commitSideEffect({ lease_ref: lease.lease_ref, holder_ref: 'assistant:butler-a', action_key: 'AK' }).executed, true);
+  const renewed = bus.renewLease({ lease_ref: lease.lease_ref, holder_ref: 'assistant:butler-a', ttl_ms: 5000 });
+  const retry = bus.commitSideEffect({ lease_ref: renewed.lease_ref, holder_ref: 'assistant:butler-a', action_key: 'AK' });
+  assert.equal(retry.executed, false, 'renewal mints a reference, not a new action');
+  assert.equal(retry.duplicate, true);
+  assert.equal(retry.external_side_effect, false);
+  const reassigned = bus.reassignLease({ lease_ref: renewed.lease_ref, to_device_ref: 'device:gamma', to_holder_ref: 'assistant:butler-c' });
+  const afterHandoff = bus.commitSideEffect({ lease_ref: reassigned.lease_ref, holder_ref: 'assistant:butler-c', action_key: 'AK' });
+  assert.equal(afterHandoff.executed, false, 'a handoff is not a licence to re-execute the action');
+  assert.equal(bus.journal().filter(entry => entry.event === 'SIDE_EFFECT_COMMITTED').length, 1);
+  // A different action on the same scope is a different action and still executes.
+  assert.equal(bus.commitSideEffect({ lease_ref: reassigned.lease_ref, holder_ref: 'assistant:butler-c', action_key: 'AK-2' }).executed, true);
+});
+
+test('renewal retires the previous lease reference instead of aliasing it', () => {
+  const { bus } = busAt();
+  const lease = acquire(bus);
+  const renewed = bus.renewLease({ lease_ref: lease.lease_ref, holder_ref: 'assistant:butler-a', ttl_ms: 5000 });
+  assert.notEqual(renewed.lease_ref, lease.lease_ref);
+  assert.deepEqual(bus.leases().map(entry => entry.lease_ref), [renewed.lease_ref], 'one lease is one entry');
+  assert.equal(bus.validExclusiveLeaseCount({ action_scope: 'action:camera-capture' }), 1);
+  assert.equal(failure(() => bus.leaseState({ lease_ref: lease.lease_ref })).code, 'UNKNOWN_LEASE', 'the retired reference no longer resolves');
+  assert.equal(bus.currentLeaseFor({ action_scope: 'action:camera-capture' }).lease_ref, renewed.lease_ref);
+  // A second holder is refused against the real count, and its refusal reports that count.
+  const conflict = failure(() => acquire(bus, { device_ref: 'device:beta', holder_ref: 'assistant:butler-b', action_key: 'k2' }));
+  assert.equal(conflict.code, 'EXCLUSIVE_LEASE_HELD');
+  assert.equal(conflict.valid_exclusive_leases, 1);
+  assert.equal(failure(() => bus.commitSideEffect({ lease_ref: renewed.lease_ref, holder_ref: 'assistant:butler-b', action_key: 'k3' })).code, 'NOT_LEASE_HOLDER');
+});
+
+test('authority is never anonymous: acting on a lease needs the holder it names', () => {
+  const { bus } = busAt();
+  const lease = acquire(bus);
+  assert.equal(failure(() => bus.renewLease({ lease_ref: lease.lease_ref, ttl_ms: 5000 })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => bus.commitSideEffect({ lease_ref: lease.lease_ref, action_key: 'anonymous' })).code, 'INVALID_REQUEST');
+  assert.equal(bus.leaseState({ lease_ref: lease.lease_ref }).state, 'ACTIVE', 'the refused requests changed nothing');
+  assert.equal(bus.journal().filter(entry => entry.event === 'SIDE_EFFECT_COMMITTED').length, 0);
+  // A reassignment that names the wrong acting holder is refused.
+  assert.equal(failure(() => bus.reassignLease({ lease_ref: lease.lease_ref, holder_ref: 'assistant:butler-b', to_device_ref: 'device:gamma', to_holder_ref: 'assistant:butler-c' })).code, 'NOT_LEASE_HOLDER');
+  assert.equal(bus.leaseState({ lease_ref: lease.lease_ref }).holder_ref, 'assistant:butler-a');
+});
+
+test('an expired lease cannot be revived with a backdated instant', () => {
+  const { bus, clock } = busAt();
+  const lease = acquire(bus, { ttl_ms: 1000 });
+  clock.advance(2000);
+  assert.equal(bus.leaseState({ lease_ref: lease.lease_ref }).state, 'EXPIRED');
+  assert.equal(failure(() => bus.commitSideEffect({ lease_ref: lease.lease_ref, holder_ref: 'assistant:butler-a', action_key: 'rewound', at: AT(500) })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => bus.renewLease({ lease_ref: lease.lease_ref, holder_ref: 'assistant:butler-a', ttl_ms: 1000, at: AT(999) })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => bus.leaseState({ lease_ref: lease.lease_ref, at: AT(400) })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => bus.reassignLease({ lease_ref: lease.lease_ref, to_device_ref: 'device:beta', to_holder_ref: 'assistant:butler-b', at: AT(1) })).code, 'INVALID_REQUEST');
+  assert.equal(bus.leaseState({ lease_ref: lease.lease_ref }).state, 'EXPIRED', 'the lease is still expired after the refused rewinds');
+  assert.equal(bus.validExclusiveLeaseCount({ action_scope: 'action:camera-capture' }), 0);
+  assert.equal(failure(() => bus.commitSideEffect({ lease_ref: lease.lease_ref, holder_ref: 'assistant:butler-a', action_key: 'rewound' })).code, 'LEASE_EXPIRED');
+});
+
+test('reconciliation requires an authoritative lease inventory', () => {
+  const { bus } = busAt();
+  const lease = acquire(bus);
+  bus.onDisconnect({ device_ref: 'device:alpha' });
+  assert.equal(failure(() => bus.reconcile({ device_ref: 'device:alpha', authoritative: {} })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => bus.reconcile({ device_ref: 'device:alpha', authoritative: { lease_refs: 'nonsense' } })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => bus.reconcile({ device_ref: 'device:alpha', authoritative: { lease_refs: [7] } })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => bus.reconcile({ device_ref: 'device:alpha', authoritative: { lease_refs: [lease.lease_ref], task_versions: { 'task:1': 'current' } } })).code, 'INVALID_REQUEST');
+  assert.equal(bus.leaseState({ lease_ref: lease.lease_ref }).state, 'SUSPENDED', 'a refused reconciliation grants nothing');
+  assert.equal(bus.deviceState('device:alpha').connected, false, 'a refused reconciliation does not reconnect the device');
+  // Authority that does not list the lease's task version has moved on: the lease is revoked.
+  const reconciled = bus.reconcile({ device_ref: 'device:alpha', authoritative: { assistant_ref: ASSISTANT, task_versions: {}, lease_refs: [lease.lease_ref] } });
+  assert.deepEqual(reconciled.revalidated_lease_refs, []);
+  assert.deepEqual(reconciled.invalidated_lease_refs, [lease.lease_ref]);
+  assert.equal(bus.leaseState({ lease_ref: lease.lease_ref }).state, 'REVOKED');
+  assert.equal(failure(() => bus.commitSideEffect({ lease_ref: lease.lease_ref, holder_ref: 'assistant:butler-a', action_key: 'after' })).code, 'LEASE_REVOKED');
+});
+
+test('routing never delivers to a device the bus knows is disconnected', () => {
+  const { bus } = busAt();
+  const lease = acquire(bus);
+  bus.onDisconnect({ device_ref: 'device:alpha' });
+  assert.equal(bus.leaseState({ lease_ref: lease.lease_ref }).state, 'SUSPENDED');
+  const routed = bus.routeOutput({
+    assistant_ref: ASSISTANT,
+    audience: 'USER',
+    privacy: 'PRIVATE',
+    foreground_device_ref: 'device:alpha',
+    candidates: [{ device_ref: 'device:alpha', available: true, in_audience: true }],
+  });
+  assert.deepEqual(routed.deliveries, [], 'a candidate cannot claim availability the bus has observed to be false');
+  assert.equal(routed.delivery_count, 0);
+  assert.deepEqual(routed.withheld.map(entry => [entry.device_ref, entry.reason]), [['device:alpha', 'DEVICE_UNAVAILABLE']]);
+  assert.equal(routed.private_response_broadcast, false);
+  assert.equal(routed.broadcast, false);
+});
+
+test('staleness and replay absorption do not depend on an optional command reference', () => {
+  const { bus } = busAt();
+  bus.noteAuthoritativeTaskVersion({ task_ref: 'task:1', task_version: 5 });
+  assert.equal(failure(() => bus.publish(eventFor({ event_id: 'n1', task_ref: 'task:1', task_version: 3 }))).code, 'STALE_EVENT');
+  const first = bus.publish(eventFor({ event_id: 'n2', action_key: 'AK-1' }));
+  const replay = bus.publish(eventFor({ event_id: 'n3', action_key: 'AK-1' }));
+  assert.equal(first.applied, true);
+  assert.equal(replay.applied, false, 'an action key alone identifies the action');
+  assert.equal(replay.duplicate, true);
+  assert.equal(replay.idempotent, true);
+  const current = bus.publish(eventFor({ event_id: 'n4', task_ref: 'task:1', task_version: 5, action_key: 'AK-2' }));
+  assert.equal(current.applied, true, 'the authoritative version is still accepted without a command reference');
+  assert.equal(bus.events().filter(event => event.kind === 'INPUT').length, 3);
+});
+
+test('a refused reconciliation grants no authority', () => {
+  const { bus } = busAt();
+  const lease = acquire(bus);
+  bus.onDisconnect({ device_ref: 'device:alpha' });
+  const cyclic = {};
+  cyclic.self = cyclic;
+  const cyclicRefusal = failure(() => bus.reconcile({ device_ref: 'device:alpha', authoritative: { lease_refs: [lease.lease_ref], task_versions: { 'task:1': 1, evil: cyclic } } }));
+  assert.equal(cyclicRefusal.code, 'INVALID_REQUEST');
+  assert.equal(bus.leaseState({ lease_ref: lease.lease_ref }).state, 'SUSPENDED', 'the cyclic payload granted nothing');
+  assert.equal(bus.deviceState('device:alpha').connected, false);
+  const uncloneable = failure(() => bus.reconcile({
+    device_ref: 'device:alpha',
+    authoritative: { lease_refs: [lease.lease_ref], task_versions: { 'task:1': 1 } },
+    local_intents: [{ intent_ref: 'intent:resume', task_ref: 'task:1', task_version: 1, lease_ref: lease.lease_ref, holder_ref: 'assistant:butler-a', requires_side_effect: true, fn: () => 1 }],
+  }));
+  assert.equal(uncloneable.code, 'INVALID_REQUEST');
+  assert.equal(bus.leaseState({ lease_ref: lease.lease_ref }).state, 'SUSPENDED', 'an uncloneable intent did not revalidate the lease');
+  assert.equal(bus.deviceState('device:alpha').connected, false, 'a failed reconciliation does not reconnect the device');
+  assert.equal(failure(() => bus.commitSideEffect({ lease_ref: lease.lease_ref, holder_ref: 'assistant:butler-a', action_key: 'after' })).code, 'REVALIDATION_REQUIRED');
+});
+
+test('the canonical event carries the declared identity and transport correlation', () => {
+  const { bus } = busAt();
+  const published = bus.publish(eventFor({ event_id: 'event:declared-1', embodiment_kind: 'device.kind.camera', transport_ref: 'rf:path:9' }));
+  assert.equal(published.event_id, 'event:declared-1', 'the declared event identity is not overwritten');
+  assert.equal(published.embodiment_kind, 'device.kind.camera');
+  assert.equal(published.transport_ref, 'rf:path:9');
+  assert.equal(published.transport_envelope_is_canonical, false, 'carrying a transport reference is not becoming one');
+  assert.equal(failure(() => bus.publish(eventFor({ event_id: 'event:declared-1' }))).code, 'INVALID_EVENT');
+  assert.equal(failure(() => bus.publish(eventFor({ event_id: 'event:7' }))).code, 'INVALID_EVENT', 'the bus owns the event:<n> identity namespace it generates');
+  assert.equal(bus.events().length, 1);
+});
+
+test('an envelope field is validated and used exactly once', () => {
+  const { bus } = busAt();
+  let atReads = 0;
+  const twoFaced = eventFor({ event_id: 'event:twice' });
+  Object.defineProperty(twoFaced, 'at', { enumerable: true, configurable: true, get() { atReads += 1; return atReads === 1 ? T0 : 'NOT-AN-INSTANT'; } });
+  const published = bus.publish(twoFaced);
+  assert.equal(published.at, T0, 'the validated instant is the recorded instant');
+  assert.equal(atReads, 1, 'the field is read once');
+  let deviceReads = 0;
+  const twoDevices = eventFor({ event_id: 'event:twice-2' });
+  Object.defineProperty(twoDevices, 'source_device_ref', { enumerable: true, configurable: true, get() { deviceReads += 1; return deviceReads === 1 ? 'device:alpha' : 'device:smuggled'; } });
+  const second = bus.publish(twoDevices);
+  assert.equal(second.source_device_ref, 'device:alpha', 'the validated device is the recorded device');
+  assert.equal(deviceReads, 1);
+  assert.equal(bus.deviceState('device:smuggled'), null, 'the unvalidated device was never registered');
+});
+
+test('exclusivity is a boolean grant, not a truthy flag', () => {
+  const { bus } = busAt();
+  for (const exclusive of ['true', 1, 'yes', 0]) {
+    assert.equal(failure(() => acquire(bus, { action_scope: 'action:bool', action_key: null, exclusive })).code, 'INVALID_LEASE', `exclusive=${String(exclusive)}`);
+  }
+  const exclusiveLease = acquire(bus, { action_scope: 'action:bool', action_key: 'BK' });
+  assert.equal(exclusiveLease.exclusive, true);
+  assert.equal(exclusiveLease.action_key, 'BK', 'the declared action key is observable on the lease');
+  assert.equal(bus.validExclusiveLeaseCount({ action_scope: 'action:bool' }), 1);
+  assert.equal(failure(() => acquire(bus, { action_scope: 'action:bool', device_ref: 'device:beta', holder_ref: 'assistant:butler-b', action_key: 'BK-2' })).code, 'EXCLUSIVE_LEASE_HELD');
+  const shared = acquire(bus, { action_scope: 'action:shared', exclusive: false });
+  assert.equal(shared.exclusive, false, 'a deliberate non-exclusive lease is still allowed');
+  assert.equal(bus.validExclusiveLeaseCount({ action_scope: 'action:shared' }), 0);
+});
+
+test('an instant helper that guards decisions is not shape-only', () => {
+  assert.equal(isIsoInstant('2026-01-01T00:00:00Z'), true);
+  assert.equal(isIsoInstant('2026-01-01T00:00:00.123Z'), true);
+  assert.equal(isIsoInstant('2026-13-01T00:00:00Z'), false);
+  assert.equal(isIsoInstant('2026-01-01T25:00:00Z'), false);
+  assert.equal(isIsoInstant(123), false);
+  assert.equal(isIsoInstant('yesterday'), false);
 });

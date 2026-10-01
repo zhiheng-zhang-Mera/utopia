@@ -325,3 +325,119 @@ test('semantic input staging carries an explicit cleanup policy, and the router 
   assert.equal(router.executionPort().implements_presence_or_identity, false);
   assert.equal(router.journal().some(entry => entry.event === 'ACTION_DISPATCHED'), true);
 });
+
+// ---------------------------------------------------------------- Alien Correction regressions
+// Every test below fails against the Development head and passes against the corrected head.
+
+const remoteProposal = (router, action_ref = 'action:1') => {
+  const proposal = router.proposeDeviceSwitch({ action_ref, interaction_device_ref: LAPTOP });
+  router.confirmProposal({ proposal_ref: proposal.proposal_ref, confirmed: true });
+  return proposal;
+};
+
+test('the policy cannot switch off confirmation or the health ceilings', () => {
+  const endpoints = [endpoint({ device_ref: LAPTOP, presence: 'OFFLINE' }), endpoint({ device_ref: DESKTOP })];
+  for (const policy of [
+    { v1_confirmation_required: 'yes' }, { v1_confirmation_required: 1 },
+    { max_freshness_ms: Infinity }, { max_freshness_ms: 0 },
+    { max_load: Infinity }, { max_load: 2 },
+    { weights: { presence: 'high' } }, { cancel_authorized_states: [] }, 'nonsense',
+  ]) {
+    assert.equal(failure(() => routerWith(endpoints, policy).router).code, 'INVALID_REQUEST', `policy ${JSON.stringify(policy)}`);
+  }
+  const { router } = routerWith(endpoints);
+  const proposal = router.proposeDeviceSwitch({ action_ref: 'action:1', interaction_device_ref: LAPTOP });
+  assert.equal(proposal.requires_confirmation, true);
+  assert.equal(failure(() => router.dispatch({ proposal_ref: proposal.proposal_ref, action_id: 'action:1' })).code, 'CONFIRMATION_REQUIRED');
+});
+
+test('the approved endpoint must still be healthy at dispatch time', () => {
+  const endpoints = [endpoint({ device_ref: DESKTOP })];
+  const { router } = routerWith(endpoints);
+  const proposal = remoteProposal(router);
+  assert.equal(proposal.route, 'REMOTE_DEVICE');
+  endpoints[0].presence = 'OFFLINE';
+  endpoints[0].freshness_ms = 600000;
+  const refused = failure(() => router.dispatch({ proposal_ref: proposal.proposal_ref, action_id: 'action:1' }));
+  assert.equal(refused.code, 'NO_HEALTHY_ENDPOINT');
+  assert.equal(refused.dispatch_performed, false);
+  assert.equal(refused.exclusion_reasons.includes('OFFLINE'), true);
+  endpoints[0].presence = 'ONLINE';
+  endpoints[0].freshness_ms = 1000;
+  assert.equal(router.dispatch({ proposal_ref: proposal.proposal_ref, action_id: 'action:1' }).dispatched, true, 'a healthy endpoint still dispatches');
+});
+
+test('a malformed caller instant is refused as a typed error', () => {
+  const { router } = routerWith([endpoint({ device_ref: DESKTOP })]);
+  for (const at of ['garbage', '2026-13-45T99:99:99Z', '2026-02-30T00:00:00Z', 123]) {
+    assert.equal(failure(() => router.proposeDeviceSwitch({ action_ref: 'a', interaction_device_ref: LAPTOP, at })).code, 'INVALID_REQUEST', `propose at=${String(at)}`);
+  }
+  const proposal = remoteProposal(router);
+  for (const at of ['garbage', '2026-13-45T99:99:99Z']) {
+    assert.equal(failure(() => router.confirmProposal({ proposal_ref: proposal.proposal_ref, confirmed: true, at })).code, 'INVALID_REQUEST');
+    assert.equal(failure(() => router.dispatch({ proposal_ref: proposal.proposal_ref, action_id: 'action:1', at })).code, 'INVALID_REQUEST');
+  }
+  assert.equal(router.dispatch({ proposal_ref: proposal.proposal_ref, action_id: 'action:1' }).dispatched, true);
+  assert.equal(failure(() => router.recordEvent({ action_id: 'action:1', kind: 'STATUS', at: 'garbage' })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => router.cancel({ action_id: 'action:1', by_device_ref: LAPTOP, at: 'garbage' })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => router.raiseAttention({ action_id: 'action:1', question: 'q', at: 'garbage' })).code, 'INVALID_REQUEST');
+  assert.equal(router.statusFor({ action_id: 'action:1' }).state, 'DISPATCHED', 'no refused call changed the action');
+
+  const stagedRun = routerWith([endpoint({ device_ref: DESKTOP })]);
+  const next = remoteProposal(stagedRun.router, 'action:2');
+  const staged = stagedRun.router.dispatch({
+    proposal_ref: next.proposal_ref, action_id: 'action:2',
+    input_bundle_refs: [{ bundle_ref: 'bundle:1', staging_policy: 'DELETE_AFTER_USE', cleanup_by: '2026-13-45T99:99:99Z' }],
+  });
+  assert.equal(staged.staged_inputs[0].cleanup_by, null, 'an impossible cleanup deadline is not stored');
+});
+
+test('a settled action is not regressed by a late attention request', () => {
+  const { router } = routerWith([endpoint({ device_ref: DESKTOP })]);
+  const proposal = remoteProposal(router);
+  router.dispatch({ proposal_ref: proposal.proposal_ref, action_id: 'action:1' });
+  router.recordEvent({ action_id: 'action:1', kind: 'FINAL', payload_ref: 'result:1' });
+  assert.equal(router.statusFor({ action_id: 'action:1' }).state, 'SUCCEEDED');
+  const refused = failure(() => router.raiseAttention({ action_id: 'action:1', question: 'still there?' }));
+  assert.equal(refused.code, 'LATE_EVENT_AFTER_TERMINAL');
+  assert.equal(refused.attention_raised, false);
+  assert.equal(router.statusFor({ action_id: 'action:1' }).state, 'SUCCEEDED', 'the terminal truth stands');
+  assert.equal(router.statusFor({ action_id: 'action:1' }).attention, null);
+});
+
+test('a cancellation event is terminal because the action is', () => {
+  const { router } = routerWith([endpoint({ device_ref: DESKTOP })]);
+  const proposal = remoteProposal(router);
+  router.dispatch({ proposal_ref: proposal.proposal_ref, action_id: 'action:1' });
+  router.recordEvent({ action_id: 'action:1', kind: 'PROGRESS' });
+  router.cancel({ action_id: 'action:1', by_device_ref: LAPTOP });
+  const action = router.actions().find(entry => entry.action_id === 'action:1');
+  const cancellationEvent = action.events.find(event => event.kind === 'CANCELLED');
+  assert.equal(cancellationEvent.terminal, true, 'a cancelled action reports a terminal event');
+  assert.equal(router.statusFor({ action_id: 'action:1' }).terminal, true);
+});
+
+test('a cyclic caller value cannot crash the freezer, and stored text is typed', () => {
+  const { router } = routerWith([endpoint({ device_ref: DESKTOP })]);
+  const proposal = router.proposeDeviceSwitch({ action_ref: 'a', interaction_device_ref: LAPTOP });
+  const cycle = {};
+  cycle.self = cycle;
+  assert.equal(failure(() => router.confirmProposal({ proposal_ref: proposal.proposal_ref, confirmed: true, user_ref: cycle })).code, 'INVALID_REQUEST');
+  router.confirmProposal({ proposal_ref: proposal.proposal_ref, confirmed: true });
+  router.dispatch({ proposal_ref: proposal.proposal_ref, action_id: 'action:1' });
+  assert.equal(failure(() => router.recordEvent({ action_id: 'action:1', kind: 'STATUS', payload_ref: cycle })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => router.recordEvent({ action_id: 'action:1', kind: 'STATUS', text: cycle })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => router.cancel({ action_id: 'action:1', by_device_ref: LAPTOP, reason: cycle })).code, 'INVALID_REQUEST');
+  assert.equal(router.statusFor({ action_id: 'action:1' }).state, 'DISPATCHED', 'no refused call changed the action');
+
+  const weights = {};
+  weights.nested = weights;
+  assert.equal(failure(() => routerWith([endpoint({ device_ref: DESKTOP })], { weights }).router).code, 'INVALID_REQUEST', 'a cyclic policy value is refused, not recursed');
+});
+
+test('a non-boolean requirement cannot skip an exclusion', () => {
+  const { router } = routerWith([endpoint({ device_ref: DESKTOP, input_locality_ok: false, session_available: false })]);
+  assert.equal(failure(() => router.proposeDeviceSwitch({ action_ref: 'a', interaction_device_ref: LAPTOP, requirements: { requires_local_input: 1 } })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => router.proposeDeviceSwitch({ action_ref: 'a', interaction_device_ref: LAPTOP, requirements: { requires_session: 'true' } })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => router.proposeDeviceSwitch({ action_ref: 'a', interaction_device_ref: LAPTOP, requirements: { requires_local_input: true } })).code, 'NO_HEALTHY_ENDPOINT', 'the boolean still excludes an unsuitable endpoint');
+});

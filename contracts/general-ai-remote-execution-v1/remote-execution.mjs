@@ -65,11 +65,38 @@ const isPlainObject = value => value !== null && typeof value === 'object' && !A
 const isText = value => typeof value === 'string' && value.trim().length > 0;
 const clone = value => (value === undefined ? undefined : structuredClone(value));
 const freeze = value => {
-  if (value === null || typeof value !== 'object') return value;
-  for (const child of Object.values(value)) freeze(child);
-  return Object.freeze(value);
+  const seen = new WeakSet();
+  const walk = node => {
+    if (node === null || typeof node !== 'object') return node;
+    if (seen.has(node)) return node;
+    seen.add(node);
+    for (const child of Object.values(node)) walk(child);
+    return Object.freeze(node);
+  };
+  return walk(value);
 };
 export const isIsoInstant = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+
+const INSTANT_PARTS = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?Z$/;
+/** Shape is not enough: the regex accepts a calendar-impossible date, so components must round trip. */
+const isRealInstant = value => {
+  if (!isIsoInstant(value)) return false;
+  const parts = INSTANT_PARTS.exec(value);
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return false;
+  return date.getUTCFullYear() === Number(parts[1])
+    && date.getUTCMonth() + 1 === Number(parts[2])
+    && date.getUTCDate() === Number(parts[3])
+    && date.getUTCHours() === Number(parts[4])
+    && date.getUTCMinutes() === Number(parts[5])
+    && date.getUTCSeconds() === Number(parts[6]);
+};
+
+const callerInstant = (value, label = 'at') => {
+  if (!isRealInstant(value)) throw new RemoteExecutionError('INVALID_REQUEST', `${label} must be an ISO-8601 UTC instant such as 2026-01-01T00:00:00Z, got ${String(value)}`);
+  return value;
+};
+const optionalText = (value, label) => (value === null || value === undefined ? null : (isText(value) ? value : (() => { throw new RemoteExecutionError('INVALID_REQUEST', `${label} must be nonempty text when given`); })()));
 
 export const DEFAULT_REMOTE_POLICY = Object.freeze({
   policy_ref: 'policy:gai-remote-default',
@@ -85,7 +112,25 @@ export function createRemoteExecutionRouter({ executionPort, clock = () => new D
     throw new RemoteExecutionError('INVALID_PORT', 'the RemoteExecutionPort facade is required (listEndpoints and dispatch)');
   }
   if (typeof clock !== 'function') throw new RemoteExecutionError('INVALID_CLOCK', 'clock must be a function returning an ISO-8601 UTC instant');
-  const config = { ...DEFAULT_REMOTE_POLICY, ...(isPlainObject(policy) ? policy : {}), weights: { ...DEFAULT_REMOTE_POLICY.weights, ...(isPlainObject(policy?.weights) ? policy.weights : {}) } };
+  if (policy !== undefined && policy !== null && !isPlainObject(policy)) throw new RemoteExecutionError('INVALID_REQUEST', 'policy must be an object');
+  const config = { ...DEFAULT_REMOTE_POLICY, ...(policy ?? {}), weights: { ...DEFAULT_REMOTE_POLICY.weights, ...(isPlainObject(policy?.weights) ? policy.weights : {}) } };
+  // The V1 confirmation requirement and the health ceilings are the module's central bounds: a
+  // non-boolean or non-finite policy value must not be able to switch them off.
+  if (typeof config.v1_confirmation_required !== 'boolean') {
+    throw new RemoteExecutionError('INVALID_REQUEST', 'policy.v1_confirmation_required must be a boolean, so the device-switch confirmation cannot be disabled by a non-boolean value');
+  }
+  for (const key of ['max_freshness_ms']) {
+    if (!Number.isFinite(config[key]) || config[key] <= 0) throw new RemoteExecutionError('INVALID_REQUEST', `policy.${key} must be a positive finite number, got ${String(config[key])}`);
+  }
+  if (!Number.isFinite(config.max_load) || config.max_load <= 0 || config.max_load > 1) {
+    throw new RemoteExecutionError('INVALID_REQUEST', `policy.max_load must be a number in (0, 1], got ${String(config.max_load)}`);
+  }
+  for (const [factor, weight] of Object.entries(config.weights)) {
+    if (!Number.isFinite(weight) || weight < 0) throw new RemoteExecutionError('INVALID_REQUEST', `policy.weights.${factor} must be a non-negative finite number, got ${String(weight)}`);
+  }
+  if (!Array.isArray(config.cancel_authorized_states) || config.cancel_authorized_states.length === 0 || config.cancel_authorized_states.some(entry => !ACTION_STATES.includes(entry))) {
+    throw new RemoteExecutionError('INVALID_REQUEST', 'policy.cancel_authorized_states must be a non-empty list of canonical action states');
+  }
   const proposals = new Map();
   const actions = new Map();
   const portCalls = { listEndpoints: 0, dispatch: 0, cancel: 0 };
@@ -94,7 +139,7 @@ export function createRemoteExecutionRouter({ executionPort, clock = () => new D
 
   const now = () => {
     const produced = clock();
-    if (!isIsoInstant(produced)) throw new RemoteExecutionError('INVALID_CLOCK', 'clock() must return an ISO-8601 UTC instant');
+    if (!isRealInstant(produced)) throw new RemoteExecutionError('INVALID_CLOCK', 'clock() must return an ISO-8601 UTC instant');
     return produced;
   };
 
@@ -162,7 +207,12 @@ export function createRemoteExecutionRouter({ executionPort, clock = () => new D
     proposeDeviceSwitch({ action_ref, interaction_device_ref, requirements = {}, at: when } = {}) {
       if (!isText(action_ref)) throw new RemoteExecutionError('INVALID_REQUEST', 'action_ref is required');
       if (!isText(interaction_device_ref)) throw new RemoteExecutionError('INVALID_REQUEST', 'interaction_device_ref is required');
-      const at = when ?? now();
+      for (const key of ['requires_session', 'requires_local_input']) {
+        if (requirements[key] !== undefined && requirements[key] !== null && typeof requirements[key] !== 'boolean') {
+          throw new RemoteExecutionError('INVALID_REQUEST', `requirements.${key} must be a boolean when given`);
+        }
+      }
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       const endpoints = listEndpoints();
       const ranked = endpoints
         .filter(endpoint => isPlainObject(endpoint) && isText(endpoint.endpoint_ref) && isText(endpoint.device_ref))
@@ -185,6 +235,7 @@ export function createRemoteExecutionRouter({ executionPort, clock = () => new D
           route: 'LOCAL_WEB',
           interaction_device_ref,
           execution_device_ref: interaction_device_ref,
+          requirements: freeze(clone(requirements)),
           requires_confirmation: false,
           confirmed: true,
           granted_execution_authority: false,
@@ -220,6 +271,7 @@ export function createRemoteExecutionRouter({ executionPort, clock = () => new D
         interaction_device_ref,
         execution_device_ref: best.device_ref,
         endpoint_ref: best.endpoint_ref,
+        requirements: freeze(clone(requirements)),
         requires_confirmation: config.v1_confirmation_required === true,
         confirmed: false,
         granted_execution_authority: false,
@@ -242,7 +294,8 @@ export function createRemoteExecutionRouter({ executionPort, clock = () => new D
     confirmProposal({ proposal_ref, confirmed = false, user_ref = null, at: when } = {}) {
       const proposal = proposals.get(proposal_ref);
       if (!proposal) throw new RemoteExecutionError('UNKNOWN_PROPOSAL', `no proposal ${String(proposal_ref)}`);
-      const at = when ?? now();
+      const userRef = optionalText(user_ref, 'user_ref');
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       if (proposal.confirmation !== null) {
         return freeze({ ...clone(proposal.confirmation), duplicate: true });
       }
@@ -252,7 +305,7 @@ export function createRemoteExecutionRouter({ executionPort, clock = () => new D
         proposal_ref,
         action_ref: proposal.action_ref,
         confirmed: confirmed === true,
-        user_ref,
+        user_ref: userRef,
         execution_device_ref: proposal.execution_device_ref,
         interaction_device_ref: proposal.interaction_device_ref,
         grants_execution_authority: false,
@@ -272,7 +325,7 @@ export function createRemoteExecutionRouter({ executionPort, clock = () => new D
       const proposal = proposals.get(proposal_ref);
       if (!proposal) throw new RemoteExecutionError('UNKNOWN_PROPOSAL', `no proposal ${String(proposal_ref)}`);
       if (!isText(action_id)) throw new RemoteExecutionError('INVALID_REQUEST', 'the canonical action_id is required');
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
 
       // Duplicate dispatch is absorbed: the execution host must never grow a second Action.
       const existing = [...actions.values()].find(action => action.action_id === action_id) ?? null;
@@ -303,7 +356,7 @@ export function createRemoteExecutionRouter({ executionPort, clock = () => new D
         staged.push(freeze({
           bundle_ref: reference.bundle_ref,
           staging_policy: reference.staging_policy,
-          cleanup_by: isIsoInstant(reference.cleanup_by) ? reference.cleanup_by : null,
+          cleanup_by: isRealInstant(reference.cleanup_by) ? reference.cleanup_by : null,
           cleanup_required: reference.staging_policy === 'DELETE_AFTER_USE',
           canonical_local_path: null,
         }));
@@ -312,6 +365,21 @@ export function createRemoteExecutionRouter({ executionPort, clock = () => new D
       const endpoint = listEndpoints().find(entry => entry.endpoint_ref === proposal.endpoint_ref) ?? null;
       if (endpoint === null) throw new RemoteExecutionError('UNKNOWN_ENDPOINT', `the approved endpoint ${String(proposal.endpoint_ref)} is no longer advertised`);
       if (endpoint.device_ref !== proposal.execution_device_ref) throw new RemoteExecutionError('ENDPOINT_NOT_APPROVED', 'the endpoint no longer belongs to the approved execution device');
+
+      // The endpoint was healthy when it was proposed; it must still be healthy now. A stale, offline,
+      // not-web-ready or overloaded endpoint is refused rather than dispatched to.
+      const revalidated = scoreEndpoint(endpoint, proposal.requirements ?? {}, at);
+      if (revalidated.eligible !== true) {
+        note('ENDPOINT_REVALIDATION_REFUSED', at, { action_id, endpoint_ref: proposal.endpoint_ref });
+        throw new RemoteExecutionError('NO_HEALTHY_ENDPOINT', `the approved endpoint is no longer healthy: ${revalidated.exclusion_reasons.join(', ')}`, {
+          action_id,
+          endpoint_ref: proposal.endpoint_ref,
+          execution_device_ref: proposal.execution_device_ref,
+          exclusion_reasons: revalidated.exclusion_reasons,
+          dispatch_performed: false,
+          state_changed_on_execution_host: false,
+        });
+      }
 
       // Hardware-bound authentication is surfaced honestly, never as a false success.
       if (endpoint.hardware_auth_required === true) {
@@ -400,7 +468,9 @@ export function createRemoteExecutionRouter({ executionPort, clock = () => new D
       const action = actions.get(action_id);
       if (!action) throw new RemoteExecutionError('UNKNOWN_ACTION', `no action ${String(action_id)}`);
       if (!EVENT_KINDS.includes(kind)) throw new RemoteExecutionError('INVALID_REQUEST', `kind must be one of ${EVENT_KINDS.join(', ')}`);
-      const at = when ?? now();
+      const payloadRef = optionalText(payload_ref, 'payload_ref');
+      const eventText = optionalText(text, 'text');
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       const nextSeq = action.seq + 1;
       if (TERMINAL_ACTION_STATES.includes(action.state)) {
         action.reconciled_events.push(freeze({ kind, seq, at, reason: 'LATE_EVENT_AFTER_TERMINAL' }));
@@ -427,8 +497,8 @@ export function createRemoteExecutionRouter({ executionPort, clock = () => new D
         correlated_action_id: action_id,
         kind,
         seq: nextSeq,
-        payload_ref,
-        text,
+        payload_ref: payloadRef,
+        text: eventText,
         terminal: kind === 'FINAL',
         at,
       });
@@ -436,7 +506,7 @@ export function createRemoteExecutionRouter({ executionPort, clock = () => new D
       if (kind === 'PROGRESS' || kind === 'STATUS') action.state = 'RUNNING';
       if (kind === 'PARTIAL') { action.state = 'RUNNING'; action.partial_refs.push(event.event_ref); }
       if (kind === 'ERROR') { action.error = freeze({ code: isText(error?.code) ? error.code : 'REMOTE_ERROR', detail: isText(error?.detail) ? error.detail : null, at }); action.state = 'FAILED'; }
-      if (kind === 'FINAL') { action.final_ref = payload_ref ?? event.event_ref; action.state = 'SUCCEEDED'; }
+      if (kind === 'FINAL') { action.final_ref = payloadRef ?? event.event_ref; action.state = 'SUCCEEDED'; }
       if (kind === 'CANCELLED') action.state = 'CANCELLED';
       note('ACTION_EVENT', at, { action_id, kind: event.kind, seq: event.seq });
       return freeze({ ...clone(event), applied: true, reconciled: false, state: action.state });
@@ -447,7 +517,8 @@ export function createRemoteExecutionRouter({ executionPort, clock = () => new D
       const action = actions.get(action_id);
       if (!action) throw new RemoteExecutionError('UNKNOWN_ACTION', `no action ${String(action_id)}`);
       if (!isText(by_device_ref)) throw new RemoteExecutionError('INVALID_REQUEST', 'by_device_ref is required');
-      const at = when ?? now();
+      if (!isText(reason)) throw new RemoteExecutionError('INVALID_REQUEST', 'a cancellation needs a text reason');
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       if (action.cancellation !== null) {
         return freeze({ ...clone(action.cancellation), duplicate: true, cancellation_idempotent: true, state: action.state });
       }
@@ -473,7 +544,7 @@ export function createRemoteExecutionRouter({ executionPort, clock = () => new D
       });
       action.cancellation = cancellation;
       action.state = 'CANCELLED';
-      action.events.push(freeze({ contract_version: REMOTE_EXECUTION_CONTRACT_VERSION, event_ref: `${action_id}:event:${action.seq + 1}`, action_id, correlated_action_id: action_id, kind: 'CANCELLED', seq: action.seq + 1, terminal: false, at }));
+      action.events.push(freeze({ contract_version: REMOTE_EXECUTION_CONTRACT_VERSION, event_ref: `${action_id}:event:${action.seq + 1}`, action_id, correlated_action_id: action_id, kind: 'CANCELLED', seq: action.seq + 1, terminal: true, at }));
       action.seq += 1;
       note('ACTION_CANCELLED', at, { action_id, by_device_ref });
       return freeze({ ...cancellation, duplicate: false, cancellation_idempotent: true });
@@ -514,7 +585,11 @@ export function createRemoteExecutionRouter({ executionPort, clock = () => new D
       const action = actions.get(action_id);
       if (!action) throw new RemoteExecutionError('UNKNOWN_ACTION', `no action ${String(action_id)}`);
       if (!isText(question)) throw new RemoteExecutionError('INVALID_REQUEST', 'an attention request needs a question');
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
+      // A settled action is not regressed by a late attention request, and its terminal truth stands.
+      if (TERMINAL_ACTION_STATES.includes(action.state)) {
+        throw new RemoteExecutionError('LATE_EVENT_AFTER_TERMINAL', `action ${action_id} is already ${action.state}`, { action_id, state: action.state, attention_raised: false });
+      }
       counter += 1;
       const attention = freeze({
         contract_version: REMOTE_EXECUTION_CONTRACT_VERSION,

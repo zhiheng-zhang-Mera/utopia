@@ -57,6 +57,23 @@ const freeze = value => {
 };
 export const isIsoInstant = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
 
+/**
+ * Shape is not enough: `2026-13-45T99:99:99Z` matches the ISO shape but Date.parse() is NaN, and
+ * NaN reaching Date.toISOString() escapes as an untyped RangeError. Require a real instant.
+ */
+const isRealInstant = value => isIsoInstant(value) && Number.isFinite(Date.parse(value));
+
+/**
+ * A caller-supplied evaluation instant is validated exactly like the injected clock: a malformed
+ * `at` must surface as a typed refusal rather than leaking a RangeError from Date.toISOString().
+ */
+const callerInstant = value => {
+  if (!isRealInstant(value)) {
+    throw new CapabilityError('INVALID_REQUEST', `at must be an ISO-8601 UTC instant such as 2026-01-01T00:00:00Z, got ${String(value)}`);
+  }
+  return value;
+};
+
 /** `namespace.name@major` — a logical capability, never a device or OS method. */
 export function parseCapabilityId(value) {
   if (!isText(value) || !CAPABILITY_ID_SHAPE.test(value.trim())) {
@@ -64,6 +81,9 @@ export function parseCapabilityId(value) {
   }
   const trimmed = value.trim();
   const [path, majorText] = trimmed.split('@');
+  if (!Number.isSafeInteger(Number(majorText))) {
+    throw new CapabilityError('INVALID_CAPABILITY_ID', `${trimmed} names a major that is not a safe integer`);
+  }
   const segments = path.split('.');
   return freeze({
     capability_id: trimmed,
@@ -88,10 +108,24 @@ export const DEFAULT_CAPABILITY_POLICY = Object.freeze({
   max_ttl_ms: 3600000,
 });
 
+/**
+ * Canonical execution metadata is read field by field, own-property by own-property: a descriptor
+ * that declares `exclusivity` must never be stored as the default merely because the field happened
+ * to be non-enumerable, and no non-canonical name may be smuggled in beside it.
+ */
+const CANONICAL_EXECUTION_KEYS = Object.freeze(['exclusivity', 'queueable', 'requires_live_session', 'default_expiry_ms']);
+function normaliseExecution(execution = {}) {
+  const normalised = { ...DEFAULT_EXECUTION };
+  for (const key of CANONICAL_EXECUTION_KEYS) {
+    if (Object.hasOwn(execution, key) && execution[key] !== undefined) normalised[key] = execution[key];
+  }
+  return freeze(normalised);
+}
+
 function validateExecution(execution, path, errors) {
   if (execution === undefined) return;
   if (!isPlainObject(execution)) { errors.push(`${path} must be an object`); return; }
-  for (const key of Object.keys(execution)) if (!(key in DEFAULT_EXECUTION)) errors.push(`${path}.${key} is not part of the canonical execution metadata`);
+  for (const key of Reflect.ownKeys(execution)) if (typeof key !== 'string' || !Object.hasOwn(DEFAULT_EXECUTION, key)) errors.push(`${path}.${String(key)} is not part of the canonical execution metadata`);
   if (execution.exclusivity !== undefined && !EXCLUSIVITY.includes(execution.exclusivity)) errors.push(`${path}.exclusivity must be one of ${EXCLUSIVITY.join(', ')}`);
   if (execution.queueable !== undefined && typeof execution.queueable !== 'boolean') errors.push(`${path}.queueable must be a boolean`);
   if (execution.requires_live_session !== undefined && typeof execution.requires_live_session !== 'boolean') errors.push(`${path}.requires_live_session must be a boolean`);
@@ -113,7 +147,18 @@ function validateConstraints(constraints, path, errors) {
 
 export function createCapabilityRegistry({ clock = () => new Date().toISOString(), policy = {} } = {}) {
   if (typeof clock !== 'function') throw new CapabilityError('INVALID_CLOCK', 'clock must be a function returning an ISO-8601 UTC instant');
-  const config = { ...DEFAULT_CAPABILITY_POLICY, ...(isPlainObject(policy) ? policy : {}) };
+  if (policy !== undefined && policy !== null && !isPlainObject(policy)) {
+    throw new CapabilityError('INVALID_REQUEST', 'policy must be an object');
+  }
+  const config = { ...DEFAULT_CAPABILITY_POLICY, ...(policy ?? {}) };
+  for (const key of ['default_ttl_ms', 'max_ttl_ms']) {
+    if (!Number.isSafeInteger(config[key]) || config[key] <= 0) {
+      throw new CapabilityError('INVALID_REQUEST', `policy.${key} must be a positive safe integer, got ${String(config[key])}`);
+    }
+  }
+  if (config.default_ttl_ms > config.max_ttl_ms) {
+    throw new CapabilityError('INVALID_REQUEST', 'policy.default_ttl_ms may not exceed policy.max_ttl_ms');
+  }
   const advertisements = new Map();
   const losses = [];
   const journal = [];
@@ -121,7 +166,7 @@ export function createCapabilityRegistry({ clock = () => new Date().toISOString(
 
   const now = () => {
     const produced = clock();
-    if (!isIsoInstant(produced)) throw new CapabilityError('INVALID_CLOCK', 'clock() must return an ISO-8601 UTC instant');
+    if (!isRealInstant(produced)) throw new CapabilityError('INVALID_CLOCK', 'clock() must return an ISO-8601 UTC instant');
     return produced;
   };
 
@@ -248,7 +293,7 @@ export function createCapabilityRegistry({ clock = () => new Date().toISOString(
       }
       const ttl = ttl_ms ?? config.default_ttl_ms;
       if (!Number.isSafeInteger(ttl) || ttl <= 0 || ttl > config.max_ttl_ms) throw new CapabilityError('INVALID_REQUEST', `ttl_ms must be a positive integer up to ${config.max_ttl_ms}`);
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       const existing = findAdvertisement(node_ref, parsed.capability_id);
       counter += 1;
       const advertisement = {
@@ -263,7 +308,7 @@ export function createCapabilityRegistry({ clock = () => new Date().toISOString(
         chosen_version: parsed.major,
         availability,
         constraints: freeze({ ...constraints }),
-        execution: freeze({ ...DEFAULT_EXECUTION, ...execution }),
+        execution: normaliseExecution(execution),
         endpoint_ref,
         adapter_ref,
         implementation_ref,
@@ -282,7 +327,7 @@ export function createCapabilityRegistry({ clock = () => new Date().toISOString(
       if (!LOSS_REASONS.includes(reason)) throw new CapabilityError('INVALID_REQUEST', `loss reason must be one of ${LOSS_REASONS.join(', ')}`);
       const advertisement = findAdvertisement(node_ref, parsed.capability_id);
       if (!advertisement) throw new CapabilityError('UNKNOWN_CAPABILITY', `node ${node_ref} does not advertise ${parsed.capability_id}`);
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       const loss = freeze({
         loss_ref: `loss:${node_ref}:${parsed.capability_id}:${advertisement.advertisement_version}`,
         node_ref,
@@ -308,7 +353,7 @@ export function createCapabilityRegistry({ clock = () => new Date().toISOString(
 
     lookup({ capability_id, at: when } = {}) {
       const parsed = parseCapabilityId(capability_id);
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       const matches = [...advertisements.values()].filter(advertisement => advertisement.capability_id === parsed.capability_id);
       if (matches.length === 0) throw new CapabilityError('UNKNOWN_CAPABILITY', `no node advertises ${parsed.capability_id}`);
       return freeze({
@@ -322,7 +367,7 @@ export function createCapabilityRegistry({ clock = () => new Date().toISOString(
 
     /** What one node currently provides, including its recorded capability losses. */
     snapshot({ node_ref, at: when } = {}) {
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       const owned = [...advertisements.values()].filter(advertisement => advertisement.node_ref === node_ref);
       const nodeLosses = losses.filter(loss => loss.node_ref === node_ref);
       return freeze({
@@ -347,7 +392,7 @@ export function createCapabilityRegistry({ clock = () => new Date().toISOString(
       const errors = [];
       validateConstraints(constraints ?? undefined, 'constraints', errors);
       if (errors.length) throw new CapabilityError('INVALID_CONSTRAINTS', errors.join('; '));
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       const examined = [...advertisements.values()].filter(advertisement => advertisement.capability_id === parsed.capability_id);
       if (examined.length === 0) throw new CapabilityError('UNKNOWN_CAPABILITY', `no node advertises ${parsed.capability_id}`);
       const candidates = candidatesFor({ capability_id: parsed.capability_id, requested_major, trusted_nodes, at, constraints });
@@ -418,7 +463,7 @@ export function createCapabilityRegistry({ clock = () => new Date().toISOString(
      */
     invoke({ capability_id, node_ref = null, requested_major = null, permission_decision = null, invocation_ref, at: when } = {}) {
       if (!isText(invocation_ref)) throw new CapabilityError('INVALID_REQUEST', 'invocation_ref is required');
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       const resolved = node_ref === null
         ? api.resolve({ capability_id, requested_major, at })
         : api.resolve({ capability_id, requested_major, trusted_nodes: [node_ref], at });
@@ -430,8 +475,11 @@ export function createCapabilityRegistry({ clock = () => new Date().toISOString(
       }
       const advertisement = findAdvertisement(resolved.node_ref, resolved.capability_id);
       const current = project(advertisement, at);
-      if (!current.available || current.expired) {
-        throw new CapabilityError('CAPABILITY_UNAVAILABLE', `${resolved.capability_id} is no longer available on ${resolved.node_ref}`, { capability_id: resolved.capability_id, node_ref: resolved.node_ref, availability: current.availability, loss_reason: advertisement.loss_reason });
+      // Expiry is evaluated both at the requested instant and at the registry's own clock: a caller
+      // cannot make an already-expired advertisement invocable by naming an earlier instant.
+      const currentAtRegistryClock = project(advertisement, now());
+      if (!current.available || current.expired || currentAtRegistryClock.expired) {
+        throw new CapabilityError('CAPABILITY_UNAVAILABLE', `${resolved.capability_id} is no longer available on ${resolved.node_ref}`, { capability_id: resolved.capability_id, node_ref: resolved.node_ref, availability: current.availability, loss_reason: advertisement.loss_reason, expired_at_requested_instant: current.expired, expired_at_registry_clock: currentAtRegistryClock.expired });
       }
       counter += 1;
       note('CAPABILITY_INVOCATION_ISSUED', at, { capability_id: resolved.capability_id, node_ref: resolved.node_ref });
@@ -490,37 +538,80 @@ export function createCapabilityRegistry({ clock = () => new Date().toISOString(
       if (wire.wire_version !== CAPABILITY_REGISTRY_CONTRACT_VERSION) {
         throw new CapabilityError('INCOMPATIBLE_CONTRACT', `wire version ${String(wire.wire_version)} is not ${CAPABILITY_REGISTRY_CONTRACT_VERSION}`, { wire_version: wire.wire_version ?? null, coerced: false });
       }
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       const accepted = [];
+      const pending = [];
+      const seen = new Set();
       for (const entry of wire.capabilities) {
         const errors = [];
         if (!isPlainObject(entry)) throw new CapabilityError('INVALID_WIRE', 'each wire capability must be an object');
-        parseCapabilityId(entry.capability_id);
-        if (!Array.isArray(entry.supported_versions) || entry.supported_versions.length === 0) errors.push('supported_versions is required');
+        const parsed = parseCapabilityId(entry.capability_id);
+        if (!isText(entry.node_ref)) errors.push('node_ref is required');
+        if (!isText(entry.endpoint_ref) || !isText(entry.adapter_ref)) errors.push('endpoint_ref and adapter_ref are required');
+        if (!Array.isArray(entry.supported_versions) || entry.supported_versions.length === 0
+          || entry.supported_versions.some(version => !Number.isSafeInteger(version) || version <= 0)
+          || new Set(entry.supported_versions).size !== entry.supported_versions.length) {
+          errors.push('supported_versions must be a non-empty list of distinct positive integers');
+        } else if (!entry.supported_versions.includes(parsed.major)) {
+          errors.push(`the capability id names major ${parsed.major}, which is not in supported_versions`);
+        }
+        if (!Number.isSafeInteger(entry.advertisement_version) || entry.advertisement_version <= 0) errors.push('advertisement_version must be a positive integer');
+        if (!isRealInstant(entry.expires_at)) errors.push('expires_at must be an ISO-8601 UTC instant');
+        if (entry.observed_at !== undefined && !isRealInstant(entry.observed_at)) errors.push('observed_at must be an ISO-8601 UTC instant');
         validateExecution(entry.execution, 'execution', errors);
         validateConstraints(entry.constraints, 'constraints', errors);
         if (!AVAILABILITY_STATES.includes(entry.availability)) errors.push('availability is not canonical');
         if (errors.length) throw new CapabilityError('INVALID_WIRE', errors.join('; '));
-        counter += 1;
-        const advertisement = {
-          contract_version: CAPABILITY_REGISTRY_CONTRACT_VERSION,
-          advertisement_ref: isText(entry.advertisement_ref) ? entry.advertisement_ref : `advertisement:${counter}`,
-          advertisement_version: Number.isSafeInteger(entry.advertisement_version) ? entry.advertisement_version : 1,
+        const stored = findAdvertisement(entry.node_ref, parsed.capability_id);
+        if (stored && (entry.advertisement_version < stored.advertisement_version
+          || (stored.availability !== 'AVAILABLE' && entry.advertisement_version <= stored.advertisement_version))) {
+          throw new CapabilityError('ADVERTISEMENT_VERSION_CONFLICT', `${parsed.capability_id} on ${entry.node_ref} already holds advertisement version ${stored.advertisement_version}; a wire payload may not replace newer state or silently clear a recorded loss`, { replaced_version: entry.advertisement_version, held_version: stored.advertisement_version, held_availability: stored.availability });
+        }
+        if (seen.has(keyFor(entry.node_ref, parsed.capability_id))) throw new CapabilityError('INVALID_WIRE', `duplicate advertisement for ${parsed.capability_id} on ${entry.node_ref}`);
+        seen.add(keyFor(entry.node_ref, parsed.capability_id));
+        pending.push({
+          wire_ref: isText(entry.advertisement_ref) ? entry.advertisement_ref : null,
+          advertisement_version: entry.advertisement_version,
           node_ref: entry.node_ref,
           installation_ref: entry.installation_ref ?? null,
-          capability_id: entry.capability_id,
-          namespace: entry.capability_id.split('.')[0],
+          capability_id: parsed.capability_id,
+          namespace: parsed.namespace,
           supported_versions: [...entry.supported_versions].sort((left, right) => left - right),
-          chosen_version: entry.capability_id.split('@')[1] ? Number(entry.capability_id.split('@')[1]) : null,
+          chosen_version: parsed.major,
           availability: entry.availability,
           constraints: freeze({ ...(entry.constraints ?? {}) }),
-          execution: freeze({ ...DEFAULT_EXECUTION, ...(entry.execution ?? {}) }),
+          execution: normaliseExecution(entry.execution),
           endpoint_ref: entry.endpoint_ref,
           adapter_ref: entry.adapter_ref,
           implementation_ref: entry.implementation_ref ?? null,
           observed_at: entry.observed_at ?? at,
           expires_at: entry.expires_at,
           loss_reason: entry.loss_reason ?? null,
+        });
+      }
+      // Nothing is installed until every entry has been validated: a refused payload must leave
+      // the registry exactly as it was, with no partially applied snapshot.
+      for (const staged of pending) {
+        counter += 1;
+        const advertisement = {
+          contract_version: CAPABILITY_REGISTRY_CONTRACT_VERSION,
+          advertisement_ref: staged.wire_ref ?? `advertisement:${counter}`,
+          advertisement_version: staged.advertisement_version,
+          node_ref: staged.node_ref,
+          installation_ref: staged.installation_ref,
+          capability_id: staged.capability_id,
+          namespace: staged.namespace,
+          supported_versions: staged.supported_versions,
+          chosen_version: staged.chosen_version,
+          availability: staged.availability,
+          constraints: staged.constraints,
+          execution: staged.execution,
+          endpoint_ref: staged.endpoint_ref,
+          adapter_ref: staged.adapter_ref,
+          implementation_ref: staged.implementation_ref,
+          observed_at: staged.observed_at,
+          expires_at: staged.expires_at,
+          loss_reason: staged.loss_reason,
         };
         advertisements.set(keyFor(advertisement.node_ref, advertisement.capability_id), advertisement);
         accepted.push(advertisement.capability_id);
@@ -530,8 +621,8 @@ export function createCapabilityRegistry({ clock = () => new Date().toISOString(
     },
 
     advertisements: ({ at: when } = {}) => {
-      const at = when ?? now();
-      return clone([...advertisements.values()].map(advertisement => project(advertisement, at)));
+      const at = when === undefined || when === null ? now() : callerInstant(when);
+      return freeze(clone([...advertisements.values()].map(advertisement => project(advertisement, at))));
     },
     losses: () => clone(losses),
     journal: () => clone(journal),

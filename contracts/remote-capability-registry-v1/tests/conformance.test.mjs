@@ -275,3 +275,183 @@ test('the registry is strict, frozen and free of ambient state', () => {
   assert.equal(registry.policy().policy_ref, 'policy:rf-capability-default');
   assert.equal(registry.parser === undefined, true);
 });
+
+// ---------------------------------------------------------------- Alien Correction regressions
+// Each test below fails against the Development head and passes against the corrected head.
+
+test('canonical execution metadata is decided by own keys, not the prototype chain', () => {
+  const { registry } = registryAt();
+  const advertiseWith = execution => () => registry.advertise({
+    node_ref: 'device:proto', capability_id: CAMERA, supported_versions: [1],
+    endpoint_ref: 'endpoint:proto', adapter_ref: 'adapter:proto', execution,
+  });
+  // `priority` is not on Object.prototype and was already refused; these names are inherited from
+  // Object.prototype, so `key in DEFAULT_EXECUTION` used to accept them as canonical.
+  for (const key of ['toString', 'constructor', 'valueOf', 'hasOwnProperty', '__proto__']) {
+    assert.equal(failure(advertiseWith({ [key]: 'not-canonical' })).code, 'INVALID_EXECUTION', `${key} is not canonical execution metadata`);
+  }
+  assert.deepEqual(registry.advertisements(), [], 'no non-canonical execution metadata was admitted');
+});
+
+test('a malformed or impossible caller instant is refused as a typed error', () => {
+  const { registry } = registryAt();
+  const badInstants = ['garbage', '2026-01-01', '', '2026-13-45T99:99:99Z', 123, {}];
+  for (const at of badInstants) {
+    const refused = failure(() => registry.advertise({
+      node_ref: 'device:clock', capability_id: CAMERA, supported_versions: [1],
+      endpoint_ref: 'e', adapter_ref: 'a', at,
+    }));
+    assert.equal(refused.code, 'INVALID_REQUEST', `advertise at=${String(at)}`);
+  }
+  advertiseCamera(registry);
+  for (const at of badInstants) {
+    assert.equal(failure(() => registry.advertisements({ at })).code, 'INVALID_REQUEST', `advertisements at=${String(at)}`);
+    assert.equal(failure(() => registry.resolve({ capability_id: CAMERA, at })).code, 'INVALID_REQUEST', `resolve at=${String(at)}`);
+    assert.equal(failure(() => registry.lookup({ capability_id: CAMERA, at })).code, 'INVALID_REQUEST', `lookup at=${String(at)}`);
+    assert.equal(failure(() => registry.snapshot({ node_ref: 'device:phone-b', at })).code, 'INVALID_REQUEST', `snapshot at=${String(at)}`);
+    assert.equal(failure(() => registry.withdraw({ node_ref: 'device:phone-b', capability_id: CAMERA, at })).code, 'INVALID_REQUEST', `withdraw at=${String(at)}`);
+    assert.equal(failure(() => registry.invoke({ capability_id: CAMERA, invocation_ref: 'inv:at', permission_decision: { granted: true }, at })).code, 'INVALID_REQUEST', `invoke at=${String(at)}`);
+    assert.equal(failure(() => registry.fromWire({ wire: { wire_version: 1, capabilities: [] }, at })).code, 'INVALID_REQUEST', `fromWire at=${String(at)}`);
+  }
+  assert.throws(
+    () => createCapabilityRegistry({ clock: () => '2026-13-45T99:99:99Z' }).advertisements(),
+    error => error instanceof CapabilityError && error.code === 'INVALID_CLOCK',
+    'a shape-valid but impossible clock instant is refused too',
+  );
+});
+
+test('an expired advertisement cannot be invoked by naming an earlier instant', () => {
+  const registry = createCapabilityRegistry({ clock: () => '2027-01-01T00:00:00Z' });
+  registry.advertise({
+    node_ref: 'device:phone-b', capability_id: CAMERA, supported_versions: [1],
+    endpoint_ref: 'e', adapter_ref: 'a', at: '2026-01-01T00:00:00Z', ttl_ms: 1000,
+  });
+  const refused = failure(() => registry.invoke({
+    capability_id: CAMERA, node_ref: 'device:phone-b', invocation_ref: 'inv:backdated',
+    permission_decision: { granted: true, policy_ref: 'policy:user' },
+    at: '2026-01-01T00:00:00.500Z',
+  }));
+  assert.equal(refused.code, 'CAPABILITY_UNAVAILABLE');
+  assert.equal(refused.expired_at_requested_instant, false, 'the backdated instant alone would have allowed the invocation');
+  assert.equal(refused.expired_at_registry_clock, true, 'the registry clock refuses it');
+});
+
+test('a refused wire payload leaves the registry untouched', () => {
+  const { registry } = registryAt();
+  const good = {
+    node_ref: 'device:wire-a', capability_id: CAMERA, supported_versions: [1], advertisement_version: 1,
+    availability: 'AVAILABLE', endpoint_ref: 'endpoint:a', adapter_ref: 'adapter:a',
+    observed_at: T0, expires_at: '2026-01-01T01:00:00Z',
+  };
+  const refused = failure(() => registry.fromWire({
+    wire: { wire_version: 1, capabilities: [good, { ...good, node_ref: 'device:wire-b', availability: 'NOT_A_STATE' }] },
+  }));
+  assert.equal(refused.code, 'INVALID_WIRE');
+  assert.deepEqual(registry.advertisements(), [], 'no partially applied snapshot survived the refusal');
+  assert.equal(registry.journal().some(entry => entry.event === 'WIRE_ACCEPTED'), false);
+});
+
+test('a wire snapshot may not replace newer state or silently clear a recorded loss', () => {
+  const { registry } = registryAt();
+  const advertised = advertiseCamera(registry, { at: T0, ttl_ms: 600000 });
+  const wireOf = version => ({
+    wire: {
+      wire_version: 1,
+      capabilities: [{
+        advertisement_ref: advertised.advertisement_ref, advertisement_version: version,
+        node_ref: 'device:phone-b', capability_id: CAMERA, supported_versions: [1],
+        availability: 'AVAILABLE', endpoint_ref: 'endpoint:camera-1', adapter_ref: 'adapter:android-camera-v3',
+        observed_at: T0, expires_at: '2026-01-01T01:00:00Z',
+      }],
+    },
+  });
+
+  registry.fromWire(wireOf(2));
+  assert.equal(registry.advertisements()[0].advertisement_version, 2, 'a genuinely newer snapshot is accepted');
+  assert.equal(failure(() => registry.fromWire(wireOf(1))).code, 'ADVERTISEMENT_VERSION_CONFLICT', 'an older snapshot may not overwrite a newer one');
+  assert.equal(registry.advertisements()[0].advertisement_version, 2);
+
+  registry.withdraw({ node_ref: 'device:phone-b', capability_id: CAMERA, reason: 'HARDWARE_REMOVED', at: T0 });
+  assert.equal(registry.advertisements()[0].availability, 'UNAVAILABLE');
+  assert.equal(failure(() => registry.fromWire(wireOf(2))).code, 'ADVERTISEMENT_VERSION_CONFLICT', 'a same-version replay may not clear a recorded loss');
+  assert.equal(registry.advertisements()[0].availability, 'UNAVAILABLE', 'the recorded loss stayed visible');
+
+  registry.fromWire(wireOf(3));
+  assert.equal(registry.advertisements()[0].availability, 'AVAILABLE', 'a real regain carries a bumped version');
+});
+
+test('the wire path enforces the same validation as direct advertisement', () => {
+  const { registry } = registryAt();
+  const base = {
+    node_ref: 'device:wire', capability_id: CAMERA, supported_versions: [1], advertisement_version: 1,
+    availability: 'AVAILABLE', endpoint_ref: 'endpoint:w', adapter_ref: 'adapter:w',
+    observed_at: T0, expires_at: '2026-01-01T01:00:00Z',
+  };
+  const send = overrides => () => registry.fromWire({ wire: { wire_version: 1, capabilities: [{ ...base, ...overrides }] } });
+
+  assert.equal(failure(send({ supported_versions: ['x', 2] })).code, 'INVALID_WIRE', 'a version list advertise would refuse');
+  assert.equal(failure(send({ supported_versions: [2] })).code, 'INVALID_WIRE', 'the id major must be offered');
+  assert.equal(failure(send({ supported_versions: [1, 1] })).code, 'INVALID_WIRE', 'duplicate versions');
+  assert.equal(failure(send({ supported_versions: [0] })).code, 'INVALID_WIRE', 'zero is not a major');
+  assert.equal(failure(send({ advertisement_version: -5 })).code, 'INVALID_WIRE', 'advertisement versions are positive');
+  assert.equal(failure(send({ advertisement_version: 1.5 })).code, 'INVALID_WIRE');
+  assert.equal(failure(send({ node_ref: undefined })).code, 'INVALID_WIRE');
+  assert.equal(failure(send({ endpoint_ref: undefined })).code, 'INVALID_WIRE');
+  assert.equal(failure(send({ adapter_ref: undefined })).code, 'INVALID_WIRE');
+  assert.equal(failure(send({ expires_at: undefined })).code, 'INVALID_WIRE', 'an advertisement with no expiry would never expire');
+  assert.equal(failure(send({ expires_at: 'garbage' })).code, 'INVALID_WIRE');
+  assert.equal(failure(send({ observed_at: 'garbage' })).code, 'INVALID_WIRE');
+  assert.equal(failure(send({ capability_id: 'camera.capture' })).code, 'INVALID_CAPABILITY_ID');
+  assert.deepEqual(registry.advertisements(), [], 'every refusal left state untouched');
+
+  const duplicated = failure(() => registry.fromWire({ wire: { wire_version: 1, capabilities: [{ ...base }, { ...base }] } }));
+  assert.equal(duplicated.code, 'INVALID_WIRE', 'one payload may not carry two current advertisements for one key');
+  assert.deepEqual(registry.advertisements(), []);
+});
+
+test('a capability id whose major is not a safe integer is not addressable', () => {
+  const { registry } = registryAt();
+  const unbounded = `camera.capture@${'9'.repeat(400)}`;
+  assert.equal(failure(() => parseCapabilityId(unbounded)).code, 'INVALID_CAPABILITY_ID', 'an unbounded digit run is not a version');
+  assert.equal(failure(() => registry.lookup({ capability_id: unbounded })).code, 'INVALID_CAPABILITY_ID');
+  assert.equal(failure(() => parseCapabilityId('camera.capture@9007199254740993')).code, 'INVALID_CAPABILITY_ID', 'a major beyond Number.MAX_SAFE_INTEGER must not be silently rounded');
+});
+
+test('a declared canonical execution field is never silently downgraded', () => {
+  const { registry } = registryAt();
+  const declared = {};
+  Object.defineProperty(declared, 'exclusivity', { value: 'EXCLUSIVE', enumerable: false });
+  const advertised = registry.advertise({
+    node_ref: 'device:nonenum', capability_id: CAMERA, supported_versions: [1],
+    endpoint_ref: 'endpoint:n', adapter_ref: 'adapter:n', execution: declared,
+  });
+  assert.equal(advertised.execution.exclusivity, 'EXCLUSIVE', 'a declared exclusivity must not be dropped for being non-enumerable');
+  assert.equal(registry.invoke({ capability_id: CAMERA, node_ref: 'device:nonenum', invocation_ref: 'inv:n', permission_decision: { granted: true } }).exclusive, true);
+
+  const smuggled = {};
+  Object.defineProperty(smuggled, 'priority', { value: 'high', enumerable: false });
+  assert.equal(failure(() => registry.advertise({
+    node_ref: 'device:nonenum2', capability_id: CAMERA, supported_versions: [1],
+    endpoint_ref: 'e', adapter_ref: 'a', execution: smuggled,
+  })).code, 'INVALID_EXECUTION', 'a non-enumerable non-canonical key is still not canonical');
+});
+
+test('the advertisement TTL ceiling cannot be lifted by the caller', () => {
+  for (const policy of [{ max_ttl_ms: Infinity }, { max_ttl_ms: 0 }, { max_ttl_ms: '3600000' }, { default_ttl_ms: 7200000, max_ttl_ms: 3600000 }, 'nonsense']) {
+    assert.equal(failure(() => createCapabilityRegistry({ clock: () => T0, policy })).code, 'INVALID_REQUEST', `policy ${JSON.stringify(policy)}`);
+  }
+  const bounded = createCapabilityRegistry({ clock: () => T0, policy: { default_ttl_ms: 30000, max_ttl_ms: 60000 } });
+  assert.equal(bounded.advertise({ node_ref: 'device:bounded', capability_id: CAMERA, supported_versions: [1], endpoint_ref: 'e', adapter_ref: 'a' }).expires_at, '2026-01-01T00:00:30.000Z', 'the configured default is honoured');
+  const advertiseTtl = ttl_ms => () => bounded.advertise({ node_ref: 'device:bounded', capability_id: CAMERA, supported_versions: [1], endpoint_ref: 'e', adapter_ref: 'a', ttl_ms });
+  assert.equal(failure(advertiseTtl(60001)).code, 'INVALID_REQUEST', 'a caller cannot exceed the configured ceiling');
+  assert.equal(advertiseTtl(60000)().expires_at, '2026-01-01T00:01:00.000Z');
+});
+
+test('the advertisements() surface is frozen like every other descriptor surface', () => {
+  const { registry } = registryAt();
+  advertiseCamera(registry);
+  const listed = registry.advertisements();
+  assert.throws(() => { listed[0].permission_granted = true; }, TypeError);
+  assert.throws(() => { listed[0].availability = 'UNAVAILABLE'; }, TypeError);
+  assert.equal(registry.advertisements()[0].permission_granted, false, 'internal state is unaffected by a local edit attempt');
+});

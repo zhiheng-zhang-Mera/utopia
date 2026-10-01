@@ -236,6 +236,8 @@ body {
 .chip:hover { background: var(--layer-2); color: var(--ink); }
 .chip.is-on { background: var(--violet); color: #fff; }
 .link { background: none; border: 0; font: inherit; color: var(--lime); cursor: pointer; padding: 0; }
+/* WCAG 2.5.8: 调用 / 取消 measured under a 24px hit area at 390px in review. */
+.link { display: inline-flex; align-items: center; min-height: 24px; }
 
 .tag { font-size: 11px; letter-spacing: .06em; border-radius: 999px; padding: 3px 11px; font-weight: 700; }
 .tag-ok { background: rgba(198, 242, 78, .16); color: var(--lime); }

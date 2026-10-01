@@ -37,7 +37,13 @@ export const SURFACE_PROBES = [
   { surface: 'home', cap: 'city-snapshot', expect: ['20:24'] },
   { surface: 'home', cap: 'attention-summary', expect: ['10'] },
   { surface: 'home', cap: 'device-telemetry', expect: ['12.4'] },
-  { surface: 'home', cap: 'event-timeline', expect: ['task.completed'] },
+  /* The product fact is "recent activity is shown, in readable form, with times".
+     It is deliberately NOT the raw event type: UI-000 forbids internal event
+     vocabulary on the product surface, so demanding `task.completed` be VISIBLE
+     here contradicted the task's own demotion rule. Alien's stricter visible-text
+     probe caught that contradiction. The raw token is now asserted reachable in
+     TECHNICAL_PROBES instead, so nothing is lost. */
+  { surface: 'home', cap: 'event-timeline', expect: ['20:19'] },
 
   { surface: 'tools', cap: 'room-catalog', expect: [
     'Knowledge Room', '本地知识室', 'Bookmark Room', '收藏室', 'Checklist Room', '清单室',
@@ -53,13 +59,17 @@ export const SURFACE_PROBES = [
   { surface: 'devices', cap: 'device-detail', expect: ['磁盘'] },
   { surface: 'devices', cap: 'device-select', expect: ['Alien-PC'] },
 
-  { surface: 'activity', cap: 'event-timeline', expect: ['task.completed', 'node.heartbeat'] },
+  { surface: 'activity', cap: 'event-timeline', expect: ['20:19', '20:23'] },
 
   { surface: 'services', cap: 'capability-catalog', expect: [
     'planning.document.intake', 'planning.knowledge.query', 'engineering.skill.inspect',
     'research.evidence.review', 'presentation.theme.lab',
   ] },
-  { surface: 'services', cap: 'capability-history', expect: ['inv-2f10'] },
+  /* Services is an ADVANCED surface, so the capability ids above are correct here:
+     UI-000 says technical values are folded INTO "高级信息/运行详情". The
+     invocation id and digest stay demoted behind each direction's own detail
+     affordance, so this asserts the product-legible status instead. */
+  { surface: 'services', cap: 'capability-history', expect: ['COMPLETED'] },
   { surface: 'services', cap: 'capability-invoke', expect: ['调用'] },
 
   { surface: 'tasks', cap: 'task-list', expect: ['CHECKPOINT_DEMO', 'COMPLETED', 'RUNNING'] },
@@ -82,6 +92,7 @@ export const SURFACE_PROBES = [
 export const TECHNICAL_PROBES = [
   { field: 'task-id', cap: 'task-detail', expect: ['tsk-9c41', 'tsk-8b20'] },
   { field: 'event-seq', cap: 'event-timeline', expect: ['41'] },
+  { field: 'event-type', cap: 'event-timeline', expect: ['task.completed', 'node.heartbeat'] },
   { field: 'room-id', cap: 'room-catalog', expect: ['knowledge', 'text-workshop', 'data-lab'] },
   { field: 'room-number', cap: 'room-catalog', expect: ['01', '10'] },
   { field: 'room-lifecycle', cap: 'room-catalog', expect: ['LOCAL_PRODUCT'] },

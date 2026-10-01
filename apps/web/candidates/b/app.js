@@ -37,6 +37,15 @@ const gb = (b) => (Number.isFinite(b) ? (b / 1024 ** 3).toFixed(1) : '—');
 const pct = (v) => (Number.isFinite(v) ? v.toFixed(1) + '%' : '—');
 const hhmm = (iso) => new Date(iso).toISOString().slice(11, 16);
 
+/* Raw event vocabulary is internal, so the default reading path says what
+   happened; the raw type stays reachable in the inspector. */
+const readableEvent = (type) => ({
+  'task.completed': '一件事完成了',
+  'task.progress': '一件事在推进',
+  'task.cancelled': '一件事被取消',
+  'node.heartbeat': '设备心跳',
+}[type] ?? type);
+
 const city = DEMO.city;
 const rooms = DEMO.rooms;
 const node = city.nodes[0];
@@ -143,7 +152,7 @@ function viewHome() {
       label('最近记录'),
       grid(['时间', '事件', '详情'], rt.state.events.slice(0, 4).map((e) => row([
         el('span', { class: 'num', text: hhmm(e.timestamp) }),
-        e.type,
+        readableEvent(e.type),
         el('button', { class: 'link tiny', text: '检查器', onclick: (ev) => { ev.stopPropagation(); openInspector('事件 · 运行细节', e); } }),
       ], e, '事件 · 运行细节'))),
     ]),
@@ -285,7 +294,7 @@ function viewActivity() {
     grid(['时间', '事件', '详情'], rt.state.events.map((e) =>
       row([
         el('span', { class: 'num', text: hhmm(e.timestamp) }),
-        e.type,
+        readableEvent(e.type),
         el('button', { class: 'link tiny inspect', text: '检查器', onclick: (ev) => { ev.stopPropagation(); openInspector('事件 · 运行细节', e); } }),
       ], e, '事件 · 运行细节'))),
   ]);

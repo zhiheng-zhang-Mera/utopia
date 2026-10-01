@@ -315,3 +315,36 @@ test('the bus is strict, frozen and free of ambient state', () => {
   assert.equal(bus.leases().length, 1);
   assert.equal(bus.leases()[0].lease_ref, lease.lease_ref);
 });
+
+// ---------------------------------------------------------------- Alien Correction regressions
+// Every test below fails against the Development head and passes against the corrected head.
+
+test('the canonical contract allow-list is decided by own keys', () => {
+  const { bus } = busAt();
+  for (const key of ['toString', 'constructor', 'valueOf', '__proto__']) {
+    const error = failure(() => bus.publish({ ...eventFor(), [key]: 'smuggled' }));
+    assert.equal(error.name, 'EmbodimentError', `${key} is not part of the canonical contract`);
+  }
+  assert.equal(bus.events().length, 0, 'nothing was admitted');
+});
+
+test('a caller instant must be real, not merely well shaped', () => {
+  const { bus } = busAt();
+  for (const at of ['garbage', '2026-13-45T99:99:99Z', '2026-02-30T00:00:00Z', 123]) {
+    assert.equal(failure(() => bus.publish({ ...eventFor(), at })).name, 'EmbodimentError', `publish at=${String(at)}`);
+    assert.equal(failure(() => bus.noteAuthoritativeTaskVersion({ task_ref: 'task:1', task_version: 1, at })).name, 'EmbodimentError', `noteAuthoritativeTaskVersion at=${String(at)}`);
+  }
+  const badClock = createEmbodimentBus({ clock: () => '2026-13-45T99:99:99Z' });
+  assert.equal(failure(() => badClock.leases()).name, 'EmbodimentError', 'a shape-valid but impossible clock instant is refused too');
+});
+
+test('the bus policy bounds are validated rather than trusted', () => {
+  for (const policy of [
+    { max_lease_ttl_ms: NaN }, { max_lease_ttl_ms: Infinity }, { default_lease_ttl_ms: 1200000 },
+    { require_action_key_for_exclusive: 'yes' }, { require_action_key_for_exclusive: 1 }, 'nonsense',
+  ]) {
+    assert.equal(failure(() => createEmbodimentBus({ clock: () => T0, policy })).name, 'EmbodimentError', `policy ${JSON.stringify(policy)}`);
+  }
+  const bus = createEmbodimentBus({ clock: () => T0, policy: { default_lease_ttl_ms: 500, max_lease_ttl_ms: 1000 } });
+  assert.equal(bus.policy().max_lease_ttl_ms, 1000, 'a bounded policy still works');
+});

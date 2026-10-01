@@ -44,15 +44,45 @@ export class EmbodimentError extends Error {
   }
 }
 
-const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+const isPlainObject = value => {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+};
 const isText = value => typeof value === 'string' && value.trim().length > 0;
 const clone = value => (value === undefined ? undefined : structuredClone(value));
 const freeze = value => {
-  if (value === null || typeof value !== 'object') return value;
-  for (const child of Object.values(value)) freeze(child);
-  return Object.freeze(value);
+  const seen = new WeakSet();
+  const walk = node => {
+    if (node === null || typeof node !== 'object') return node;
+    if (seen.has(node)) return node;
+    seen.add(node);
+    for (const child of Object.values(node)) walk(child);
+    return Object.freeze(node);
+  };
+  return walk(value);
 };
 export const isIsoInstant = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+
+const INSTANT_PARTS = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?Z$/;
+/** Shape is not enough: the regex accepts a calendar-impossible date, so components must round trip. */
+const isRealInstant = value => {
+  if (!isIsoInstant(value)) return false;
+  const parts = INSTANT_PARTS.exec(value);
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return false;
+  return date.getUTCFullYear() === Number(parts[1])
+    && date.getUTCMonth() + 1 === Number(parts[2])
+    && date.getUTCDate() === Number(parts[3])
+    && date.getUTCHours() === Number(parts[4])
+    && date.getUTCMinutes() === Number(parts[5])
+    && date.getUTCSeconds() === Number(parts[6]);
+};
+
+const callerInstant = (value, label = 'at') => {
+  if (!isRealInstant(value)) throw new EmbodimentError('INVALID_REQUEST', `${label} must be a real ISO-8601 UTC instant such as 2026-01-01T00:00:00Z, got ${String(value)}`);
+  return value;
+};
 
 export const EVENT_SPEC = Object.freeze({
   event_id: { required: true, type: 'text' },
@@ -80,7 +110,7 @@ export const AUTHORITATIVE_TASK_VERSION = Symbol('ba008.authoritativeTaskVersion
 
 function checkShape(value, path, spec, errors) {
   if (!isPlainObject(value)) { errors.push(`${path} must be an object`); return; }
-  for (const key of Object.keys(value)) if (!(key in spec)) errors.push(`${path}.${key} is not part of the canonical contract`);
+  for (const key of Reflect.ownKeys(value)) if (typeof key !== 'string' || !Object.hasOwn(spec, key)) errors.push(`${path}.${String(key)} is not part of the canonical contract`);
   for (const [key, rule] of Object.entries(spec)) {
     const present = Object.hasOwn(value, key);
     if (!present) { if (rule.required) errors.push(`${path}.${key} is required`); continue; }
@@ -88,7 +118,7 @@ function checkShape(value, path, spec, errors) {
     const fieldPath = `${path}.${key}`;
     if (field === null || field === undefined) { if (!rule.nullable) errors.push(`${fieldPath} must not be null`); continue; }
     if (rule.type === 'text' && !isText(field)) errors.push(`${fieldPath} must be nonempty text`);
-    if (rule.type === 'instant' && !isIsoInstant(field)) errors.push(`${fieldPath} must be an ISO-8601 UTC instant`);
+    if (rule.type === 'instant' && !isRealInstant(field)) errors.push(`${fieldPath} must be an ISO-8601 UTC instant`);
     if (rule.type === 'int' && (!Number.isSafeInteger(field) || field < 0)) errors.push(`${fieldPath} must be a non-negative integer`);
     if (rule.type === 'enum' && !rule.values.includes(field)) errors.push(`${fieldPath} must be one of ${rule.values.join(', ')}`);
   }
@@ -103,7 +133,20 @@ export const DEFAULT_BUS_POLICY = Object.freeze({
 
 export function createEmbodimentBus({ clock = () => new Date().toISOString(), policy = {} } = {}) {
   if (typeof clock !== 'function') throw new EmbodimentError('INVALID_CLOCK', 'clock must be a function returning an ISO-8601 UTC instant');
-  const config = { ...DEFAULT_BUS_POLICY, ...(isPlainObject(policy) ? policy : {}) };
+  if (policy !== undefined && policy !== null && !isPlainObject(policy)) throw new EmbodimentError('INVALID_REQUEST', 'policy must be an object');
+  const config = { ...DEFAULT_BUS_POLICY, ...(policy ?? {}) };
+  for (const key of ['default_lease_ttl_ms', 'max_lease_ttl_ms']) {
+    if (!Number.isSafeInteger(config[key]) || config[key] <= 0) {
+      throw new EmbodimentError('INVALID_REQUEST', `policy.${key} must be a positive safe integer, got ${String(config[key])}`);
+    }
+  }
+  if (config.default_lease_ttl_ms > config.max_lease_ttl_ms) {
+    throw new EmbodimentError('INVALID_REQUEST', 'policy.default_lease_ttl_ms may not exceed policy.max_lease_ttl_ms');
+  }
+  // The action-key requirement for an exclusive lease is a safety bound, not an opt-in literal.
+  if (config.require_action_key_for_exclusive !== true) {
+    throw new EmbodimentError('INVALID_REQUEST', 'an exclusive lease must require an action key, so policy.require_action_key_for_exclusive must be true');
+  }
   const events = [];
   const leases = new Map();
   const leasesByScope = new Map();
@@ -114,7 +157,7 @@ export function createEmbodimentBus({ clock = () => new Date().toISOString(), po
 
   const now = () => {
     const produced = clock();
-    if (!isIsoInstant(produced)) throw new EmbodimentError('INVALID_CLOCK', 'clock() must return an ISO-8601 UTC instant');
+    if (!isRealInstant(produced)) throw new EmbodimentError('INVALID_CLOCK', 'clock() must return an ISO-8601 UTC instant');
     return produced;
   };
 
@@ -251,7 +294,8 @@ export function createEmbodimentBus({ clock = () => new Date().toISOString(), po
         throw new EmbodimentError('STALE_EVENT', `authoritative version ${task_version} is older than the known ${current}`, { task_ref, authoritative_task_version: current });
       }
       consumedActionKeys.set(`${task_ref}:version`, task_version);
-      return freeze({ task_ref, task_version, at: when ?? now() });
+      const at = when === undefined || when === null ? now() : callerInstant(when);
+      return freeze({ task_ref, task_version, at });
     },
 
     /** At most one valid exclusive lease exists per action scope. */
@@ -264,7 +308,7 @@ export function createEmbodimentBus({ clock = () => new Date().toISOString(), po
       if (exclusive === true && config.require_action_key_for_exclusive === true && !isText(action_key)) {
         throw new EmbodimentError('ACTION_KEY_REQUIRED', 'an exclusive lease needs an action key so a retry cannot duplicate the side effect');
       }
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       const device = deviceOf(device_ref);
       if (device.connected !== true) throw new EmbodimentError('REVALIDATION_REQUIRED', `device ${device_ref} is disconnected; revalidate before taking exclusive authority`);
       if (isText(task_ref) && Number.isSafeInteger(task_version)) {
@@ -312,7 +356,7 @@ export function createEmbodimentBus({ clock = () => new Date().toISOString(), po
 
     renewLease({ lease_ref, holder_ref, ttl_ms, at: when } = {}) {
       const lease = requireLease(lease_ref);
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       assertUsable(lease, at, holder_ref);
       if (Date.parse(at) < Date.parse(lease.acquired_at)) {
         // A renewal that starts before the lease was acquired would silently shorten authority.
@@ -331,7 +375,7 @@ export function createEmbodimentBus({ clock = () => new Date().toISOString(), po
 
     revokeLease({ lease_ref, reason = 'REVOKED', by_ref, at: when } = {}) {
       const lease = requireLease(lease_ref);
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       const state = stateOf(lease, at);
       if (state === 'REVOKED') return freeze({ ...leaseProjection(lease, at), revoked: true, already_revoked: true });
       lease.state = 'REVOKED';
@@ -346,7 +390,7 @@ export function createEmbodimentBus({ clock = () => new Date().toISOString(), po
     /** Reassignment is supersession: the old lease stops being authority and the version advances. */
     reassignLease({ lease_ref, to_device_ref, to_holder_ref, expect_lease_version, reason = 'REASSIGNED', at: when } = {}) {
       const lease = requireLease(lease_ref);
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       if (!isText(to_device_ref) || !isText(to_holder_ref)) throw new EmbodimentError('INVALID_LEASE', 'to_device_ref and to_holder_ref are required');
       if (expect_lease_version !== undefined && expect_lease_version !== lease.lease_version) {
         throw new EmbodimentError('LEASE_VERSION_CONFLICT', `lease is at version ${lease.lease_version}, reassignment assumed ${expect_lease_version}`, { lease_ref, current_lease_version: lease.lease_version });
@@ -382,7 +426,7 @@ export function createEmbodimentBus({ clock = () => new Date().toISOString(), po
 
     leaseState({ lease_ref, at: when } = {}) {
       const lease = requireLease(lease_ref);
-      return leaseProjection(lease, when ?? now());
+      return leaseProjection(lease, when === undefined || when === null ? now() : callerInstant(when));
     },
 
     /**
@@ -391,7 +435,7 @@ export function createEmbodimentBus({ clock = () => new Date().toISOString(), po
      */
     commitSideEffect({ lease_ref, holder_ref, action_key, at: when } = {}) {
       const lease = requireLease(lease_ref);
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       const consumedKey = consumedActionKeys.get(`effect:${lease.lease_ref}:${action_key}`) ?? null;
       if (consumedKey !== null) {
         note('SIDE_EFFECT_DUPLICATE_SUPPRESSED', at, { lease_ref, action_key });
@@ -428,7 +472,7 @@ export function createEmbodimentBus({ clock = () => new Date().toISOString(), po
 
     /** Disconnect suspends authority; nothing may resume on a stale local lease. */
     onDisconnect({ device_ref, reason = 'DISCONNECTED', at: when } = {}) {
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       const device = deviceOf(device_ref);
       device.connected = false;
       device.disconnected_at = at;
@@ -458,7 +502,7 @@ export function createEmbodimentBus({ clock = () => new Date().toISOString(), po
      * intents. Work resumes only for intents whose lease and task version both still match authority.
      */
     reconcile({ device_ref, authoritative, local_intents = [], at: when } = {}) {
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       const device = deviceOf(device_ref);
       if (!isPlainObject(authoritative)) throw new EmbodimentError('INVALID_REQUEST', 'authoritative state is required for reconciliation');
       const authoritativeVersions = isPlainObject(authoritative.task_versions) ? authoritative.task_versions : {};
@@ -527,7 +571,7 @@ export function createEmbodimentBus({ clock = () => new Date().toISOString(), po
       }
       if (!Array.isArray(candidates)) throw new EmbodimentError('INVALID_REQUEST', 'candidates must be an array of {device_ref, available, in_audience}');
       if (payload_ref !== null && payload_ref !== undefined && !isText(payload_ref)) throw new EmbodimentError('INVALID_REQUEST', 'payload_ref must be a reference when present');
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       const deliveries = [];
       const withheld = [];
       const seen = new Set();
@@ -574,15 +618,15 @@ export function createEmbodimentBus({ clock = () => new Date().toISOString(), po
 
     events: () => clone(events),
     leases: ({ at: when } = {}) => {
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       return clone([...leases.values()].map(lease => leaseProjection(lease, at)));
     },
     currentLeaseFor: ({ action_scope, at: when } = {}) => {
       const lease = leasesByScope.get(action_scope) ?? null;
-      return lease === null ? null : leaseProjection(lease, when ?? now());
+      return lease === null ? null : leaseProjection(lease, when === undefined || when === null ? now() : callerInstant(when));
     },
     validExclusiveLeaseCount: ({ action_scope, at: when } = {}) => {
-      const at = when ?? now();
+      const at = when === undefined || when === null ? now() : callerInstant(when);
       return [...leases.values()].filter(lease => lease.action_scope === action_scope && lease.exclusive === true && stateOf(lease, at) === 'ACTIVE').length;
     },
     deviceState: device_ref => clone(deviceState.get(device_ref) ?? null),

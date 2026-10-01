@@ -1,0 +1,21 @@
+// EM-011 — DeepSeek Harness + Codex reference connectors.
+export {
+  REFERENCE_CONNECTOR_CONTRACT_VERSION,
+  CONNECTOR_KINDS,
+  INSTALL_STATES,
+  AUTH_STATES,
+  READINESS,
+  HEALTH_STATES,
+  SESSION_STATES,
+  JOB_STATES,
+  CONTROL_OPS,
+  CANONICAL_CAPABILITIES,
+  CONNECTOR_PORT,
+  CONNECTOR_CODES,
+  REFERENCE_CONNECTORS,
+  ACCEPTANCE_DEFERRED,
+  ConnectorError,
+  createReferenceConnector,
+  createConnectorRegistry,
+  isIsoInstant,
+} from './reference-connectors.mjs';

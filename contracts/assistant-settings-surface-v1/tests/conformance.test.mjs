@@ -314,3 +314,100 @@ test('the committed-update cursor must be a version and the instants must be rea
   assert.equal(fresh.assistant(BUTLER), null, 'nothing was registered from an unusable instant');
   assert.equal(failure(() => createInteractionSurface({ clock: () => '2026-13-45T99:99:99Z' }).listAssistants()).code, 'INVALID_CLOCK');
 });
+
+test('freshness needs a recent observation, not only a declared state', () => {
+  const { surface, clock } = surfaceAt();
+  assert.equal(surface.surfaceView({ device_ref: DEVICE }).stale, false);
+  clock.advance(400000);
+  const aged = surface.surfaceView({ device_ref: DEVICE });
+  assert.equal(aged.stale, true, 'an observation older than the freshness window is not current');
+  assert.equal(aged.stale_indicator.stale_reason, 'OBSERVATION_OLDER_THAN_WINDOW');
+  assert.equal(aged.stale_indicator.age_ms > aged.stale_indicator.stale_after_ms, true);
+  const refused = failure(() => surface.assertFresh({ device_ref: DEVICE }));
+  assert.equal(refused.code, 'STALE_CACHE_IS_NOT_AUTHORITY');
+  assert.equal(refused.stale_reason, 'OBSERVATION_OLDER_THAN_WINDOW');
+  assert.equal(refused.cached_view_is_authority, false);
+  // A real observation makes the device current again.
+  surface.observeEmbodiment({ device_ref: DEVICE, state: 'FRESH' });
+  assert.equal(surface.surfaceView({ device_ref: DEVICE }).stale, false);
+  assert.equal(surface.assertFresh({ device_ref: DEVICE }).fresh_confirmed, true);
+  for (const policy of [{ stale_after_ms: 0 }, { stale_after_ms: NaN }, { stale_after_ms: 'soon' }]) {
+    assert.equal(failure(() => createInteractionSurface({ clock: () => T0, policy })).code, 'INVALID_REQUEST', JSON.stringify(policy));
+  }
+});
+
+test('every projection of a device gives the same freshness answer', () => {
+  const { surface } = surfaceAt();
+  const projection = surface.embodimentsOf({ assistant_ref: BUTLER, current_device_ref: DEVICE });
+  const current = projection.embodiments.find(entry => entry.is_current_device === true);
+  assert.equal(current.cached_view_is_authoritative, false, 'a projection never claims to be current authority');
+  assert.equal(current.state_is_caller_declared, true);
+  assert.equal(projection.embodiments.every(entry => entry.cached_view_is_authoritative === false), true);
+  assert.equal(surface.surfaceView({ device_ref: DEVICE }).cache_is_authoritative, false);
+});
+
+test('a committed update carries the change, the previous values and the actor', () => {
+  const { surface } = surfaceAt();
+  const update = surface.editProfile({ assistant_ref: BUTLER, expected_profile_version: 1, changes: { display_name: 'Alfred', verbosity: 'LOW' } });
+  assert.deepEqual(update.changed, { display_name: 'Alfred', verbosity: 'LOW' }, 'the record carries the change it commits');
+  assert.deepEqual(update.previous_values, { display_name: 'Butler', verbosity: null });
+  assert.equal(update.actor_ref, null);
+  assert.equal(update.actor_known, false, 'an unnamed actor is recorded as unnamed, not invented');
+  const propagated = surface.committedUpdates({ since_profile_version: 1 });
+  assert.deepEqual(propagated[0].changed, { display_name: 'Alfred', verbosity: 'LOW' }, 'another embodiment can apply the propagation');
+  const attributed = surface.editProfile({ assistant_ref: BUTLER, expected_profile_version: 2, changes: { display_name: 'Jeeves' }, actor_ref: 'user:owner' });
+  assert.equal(attributed.actor_ref, 'user:owner');
+  assert.equal(attributed.actor_known, true);
+  const entry = surface.journal().find(item => item.event === 'PROFILE_COMMITTED');
+  assert.deepEqual(entry.changed_fields, ['display_name', 'verbosity']);
+  assert.equal(entry.from_profile_version, 1);
+});
+
+test('a handoff or a provisional switch is never taken from a cached view', () => {
+  const { surface, clock } = surfaceAt();
+  clock.advance(400000);
+  assert.equal(failure(() => surface.requestHandoff({ device_ref: DEVICE, task_ref: 'task:bg', to_assistant_ref: BUTLER })).code, 'STALE_CACHE_IS_NOT_AUTHORITY');
+  const provisional = surface.switchForeground({ device_ref: DEVICE, to_assistant_ref: SECRETARY });
+  assert.equal(provisional.switched, true, 'the UI operation still works');
+  assert.equal(provisional.binding_from_cached_view, true);
+  assert.equal(provisional.requires_authoritative_revalidation, true);
+  assert.equal(provisional.stale_reason, 'OBSERVATION_OLDER_THAN_WINDOW');
+  const { surface: fresh } = surfaceAt();
+  const current = fresh.switchForeground({ device_ref: DEVICE, to_assistant_ref: SECRETARY });
+  assert.equal(current.binding_from_cached_view, false);
+  assert.equal(current.requires_authoritative_revalidation, false);
+  assert.equal(fresh.requestHandoff({ device_ref: DEVICE, task_ref: 'task:1', to_assistant_ref: BUTLER }).explicit_request, true);
+});
+
+test('a task foreground flag is a boolean and its role reflects the data', () => {
+  const { surface } = surfaceAt();
+  const view = surface.surfaceView({ device_ref: DEVICE, tasks: [
+    { task_ref: 'task:bg', foreground: false, owner_ref: BUTLER, executor_ref: OTHER_DEVICE },
+    { task_ref: 'task:same', foreground: false, owner_ref: BUTLER, executor_ref: BUTLER },
+    { task_ref: 'task:unknown', foreground: false },
+    { task_ref: 'task:weird', foreground: 'yes' },
+  ] });
+  assert.deepEqual([...view.background_tasks].map(task => task.task_ref), ['task:bg', 'task:same', 'task:unknown']);
+  assert.equal(view.background_tasks[0].owner_is_executor_distinct, true);
+  assert.equal(view.background_tasks[1].owner_is_executor_distinct, false);
+  assert.equal(view.background_tasks[0].role, 'LOGICAL_OWNER_AND_EXECUTOR_SEPARATE');
+  assert.equal(view.background_tasks[2].role, 'LOGICAL_OWNER_AND_EXECUTOR_UNKNOWN');
+  assert.deepEqual([...view.unreadable_tasks].map(entry => entry.reason), ['NON_BOOLEAN_FOREGROUND'], 'a truthy stand-in is refused rather than inverted');
+  assert.equal(view.background_tasks_hidden, true);
+});
+
+test('an untypeable value is refused before anything is recorded', () => {
+  const surface = createInteractionSurface({ clock: () => T0 });
+  assert.equal(failure(() => surface.registerAssistant({ assistant_ref: BUTLER, display_name: 'Butler', verbosity: () => 1 })).code, 'INVALID_FIELD');
+  assert.equal(surface.assistant(BUTLER), null, 'a refused registration records nothing');
+  assert.equal(surface.registerAssistant({ assistant_ref: BUTLER, display_name: 'Butler' }).assistant_ref, BUTLER, 'and the retry is not mistaken for a duplicate');
+  assert.equal(surface.listAssistants().assistants.length, 1);
+
+  const cyclic = { display_name: 'Alfred' };
+  cyclic.self = cyclic;
+  assert.equal(failure(() => surface.editProfile({ assistant_ref: BUTLER, expected_profile_version: 1, changes: cyclic })).code, 'INVALID_FIELD');
+  assert.equal(failure(() => surface.editProfile({ assistant_ref: BUTLER, expected_profile_version: 1, changes: { display_name: () => 1 } })).code, 'INVALID_FIELD');
+  assert.equal(surface.committedUpdates().length, 0, 'nothing was committed');
+  const first = surface.editProfile({ assistant_ref: BUTLER, expected_profile_version: 1, changes: { display_name: 'Alfred' } });
+  assert.equal(first.update_ref, 'profile-update:1', 'the refused edits did not consume an update reference');
+});

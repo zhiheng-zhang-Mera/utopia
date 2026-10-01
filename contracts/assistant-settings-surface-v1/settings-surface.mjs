@@ -112,6 +112,9 @@ export const DEFAULT_SURFACE_POLICY = Object.freeze({
   policy_ref: 'policy:ba-settings-default',
   profile_version_required: true,
   allow_reserved_adapters: false,
+  // How long an embodiment's last observation stays usable as current authority before the view must be
+  // treated as a cache. A declared state string alone cannot make an old observation fresh.
+  stale_after_ms: 300000,
 });
 
 export function createInteractionSurface({ clock = () => new Date().toISOString(), policy = {} } = {}) {
@@ -122,6 +125,7 @@ export function createInteractionSurface({ clock = () => new Date().toISOString(
     if (typeof key !== 'string' || !Object.hasOwn(DEFAULT_SURFACE_POLICY, key)) throw new SettingsError('INVALID_REQUEST', `policy.${String(key)} is not part of the settings policy`);
   }
   if (typeof config.allow_reserved_adapters !== 'boolean') throw new SettingsError('INVALID_REQUEST', 'policy.allow_reserved_adapters must be a boolean');
+  if (!Number.isSafeInteger(config.stale_after_ms) || config.stale_after_ms <= 0) throw new SettingsError('INVALID_REQUEST', `policy.stale_after_ms must be a positive integer, got ${String(config.stale_after_ms)}`);
   // Version-checked writes are how a committed profile update stays safe across embodiments; a caller may
   // not switch that guard off for the same profile it is editing.
   if (config.profile_version_required !== true) throw new SettingsError('INVALID_REQUEST', 'an assistant profile edit must be version-checked, so policy.profile_version_required must be true');
@@ -161,6 +165,24 @@ export function createInteractionSurface({ clock = () => new Date().toISOString(
     const assistant = assistants.get(assistant_ref);
     if (!assistant) throw new SettingsError('UNKNOWN_ASSISTANT', `no assistant ${String(assistant_ref)}`);
     return assistant;
+  };
+
+  /** Freshness is the declared state AND a recent enough observation; either one alone is not authority. */
+  const freshnessOf = (embodiment, at) => {
+    const declared_stale = ['STALE', 'OFFLINE', 'RECONNECTING', 'UNKNOWN'].includes(embodiment.state);
+    const seen = isRealInstant(embodiment.last_seen_at) ? Date.parse(embodiment.last_seen_at) : null;
+    const nowMs = Date.parse(at);
+    const age_ms = seen === null ? null : nowMs - seen;
+    const window_expired = age_ms === null || age_ms > config.stale_after_ms;
+    return {
+      stale: declared_stale || window_expired,
+      declared_state: embodiment.state,
+      last_seen_at: embodiment.last_seen_at,
+      age_ms,
+      stale_after_ms: config.stale_after_ms,
+      stale_reason: declared_stale ? 'DECLARED_STATE_NOT_CURRENT' : window_expired ? 'OBSERVATION_OLDER_THAN_WINDOW' : null,
+      state_is_caller_declared: true,
+    };
   };
 
   const api = {
@@ -219,7 +241,7 @@ export function createInteractionSurface({ clock = () => new Date().toISOString(
      * A profile edit becomes a committed shared-state update with a version, so other embodiments see it
      * through shared state rather than by synchronizing local UI or scratch context.
      */
-    editProfile({ assistant_ref, expected_profile_version, changes = {}, at: when } = {}) {
+    editProfile({ assistant_ref, expected_profile_version, changes = {}, actor_ref = null, at: when } = {}) {
       const assistant = requireAssistant(assistant_ref);
       // The declared fields are the only thing this surface may change, and the shape is decided on the
       // object itself: a symbol key or a non-enumerable own key would otherwise be dropped in silence and
@@ -260,6 +282,12 @@ export function createInteractionSurface({ clock = () => new Date().toISOString(
         from_profile_version: assistant.profile_version,
         to_profile_version: assistant.profile_version + 1,
         changed_fields: freeze(Object.keys(changes)),
+        // The record must carry the change it commits, not only the field names: another embodiment applies
+        // the propagation from this record, and an audit needs the before/after values.
+        changed: freeze(clone(changes)),
+        previous_values: freeze(clone(Object.fromEntries(Object.keys(changes).map(field => [field, assistant.profile[field]])))),
+        actor_ref: isText(actor_ref) ? actor_ref : null,
+        actor_known: isText(actor_ref),
         committed: true,
         propagates_via: 'COMMITTED_SHARED_STATE',
         local_scratch_synchronized: false,
@@ -273,7 +301,14 @@ export function createInteractionSurface({ clock = () => new Date().toISOString(
       assistant.profile_version += 1;
       assistant.updated_at = at;
       committedUpdates.push(update);
-      note('PROFILE_COMMITTED', at, { assistant_ref, to_profile_version: assistant.profile_version });
+      note('PROFILE_COMMITTED', at, {
+        assistant_ref,
+        from_profile_version: update.from_profile_version,
+        to_profile_version: assistant.profile_version,
+        changed_fields: update.changed_fields,
+        actor_ref: update.actor_ref,
+        actor_known: update.actor_known,
+      });
       return freeze({ ...clone(update), profile: clone(assistant.profile) });
     },
 
@@ -338,7 +373,10 @@ export function createInteractionSurface({ clock = () => new Date().toISOString(
           device_ref: embodiment.device_ref,
           state: embodiment.state,
           is_current_device: embodiment.device_ref === current_device_ref,
-          cached_view_is_authoritative: embodiment.state === 'FRESH' || embodiment.state === 'CURRENT',
+          // A projection never claims to be current authority: it carries the declared state and the window.
+          cached_view_is_authoritative: false,
+          state_is_caller_declared: true,
+          freshness_window_ms: config.stale_after_ms,
           last_seen_at: embodiment.last_seen_at,
         }))),
         one_logical_assistant: true,
@@ -356,6 +394,7 @@ export function createInteractionSurface({ clock = () => new Date().toISOString(
       if (!embodiment) throw new SettingsError('INVALID_REQUEST', `no embodiment ${String(device_ref)}`);
       requireAssistant(to_assistant_ref);
       const at = atFrom(when);
+      const freshness = freshnessOf(embodiment, at);
       const previous = embodiment.foreground_assistant_ref;
       embodiment.foreground_assistant_ref = to_assistant_ref;
       embodiment.updated_at = at;
@@ -374,6 +413,10 @@ export function createInteractionSurface({ clock = () => new Date().toISOString(
         ownership_unchanged: true,
         executor_unchanged: true,
         handoff_must_be_requested_separately: true,
+        // A switch taken while the view is a cache is recorded as provisional, not as a current binding.
+        binding_from_cached_view: freshness.stale,
+        requires_authoritative_revalidation: freshness.stale,
+        stale_reason: freshness.stale_reason,
         at,
       });
     },
@@ -385,6 +428,14 @@ export function createInteractionSurface({ clock = () => new Date().toISOString(
       if (!isText(task_ref)) throw new SettingsError('INVALID_REQUEST', 'task_ref is required');
       requireAssistant(to_assistant_ref);
       const at = atFrom(when);
+      // Responsibility must not be moved on the strength of a cached view: a handoff from a device whose
+      // task/binding state is not current would transfer what the cache claims, not what is true.
+      const freshness = freshnessOf(embodiment, at);
+      if (freshness.stale) {
+        throw new SettingsError('STALE_CACHE_IS_NOT_AUTHORITY', `device ${device_ref} is ${embodiment.state}; a handoff cannot be requested from a cached view`, {
+          device_ref, task_ref, state: embodiment.state, stale_reason: freshness.stale_reason, requested: false,
+        });
+      }
       note('HANDOFF_REQUESTED', at, { device_ref, task_ref, to_assistant_ref });
       return freeze({
         contract_version: SETTINGS_SURFACE_CONTRACT_VERSION,
@@ -410,13 +461,19 @@ export function createInteractionSurface({ clock = () => new Date().toISOString(
       const embodiment = embodiments.get(device_ref);
       if (!embodiment) throw new SettingsError('INVALID_REQUEST', `no embodiment ${String(device_ref)}`);
       const at = atFrom(when);
-      const stale = ['STALE', 'OFFLINE', 'RECONNECTING', 'UNKNOWN'].includes(embodiment.state);
+      const freshness = freshnessOf(embodiment, at);
+      const stale = freshness.stale;
       // A task the surface cannot read must be reported, not dropped: hiding an active background task is
       // exactly what the workbook forbids, and "nothing is hidden" must not be an unchecked claim.
       const unreadable = [];
       const backgroundTasks = [];
       const foregroundTasks = [];
       for (const task of tasks) {
+        // The foreground flag is a boolean assertion; a truthy stand-in would be silently reported as background.
+        if (isPlainObject(task) && task.foreground !== undefined && typeof task.foreground !== 'boolean') {
+          unreadable.push({ reason: 'NON_BOOLEAN_FOREGROUND', foreground: null });
+          continue;
+        }
         const task_ref = isPlainObject(task) && isText(task.task_ref) ? task.task_ref : null;
         if (task_ref === null) { unreadable.push({ reason: 'MISSING_TASK_REF', foreground: isPlainObject(task) && task.foreground === true }); continue; }
         if (isPlainObject(task) && task.foreground === true) foregroundTasks.push({ ...task, task_ref });
@@ -432,9 +489,10 @@ export function createInteractionSurface({ clock = () => new Date().toISOString(
         background_tasks: freeze(backgroundTasks.map(task => freeze({
           task_ref: task.task_ref,
           foreground: false,
-          logical_owner_ref: task.owner_ref ?? null,
-          executor_ref: task.executor_ref ?? null,
-          role: 'LOGICAL_OWNER_AND_EXECUTOR_SEPARATE',
+          logical_owner_ref: isText(task.owner_ref) ? task.owner_ref : null,
+          executor_ref: isText(task.executor_ref) ? task.executor_ref : null,
+          owner_is_executor_distinct: isText(task.owner_ref) && isText(task.executor_ref) && task.owner_ref !== task.executor_ref,
+          role: isText(task.owner_ref) || isText(task.executor_ref) ? 'LOGICAL_OWNER_AND_EXECUTOR_SEPARATE' : 'LOGICAL_OWNER_AND_EXECUTOR_UNKNOWN',
         }))),
         foreground_tasks: freeze(foregroundTasks.map(task => freeze({ task_ref: task.task_ref, foreground: true }))),
         unreadable_tasks: freeze(unreadable.map(entry => freeze(clone(entry)))),
@@ -448,6 +506,9 @@ export function createInteractionSurface({ clock = () => new Date().toISOString(
           contract_version: SETTINGS_SURFACE_CONTRACT_VERSION,
           state: embodiment.state,
           last_seen_at: embodiment.last_seen_at,
+          age_ms: freshness.age_ms,
+          stale_after_ms: freshness.stale_after_ms,
+          stale_reason: freshness.stale_reason,
           message: `this device is ${embodiment.state}; the tasks and binding shown are a cache, not current authority`,
           cached_view_is_authority: false,
           user_must_refresh: true,
@@ -462,12 +523,13 @@ export function createInteractionSurface({ clock = () => new Date().toISOString(
       const embodiment = embodiments.get(device_ref);
       if (!embodiment) throw new SettingsError('INVALID_REQUEST', `no embodiment ${String(device_ref)}`);
       const at = atFrom(when);
-      if (['STALE', 'OFFLINE', 'RECONNECTING', 'UNKNOWN'].includes(embodiment.state)) {
+      const freshness = freshnessOf(embodiment, at);
+      if (freshness.stale) {
         throw new SettingsError('STALE_CACHE_IS_NOT_AUTHORITY', `device ${device_ref} is ${embodiment.state}; cached task/binding state is not current authority`, {
-          device_ref, state: embodiment.state, cached_view_is_authority: false, refresh_required: true,
+          device_ref, state: embodiment.state, stale_reason: freshness.stale_reason, age_ms: freshness.age_ms, stale_after_ms: freshness.stale_after_ms, cached_view_is_authority: false, refresh_required: true,
         });
       }
-      return freeze({ contract_version: SETTINGS_SURFACE_CONTRACT_VERSION, device_ref, state: embodiment.state, cache_is_authoritative: false, fresh_confirmed: true, at });
+      return freeze({ contract_version: SETTINGS_SURFACE_CONTRACT_VERSION, device_ref, state: embodiment.state, last_seen_at: embodiment.last_seen_at, cache_is_authoritative: false, fresh_confirmed: true, at });
     },
 
     /** Reserved for future voice/avatar editors; nothing current requires them. */

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   DEFAULT_RESTART_POLICY, HEALTH_STATES, REGISTRY_HEALTH, RESTART_REFUSALS, RuntimeSupervisorError,
-  createHealthMonitor, createOwnershipRegistry, createRestartSupervisor, mapToRegistryHealth,
+  createHealthMonitor, createOwnershipRegistry, createRestartSupervisor, isIsoInstant, mapToRegistryHealth,
 } from '../index.mjs';
 
 const T0 = '2026-01-01T00:00:00Z';
@@ -365,4 +365,218 @@ test('the contract is strict, frozen, and honest about stale observations', () =
   assert.equal(ownership.get('worker:1'), null, 'no claim, no ownership record');
   assert.ok(RESTART_REFUSALS.includes('POLICY_IS_MONITOR_OWNED'));
   assert.equal(typeof RuntimeSupervisorError, 'function');
+});
+
+// ---------------------------------------------------------------- Alien Correction regressions
+// Every test below fails against the Development head and passes against the corrected head.
+
+test('pressure is the evidence the monitor recorded, not a copy the caller supplies', () => {
+  const { probe } = probeFrom({ 'worker:1': { consecutive_failures: 0, confidence: 1, last_liveness_at: T0 } });
+  const monitor = createHealthMonitor({ probe, clock: () => T0 });
+  const recorded = monitor.sense({ instance_ref: 'worker:1' });
+  assert.equal(recorded.health, 'HEALTHY');
+  const forged = { reading_id: recorded.reading_id, instance_ref: 'worker:1', health: 'CRITICAL', confidence: 1, freshness: { stale: false } };
+  const decision = monitor.decidePressure({ reading: forged });
+  assert.equal(decision.verdict, 'NONE', 'a forged copy of a real reading is not pressure');
+  assert.equal(decision.health, 'HEALTHY', 'the recorded evidence is what the decision is made from');
+  assert.equal(decision.action, 'OBSERVE');
+  const ownership = createOwnershipRegistry({ clock: () => T0 });
+  ownedInstance(ownership);
+  const { signals, port } = processPort();
+  const supervisor = createRestartSupervisor({ monitor, ownership, processes: port, checkpoint: { capture: () => ({ checkpoint_ref: 'cp:1' }) }, clock: () => T0 });
+  const refused = supervisor.restart({ decision, instance_ref: 'worker:1', live_processes: [{ pid: 4242, process_start_marker: 'start-1' }] });
+  assert.equal(refused.code, 'PRESSURE_REQUIRED');
+  assert.equal(signals.length, 0, 'a healthy instance was never signalled');
+});
+
+test('a policy bound that can be switched off is refused', () => {
+  const probe = () => ({ consecutive_failures: 3, confidence: 1, last_liveness_at: T0 });
+  const build = policy => createRestartSupervisor({ monitor: createHealthMonitor({ probe, clock: () => T0 }), ownership: createOwnershipRegistry({ clock: () => T0 }), processes: processPort().port, policy, clock: () => T0 });
+  for (const policy of [
+    { max_restarts: NaN }, { max_restarts: Infinity }, { max_restarts: -1 }, { max_restarts: 1.5 },
+    { backoff_base_ms: NaN }, { backoff_cap_ms: Infinity }, { backoff_base_ms: 5000, backoff_cap_ms: 1000 },
+    { backoff_factor: NaN }, { backoff_factor: 0.5 }, { cooldown_ms: -5 }, { unknown_bound: 1 },
+  ]) {
+    assert.throws(() => build(policy), error => error.code === 'INVALID_POLICY', `restart policy ${JSON.stringify(policy)}`);
+  }
+  for (const policy of [
+    { min_confidence: NaN }, { min_confidence: 2 }, { min_confidence: -1 }, { min_confidence: '0.5' },
+    { stale_after_ms: Infinity }, { stale_after_ms: 0 }, { elevated_at: 3, degraded_at: 2 }, { critical_at: 'high' },
+    { something_else: 1 },
+  ]) {
+    assert.throws(() => createHealthMonitor({ probe, clock: () => T0, policy }), error => error.code === 'INVALID_POLICY', `pressure policy ${JSON.stringify(policy)}`);
+  }
+  const bounded = createHealthMonitor({ probe, clock: () => T0, policy: { stale_after_ms: 1000, min_confidence: 0.9 } });
+  assert.equal(bounded.policy().min_confidence, 0.9, 'a bounded policy still works');
+  assert.equal(build({ max_restarts: 1, cooldown_ms: 0, backoff_base_ms: 0, backoff_cap_ms: 0 }).policy().max_restarts, 1);
+});
+
+test('an uninterpretable instant cannot make stale evidence fresh or release the cooldown', () => {
+  assert.equal(isIsoInstant('2026-13-45T99:99:99Z'), false, 'a shape-valid but unparseable instant is not an instant');
+  const silent = probeFrom({ 'worker:1': { consecutive_failures: 3, confidence: 1, last_liveness_at: T0 } }).probe;
+  const staleMonitor = createHealthMonitor({ probe: silent, clock: () => at(600000) });
+  assert.equal(staleMonitor.sense({ instance_ref: 'worker:1' }).health, 'UNKNOWN', 'ten minutes of silence is stale');
+  assert.throws(() => staleMonitor.sense({ instance_ref: 'worker:1', at: '2026-13-45T99:99:99Z' }), error => error.code === 'INVALID_PRESSURE');
+
+  const clock = clockFrom();
+  const liveProbe = probeFrom({ 'worker:1': ({ at: observed_at }) => ({ consecutive_failures: 3, confidence: 1, last_liveness_at: observed_at }) }).probe;
+  const monitor = createHealthMonitor({ probe: liveProbe, clock });
+  const ownership = createOwnershipRegistry({ clock });
+  ownedInstance(ownership);
+  const { signals, port } = processPort();
+  const supervisor = createRestartSupervisor({ monitor, ownership, processes: port, checkpoint: { capture: () => ({ checkpoint_ref: 'cp:1' }) }, clock });
+  const live = [{ pid: 4242, process_start_marker: 'start-1' }];
+  const decide = () => monitor.decidePressure({ reading: monitor.sense({ instance_ref: 'worker:1' }) });
+  assert.equal(supervisor.restart({ decision: decide(), instance_ref: 'worker:1', live_processes: live }).restarted, true);
+  assert.throws(() => supervisor.restart({ decision: decide(), instance_ref: 'worker:1', live_processes: live, at: '2026-13-45T99:99:99Z' }), error => error.code === 'INVALID_INSTANCE', 'an impossible instant cannot buy a restart inside the cooldown');
+  assert.equal(supervisor.stateFor('worker:1').restarts, 1);
+  assert.equal(signals.length, 1);
+  assert.throws(() => createOwnershipRegistry({ clock: () => T0 }).claim({ instance_ref: 'w', owner_token: 't', pid: 5, process_start_marker: 'm', at: '2026-13-45T99:99:99Z' }), error => error.code === 'INVALID_OWNERSHIP');
+});
+
+test('a throwing readiness or process hook is a typed outcome, not a half-applied restart', () => {
+  const clock = clockFrom();
+  const live = [{ pid: 4242, process_start_marker: 'start-1' }];
+  const build = () => {
+    const liveProbe = probeFrom({ 'worker:1': ({ at: observed_at }) => ({ consecutive_failures: 3, confidence: 1, last_liveness_at: observed_at }) }).probe;
+    const monitor = createHealthMonitor({ probe: liveProbe, clock });
+    const ownership = createOwnershipRegistry({ clock });
+    ownedInstance(ownership);
+    return { monitor, ownership, decide: () => monitor.decidePressure({ reading: monitor.sense({ instance_ref: 'worker:1' }) }) };
+  };
+
+  const first = build();
+  const { signals, port } = processPort();
+  const throwing = createRestartSupervisor({ monitor: first.monitor, ownership: first.ownership, processes: port, checkpoint: { capture: () => ({ checkpoint_ref: 'cp:1' }) }, readiness: { confirm: () => { throw new Error('readiness exploded'); } }, clock });
+  const withheld = throwing.restart({ decision: first.decide(), instance_ref: 'worker:1', live_processes: live });
+  assert.equal(withheld.restarted, true);
+  assert.equal(withheld.resumed, false, 'a hook that threw did not confirm a resume');
+  assert.equal(withheld.resume_withheld_reason, 'READINESS_CHECK_FAILED');
+  assert.equal(withheld.runtime_state, 'SUSPENDED', 'a throwing readiness hook cannot leave the instance RESTARTING');
+  assert.equal(signals.length, 1);
+
+  const second = build();
+  const failing = createRestartSupervisor({ monitor: second.monitor, ownership: second.ownership, processes: Object.freeze({ signal: () => { throw new Error('no such process'); } }), checkpoint: { capture: () => ({ checkpoint_ref: 'cp:2' }) }, clock });
+  const refused = failing.restart({ decision: second.decide(), instance_ref: 'worker:1', live_processes: live });
+  assert.equal(refused.refused, true);
+  assert.equal(refused.code, 'PROCESS_SIGNAL_FAILED');
+  assert.equal(refused.process_signalled, false, 'a port that threw did not signal');
+  assert.equal(failing.stateFor('worker:1').restarts, 0, 'and no restart was counted');
+  assert.equal(failing.stateFor('worker:1').checkpoints.length, 0, 'and no checkpoint was recorded as this restart\'s');
+  assert.equal(failing.stateFor('worker:1').runtime_state, 'RUNNING');
+});
+
+test('an absent confidence is no confidence', () => {
+  const monitor = createHealthMonitor({ probe: () => ({ consecutive_failures: 9, last_liveness_at: T0 }), clock: () => T0 });
+  const reading = monitor.sense({ instance_ref: 'worker:1' });
+  assert.equal(reading.confidence, 0, 'a probe that reports no confidence is not confident');
+  assert.equal(reading.health, 'UNKNOWN');
+  assert.equal(monitor.decidePressure({ reading }).verdict, 'NONE');
+});
+
+test('a caller structure that points at itself is refused, not fatal', () => {
+  const { probe } = probeFrom({ 'worker:1': { consecutive_failures: 3, confidence: 1, last_liveness_at: T0 } });
+  const cyclic = { policy_ref: 'policy:cyclic' };
+  cyclic.self = cyclic;
+  assert.throws(() => createHealthMonitor({ probe, clock: () => T0, policy: cyclic }), error => error.code === 'INVALID_POLICY');
+  assert.throws(() => createRestartSupervisor({ monitor: createHealthMonitor({ probe, clock: () => T0 }), ownership: createOwnershipRegistry({ clock: () => T0 }), processes: processPort().port, policy: cyclic, clock: () => T0 }), error => error.code === 'INVALID_POLICY');
+
+  const clock = clockFrom();
+  const liveProbe = probeFrom({ 'worker:1': ({ at: observed_at }) => ({ consecutive_failures: 3, confidence: 1, last_liveness_at: observed_at }) }).probe;
+  const monitor = createHealthMonitor({ probe: liveProbe, clock });
+  const ownership = createOwnershipRegistry({ clock });
+  ownedInstance(ownership);
+  const supervisor = createRestartSupervisor({ monitor, ownership, processes: processPort().port, checkpoint: { capture: () => ({ checkpoint_ref: 'cp:1' }) }, clock });
+  const decision = monitor.decidePressure({ reading: monitor.sense({ instance_ref: 'worker:1' }) });
+  const looping = { ...decision };
+  looping.self = looping;
+  const outcome = supervisor.restart({ decision: looping, instance_ref: 'worker:1', live_processes: [{ pid: 4242, process_start_marker: 'start-1' }] });
+  assert.equal(typeof outcome.code, 'string', 'the restart returned a typed outcome instead of overflowing the stack');
+});
+
+test('a malformed active entry is reported rather than dropped', () => {
+  const clock = clockFrom();
+  const supervisor = createRestartSupervisor({ monitor: createHealthMonitor({ probe: () => ({ consecutive_failures: 0, confidence: 1, last_liveness_at: T0 }), clock }), ownership: createOwnershipRegistry({ clock }), processes: processPort().port, clock });
+  const reconciled = supervisor.reconcileQueue({ active: [{ job_ref: 'job:1' }, { no_ref: true }, 42], terminal: [] });
+  assert.deepEqual(reconciled.resumed_jobs, ['job:1']);
+  assert.equal(reconciled.malformed_active_entries.length, 2, 'unreadable active entries are surfaced, not forgotten');
+});
+
+test('a minted decision is authority for one instance and one restart', () => {
+  const clock = clockFrom();
+  const liveProbe = probeFrom({
+    'worker:1': ({ at: observed_at }) => ({ consecutive_failures: 3, confidence: 1, last_liveness_at: observed_at }),
+    'worker:2': ({ at: observed_at }) => ({ consecutive_failures: 3, confidence: 1, last_liveness_at: observed_at }),
+  }).probe;
+  const monitor = createHealthMonitor({ probe: liveProbe, clock });
+  const ownership = createOwnershipRegistry({ clock });
+  ownedInstance(ownership, { instance_ref: 'worker:1', pid: 111, marker: 'start-1', owner_token: 'token-1' });
+  ownedInstance(ownership, { instance_ref: 'worker:2', pid: 222, marker: 'start-2', owner_token: 'token-2' });
+  const { signals, port } = processPort();
+  const supervisor = createRestartSupervisor({ monitor, ownership, processes: port, checkpoint: { capture: () => ({ checkpoint_ref: 'cp:1' }) }, clock });
+  const live = [{ pid: 111, process_start_marker: 'start-1' }, { pid: 222, process_start_marker: 'start-2' }];
+  const forOne = monitor.decidePressure({ reading: monitor.sense({ instance_ref: 'worker:1' }) });
+  assert.equal(forOne.verdict, 'PRESSURE');
+
+  // A real decision id retargeted at another instance is not authority over that instance.
+  const retargeted = { ...forOne, instance_ref: 'worker:2' };
+  assert.equal(supervisor.restart({ decision: retargeted, instance_ref: 'worker:2', live_processes: live }).code, 'PRESSURE_REQUIRED');
+  // Rewriting the evidence of a real decision is not authority either.
+  assert.equal(supervisor.restart({ decision: { ...forOne, health: 'HEALTHY', verdict: 'NONE', action: 'OBSERVE' }, instance_ref: 'worker:1', live_processes: live }).code, 'PRESSURE_REQUIRED');
+  assert.equal(signals.length, 0, 'nothing was signalled from a rewritten decision');
+
+  const executed = supervisor.restart({ decision: forOne, instance_ref: 'worker:1', live_processes: live });
+  assert.equal(executed.restarted, true);
+  assert.equal(signals.length, 1);
+  clock.advance(DEFAULT_RESTART_POLICY.backoff_base_ms + DEFAULT_RESTART_POLICY.cooldown_ms);
+  assert.equal(supervisor.restart({ decision: forOne, instance_ref: 'worker:1', live_processes: live }).code, 'PRESSURE_REQUIRED', 'a spent decision cannot buy a second restart');
+  assert.equal(signals.length, 1, 'one decision, one restart');
+  // A fresh pressure decision for the same instance still works.
+  const fresh = monitor.decidePressure({ reading: monitor.sense({ instance_ref: 'worker:1' }) });
+  assert.equal(supervisor.restart({ decision: fresh, instance_ref: 'worker:1', live_processes: live }).restarted, true);
+});
+
+test('an unrecordable port answer is not an untyped failure after a real restart', () => {
+  const clock = clockFrom();
+  const monitor = createHealthMonitor({ probe: probeFrom({ 'worker:1': ({ at: observed_at }) => ({ consecutive_failures: 3, confidence: 1, last_liveness_at: observed_at }) }).probe, clock });
+  const ownership = createOwnershipRegistry({ clock });
+  ownedInstance(ownership);
+  const signalled = [];
+  const awkward = Object.freeze({ signal: ({ pid }) => { signalled.push(pid); return { accepted: true, pid, follow_up: () => pid }; } });
+  const supervisor = createRestartSupervisor({ monitor, ownership, processes: awkward, checkpoint: { capture: () => ({ checkpoint_ref: 'cp:1' }) }, readiness: { confirm: () => true }, clock });
+  const outcome = supervisor.restart({ decision: monitor.decidePressure({ reading: monitor.sense({ instance_ref: 'worker:1' }) }), instance_ref: 'worker:1', live_processes: [{ pid: 4242, process_start_marker: 'start-1' }] });
+  assert.equal(outcome.restarted, true, 'the restart happened');
+  assert.equal(outcome.resumed, true);
+  assert.equal(outcome.signal_result, null, 'an answer that cannot be recorded is reported as absent');
+  assert.equal(signalled.length, 1);
+  assert.equal(supervisor.journal().some(entry => entry.event === 'SIGNAL_RESULT_UNRECORDABLE'), true);
+});
+
+test('a readiness answer about another instance or checkpoint is not this resume', () => {
+  const clock = clockFrom();
+  const live = [{ pid: 4242, process_start_marker: 'start-1' }];
+  const attempt = answer => {
+    const monitor = createHealthMonitor({ probe: probeFrom({ 'worker:1': ({ at: observed_at }) => ({ consecutive_failures: 3, confidence: 1, last_liveness_at: observed_at }) }).probe, clock });
+    const ownership = createOwnershipRegistry({ clock });
+    ownedInstance(ownership);
+    const supervisor = createRestartSupervisor({ monitor, ownership, processes: processPort().port, checkpoint: { capture: () => ({ checkpoint_ref: 'cp:1' }) }, readiness: { confirm: () => answer }, clock });
+    return supervisor.restart({ decision: monitor.decidePressure({ reading: monitor.sense({ instance_ref: 'worker:1' }) }), instance_ref: 'worker:1', live_processes: live });
+  };
+  const anotherInstance = attempt({ ready: true, instance_ref: 'worker:other' });
+  assert.equal(anotherInstance.resumed, false);
+  assert.equal(anotherInstance.resume_withheld_reason, 'READINESS_CONFIRMED_FOR_ANOTHER');
+  assert.equal(anotherInstance.runtime_state, 'SUSPENDED');
+  const anotherCheckpoint = attempt({ ready: true, checkpoint_ref: 'cp:other' });
+  assert.equal(anotherCheckpoint.resumed, false, 'a confirmation for another checkpoint is not this resume');
+  const matching = attempt({ ready: true, instance_ref: 'worker:1', checkpoint_ref: 'cp:1' });
+  assert.equal(matching.resumed, true, 'a confirmation that names this instance and checkpoint still resumes');
+});
+
+test('supervise refuses a malformed set instead of failing part-way', () => {
+  const clock = clockFrom();
+  const supervisor = createRestartSupervisor({ monitor: createHealthMonitor({ probe: () => ({ consecutive_failures: 0, confidence: 1, last_liveness_at: T0 }), clock }), ownership: createOwnershipRegistry({ clock }), processes: processPort().port, clock });
+  assert.throws(() => supervisor.supervise({ instances: ['worker:1'], decisions: 'nope' }), error => error.code === 'INVALID_INSTANCE');
+  assert.throws(() => supervisor.supervise({ instances: 'worker:1' }), error => error.code === 'INVALID_INSTANCE');
+  assert.throws(() => supervisor.supervise({ instances: [], live_processes: 'live' }), error => error.code === 'INVALID_INSTANCE');
+  assert.deepEqual(supervisor.supervise({ instances: [], decisions: [] }).restarted, []);
 });

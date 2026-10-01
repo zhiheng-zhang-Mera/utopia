@@ -26,7 +26,7 @@ export const PRESSURE_VERDICTS = Object.freeze(['NONE', 'PRESSURE']);
 export const RESTART_REFUSALS = Object.freeze([
   'PRESSURE_REQUIRED', 'POLICY_IS_MONITOR_OWNED', 'STALE_OWNERSHIP', 'PID_REUSED', 'NOT_THE_OWNER',
   'CHECKPOINT_REQUIRED', 'CHECKPOINT_FAILED', 'RESTART_BUDGET_EXHAUSTED', 'SAFE_MODE_ACTIVE',
-  'COOLDOWN_ACTIVE', 'TERMINAL_JOB_RESURRECTION_BLOCKED',
+  'COOLDOWN_ACTIVE', 'TERMINAL_JOB_RESURRECTION_BLOCKED', 'PROCESS_SIGNAL_FAILED',
 ]);
 
 export const SUPERVISOR_CODES = Object.freeze([
@@ -46,15 +46,46 @@ export class RuntimeSupervisorError extends Error {
   }
 }
 
-const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+const isPlainObject = value => {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+};
 const isText = value => typeof value === 'string' && value.trim().length > 0;
 const clone = value => (value === undefined ? undefined : structuredClone(value));
+/** Cycle-safe: a caller-supplied structure must not be able to blow the stack. */
 const freeze = value => {
-  if (value === null || typeof value !== 'object') return value;
-  for (const child of Object.values(value)) freeze(child);
-  return Object.freeze(value);
+  const seen = new WeakSet();
+  const walk = node => {
+    if (node === null || typeof node !== 'object') return node;
+    if (seen.has(node)) return node;
+    seen.add(node);
+    for (const child of Object.values(node)) walk(child);
+    return Object.freeze(node);
+  };
+  return walk(value);
 };
-export const isIsoInstant = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+export const isIsoInstant = value => typeof value === 'string'
+  && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)
+  && !Number.isNaN(Date.parse(value));
+
+const INSTANT_PARTS = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?Z$/;
+/** Shape is not enough: a calendar-impossible instant parses to NaN and silently disables comparisons. */
+const isRealInstant = value => {
+  if (!isIsoInstant(value)) return false;
+  const parts = INSTANT_PARTS.exec(value);
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return false;
+  return date.getUTCFullYear() === Number(parts[1])
+    && date.getUTCMonth() + 1 === Number(parts[2])
+    && date.getUTCDate() === Number(parts[3])
+    && date.getUTCHours() === Number(parts[4])
+    && date.getUTCMinutes() === Number(parts[5])
+    && date.getUTCSeconds() === Number(parts[6]);
+};
+
+/** `null` for an uninterpretable instant, so a caller cannot make a comparison vanish. */
+const instantMs = value => (isRealInstant(value) ? Date.parse(value) : null);
 
 /**
  * Unforgeable pressure: a decision is authority only if the exact monitor that produced it says so. The
@@ -63,7 +94,57 @@ export const isIsoInstant = value => typeof value === 'string' && /^\d{4}-\d{2}-
  */
 export const PRESSURE_ISSUER = Symbol('em009.pressureIssuer');
 
-/** Defaults are policy the MONITOR owns. The supervisor only enforces what it is handed. */export const DEFAULT_PRESSURE_POLICY = Object.freeze({
+/**
+ * A bound that can be switched off is not a bound: a NaN/Infinity/negative policy value would disable the
+ * comparison it feeds (a never-stale monitor, a restart budget that never ends, a cooldown that never holds).
+ */
+const POLICY_KEYS = Object.freeze({
+  pressure: ['policy_ref', 'elevated_at', 'degraded_at', 'critical_at', 'stale_after_ms', 'min_confidence'],
+  restart: ['max_restarts', 'cooldown_ms', 'backoff_base_ms', 'backoff_factor', 'backoff_cap_ms'],
+});
+const nonNegativeInt = value => Number.isSafeInteger(value) && value >= 0;
+const finiteNumber = value => typeof value === 'number' && Number.isFinite(value);
+
+function checkPolicyKeys(policy, kind, path, errors) {
+  const allowed = POLICY_KEYS[kind];
+  for (const key of Reflect.ownKeys(policy)) {
+    if (typeof key !== 'string' || !allowed.includes(key)) errors.push(`${path}.${String(key)} is not part of the ${kind} policy`);
+  }
+}
+
+function validatePressurePolicy(policy) {
+  const errors = [];
+  if (!isPlainObject(policy)) throw new RuntimeSupervisorError('INVALID_POLICY', 'policy must be a plain object');
+  checkPolicyKeys(policy, 'pressure', 'policy', errors);
+  const thresholds = ['elevated_at', 'degraded_at', 'critical_at'];
+  for (const key of thresholds) {
+    if (!nonNegativeInt(policy[key])) errors.push(`policy.${key} must be a non-negative integer, got ${String(policy[key])}`);
+  }
+  if (nonNegativeInt(policy.elevated_at) && nonNegativeInt(policy.degraded_at) && policy.elevated_at > policy.degraded_at) errors.push('policy.elevated_at may not exceed policy.degraded_at');
+  if (nonNegativeInt(policy.degraded_at) && nonNegativeInt(policy.critical_at) && policy.degraded_at > policy.critical_at) errors.push('policy.degraded_at may not exceed policy.critical_at');
+  if (!Number.isSafeInteger(policy.stale_after_ms) || policy.stale_after_ms <= 0) errors.push(`policy.stale_after_ms must be a positive integer, got ${String(policy.stale_after_ms)}`);
+  if (!finiteNumber(policy.min_confidence) || policy.min_confidence < 0 || policy.min_confidence > 1) errors.push(`policy.min_confidence must be a number between 0 and 1, got ${String(policy.min_confidence)}`);
+  if (!isText(policy.policy_ref)) errors.push('policy.policy_ref must be nonempty text');
+  if (errors.length) throw new RuntimeSupervisorError('INVALID_POLICY', errors.join('; '));
+  return policy;
+}
+
+function validateRestartPolicy(policy) {
+  const errors = [];
+  if (!isPlainObject(policy)) throw new RuntimeSupervisorError('INVALID_POLICY', 'policy must be a plain object');
+  checkPolicyKeys(policy, 'restart', 'policy', errors);
+  if (!nonNegativeInt(policy.max_restarts)) errors.push(`policy.max_restarts must be a non-negative integer, got ${String(policy.max_restarts)}`);
+  if (!nonNegativeInt(policy.cooldown_ms)) errors.push(`policy.cooldown_ms must be a non-negative integer, got ${String(policy.cooldown_ms)}`);
+  if (!nonNegativeInt(policy.backoff_base_ms)) errors.push(`policy.backoff_base_ms must be a non-negative integer, got ${String(policy.backoff_base_ms)}`);
+  if (!finiteNumber(policy.backoff_factor) || policy.backoff_factor < 1) errors.push(`policy.backoff_factor must be a number of at least 1, got ${String(policy.backoff_factor)}`);
+  if (!nonNegativeInt(policy.backoff_cap_ms)) errors.push(`policy.backoff_cap_ms must be a non-negative integer, got ${String(policy.backoff_cap_ms)}`);
+  if (nonNegativeInt(policy.backoff_base_ms) && nonNegativeInt(policy.backoff_cap_ms) && policy.backoff_base_ms > policy.backoff_cap_ms) errors.push('policy.backoff_base_ms may not exceed policy.backoff_cap_ms');
+  if (errors.length) throw new RuntimeSupervisorError('INVALID_POLICY', errors.join('; '));
+  return policy;
+}
+
+/** Defaults are policy the MONITOR owns. The supervisor only enforces what it is handed. */
+export const DEFAULT_PRESSURE_POLICY = Object.freeze({
   policy_ref: 'policy:default',
   elevated_at: 1,
   degraded_at: 2,
@@ -95,14 +176,16 @@ export function mapToRegistryHealth(health) {
 export function createHealthMonitor({ probe, policy = {}, clock = () => new Date().toISOString() } = {}) {
   if (typeof probe !== 'function') throw new RuntimeSupervisorError('INVALID_PRESSURE', 'a probe function is required to sense runtime health');
   if (typeof clock !== 'function') throw new RuntimeSupervisorError('INVALID_PRESSURE', 'clock must be a function returning an ISO-8601 UTC instant');
-  const pressurePolicy = { ...DEFAULT_PRESSURE_POLICY, ...(isPlainObject(policy) ? policy : {}) };
+  if (policy !== undefined && policy !== null && !isPlainObject(policy)) throw new RuntimeSupervisorError('INVALID_POLICY', 'policy must be a plain object');
+  const pressurePolicy = validatePressurePolicy({ ...DEFAULT_PRESSURE_POLICY, ...(isPlainObject(policy) ? policy : {}) });
   const readings = [];
-  const issued = new Set();
+  /** decision_id -> the decision this monitor minted. The issuer vouches for the content, not the id. */
+  const issued = new Map();
   let counter = 0;
 
   const now = () => {
     const produced = clock();
-    if (!isIsoInstant(produced)) throw new RuntimeSupervisorError('INVALID_PRESSURE', 'clock() must return an ISO-8601 UTC instant');
+    if (!isRealInstant(produced)) throw new RuntimeSupervisorError('INVALID_PRESSURE', 'clock() must return a real ISO-8601 UTC instant');
     return produced;
   };
 
@@ -113,7 +196,7 @@ export function createHealthMonitor({ probe, policy = {}, clock = () => new Date
     sense({ instance_ref, instance, at: when } = {}) {
       if (!isText(instance_ref)) throw new RuntimeSupervisorError('INVALID_INSTANCE', 'instance_ref is required');
       const observed_at = when === undefined || when === null ? now() : when;
-      if (!isIsoInstant(observed_at)) throw new RuntimeSupervisorError('INVALID_PRESSURE', 'at must be an ISO-8601 UTC instant');
+      if (!isRealInstant(observed_at)) throw new RuntimeSupervisorError('INVALID_PRESSURE', 'at must be a real ISO-8601 UTC instant');
       let sample;
       let probe_error = null;
       try {
@@ -123,9 +206,14 @@ export function createHealthMonitor({ probe, policy = {}, clock = () => new Date
         sample = null;
       }
       const consecutive_failures = probe_error === null && Number.isFinite(sample?.consecutive_failures) ? sample.consecutive_failures : null;
-      const last_liveness_at = isIsoInstant(sample?.last_liveness_at) ? sample.last_liveness_at : null;
-      const stale = last_liveness_at === null || Date.parse(observed_at) - Date.parse(last_liveness_at) > pressurePolicy.stale_after_ms;
-      const confidence = probe_error !== null ? 0 : Number.isFinite(sample?.confidence) ? sample.confidence : 0.5;
+      const last_liveness_at = isRealInstant(sample?.last_liveness_at) ? sample.last_liveness_at : null;
+      // An instant that cannot be interpreted is stale evidence, not fresh evidence: the comparison must
+      // never silently vanish into NaN and let old evidence read as current pressure.
+      const observed_ms = instantMs(observed_at);
+      const liveness_ms = instantMs(last_liveness_at);
+      const stale = observed_ms === null || liveness_ms === null || observed_ms - liveness_ms > pressurePolicy.stale_after_ms;
+      // An absent confidence is no confidence; a default that equals the threshold would pass the gate.
+      const confidence = probe_error !== null ? 0 : Number.isFinite(sample?.confidence) ? sample.confidence : 0;
       let health = 'UNKNOWN';
       if (probe_error === null && !stale) {
         if (consecutive_failures === null) health = 'UNKNOWN';
@@ -158,45 +246,85 @@ export function createHealthMonitor({ probe, policy = {}, clock = () => new Date
      * minted here, so the supervisor cannot invent pressure and the monitor never restarts anything.
      */
     decidePressure({ reading, at: when } = {}) {
-      if (!isPlainObject(reading) || !isText(reading.instance_ref) || !HEALTH_STATES.includes(reading.health)) {
+      if (!isPlainObject(reading) || !isText(reading.reading_id) || !isText(reading.instance_ref)) {
         throw new RuntimeSupervisorError('INVALID_PRESSURE', 'decidePressure needs a reading produced by this monitor');
       }
-      if (!readings.some(entry => entry.reading_id === reading.reading_id && entry.instance_ref === reading.instance_ref)) {
-        throw new RuntimeSupervisorError('INVALID_PRESSURE', 'the reading was not produced by this monitor');
-      }
+      // The reading this monitor RECORDED is the evidence. A caller's copy only names it, so forging the
+      // health, confidence or freshness of a real reading id cannot mint pressure.
+      const reading_id = reading.reading_id;
+      const instance_ref = reading.instance_ref;
+      const recorded = readings.find(entry => entry.reading_id === reading_id && entry.instance_ref === instance_ref) ?? null;
+      if (recorded === null) throw new RuntimeSupervisorError('INVALID_PRESSURE', 'the reading was not produced by this monitor');
       const timestamp = when === undefined || when === null ? now() : when;
-      const actionable = reading.health === 'CRITICAL' && reading.confidence >= pressurePolicy.min_confidence && reading.freshness.stale === false;
-      const decision_id = `pressure:${reading.reading_id}`;
-      if (actionable) issued.add(decision_id);
+      if (!isRealInstant(timestamp)) throw new RuntimeSupervisorError('INVALID_PRESSURE', 'at must be a real ISO-8601 UTC instant');
+      const actionable = recorded.health === 'CRITICAL' && recorded.confidence >= pressurePolicy.min_confidence && recorded.freshness.stale === false;
+      const decision_id = `pressure:${recorded.reading_id}`;
+      if (actionable) {
+        // The minted summary is what the issuer will compare against, so a copy that retargets the
+        // decision at another instance (or edits its verdict) is not authority.
+        issued.set(decision_id, freeze({
+          kind: 'PRESSURE',
+          instance_ref: recorded.instance_ref,
+          verdict: 'PRESSURE',
+          action: 'RESTART',
+          health: recorded.health,
+          confidence: recorded.confidence,
+          policy_ref: pressurePolicy.policy_ref,
+          decided_at: timestamp,
+        }));
+      }
       return freeze({
         contract_version: RUNTIME_SUPERVISOR_CONTRACT_VERSION,
         decision_id,
         kind: 'PRESSURE',
-        instance_ref: reading.instance_ref,
+        instance_ref: recorded.instance_ref,
         verdict: actionable ? 'PRESSURE' : 'NONE',
-        health: reading.health,
-        confidence: reading.confidence,
+        health: recorded.health,
+        confidence: recorded.confidence,
         action: actionable ? 'RESTART' : 'OBSERVE',
         policy_ref: pressurePolicy.policy_ref,
         thresholds: freeze(clone(pressurePolicy)),
         decided_at: timestamp,
         destructive_authority: false,
         restart_executed: false,
-        reason: actionable ? 'CRITICAL_HEALTH_CONFIRMED' : `NO_PRESSURE_${reading.health}`,
+        reason: actionable ? 'CRITICAL_HEALTH_CONFIRMED' : `NO_PRESSURE_${recorded.health}`,
       });
     },
 
     readings: () => clone(readings),
 
-    /** Proof of provenance for the supervisor. Not enumerable, so it is not part of the sensing surface. */
-    [PRESSURE_ISSUER]: decision => isPlainObject(decision) && issued.has(decision.decision_id) === true,
+    /**
+     * Proof of provenance for the supervisor. Not enumerable, so it is not part of the sensing surface.
+     * It vouches for the decision's own content — instance, verdict, action, evidence and instant — so a
+     * copy that retargets or rewrites a minted decision is not authority. `consume` retires the decision
+     * once the restart it authorized has actually been signalled: one decision, one restart.
+     */
+    [PRESSURE_ISSUER]: (decision, consume = false) => {
+      if (!isPlainObject(decision) || !isText(decision.decision_id)) return false;
+      const minted = issued.get(decision.decision_id) ?? null;
+      if (minted === null) return false;
+      const matches = decision.kind === minted.kind
+        && decision.instance_ref === minted.instance_ref
+        && decision.verdict === minted.verdict
+        && decision.action === minted.action
+        && decision.health === minted.health
+        && decision.confidence === minted.confidence
+        && decision.policy_ref === minted.policy_ref
+        && decision.decided_at === minted.decided_at;
+      if (matches && consume === true) issued.delete(decision.decision_id);
+      return matches;
+    },
   });
 }
 
 /** Ownership records: which live process is really this instance. */
 export function createOwnershipRegistry({ clock = () => new Date().toISOString() } = {}) {
   const records = new Map();
-  const now = () => clock();
+  const now = () => {
+    const produced = clock();
+    if (!isRealInstant(produced)) throw new RuntimeSupervisorError('INVALID_OWNERSHIP', 'clock() must return a real ISO-8601 UTC instant');
+    return produced;
+  };
 
   return Object.freeze({
     claim({ instance_ref, owner_token, pid, process_start_marker, at: when } = {}) {
@@ -204,6 +332,7 @@ export function createOwnershipRegistry({ clock = () => new Date().toISOString()
         throw new RuntimeSupervisorError('INVALID_OWNERSHIP', 'instance_ref, owner_token, a positive integer pid and a process_start_marker are required');
       }
       const timestamp = when ?? now();
+      if (!isRealInstant(timestamp)) throw new RuntimeSupervisorError('INVALID_OWNERSHIP', 'at must be a real ISO-8601 UTC instant');
       const record = freeze({
         contract_version: RUNTIME_SUPERVISOR_CONTRACT_VERSION,
         instance_ref,
@@ -261,14 +390,14 @@ export function createRestartSupervisor({
   if (!isPlainObject(processes) || typeof processes.signal !== 'function') {
     throw new RuntimeSupervisorError('INVALID_INSTANCE', 'a process port with signal() is required');
   }
-  const restartPolicy = { ...DEFAULT_RESTART_POLICY, ...(isPlainObject(policy) ? policy : {}) };
+  const restartPolicy = validateRestartPolicy({ ...DEFAULT_RESTART_POLICY, ...(isPlainObject(policy) ? policy : {}) });
   const state = new Map();
   const decisions = [];
   const journal = [];
 
   const now = () => {
     const produced = clock();
-    if (!isIsoInstant(produced)) throw new RuntimeSupervisorError('INVALID_INSTANCE', 'clock() must return an ISO-8601 UTC instant');
+    if (!isRealInstant(produced)) throw new RuntimeSupervisorError('INVALID_INSTANCE', 'clock() must return a real ISO-8601 UTC instant');
     return produced;
   };
 
@@ -302,16 +431,17 @@ export function createRestartSupervisor({
      * refused restart has no side effect at all.
      */
     restart({ decision, instance_ref, owner_token = null, live_processes = [], at: when } = {}) {
-      const target = instance_ref ?? decision?.instance_ref;
+      const decisionRef = isPlainObject(decision) && isText(decision.instance_ref) ? decision.instance_ref : null;
+      const target = isText(instance_ref) ? instance_ref : decisionRef;
       if (!isText(target)) throw new RuntimeSupervisorError('INVALID_INSTANCE', 'instance_ref is required');
       const instance = ensure(target);
 
-      if (!isPlainObject(decision) || decision.kind !== 'PRESSURE' || !isText(decision.policy_ref) || !isIsoInstant(decision.decided_at) || monitor[PRESSURE_ISSUER](decision) !== true) {
+      if (!isPlainObject(decision) || decision.kind !== 'PRESSURE' || !isText(decision.policy_ref) || !isRealInstant(decision.decided_at) || monitor[PRESSURE_ISSUER](decision) !== true) {
         return refuse(instance, 'PRESSURE_REQUIRED', 'a restart may only be executed from a pressure decision minted by this health monitor');
       }
       decisions.push(freeze(clone(decision)));
-      if (decision.instance_ref !== target) {
-        return refuse(instance, 'PRESSURE_REQUIRED', `the decision is for ${decision.instance_ref}, not ${target}`);
+      if (decisionRef !== target) {
+        return refuse(instance, 'PRESSURE_REQUIRED', `the decision is for ${String(decisionRef)}, not ${target}`);
       }
       if (decision.verdict !== 'PRESSURE' || decision.action !== 'RESTART') {
         return refuse(instance, 'PRESSURE_REQUIRED', `the monitor decided ${decision.verdict}/${decision.action}, not PRESSURE/RESTART`, { health: decision.health });
@@ -329,8 +459,13 @@ export function createRestartSupervisor({
         return refuse(instance, 'RESTART_BUDGET_EXHAUSTED', instance.safe_mode_reason, { safe_mode: true, restarts: instance.restarts });
       }
       const timestamp = when ?? now();
+      if (!isRealInstant(timestamp)) throw new RuntimeSupervisorError('INVALID_INSTANCE', 'at must be a real ISO-8601 UTC instant');
       if (instance.last_restart_at !== null) {
-        const elapsed = Date.parse(timestamp) - Date.parse(instance.last_restart_at);
+        const last_ms = instantMs(instance.last_restart_at);
+        const now_ms = instantMs(timestamp);
+        // A cooldown whose arithmetic is NaN is no cooldown at all: an uninterpretable instant holds the
+        // brake rather than releasing it.
+        const elapsed = last_ms === null || now_ms === null ? 0 : now_ms - last_ms;
         const required = backoffFor(instance.restarts);
         if (elapsed < required) {
           return refuse(instance, 'COOLDOWN_ACTIVE', `only ${elapsed}ms since the last restart; ${required}ms required`, { retry_after_ms: required - elapsed, backoff_ms: required });
@@ -356,16 +491,26 @@ export function createRestartSupervisor({
       if (!isPlainObject(checkpoint_result) || !isText(checkpoint_result.checkpoint_ref)) {
         return refuse(instance, 'CHECKPOINT_FAILED', 'the checkpoint hook returned no checkpoint reference');
       }
-      instance.checkpoints.push(freeze({ at: timestamp, checkpoint_ref: checkpoint_result.checkpoint_ref, decision_id: decision.decision_id }));
 
-      const signal_result = processes.signal({ instance_ref: target, pid: validation.pid, signal: 'RESTART', owner_token: validation.owner_token });
+      // The port is signalled inside a guard: a throwing port must leave a typed refusal and a consistent
+      // state, not an untyped error after work was already recorded as done.
+      let signal_result = null;
+      try {
+        signal_result = processes.signal({ instance_ref: target, pid: validation.pid, signal: 'RESTART', owner_token: validation.owner_token });
+      } catch (error) {
+        return refuse(instance, 'PROCESS_SIGNAL_FAILED', `the process port failed to signal pid ${validation.pid}: ${String(error?.message ?? error)}`, { pid: validation.pid, checkpoint_ref: checkpoint_result.checkpoint_ref, signal_error: true });
+      }
+      instance.checkpoints.push(freeze({ at: timestamp, checkpoint_ref: checkpoint_result.checkpoint_ref, decision_id: decision.decision_id }));
       instance.restarts += 1;
       instance.last_restart_at = timestamp;
       instance.runtime_state = 'RESTARTING';
       instance.terminations.push(freeze({ at: timestamp, kind: 'RESTART_SIGNALLED', pid: validation.pid, restarts: instance.restarts }));
       journal.push(freeze({ event: 'RESTART_EXECUTED', instance_ref: target, at: timestamp, restarts: instance.restarts, checkpoint_ref: checkpoint_result.checkpoint_ref }));
+      // The decision has now been spent: replaying it cannot buy a second restart.
+      monitor[PRESSURE_ISSUER](decision, true);
 
-      // A resume requires the readiness hook to confirm the instance is actually back.
+      // A resume requires the readiness hook to confirm the instance is actually back. A hook that throws is
+      // an unconfirmed resume, never a half-applied one.
       let resumed = false;
       let resume_withheld_reason = null;
       if (readiness === null) {
@@ -373,16 +518,40 @@ export function createRestartSupervisor({
         instance.suspended_reason = 'NO_READINESS_HOOK';
         resume_withheld_reason = 'NO_READINESS_HOOK';
       } else {
-        const verdict = readiness.confirm({ instance_ref: target, checkpoint_ref: checkpoint_result.checkpoint_ref });
-        if (verdict === true || verdict?.ready === true) {
-          instance.runtime_state = 'RUNNING';
-          instance.suspended_reason = null;
-          resumed = true;
+        let verdict = null;
+        let readiness_error = null;
+        try {
+          verdict = readiness.confirm({ instance_ref: target, checkpoint_ref: checkpoint_result.checkpoint_ref });
+        } catch (error) {
+          readiness_error = String(error?.message ?? error);
+        }
+        // An answer that names an instance or checkpoint must name this one: a confirmation for somebody
+        // else is not this instance's resume.
+        const confirmed_for_other = isPlainObject(verdict)
+          && ((isText(verdict.instance_ref) && verdict.instance_ref !== target)
+            || (isText(verdict.checkpoint_ref) && verdict.checkpoint_ref !== checkpoint_result.checkpoint_ref));
+        if (verdict === true || (isPlainObject(verdict) && verdict.ready === true)) {
+          if (confirmed_for_other) {
+            instance.runtime_state = 'SUSPENDED';
+            instance.suspended_reason = 'READINESS_CONFIRMED_FOR_ANOTHER';
+            resume_withheld_reason = 'READINESS_CONFIRMED_FOR_ANOTHER';
+          } else {
+            instance.runtime_state = 'RUNNING';
+            instance.suspended_reason = null;
+            resumed = true;
+          }
         } else {
           instance.runtime_state = 'SUSPENDED';
-          instance.suspended_reason = 'READINESS_NOT_CONFIRMED';
-          resume_withheld_reason = 'READINESS_NOT_CONFIRMED';
+          instance.suspended_reason = readiness_error === null ? 'READINESS_NOT_CONFIRMED' : 'READINESS_CHECK_FAILED';
+          resume_withheld_reason = instance.suspended_reason;
         }
+      }
+      // An unrecordable port answer must not escape as an untyped error after a real restart happened.
+      let signal_snapshot = null;
+      try {
+        signal_snapshot = freeze(clone(signal_result ?? null));
+      } catch (error) {
+        journal.push(freeze({ event: 'SIGNAL_RESULT_UNRECORDABLE', instance_ref: target, at: timestamp, detail: String(error?.message ?? error) }));
       }
       return freeze({
         restarted: true,
@@ -397,7 +566,7 @@ export function createRestartSupervisor({
         resumed,
         resume_withheld_reason,
         readiness_confirmed: resumed,
-        signal_result: freeze(clone(signal_result ?? null)),
+        signal_result: signal_snapshot,
         other_instances_touched: [],
         safe_mode: instance.runtime_state === 'SAFE_MODE',
       });
@@ -415,17 +584,22 @@ export function createRestartSupervisor({
       const terminalIds = new Set(terminal.map(entry => (isText(entry) ? entry : entry?.job_ref)).filter(isText));
       const resumed = [];
       const dropped = [];
+      const malformed = [];
       for (const entry of active) {
         const job_ref = isText(entry) ? entry : entry?.job_ref;
-        if (!isText(job_ref)) continue;
+        // An entry this layer cannot read is reported, not quietly forgotten: a lost active job looks
+        // exactly like a job that never existed.
+        if (!isText(job_ref)) { malformed.push({ entry: isPlainObject(entry) ? 'OBJECT_WITHOUT_JOB_REF' : typeof entry }); continue; }
         if (terminalIds.has(job_ref)) dropped.push(job_ref);
         else resumed.push(job_ref);
       }
       const timestamp = when ?? now();
-      journal.push(freeze({ event: 'QUEUE_RECONCILED', at: timestamp, resumed: resumed.length, dropped: dropped.length }));
+      if (!isRealInstant(timestamp)) throw new RuntimeSupervisorError('INVALID_INSTANCE', 'at must be a real ISO-8601 UTC instant');
+      journal.push(freeze({ event: 'QUEUE_RECONCILED', at: timestamp, resumed: resumed.length, dropped: dropped.length, malformed: malformed.length }));
       return freeze({
         resumed_jobs: resumed,
         dropped_terminal_jobs: dropped,
+        malformed_active_entries: freeze(malformed),
         terminal_did_not_resurrect: dropped.length === 0 || resumed.every(job => !terminalIds.has(job)),
         authoritative_state_wins: true,
         reconciled_at: timestamp,
@@ -434,6 +608,10 @@ export function createRestartSupervisor({
 
     /** Supervise several instances: one crash never touches an unrelated instance. */
     supervise({ instances = [], decisions: supplied = [], live_processes = [], at: when } = {}) {
+      if (!Array.isArray(instances) || !Array.isArray(supplied) || !Array.isArray(live_processes)) {
+        // A malformed input must be a typed refusal, never an untyped TypeError part-way through the set.
+        throw new RuntimeSupervisorError('INVALID_INSTANCE', 'instances, decisions and live_processes must be arrays');
+      }
       const outcomes = [];
       for (const instance of instances) {
         const instance_ref = isText(instance) ? instance : instance?.instance_ref;

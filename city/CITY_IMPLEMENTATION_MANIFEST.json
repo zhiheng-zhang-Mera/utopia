@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "name": "Utopia City Implementation",
-  "description": "Actual implementation layer of the Utopia Digital City. The Digital-City repository stays the map/planning reference; this tree owns the running modules. Only districts that really exist are listed. A module may be strengthened by several incubation rooms over time, so it records incubationRooms[] rather than a single roomId. Two incubation identities are recognised: a Room Pack incubator room (apps/rooms/rooms/<id>, recorded in apps/rooms/promotions/<id>.json) and a mission-book migration incubator, whose id has the form mb-<MISSION_ID>-<module>-lab and which MUST be accompanied by a module.mission block naming the mission and the cluster it migrated. The second form exists because Digital-City/mission-book is a separate, Owner-defined control plane: it lands code directly under city/ on a mission/<MISSION_ID>-<slug> branch, accepted by a second host, instead of incubating a live Room first.",
+  "description": "Actual implementation layer of the Utopia Digital City. The Digital-City repository stays the map/planning reference; this tree owns the running modules. Only districts that really exist are listed. A module may be strengthened by several incubation rooms over time, so it records incubationRooms[] rather than a single roomId. Three incubation identities are recognised. (1) A Room Pack incubator room (apps/rooms/rooms/<id>, recorded in apps/rooms/promotions/<id>.json). (2) A mission-book migration incubator, whose id has the form mb-<MISSION_ID>-<module>-lab and which MUST be accompanied by a module.mission block naming the mission and the cluster it migrated, plus a DONOR.json. (3) A mission-book programme-task incubator, for the BA/RF/GAI/EM task pool, whose id has the form mb-<TASK_ID>-<module>-lab and which MUST carry a module.mission block naming the task and a PROVENANCE.json — because it is new Owner-defined construction with no donor, and inventing one would be false provenance. All three forms exist because Digital-City/mission-book is a separate, Owner-defined control plane: it lands code directly under city/ on its own task branch, accepted by a second host, instead of incubating a live Room first.",
   "lifecycles": [
     "PLANNED",
     "INCUBATING",
@@ -109,6 +109,30 @@
               "mission": {
                 "missionId": "MB-001",
                 "cluster": "D — continuation/recovery and durable audit primitives"
+              }
+            }
+          ]
+        },
+        {
+          "id": "02-city-node-network",
+          "zh": "城市节点网",
+          "en": "City Node Network — Device Node Fabric",
+          "modules": [
+            {
+              "id": "device-identity",
+              "zh": "设备身份与安装生命周期",
+              "en": "Device Identity & Installation Lifecycle",
+              "path": "city/00-foundation/02-city-node-network/device-identity",
+              "lifecycle": "PROMOTED",
+              "donor": null,
+              "incubationRooms": [
+                "mb-rf-001-device-identity-lab"
+              ],
+              "mission": {
+                "missionId": "RF-001",
+                "programme": "REMOTE_FABRIC_ENGINEERING",
+                "architectureContract": "REMOTE_FABRIC_V1",
+                "cluster": "logical device identity and installation lifecycle: versioned DeviceIdentity/device_id and installation_id records, first-install enrollment, reinstall/rebind, key rotation, rename, retirement, cloned-credential detection/quarantine, and the non-authoritative MAC/metadata rule"
               }
             }
           ]

@@ -60,7 +60,15 @@ test('infrastructure modules are never advertised as capabilities',()=>{
    assert.equal(catalog.some(c=>(c.moduleRefs??[]).some(r=>r.moduleId===mod.id)),false,`${mod.id} must not back a capability`);
   }
  }
- assert.equal(kernelBuildings,2,'00-foundation declares two kernel buildings: 01-city-core and 03-capability-fabric');
+ assert.ok(kernelBuildings>0,'the rule above actually walked at least one infrastructure building');
+ // The census is pinned as an explicit list rather than an absolute count. A count of 2
+ // was not detecting anything the loop above does not already detect: it only meant that
+ // any new infrastructure building failed the suite for the wrong reason, which is how
+ // RF-001's 00-foundation/02-city-node-network surfaced. Naming the buildings keeps the
+ // deliberate-update property (a new kernel building must be added here on purpose) while
+ // stating which building is which.
+ const kernelIds=m.districts.flatMap(d=>d.buildings.filter(b=>(b.kind??d.kind??'domain')==='infrastructure').map(b=>`${d.id}/${b.id}`));
+ assert.deepEqual(kernelIds,['00-foundation/01-city-core','00-foundation/02-city-node-network','00-foundation/03-capability-fabric'],'the infrastructure buildings are exactly these');
  // 05-control-centre sits in the same infrastructure district but is the City map's
  // presentation/theming owner, so it declares kind domain and carries a real,
  // adapter-bridged capability. Without the building-level kind the bridge resolved it

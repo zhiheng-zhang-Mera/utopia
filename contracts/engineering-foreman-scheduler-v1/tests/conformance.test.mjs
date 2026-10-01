@@ -488,3 +488,71 @@ test('an uninterpretable instant is refused rather than recorded', () => {
   assert.equal(scheduler.metrics().node_count, 0);
   assert.equal(scheduler.submitGraph(graph([node({ node_id: 'a' })])).node_count, 1);
 });
+
+test('a handover or a cancel releases the worker slot it abandons', () => {
+  const { scheduler } = schedulerAt({ max_workers: 1, min_workers: 1 });
+  scheduler.submitGraph(graph([node({ node_id: 'a' }), node({ node_id: 'b' })]));
+  scheduler.dispatch({ node_id: 'a' });
+  const running = () => scheduler.metrics().workers.find(worker => worker.worker_ref === 'worker:local').running;
+  assert.equal(running(), 1);
+  // Reassigning a live run hands the slot over instead of leaking it.
+  const reassigned = scheduler.reassign({ node_id: 'a', reason: 'WORKER_LOST' });
+  assert.equal(reassigned.reassigned, true);
+  assert.equal(reassigned.attempt_number, 2);
+  assert.equal(running(), 1, 'one run, one slot');
+  assert.equal(scheduler.metrics().by_state.RUNNING, 1);
+  // Cancelling a live run stops it and releases the slot.
+  const cancelled = scheduler.cancelNode({ node_id: 'a', reason: 'NO_LONGER_NEEDED' });
+  assert.equal(cancelled.state, 'CANCELLED');
+  assert.equal(running(), 0, 'a cancelled run does not keep a worker');
+  assert.equal(scheduler.metrics().by_state.RUNNING, 0);
+  assert.equal(scheduler.dispatch({ node_id: 'b' }).state, 'RUNNING', 'the freed worker is usable again');
+  // A handover that cannot find a successor changes nothing at all.
+  const { scheduler: solo } = schedulerAt();
+  solo.submitGraph(graph([node({ node_id: 'a', capability_required: 'TELEPATHY' })]));
+  assert.equal(failure(() => solo.reassign({ node_id: 'a' })).code, 'NO_CAPABLE_WORKER');
+});
+
+test('a restart keeps the completed-effect memory and a dependency list must be readable', () => {
+  const { scheduler } = schedulerAt();
+  scheduler.submitGraph(graph([node({ node_id: 'a', action_key: 'effect:restart' })]));
+  const attempt = scheduler.dispatch({ node_id: 'a' });
+  scheduler.completeAttempt({ attempt_ref: attempt.attempt_ref, outcome: 'SUCCEEDED', result_ref: 'result:a' });
+  const snapshot = scheduler.snapshot();
+  assert.equal(snapshot.completed_effects.length, 1, 'the snapshot carries the effect memory');
+
+  // A controlled restart on a fresh scheduler must still refuse to repeat the applied effect.
+  const restarted = schedulerAt().scheduler;
+  restarted.resumeFrom({ snapshot });
+  restarted.submitGraph({ ...graph([node({ node_id: 'again', action_key: 'effect:restart' })]), replace: true });
+  assert.equal(failure(() => restarted.dispatch({ node_id: 'again' })).code, 'DUPLICATE_SIDE_EFFECT', 'an applied external effect is not repeated after a restart');
+  assert.equal(restarted.evidence().completed_effects.length, 1);
+
+  // A dependency list that cannot be read is refused rather than read as "no dependencies".
+  assert.equal(failure(() => scheduler.submitGraph(graph([node({ node_id: 'd1', depends_on: 'upstream' })]))).code, 'INVALID_GRAPH');
+  assert.equal(failure(() => scheduler.submitGraph(graph([node({ node_id: 'd2', depends_on: new Set(['x']), })]))).code, 'INVALID_GRAPH');
+  assert.equal(failure(() => scheduler.submitGraph(graph([node({ node_id: 'd3' }), node({ node_id: 'd4', depends_on: ['nope'] })]))).code, 'UNKNOWN_DEPENDENCY');
+});
+
+test('a node no worker can staff is reported instead of vanishing', () => {
+  const { scheduler } = schedulerAt();
+  scheduler.submitGraph(graph([
+    node({ node_id: 'ok' }),
+    node({ node_id: 'impossible', capability_required: 'TELEPATHY' }),
+  ]));
+  const scheduled = scheduler.schedule();
+  assert.deepEqual([...scheduled.runnable], ['ok']);
+  assert.deepEqual(scheduled.unstaffable.map(entry => [entry.node_id, entry.reason]), [['impossible', 'NO_CAPABLE_WORKER']], 'starvation is visible, not silent');
+  assert.equal(scheduler.node('impossible').state, 'READY');
+  assert.equal(scheduled.unstaffable[0].capability_required, 'TELEPATHY');
+});
+
+test('a declaration the module cannot clone is a typed refusal, not a crash', () => {
+  const { scheduler } = schedulerAt();
+  assert.equal(failure(() => scheduler.submitGraph(graph([node({ node_id: 'f1', acceptance: [() => true] })]))).code, 'INVALID_GRAPH');
+  assert.equal(failure(() => scheduler.submitGraph(graph([node({ node_id: 'f2', acceptance: [{ ref: 'x' }] })]))).code, 'INVALID_GRAPH');
+  assert.equal(failure(() => scheduler.submitGraph(graph([node({ node_id: 'f3', job_ref: Symbol('j') })]))).code, 'INVALID_GRAPH');
+  assert.equal(failure(() => scheduler.submitGraph(graph([node({ node_id: 'f4' })], { nodes: null }))).code, 'INVALID_GRAPH');
+  assert.equal(scheduler.metrics().node_count, 0, 'nothing was admitted');
+  assert.equal(scheduler.submitGraph(graph([node({ node_id: 'ok', acceptance: ['tests/unit.test.mjs'] })])).node_count, 1);
+});

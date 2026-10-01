@@ -228,7 +228,12 @@ export function createForemanScheduler({ connectorPort = null, localDeviceRef = 
             throw new ForemanError('INVALID_GRAPH', `node field ${String(key)} is not part of the canonical node`);
           }
         }
-        const depends_on = Array.isArray(definition.depends_on) ? definition.depends_on : [];
+        // A dependency list that cannot be read is not an absent dependency: silently treating a string or
+        // a Set as "no dependencies" would run a dependent before its upstream.
+        if (definition.depends_on !== undefined && !Array.isArray(definition.depends_on)) {
+          throw new ForemanError('INVALID_GRAPH', `node ${definition.node_id} has a depends_on that is not a list`);
+        }
+        const depends_on = definition.depends_on ?? [];
         if (depends_on.some(entry => !isText(entry))) throw new ForemanError('INVALID_GRAPH', `node ${definition.node_id} has a malformed dependency`);
         // An exclusive writer with a truthy-but-not-true flag would silently stop being exclusive, and a
         // non-text action key would silently drop the duplicate-effect guard.
@@ -457,9 +462,16 @@ export function createForemanScheduler({ connectorPort = null, localDeviceRef = 
         if (runnable.length >= capacity) { blocked.push({ node_id: node.node_id, reason: 'NO_WORKER_CAPACITY' }); continue; }
         runnable.push(node.node_id);
       }
+      // A node that is dependency-ready but unstaffable must not disappear from both lists: invisible
+      // starvation looks exactly like an empty queue.
+      const unstaffable = [];
       const admitted = paused ? [] : runnable.filter(node_id => {
         const selection = api.selectWorker({ node_id, at });
-        return selection.selected === true;
+        if (selection.selected !== true) {
+          unstaffable.push({ node_id, reason: 'NO_CAPABLE_WORKER', capability_required: nodes.get(node_id)?.capability_required ?? null });
+          return false;
+        }
+        return true;
       });
       return freeze({
         contract_version: FOREMAN_CONTRACT_VERSION,
@@ -470,6 +482,7 @@ export function createForemanScheduler({ connectorPort = null, localDeviceRef = 
         running: freeze(running.map(node => node.node_id)),
         runnable: freeze(admitted),
         blocked: freeze(blocked),
+        unstaffable: freeze(unstaffable),
         dependency_satisfied_only: true,
         write_conflicts_auto_merged: 0,
         at,
@@ -675,10 +688,29 @@ export function createForemanScheduler({ connectorPort = null, localDeviceRef = 
         });
       }
       const previousWorker = node.worker_ref;
+      const abandoned = node.attempt_ref === null ? null : attempts.get(node.attempt_ref) ?? null;
+      const abandonedWorker = abandoned === null ? null : workers.get(abandoned.worker_ref) ?? null;
+      // The abandoned attempt stops being live and gives its slot back, so a handover can reuse the same
+      // worker instead of leaking a slot (which wedges a one-worker pool).
+      const releasedSlot = abandoned !== null && abandoned.state === 'RUNNING';
+      if (releasedSlot) {
+        abandoned.state = 'REASSIGNED';
+        abandoned.ended_at = at;
+        if (abandonedWorker && abandonedWorker.running > 0) abandonedWorker.running -= 1;
+      }
+      const selection = api.selectWorker({ node_id, at });
+      if (selection.selected !== true) {
+        // No successor: the handover did not happen, so the run is left exactly as it was.
+        if (releasedSlot) {
+          abandoned.state = 'RUNNING';
+          abandoned.ended_at = null;
+          if (abandonedWorker) abandonedWorker.running += 1;
+        }
+        throw new ForemanError('NO_CAPABLE_WORKER', `no worker can take over ${node_id}`, { node_id, previous_worker_ref: previousWorker, reassigned: false });
+      }
       node.worker_ref = null;
       node.state = 'READY';
-      const selection = api.selectWorker({ node_id, at });
-      const outcome = api.dispatch({ node_id, worker_ref: selection.selected ? selection.worker_ref : null, action_key: node.action_key, at });
+      const outcome = api.dispatch({ node_id, worker_ref: selection.worker_ref, action_key: node.action_key, at });
       note('NODE_REASSIGNED', at, { node_id, from: previousWorker, to: outcome.worker_ref, reason });
       return freeze({ ...outcome, reassigned: true, previous_worker_ref: previousWorker, reason });
     },
@@ -695,6 +727,9 @@ export function createForemanScheduler({ connectorPort = null, localDeviceRef = 
           attempts: node.attempts, result_ref: node.result_ref, acceptance_ref: node.acceptance_ref,
           checkpoint_ref: node.checkpoint_ref, action_key: node.action_key,
         }))),
+        // The duplicate-side-effect guard must survive a restart: a snapshot without it would let an
+        // already-applied external effect run again after recovery.
+        completed_effects: freeze([...completedEffects.values()]),
         taken_at: now(),
       });
     },
@@ -731,12 +766,19 @@ export function createForemanScheduler({ connectorPort = null, localDeviceRef = 
           if (!seenNodes.has(dependency)) throw new ForemanError('UNKNOWN_DEPENDENCY', `snapshot node ${entry.node_id} depends on unknown node ${dependency}`);
         }
       }
+      const stagedEffects = [];
+      for (const effect of Array.isArray(snapshot.completed_effects) ? snapshot.completed_effects : []) {
+        if (!isPlainObject(effect) || !isText(effect.action_key)) throw new ForemanError('INVALID_REQUEST', 'the snapshot carries an effect record without an action_key');
+        stagedEffects.push(effect);
+      }
       const resumed = [];
       const interrupted = [];
       const preserved = [];
       nodes.clear();
       attempts.clear();
       graph = { ...clone(snapshot.graph) };
+      // Effects outlive one graph, so a resume merges them rather than replacing them.
+      for (const effect of stagedEffects) completedEffects.set(effect.action_key, freeze(clone(effect)));
       for (const entry of stagedEntries) {
         const node = { ...clone(entry), attempt_ref: null, worker_ref: null, blocker: null, acceptance_ref: entry.acceptance_ref ?? null, result_ref: entry.result_ref ?? null, checkpoint_ref: entry.checkpoint_ref ?? null, created_at: at };
         if (TERMINAL_NODE_STATES.includes(entry.state)) {
@@ -784,10 +826,20 @@ export function createForemanScheduler({ connectorPort = null, localDeviceRef = 
       const node = requireNode(node_id);
       if (TERMINAL_NODE_STATES.includes(node.state)) throw new ForemanError('TERMINAL_RESULT_IMMUTABLE', `node ${node_id} is ${node.state}`, { node_id, state: node.state });
       const at = atFrom(when);
+      // Cancelling an active run must actually stop it: the attempt is closed and its worker slot released,
+      // otherwise the node keeps an attempt it no longer owns and a one-worker pool wedges.
+      const cancelledAttempt = node.attempt_ref === null ? null : attempts.get(node.attempt_ref) ?? null;
+      if (cancelledAttempt !== null && cancelledAttempt.state === 'RUNNING') {
+        cancelledAttempt.state = 'INTERRUPTED';
+        cancelledAttempt.ended_at = at;
+        const worker = workers.get(cancelledAttempt.worker_ref);
+        if (worker && worker.running > 0) worker.running -= 1;
+      }
       node.state = 'CANCELLED';
+      node.worker_ref = null;
       node.blocker = reason;
-      note('NODE_CANCELLED', at, { node_id, reason });
-      return freeze({ contract_version: FOREMAN_CONTRACT_VERSION, node_id, state: node.state, reason, at });
+      note('NODE_CANCELLED', at, { node_id, reason, attempt_ref: cancelledAttempt?.attempt_ref ?? null });
+      return freeze({ contract_version: FOREMAN_CONTRACT_VERSION, node_id, state: node.state, reason, attempt_ref: cancelledAttempt?.attempt_ref ?? null, at });
     },
 
     node: node_id => {

@@ -113,12 +113,17 @@ const isRealInstant = value => {
 
 const SECRET_KEY_SHAPE = /(secret|token|password|passwd|passphrase|api_?key|private_?key|bearer|client_secret|access_key|credential_?value|^value$)/i;
 const SECRET_VALUE_SHAPE = /^(sk|pk|ghp|gho|xox[baprs]|AKIA)-?[A-Za-z0-9_\-]{8,}$/;
-const SECRET_SUBSTRING_SHAPE = /(?:sk|pk|ghp|gho|xox[baprs]|AKIA)-[A-Za-z0-9_\-]{8,}/g;
+/** Detection and redaction share one substring shape, so nothing classified as a secret survives redaction. */
+const SECRET_SUBSTRING_SHAPE = /(?:sk|pk|ghp|gho|xox[baprs]|AKIA)[-_][A-Za-z0-9_\-]{8,}|(?:ghp|gho|xox[baprs]|AKIA)[A-Za-z0-9_\-]{8,}/g;
 
 export const looksLikeSecretValue = value => isText(value) && SECRET_VALUE_SHAPE.test(value);
 
-/** Redact secret-shaped substrings anywhere inside a longer message (a store error is not a safe channel). */
-const redactString = value => (typeof value === 'string' ? value.replace(SECRET_SUBSTRING_SHAPE, '[REDACTED]') : value);
+/** Redact a secret-shaped value, and secret-shaped substrings anywhere inside a longer message. */
+const redactString = value => {
+  if (typeof value !== 'string') return value;
+  if (looksLikeSecretValue(value)) return '[REDACTED]';
+  return value.replace(SECRET_SUBSTRING_SHAPE, '[REDACTED]');
+};
 
 /** Recursive scan for secret material. `*_ref` keys are handle references and booleans are assertions. */
 export function findSecretFields(value, path = 'record', found = [], seen = new WeakSet()) {
@@ -136,7 +141,11 @@ export function findSecretFields(value, path = 'record', found = [], seen = new 
   if (typeof value === 'boolean' || value === null) return found;
   if (!isPlainObject(value) || seen.has(value)) return found;
   seen.add(value);
-  for (const [key, child] of Object.entries(value)) {
+  // Own keys, not enumerable keys: a hidden own field is exactly how a secret would try to ride along.
+  for (const key of Reflect.ownKeys(value)) {
+    const child = value[key];
+    // A symbol key is inadmissible material rather than secret material, but its value is still scanned.
+    if (typeof key !== 'string') { findSecretFields(child, `${path}[${String(key)}]`, found, seen); continue; }
     const childPath = `${path}.${key}`;
     const keyIsSecret = SECRET_KEY_SHAPE.test(key) && !/_ref$/.test(key) && typeof child !== 'boolean';
     if (keyIsSecret) {
@@ -189,11 +198,35 @@ const BIND_SPEC = Object.freeze({
   at: { required: false, type: 'instant', nullable: true },
 });
 
-function checkShape(value, path, spec, errors) {
-  if (!isPlainObject(value)) { errors.push(`${path} must be a plain object`); return; }
+const SNAPSHOT_ENTRY_SPEC = Object.freeze({
+  profile_id: { required: true, type: 'text' },
+  profile_version: { required: false, type: 'int' },
+  connector_kind: { required: true, type: 'text' },
+  mode: { required: true, type: 'enum', values: AUTH_MODES },
+  persistence: { required: true, type: 'enum', values: PERSISTENCE_KINDS },
+  account_ref: { required: false, type: 'text', nullable: true },
+  handle_ref: { required: false, type: 'text', nullable: true },
+  expires_at: { required: false, type: 'instant', nullable: true },
+  requires_user_action: { required: false, type: 'bool' },
+});
+
+/** Admissibility is decided on the object itself: plain, and no field outside the canonical allow-list. */
+function checkAdmissible(value, path, spec, errors) {
+  if (!isPlainObject(value)) { errors.push(`${path} must be a plain object`); return false; }
   for (const key of Reflect.ownKeys(value)) {
     if (typeof key !== 'string' || !Object.hasOwn(spec, key)) errors.push(`${path}.${String(key)} is not part of the canonical contract`);
   }
+  return true;
+}
+
+/** Read every declared field exactly once, so the value that is validated is the value that is used. */
+function takeFields(value, spec) {
+  const taken = {};
+  for (const key of Object.keys(spec)) if (Object.hasOwn(value, key)) taken[key] = value[key];
+  return taken;
+}
+
+function checkFields(value, path, spec, errors) {
   for (const [key, rule] of Object.entries(spec)) {
     const present = Object.hasOwn(value, key);
     if (!present) { if (rule.required) errors.push(`${path}.${key} is required`); continue; }
@@ -202,7 +235,7 @@ function checkShape(value, path, spec, errors) {
     if (field === null || field === undefined) { if (!rule.nullable) errors.push(`${fieldPath} must not be null`); continue; }
     if (rule.type === 'text' && !isText(field)) errors.push(`${fieldPath} must be nonempty text`);
     if (rule.type === 'instant' && !isRealInstant(field)) errors.push(`${fieldPath} must be an ISO-8601 UTC instant`);
-    if (rule.type === 'int' && !Number.isSafeInteger(field)) errors.push(`${fieldPath} must be an integer`);
+    if (rule.type === 'int' && (!Number.isSafeInteger(field) || field < 0)) errors.push(`${fieldPath} must be a non-negative integer`);
     if (rule.type === 'bool' && typeof field !== 'boolean') errors.push(`${fieldPath} must be a boolean`);
     if (rule.type === 'enum' && !rule.values.includes(field)) errors.push(`${fieldPath} must be one of ${rule.values.join(', ')}`);
   }
@@ -223,6 +256,12 @@ export function createAuthProfileLayer({ handleStore = null, clock = () => new D
       return produced;
     }
     if (!isRealInstant(value)) throw new AuthProfileError('INVALID_PROFILE', 'at must be a real ISO-8601 UTC instant');
+    // Freshness cannot be rewound: an instant before the layer's own clock would let a caller ask the
+    // freshness question as of a moment when an expired credential still looked valid.
+    const current = clock();
+    if (isRealInstant(current) && Date.parse(value) < Date.parse(current)) {
+      throw new AuthProfileError('INVALID_PROFILE', `at ${value} precedes the layer's current instant ${current}; freshness cannot be rewound`);
+    }
     return value;
   };
 
@@ -310,28 +349,30 @@ export function createAuthProfileLayer({ handleStore = null, clock = () => new D
   /** Register a profile. Only the mode/persistence/expiry shape is known here — never a secret. */
   const registerProfile = input => {
       const errors = [];
-      checkShape(input, 'profile', PROFILE_SPEC, errors);
-      if (errors.length) {
-        const secrets = isPlainObject(input) ? findSecretFields(input) : [];
-        if (secrets.length) throw new AuthProfileError('PLAINTEXT_REFUSED', `profile input carries secret material at ${secrets.join(', ')}`);
-        throw new AuthProfileError('INVALID_PROFILE', errors.join('; '));
+      checkAdmissible(input, 'profile', PROFILE_SPEC, errors);
+      // The scan runs on every input, not only on a malformed one: a well-shaped record carrying a secret
+      // in profile_id/connector_kind/account_ref would otherwise be admitted to canonical state.
+      const secrets = findSecretFields(input);
+      if (secrets.length) throw new AuthProfileError('PLAINTEXT_REFUSED', `profile input carries secret material at ${secrets.join(', ')}`);
+      if (errors.length) throw new AuthProfileError('INVALID_PROFILE', errors.join('; '));
+      const fields = takeFields(input, PROFILE_SPEC);
+      checkFields(fields, 'profile', PROFILE_SPEC, errors);
+      if (errors.length) throw new AuthProfileError('INVALID_PROFILE', errors.join('; '));
+      if (profiles.has(fields.profile_id)) throw new AuthProfileError('DUPLICATE_PROFILE', `auth profile ${fields.profile_id} already exists`);
+      const persistence = fields.persistence ?? 'EPHEMERAL';
+      if (persistence === 'PERSISTENT' && !PERSISTABLE_MODES.includes(fields.mode)) {
+        throw new AuthProfileError('MODE_NOT_PERSISTABLE', `${fields.mode} material is not a restorable session and may not be persisted`);
       }
-      if (!AUTH_MODES.includes(input.mode)) throw new AuthProfileError('INVALID_MODE', `unknown auth mode ${input.mode}`);
-      if (profiles.has(input.profile_id)) throw new AuthProfileError('DUPLICATE_PROFILE', `auth profile ${input.profile_id} already exists`);
-      const persistence = input.persistence ?? 'EPHEMERAL';
-      if (persistence === 'PERSISTENT' && !PERSISTABLE_MODES.includes(input.mode)) {
-        throw new AuthProfileError('MODE_NOT_PERSISTABLE', `${input.mode} material is not a restorable session and may not be persisted`);
-      }
-      const timestamp = at(input.at);
+      const timestamp = at(fields.at);
       const stored = {
-        profile_id: input.profile_id,
+        profile_id: fields.profile_id,
         profile_version: 1,
-        connector_kind: input.connector_kind,
-        mode: input.mode,
+        connector_kind: fields.connector_kind,
+        mode: fields.mode,
         persistence,
-        account_ref: input.account_ref ?? null,
-        expires_at: input.expires_at ?? null,
-        requires_user_action: input.requires_user_action ?? false,
+        account_ref: fields.account_ref ?? null,
+        expires_at: fields.expires_at ?? null,
+        requires_user_action: fields.requires_user_action ?? false,
         handle_ref: null,
         handle_bound_by_layer: false,
         status: 'MISSING',
@@ -353,26 +394,33 @@ export function createAuthProfileLayer({ handleStore = null, clock = () => new D
    */
   const bindSecret = input => {
       const errors = [];
-      checkShape(input, 'bind', BIND_SPEC, errors);
+      checkAdmissible(input, 'bind', BIND_SPEC, errors);
+      // secret_value is the one field allowed to carry secret material (it goes straight to the store);
+      // every other declared field is scanned, so a secret cannot ride in on profile_id or handle_ref.
+      const scanTarget = {};
+      for (const key of Object.keys(BIND_SPEC)) {
+        if (key !== 'secret_value' && isPlainObject(input) && Object.hasOwn(input, key)) scanTarget[key] = input[key];
+      }
+      const secrets = findSecretFields(scanTarget);
+      if (secrets.length) throw new AuthProfileError('PLAINTEXT_REFUSED', `bind input carries secret material outside secret_value at ${secrets.join(', ')}`);
       if (errors.length) throw new AuthProfileError('INVALID_PROFILE', errors.join('; '));
-      const profile = requireProfile(input.profile_id);
-      if (input.expected_version !== profile.profile_version) {
-        throw new AuthProfileError('PROFILE_VERSION_CONFLICT', `profile ${profile.profile_id} is at version ${profile.profile_version}, bind assumed ${input.expected_version}`);
+      const fields = takeFields(input, BIND_SPEC);
+      checkFields(fields, 'bind', BIND_SPEC, errors);
+      if (errors.length) throw new AuthProfileError('INVALID_PROFILE', errors.join('; '));
+      const profile = requireProfile(fields.profile_id);
+      if (fields.expected_version !== profile.profile_version) {
+        throw new AuthProfileError('PROFILE_VERSION_CONFLICT', `profile ${profile.profile_id} is at version ${profile.profile_version}, bind assumed ${fields.expected_version}`);
       }
       if (profile.mode === 'NONE') throw new AuthProfileError('MODE_REQUIRES_NO_HANDLE', 'mode NONE authenticates with nothing and takes no handle');
-      const hasSecret = isText(input.secret_value);
-      const hasHandle = isText(input.handle_ref);
+      const hasSecret = isText(fields.secret_value);
+      const hasHandle = isText(fields.handle_ref);
       if (hasSecret && hasHandle) throw new AuthProfileError('INVALID_PROFILE', 'bindSecret takes either a secret_value to store or an existing handle_ref, never both');
       if (!hasSecret && !hasHandle) throw new AuthProfileError('SECRET_VALUE_REQUIRED', 'bindSecret needs a secret_value to store or an existing handle_ref');
       const previousHandleRef = profile.handle_ref;
       const previousBoundByLayer = profile.handle_bound_by_layer === true;
       if (hasHandle) {
         if (!storeAvailable()) throw new AuthProfileError('SECURE_STORE_UNAVAILABLE', 'no secure handle store is available; refusing to record a handle this layer cannot resolve');
-        if (looksLikeSecretValue(input.handle_ref)) {
-          record('PLAINTEXT_REFUSED', { profile_id: profile.profile_id, source: 'caller_handle_ref' });
-          throw new AuthProfileError('PLAINTEXT_REFUSED', 'the supplied handle_ref carries what looks like secret material; only a reference may be recorded');
-        }
-        profile.handle_ref = input.handle_ref;
+        profile.handle_ref = fields.handle_ref;
         profile.handle_bound_by_layer = false;
       } else {
         if (!storeAvailable()) {
@@ -381,7 +429,7 @@ export function createAuthProfileLayer({ handleStore = null, clock = () => new D
         }
         let storedRef = null;
         try {
-          const stored = handleStore.putHandle({ kind: MODE_REFERENCE[profile.mode], value: input.secret_value });
+          const stored = handleStore.putHandle({ kind: MODE_REFERENCE[profile.mode], value: fields.secret_value });
           if (!isText(stored?.handle_ref)) throw new Error('handle store returned no handle_ref');
           storedRef = stored.handle_ref;
         } catch (error) {
@@ -408,13 +456,17 @@ export function createAuthProfileLayer({ handleStore = null, clock = () => new D
           record('REVOKE_FAILED', { profile_id: profile.profile_id, handle_ref: previousHandleRef, error: String(error?.message ?? error) });
         }
       }
-      if (input.expires_at !== undefined) profile.expires_at = input.expires_at;
+      // An expiry is a property of the credential that was bound. When a new one is bound without an
+      // expiry, the previous instant is kept (failing closed) but the carry-over is made observable
+      // rather than silent; pass expires_at: null explicitly to clear it.
+      const expiryCarriedOver = fields.expires_at === undefined && isText(profile.expires_at);
+      if (fields.expires_at !== undefined) profile.expires_at = fields.expires_at;
       profile.profile_version += 1;
-      profile.updated_at = at(input.at);
+      profile.updated_at = at(fields.at);
       profile.requires_user_action = false;
       profile.revoked_at = null;
       profile.revoked_reason = null;
-      record('HANDLE_BOUND', { profile_id: profile.profile_id, handle_ref: profile.handle_ref, previous_handle_revoked: previousHandleRevoked });
+      record('HANDLE_BOUND', { profile_id: profile.profile_id, handle_ref: profile.handle_ref, previous_handle_revoked: previousHandleRevoked, expiry_carried_over: expiryCarriedOver });
       return project(profile, profile.updated_at);
   };
 
@@ -474,7 +526,9 @@ export function createAuthProfileLayer({ handleStore = null, clock = () => new D
     revoke({ profile_id, at: when } = {}) {
       const profile = requireProfile(profile_id);
       let revoked = false;
+      let storeAsked = false;
       if (profile.handle_ref && storeAvailable() && typeof handleStore.revokeHandle === 'function') {
+        storeAsked = true;
         try {
           revoked = handleStore.revokeHandle(profile.handle_ref)?.revoked === true;
         } catch (error) {
@@ -490,8 +544,10 @@ export function createAuthProfileLayer({ handleStore = null, clock = () => new D
       profile.revoked_reason = 'HANDLE_REVOKED';
       profile.profile_version += 1;
       profile.updated_at = timestamp;
-      record('PROFILE_REVOKED', { profile_id: profile.profile_id, store_revoked: revoked });
-      return project(profile, profile.updated_at);
+      record('PROFILE_REVOKED', { profile_id: profile.profile_id, store_revoked: revoked, store_asked: storeAsked });
+      // The layer's own authority is gone either way, but whether the store actually released the secret
+      // is reported instead of assumed: a revoke that leaves the handle live must be visible to the caller.
+      return freeze({ ...project(profile, profile.updated_at), handle_released: revoked, store_revoke_attempted: storeAsked });
     },
 
     /** What may survive a restart: persistent session references only, and never a secret. */
@@ -526,35 +582,29 @@ export function createAuthProfileLayer({ handleStore = null, clock = () => new D
       const secrets = findSecretFields(snapshot);
       if (secrets.length) throw new AuthProfileError('PLAINTEXT_REFUSED', `refusing to restore a snapshot carrying secret material at ${secrets.join(', ')}`);
       const timestamp = at(when);
-      const restored = [];
+      // Everything is validated before anything is installed: a refused restore must not leave a
+      // half-restored layer behind, and it must not replace a profile that is already live.
+      const prepared = [];
       const skipped = [];
-      const degraded = [];
-      for (const entry of snapshot.profiles) {
-        if (!isPlainObject(entry)) throw new AuthProfileError('INVALID_PROFILE', 'snapshot entry is not a valid profile reference');
-        const profile_id = entry.profile_id;
-        const connector_kind = entry.connector_kind;
-        const mode = entry.mode;
-        const persistence = entry.persistence;
-        const entryHandle = entry.handle_ref ?? null;
-        const entryExpires = entry.expires_at ?? null;
-        const entryAccount = entry.account_ref ?? null;
-        if (!isText(profile_id) || !isText(connector_kind) || !AUTH_MODES.includes(mode)) throw new AuthProfileError('INVALID_PROFILE', 'snapshot entry is not a valid profile reference');
-        if (entryHandle !== null && !isText(entryHandle)) throw new AuthProfileError('INVALID_PROFILE', `snapshot entry ${profile_id} has a handle_ref that is not a reference`);
-        if (entryHandle !== null && looksLikeSecretValue(entryHandle)) throw new AuthProfileError('PLAINTEXT_REFUSED', `snapshot entry ${profile_id} carries a handle reference that is secret material`);
-        if (entryExpires !== null && !isRealInstant(entryExpires)) throw new AuthProfileError('INVALID_PROFILE', `snapshot entry ${profile_id} has an expires_at that is not a real instant`);
-        if (entryAccount !== null && !isText(entryAccount)) throw new AuthProfileError('INVALID_PROFILE', `snapshot entry ${profile_id} has an account_ref that is not a reference`);
-        if (entry.profile_version !== undefined && (!Number.isSafeInteger(entry.profile_version) || entry.profile_version < 0)) throw new AuthProfileError('INVALID_PROFILE', `snapshot entry ${profile_id} has a profile_version that is not a version`);
-        if (persistence !== 'PERSISTENT' || !PERSISTABLE_MODES.includes(mode)) { skipped.push(profile_id); continue; }
-        const stored = {
-          profile_id,
-          profile_version: Number.isSafeInteger(entry.profile_version) ? entry.profile_version : 1,
-          connector_kind,
-          mode,
+      snapshot.profiles.forEach((entry, index) => {
+        const path = `snapshot.profiles[${index}]`;
+        const errors = [];
+        checkAdmissible(entry, path, SNAPSHOT_ENTRY_SPEC, errors);
+        if (errors.length) throw new AuthProfileError('INVALID_PROFILE', errors.join('; '));
+        const fields = takeFields(entry, SNAPSHOT_ENTRY_SPEC);
+        checkFields(fields, path, SNAPSHOT_ENTRY_SPEC, errors);
+        if (errors.length) throw new AuthProfileError('INVALID_PROFILE', errors.join('; '));
+        if (!PERSISTABLE_MODES.includes(fields.mode)) { skipped.push(fields.profile_id); return; }
+        prepared.push({
+          profile_id: fields.profile_id,
+          profile_version: fields.profile_version ?? 1,
+          connector_kind: fields.connector_kind,
+          mode: fields.mode,
           persistence: 'PERSISTENT',
-          account_ref: entryAccount,
-          expires_at: entryExpires,
-          requires_user_action: entry.requires_user_action === true,
-          handle_ref: entryHandle,
+          account_ref: fields.account_ref ?? null,
+          expires_at: fields.expires_at ?? null,
+          requires_user_action: fields.requires_user_action === true,
+          handle_ref: fields.handle_ref ?? null,
           // The layer did not create this handle in this process, so it may not revoke it behind the
           // caller's back; it is a reference the snapshot vouched for.
           handle_bound_by_layer: false,
@@ -564,7 +614,14 @@ export function createAuthProfileLayer({ handleStore = null, clock = () => new D
           revoked_reason: null,
           created_at: timestamp,
           updated_at: timestamp,
-        };
+        });
+      });
+      for (const stored of prepared) {
+        if (profiles.has(stored.profile_id)) throw new AuthProfileError('DUPLICATE_PROFILE', `auth profile ${stored.profile_id} is already registered; restore does not replace a live profile`);
+      }
+      const restored = [];
+      const degraded = [];
+      for (const stored of prepared) {
         profiles.set(stored.profile_id, stored);
         const status = project(stored, timestamp);
         if (status.handle_ref !== null && status.handle_resolvable !== true) degraded.push(stored.profile_id);
@@ -613,21 +670,29 @@ export function createAuthProfileLayer({ handleStore = null, clock = () => new D
         return freeze({ discovered: false, legacy_source: null, profile: null, mode: null, secret_stored: false, secret_returned: false });
       }
       const legacy = LEGACY_SOURCES[source];
+      const legacyValue = env[source];
       const profile_id = 'profile:default';
       const existing = profiles.get(profile_id);
+      // The default profile must belong to the connector the environment key describes: binding a
+      // DeepSeek key into whatever profile happens to own that id would hand the key to a foreign
+      // connector and, for a persistent profile, export it as that connector's session reference.
+      if (existing && (existing.connector_kind !== legacy.connector_kind || existing.mode !== legacy.mode)) {
+        throw new AuthProfileError('INVALID_PROFILE', `profile:default belongs to ${existing.connector_kind}/${existing.mode}, not ${legacy.connector_kind}/${legacy.mode}`);
+      }
       let bound = null;
       if (existing) {
-        bound = bindSecret({ profile_id, expected_version: existing.profile_version, secret_value: env[source], at: when });
+        bound = bindSecret({ profile_id, expected_version: existing.profile_version, secret_value: legacyValue, at: when });
       } else {
         registerProfile({ profile_id, connector_kind: legacy.connector_kind, mode: legacy.mode, persistence: 'EPHEMERAL', at: when });
-        bound = bindSecret({ profile_id, expected_version: 1, secret_value: env[source], at: when });
+        bound = bindSecret({ profile_id, expected_version: 1, secret_value: legacyValue, at: when });
       }
       record('LEGACY_DISCOVERY', { legacy_source: source, profile_id });
+      // The descriptor is built from the record that was actually written, never from the static table.
       return freeze({
         discovered: true,
         legacy_source: source,
-        mode: legacy.mode,
-        connector_kind: legacy.connector_kind,
+        mode: bound.mode,
+        connector_kind: bound.connector_kind,
         secret_stored: bound.handle_ref !== null,
         secret_returned: false,
         profile: bound,

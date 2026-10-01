@@ -389,7 +389,8 @@ test('canonical records are plain own-key objects', () => {
   }
   const hidden = { profile_id: 'profile:hidden', connector_kind: 'X', mode: 'API_KEY' };
   Object.defineProperty(hidden, 'api_key', { value: SECRET, enumerable: false });
-  expectCode('INVALID_PROFILE', () => layer.registerProfile(hidden));
+  expectCode('PLAINTEXT_REFUSED', () => layer.registerProfile(hidden), 'a hidden own secret field is still named as a secret');
+  assert.deepEqual(findSecretFields(hidden), ['record.api_key'], 'the scan sees own keys, not just enumerable ones');
   const symbol = { profile_id: 'profile:sym', connector_kind: 'X', mode: 'API_KEY' };
   symbol[Symbol('extra')] = 'x';
   expectCode('INVALID_PROFILE', () => layer.registerProfile(symbol));
@@ -457,4 +458,139 @@ test('a rotation revokes the handle it replaces instead of abandoning it', () =>
   // a caller-supplied reference the layer did not create is never revoked behind the caller's back
   const reused = layer.bindSecret({ profile_id: 'profile:cli', expected_version: 3, handle_ref: 'handle:SESSION:99' });
   assert.equal(reused.session_ref, 'handle:SESSION:99');
+});
+
+test('a well-shaped record may not carry a secret in a legitimate field', () => {
+  const { layer } = layerAt();
+  expectCode('PLAINTEXT_REFUSED', () => layer.registerProfile({ profile_id: SECRET, connector_kind: 'X', mode: 'API_KEY' }));
+  expectCode('PLAINTEXT_REFUSED', () => layer.registerProfile({ profile_id: 'profile:ok', connector_kind: SECRET, mode: 'API_KEY' }));
+  expectCode('PLAINTEXT_REFUSED', () => layer.registerProfile({ profile_id: 'profile:ok', connector_kind: 'X', mode: 'API_KEY', account_ref: SECRET }));
+  layer.registerProfile({ profile_id: 'profile:key', connector_kind: 'X', mode: 'API_KEY' });
+  expectCode('PLAINTEXT_REFUSED', () => layer.bindSecret({ profile_id: SECRET, expected_version: 1, secret_value: 'blob' }));
+  assert.equal(layer.diagnosticSnapshot().profiles.length, 1, 'only the legitimate profile is in canonical state');
+  assert.equal(layer.getProfile(SECRET), null);
+  assert.equal(containsSecret(layer.diagnosticSnapshot()), false);
+  assert.equal(containsSecret(layer.logEntries()), false);
+});
+
+test('everything the scan calls a secret is redacted', () => {
+  for (const token of ['ghp_abcdefghijklmnopqrst', 'gho_abcdefghijklmnopqrst', 'AKIAabcdefghijklmnop', 'xoxb-abcdefghijklmnop', 'sk_live_abcdefghijklmnop', 'sk-abcdefghijklmnop']) {
+    assert.equal(looksLikeSecretValue(token), true, token);
+    assert.equal(redact({ note: token }).note, '[REDACTED]', `${token} is redacted as a bare value`);
+    assert.equal(redact({ note: `store said ${token} while writing` }).note.includes(token), false, `${token} is redacted inside a message`);
+    assert.equal(redact({ message: `${token}` }).message, '[REDACTED]', token);
+    assert.deepEqual(findSecretFields({ note: token }), ['record.note'], token);
+  }
+  const redacted = redact({ keep: 'plain text', handle_ref: 'handle:CREDENTIAL:1' });
+  assert.equal(redacted.keep, 'plain text', 'ordinary text is not over-redacted');
+  assert.equal(redacted.handle_ref, 'handle:CREDENTIAL:1', 'a handle reference is not a secret');
+  // a hostile store message carrying a separator-less token never reaches the log
+  const hostile = Object.freeze({ putHandle: () => { throw new Error('failed while writing AKIAabcdefghijklmnop'); }, resolveHandle: () => ({ ok: true }), revokeHandle: () => ({ revoked: false }) });
+  const layer = createAuthProfileLayer({ handleStore: hostile, clock: () => T0 });
+  layer.registerProfile({ profile_id: 'p', connector_kind: 'X', mode: 'API_KEY' });
+  expectCode('SECURE_STORE_FAILED', () => layer.bindSecret({ profile_id: 'p', expected_version: 1, secret_value: 'blob' }));
+  assert.equal(JSON.stringify(layer.logEntries()).includes('AKIAabcdefghijklmnop'), false, 'the log carries the redaction, not the token');
+});
+
+test('a hidden own field on a snapshot entry is not copied into canonical state', () => {
+  const { layer } = layerAt();
+  const entry = { profile_id: 'q', connector_kind: 'X', mode: 'CLI_SESSION', persistence: 'PERSISTENT' };
+  Object.defineProperty(entry, 'account_ref', { value: SECRET, enumerable: false });
+  expectCode('PLAINTEXT_REFUSED', () => layer.restore({ snapshot: { profiles: [entry] } }));
+  assert.equal(layer.getProfile('q'), null);
+  const hiddenHandle = { profile_id: 'r', connector_kind: 'X', mode: 'CLI_SESSION', persistence: 'PERSISTENT' };
+  Object.defineProperty(hiddenHandle, 'handle_ref', { value: SECRET, enumerable: false });
+  expectCode('PLAINTEXT_REFUSED', () => layer.restore({ snapshot: { profiles: [hiddenHandle] } }));
+  assert.equal(layer.getProfile('r'), null);
+  const undeclared = { profile_id: 's', connector_kind: 'X', mode: 'CLI_SESSION', persistence: 'PERSISTENT' };
+  Object.defineProperty(undeclared, 'note', { value: 'extra', enumerable: false });
+  expectCode('INVALID_PROFILE', () => layer.restore({ snapshot: { profiles: [undeclared] } }), 'an own-but-undeclared key is not part of the snapshot contract');
+  assert.equal(layer.getProfile('s'), null);
+});
+
+test('legacy discovery never binds the key into a foreign default profile', () => {
+  const { layer } = layerAt();
+  layer.registerProfile({ profile_id: 'profile:default', connector_kind: 'WEB_UI', mode: 'BROWSER_PROFILE', persistence: 'PERSISTENT' });
+  expectCode('INVALID_PROFILE', () => layer.discoverFromLegacyEnv({ env: { DEEPSEEK_API_KEY: SECRET } }));
+  assert.equal(layer.getProfile('profile:default').handle_ref, null, 'the browser profile was not bound to an API key');
+  assert.deepEqual(layer.exportPersistentRefs().profiles.map(entry => entry.handle_ref), [null], 'and the key was not exported as a session reference');
+  assert.equal(containsSecret(layer.diagnosticSnapshot()), false);
+  const fresh = layerAt().layer;
+  const discovered = fresh.discoverFromLegacyEnv({ env: { DEEPSEEK_API_KEY: SECRET } });
+  assert.equal(discovered.connector_kind, fresh.getProfile('profile:default').connector_kind, 'the descriptor is built from the record that was written');
+  assert.equal(discovered.mode, 'API_KEY');
+  assert.equal(discovered.profile.mode, fresh.getProfile('profile:default').mode);
+});
+
+test('a caller field is validated and stored as the same value', () => {
+  const { layer } = layerAt();
+  let reads = 0;
+  const twoFaced = { profile_id: 'profile:two-faced', connector_kind: 'X', persistence: 'EPHEMERAL' };
+  Object.defineProperty(twoFaced, 'mode', { enumerable: true, configurable: true, get() { reads += 1; return reads <= 2 ? 'API_KEY' : 'EVIL'; } });
+  const registered = layer.registerProfile(twoFaced);
+  assert.equal(registered.mode, 'API_KEY', 'the validated mode is the stored mode');
+  assert.equal(layer.getProfile('profile:two-faced').mode, 'API_KEY');
+  assert.equal(AUTH_MODES.includes(registered.mode), true);
+});
+
+test('a refused restore installs nothing and never replaces a live profile', () => {
+  const { layer } = layerAt();
+  const good = { profile_id: 'good', connector_kind: 'X', mode: 'CLI_SESSION', persistence: 'PERSISTENT' };
+  const bad = { profile_id: 'bad', connector_kind: 'X', mode: 'CLI_SESSION', persistence: 'PERSISTENT', expires_at: '2026-13-45T99:99:99Z' };
+  expectCode('INVALID_PROFILE', () => layer.restore({ snapshot: { profiles: [good, bad] } }));
+  assert.equal(layer.getProfile('good'), null, 'the valid entry before the invalid one was not installed');
+  assert.equal(layer.getProfile('bad'), null);
+  assert.equal(layer.logEntries().some(entry => entry.event === 'SNAPSHOT_RESTORED'), false, 'a refused restore records no success');
+  layer.registerProfile({ profile_id: 'live', connector_kind: 'X', mode: 'CLI_SESSION', persistence: 'PERSISTENT' });
+  expectCode('DUPLICATE_PROFILE', () => layer.restore({ snapshot: { profiles: [{ profile_id: 'live', connector_kind: 'X', mode: 'CLI_SESSION', persistence: 'PERSISTENT' }] } }));
+  assert.equal(layer.getProfile('live').profile_version, 1, 'the live profile was not replaced');
+});
+
+test('revoke reports whether the store released the secret', () => {
+  const store = createHandleStoreDouble();
+  const layer = createAuthProfileLayer({ handleStore: store, clock: () => T0 });
+  layer.registerProfile({ profile_id: 'profile:key', connector_kind: 'DEEPSEEK', mode: 'API_KEY' });
+  layer.bindSecret({ profile_id: 'profile:key', expected_version: 1, secret_value: SECRET });
+  const revoked = layer.revoke({ profile_id: 'profile:key' });
+  assert.equal(revoked.handle_released, true, 'the store confirmed the release');
+  assert.equal(revoked.store_revoke_attempted, true);
+  assert.equal(revoked.handle_ref, null, 'the layer still holds no reference');
+  assert.equal(revoked.status, 'MISSING');
+  // a store that cannot revoke is reported rather than assumed
+  const weak = Object.freeze({ putHandle: ({ kind }) => ({ handle_ref: `handle:${kind}:9` }), resolveHandle: () => ({ ok: true }) });
+  const weakLayer = createAuthProfileLayer({ handleStore: weak, clock: () => T0 });
+  weakLayer.registerProfile({ profile_id: 'profile:weak', connector_kind: 'DEEPSEEK', mode: 'API_KEY' });
+  weakLayer.bindSecret({ profile_id: 'profile:weak', expected_version: 1, secret_value: SECRET });
+  const weakRevoked = weakLayer.revoke({ profile_id: 'profile:weak' });
+  assert.equal(weakRevoked.store_revoke_attempted, false, 'the store was never asked');
+  assert.equal(weakRevoked.handle_released, false, 'and no release is claimed');
+  assert.equal(weakLayer.getProfile('profile:weak').handle_ref, null);
+});
+
+test('freshness cannot be rewound behind the layer clock', () => {
+  const now = T1;
+  const store = createHandleStoreDouble();
+  const layer = createAuthProfileLayer({ handleStore: store, clock: () => now });
+  layer.registerProfile({ profile_id: 'profile:cli', connector_kind: 'X', mode: 'CLI_SESSION', persistence: 'PERSISTENT', expires_at: '2026-01-01T00:30:00Z' });
+  layer.bindSecret({ profile_id: 'profile:cli', expected_version: 1, secret_value: 'blob' });
+  assert.equal(layer.authStatusFor({ profile_id: 'profile:cli' }).status, 'EXPIRED');
+  expectCode('INVALID_PROFILE', () => layer.authStatusFor({ profile_id: 'profile:cli', at: T0 }), 'an expired session cannot be asked about as of before it expired');
+  assert.equal(layer.authStatusFor({ profile_id: 'profile:cli' }).status, 'EXPIRED');
+  assert.equal(layer.authStatusFor({ profile_id: 'profile:cli', at: '2026-01-01T02:00:00Z' }).status, 'EXPIRED', 'a later instant still expires it');
+  expectCode('INVALID_PROFILE', () => layer.registerProfile({ profile_id: 'late', connector_kind: 'X', mode: 'API_KEY', at: T0 }));
+  assert.equal(layer.getProfile('late'), null);
+});
+
+test('carrying a stale expiry over a new credential is observable', () => {
+  const { layer } = layerAt();
+  layer.registerProfile({ profile_id: 'profile:cli', connector_kind: 'X', mode: 'CLI_SESSION', persistence: 'PERSISTENT', expires_at: '2026-01-01T00:30:00Z' });
+  layer.bindSecret({ profile_id: 'profile:cli', expected_version: 1, secret_value: 'one' });
+  const rebound = layer.bindSecret({ profile_id: 'profile:cli', expected_version: 2, secret_value: 'two' });
+  assert.equal(rebound.status, 'READY', 'the fresh credential is still valid at the registered expiry');
+  assert.equal(layer.logEntries().some(entry => entry.event === 'HANDLE_BOUND' && entry.expiry_carried_over === true), true, 'the carried expiry is recorded, not silent');
+  assert.equal(layer.authStatusFor({ profile_id: 'profile:cli', at: T1 }).status, 'EXPIRED', 'and it still fails closed at the recorded expiry');
+  const cleared = layer.bindSecret({ profile_id: 'profile:cli', expected_version: 3, secret_value: 'three', expires_at: null });
+  assert.equal(cleared.freshness.expires_at, null, 'an explicit null clears the carried expiry');
+  assert.equal(cleared.status, 'READY');
+  assert.equal(layer.authStatusFor({ profile_id: 'profile:cli', at: T1 }).status, 'READY', 'the new credential has no inherited expiry');
 });

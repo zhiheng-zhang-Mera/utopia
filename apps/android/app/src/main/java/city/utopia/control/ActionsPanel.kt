@@ -6,13 +6,26 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import city.utopia.control.theme.Space
+import city.utopia.control.ui.StatusChip
+import city.utopia.control.ui.TechnicalDetails
+import city.utopia.control.ui.ToolRow
+import city.utopia.control.ui.UtEmptyState
+import city.utopia.control.ui.UtFeedback
+import city.utopia.control.ui.UtLabel
+import city.utopia.control.ui.UtPanel
 
 // T2 — the canonical Action facade. Every field shown here is the gateway's own value:
 // Android never re-derives status, so the actionId and status match what Web shows.
+//
+// UI-102: the default reading path now shows what HAPPENED (status, your words, the
+// outcome). The internal identifiers that used to be printed inline — actionId, route,
+// target id, error code, backendRef/resultRef, digests, provenance, timestamps — are
+// folded into a collapsed 运行详情. They are folded, not deleted: expanding shows every
+// value verbatim, and this remains the gateway's record rather than a client summary.
 
 @Composable fun ActionsPanel(state: CityState, client: CityClient?) {
  // One fence per in-flight request, so opening a record cannot strand the list's busy state.
@@ -51,74 +64,128 @@ import androidx.compose.ui.unit.sp
   }
  }
  LaunchedEffect(state.connection) { if (state.connection == "ONLINE" && actions == null && !busy) load() }
- Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-  Text("Action history", fontWeight = FontWeight.Bold)
-  Text("One Action model over Rooms, City services and City tasks. This list is the gateway's own record, newest first — the same actionId you see in Web.", fontSize = 12.sp)
-  Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-   OutlinedTextField(limit, { limit = it.filter { c -> c.isDigit() }.take(3) }, label = { Text("Limit") }, singleLine = true, enabled = !busy, modifier = Modifier.weight(1f))
-   OutlinedButton(onClick = { load() }, enabled = !busy && client != null) { Text("Refresh") }
+ Column(verticalArrangement = Arrangement.spacedBy(Space.md), modifier = Modifier.fillMaxWidth()) {
+  UtLabel("操作记录")
+  Text("Actions", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
+  Text(
+   "每一次执行过的动作。这里显示发生了什么；内部标识符收在运行详情里。",
+   style = MaterialTheme.typography.bodySmall,
+   color = MaterialTheme.colorScheme.onSurfaceVariant,
+  )
+  Row(horizontalArrangement = Arrangement.spacedBy(Space.sm), verticalAlignment = Alignment.CenterVertically) {
+   OutlinedTextField(limit, { limit = it.filter { c -> c.isDigit() }.take(3) }, label = { Text("条数") }, singleLine = true, enabled = !busy, modifier = Modifier.weight(1f))
+   OutlinedButton(onClick = { load() }, enabled = !busy && client != null) { Text("刷新") }
   }
-  if (client == null) Text("Not connected to a City yet.", fontSize = 12.sp)
+  if (client == null) UtEmptyState("还没有连接到城市", "连接后这里会显示真实的执行记录。")
   if (busy) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-  failure?.let { Text(it, color = Color(0xFFA15C38), fontSize = 12.sp) }
+  failure?.let { UtFeedback(it, kind = "error") }
   val rows = actions
-  if (rows == null) Text("No Action list loaded yet. Refresh to read the gateway record.", fontSize = 12.sp, color = Color.Gray)
-  else if (rows.isEmpty()) Text("No Actions yet. Start one from Ask / Do.", color = Color.Gray)
+  if (rows == null) UtEmptyState("还没有载入记录", "刷新以读取 Gateway 的执行记录。")
+  else if (rows.isEmpty()) UtEmptyState("还没有任何操作", "可以从「对话 · 执行」开始一件。")
   else {
-   Text("ACTIONS (" + rows.size + ")", fontSize = 11.sp, letterSpacing = 2.sp, color = Color.Gray)
-   rows.forEach { row -> Panel(Modifier.clickable { open(row.actionId) }) {
-    Text(row.statusLabel, fontWeight = FontWeight.Bold, color = actionStatusColor(row.status))
-    Text(row.requestedIntent.ifBlank { "(no intent recorded)" }, fontSize = 13.sp)
-    Text(row.route + " · " + row.targetLabel.ifBlank { "unknown target" }, fontSize = 12.sp)
-    if (row.hasProgress && row.status == "RUNNING") LinearProgressIndicator(progress = { row.progressFraction }, modifier = Modifier.fillMaxWidth())
-    Text("Progress: " + row.progress + "%", fontSize = 11.sp, color = Color.Gray)
-    if (row.resultText.isNotBlank()) Text(row.resultText, fontSize = 12.sp)
-    row.errorCode?.let { Text("Error code: " + it, fontSize = 11.sp) }
-    Text("actionId: " + row.actionId, fontSize = 10.sp, color = Color.Gray)
+   UtLabel("最近 ${rows.size} 条")
+   rows.forEach { row -> UtPanel(Modifier.clickable { open(row.actionId) }, accent = row.status == "RUNNING") {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+     Text(row.requestedIntent.ifBlank { "(没有记录意图)" }, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+     Spacer(Modifier.width(Space.sm))
+     StatusChip(row.status)
+    }
+    if (row.hasProgress && row.status == "RUNNING") {
+     LinearProgressIndicator(progress = { row.progressFraction }, modifier = Modifier.fillMaxWidth())
+    }
+    if (row.resultText.isNotBlank()) Text(row.resultText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    row.errorCode?.let { UtFeedback(it, kind = "error") }
+    // folded: identifiers, route/target and exact progress
+    TechnicalDetails(listOf(
+     "actionId" to row.actionId,
+     "route" to row.route,
+     "target" to row.targetLabel.ifBlank { "unknown target" },
+     "progress" to (row.progress.toString() + "%"),
+     "errorCode" to (row.errorCode ?: ""),
+    ))
    } }
   }
   selectedId?.let { id ->
-   Panel {
-    Text("SELECTED ACTION", fontSize = 11.sp, letterSpacing = 2.sp, color = Color.Gray)
-    Text("actionId: " + id, fontSize = 11.sp)
-    OutlinedButton(onClick = { selectedId = null; detail = null; detailFailure = null }) { Text("Close details") }
-    if (detailBusy) { Text("Loading the full record…", fontSize = 12.sp); LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
-    detailFailure?.let { Text(it, color = Color(0xFFA15C38), fontSize = 12.sp) }
-    detail?.let { ActionRecord(it) }
+   UtPanel {
+    UtLabel("选中的操作")
+    OutlinedButton(onClick = { selectedId = null; detail = null; detailFailure = null }) { Text("关闭详情") }
+    if (detailBusy) { Text("正在载入完整记录…", style = MaterialTheme.typography.bodySmall); LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
+    detailFailure?.let { UtFeedback(it, kind = "error") }
+    detail?.let { ActionRecord(it) } ?: TechnicalDetails(listOf("actionId" to id))
    }
   }
  }
 }
 
-private fun actionStatusColor(status: String): Color = when (status) {
- "SUCCEEDED" -> Color(0xFF456B29)
- "FAILED", "REFUSED" -> Color(0xFFA15C38)
- "UNAVAILABLE", "CANCELLED" -> Color(0xFF6B6B6B)
- else -> Color(0xFF19382F)
-}
-
-/** The full Action record, verbatim, including provenance. */
+/** What happened, in the user's terms. Identifiers live in the folded block below. */
 @Composable fun ActionRecord(detail: ActionDetail) {
  val row = detail.summary
- Text(row.statusLabel, fontWeight = FontWeight.Bold, color = actionStatusColor(row.status))
- Text("Intent (your words): " + row.requestedIntent.ifBlank { "(none recorded)" }, fontSize = 12.sp)
- Text("Route: " + row.route.ifBlank { "unknown" }, fontSize = 12.sp)
- detail.target?.let { Text("Target: " + it.label.ifBlank { it.id } + (it.operation?.let { operation -> " · " + operation } ?: ""), fontSize = 12.sp) }
- Text("Progress: " + row.progress + "%", fontSize = 12.sp)
- detail.backendRef?.let { Text("Backend: " + it.kind + " · " + it.id + (it.roomId?.let { room -> " · room " + room } ?: "") + (it.operationId?.let { operation -> " · " + operation } ?: ""), fontSize = 12.sp) }
+ Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+  Text(row.requestedIntent.ifBlank { "(没有记录意图)" }, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+  Spacer(Modifier.width(Space.sm))
+  StatusChip(row.status)
+ }
+ detail.target?.let {
+  ToolRow("目标", it.label.ifBlank { it.id } + (it.operation?.let { op -> " · " + op } ?: ""))
+ }
  detail.resultRef?.let { ref ->
-  Text("Result: " + ref.kind + " · " + ref.id, fontSize = 12.sp)
-  Text(ref.summary, fontSize = 12.sp)
-  ref.digest?.let { digest -> Text("Digest: " + digest, fontSize = 11.sp, color = Color.Gray) }
+  if (ref.summary.isNotBlank()) Text(ref.summary, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
  }
- detail.error?.let { Text("Error: " + it.code + " · " + it.message, fontSize = 12.sp) }
- detail.provenance?.let { provenance ->
-  Text("Provenance", fontWeight = FontWeight.Bold, fontSize = 12.sp)
-  Text("source: " + provenance.source.ifBlank { "unknown" } + " · host: " + provenance.host.ifBlank { "unknown" }, fontSize = 11.sp)
-  Text("roomId: " + (provenance.roomId ?: "—") + " · capabilityId: " + (provenance.capabilityId ?: "—"), fontSize = 11.sp, color = Color.Gray)
-  Text("taskId: " + (provenance.taskId ?: "—") + " · invocationId: " + (provenance.invocationId ?: "—"), fontSize = 11.sp, color = Color.Gray)
-  provenance.history.forEach { entry -> Text(entry.status + " · " + entry.at + (if (entry.note.isBlank()) "" else " · " + entry.note), fontSize = 11.sp) }
-  if (provenance.history.isEmpty()) Text("No history entries reported.", fontSize = 11.sp, color = Color.Gray)
- }
- Text("Created: " + detail.createdAt.ifBlank { "Unavailable" } + " · Updated: " + detail.updatedAt.ifBlank { "Unavailable" }, fontSize = 10.sp, color = Color.Gray)
+ detail.error?.let { UtFeedback(it.code + " · " + it.message, kind = "error") }
+ TechnicalDetails(actionTechnicalRows(detail))
 }
+
+/**
+ * Every internal value the Action record carries, as the exact list the UI folds.
+ *
+ * Extracted from `ActionRecord` for one reason: it makes "folded, not deleted" a
+ * testable property instead of a code-reading claim. `TechnicalFoldingTest` asserts
+ * against THIS function, so the test cannot drift from what the screen renders.
+ *
+ * A Compose UI test would assert the collapse itself, but `ui-test-junit4` and
+ * `androidx.test` are not in this machine's offline Gradle cache, so an androidTest
+ * cannot be built here. This is the strongest check available offline; the collapse
+ * behaviour itself is a single shared component whose default state is collapsed.
+ */
+internal fun actionTechnicalRows(detail: ActionDetail): List<Pair<String, String>> = buildList {
+ val row = detail.summary
+ add("actionId" to row.actionId)
+ add("status" to row.status)
+ add("route" to row.route)
+ add("progress" to (row.progress.toString() + "%"))
+ detail.target?.let { add("targetId" to it.id); add("operation" to (it.operation ?: "")) }
+ detail.backendRef?.let { ref ->
+  add("backendRef.kind" to ref.kind)
+  add("backendRef.id" to ref.id)
+  add("backendRef.roomId" to (ref.roomId ?: ""))
+  add("backendRef.operationId" to (ref.operationId ?: ""))
+ }
+ detail.resultRef?.let { ref ->
+  add("resultRef.kind" to ref.kind)
+  add("resultRef.id" to ref.id)
+  add("resultRef.digest" to (ref.digest ?: ""))
+ }
+ detail.error?.let { add("error.code" to it.code); add("error.message" to it.message) }
+ detail.provenance?.let { p ->
+  add("provenance.source" to p.source)
+  add("provenance.host" to p.host)
+  add("provenance.roomId" to (p.roomId ?: "—"))
+  add("provenance.capabilityId" to (p.capabilityId ?: "—"))
+  add("provenance.taskId" to (p.taskId ?: "—"))
+  add("provenance.invocationId" to (p.invocationId ?: "—"))
+  p.history.forEachIndexed { index, entry ->
+   add("history[$index]" to (entry.status + " · " + entry.at + (if (entry.note.isBlank()) "" else " · " + entry.note)))
+  }
+ }
+ add("createdAt" to detail.createdAt.ifBlank { "Unavailable" })
+ add("updatedAt" to detail.updatedAt.ifBlank { "Unavailable" })
+}
+
+/** The folded rows for one row of the Action list. Same contract as above. */
+internal fun actionSummaryTechnicalRows(row: ActionSummary): List<Pair<String, String>> = listOf(
+ "actionId" to row.actionId,
+ "route" to row.route,
+ "target" to row.targetLabel.ifBlank { "unknown target" },
+ "progress" to (row.progress.toString() + "%"),
+ "errorCode" to (row.errorCode ?: ""),
+)

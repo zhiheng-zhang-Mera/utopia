@@ -11,9 +11,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import city.utopia.control.ui.StatusChip
+import city.utopia.control.ui.TechnicalDetails
+import city.utopia.control.ui.UtFeedback
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
@@ -136,15 +140,23 @@ private fun JSONArray?.values(): List<JSONObject> = if(this==null) emptyList() e
   Button(onClick={invoke()},enabled=enabled,modifier=Modifier.fillMaxWidth()){Text(if(busy)"Running…" else "Run service")}
   if(busy)LinearProgressIndicator(modifier=Modifier.fillMaxWidth())
   result?.let { row ->
-   Text(row.optString("status"),fontWeight=FontWeight.Bold)
-   if(!row.isNull("errorCode"))Text(row.optString("errorCode"))
-   if(row.has("httpStatus")&&!row.isNull("httpStatus"))Text("HTTP "+row.optInt("httpStatus"))
-   if(row.has("error"))Text(row.optString("error"))
-   if(row.has("detailError"))Text(row.optString("detailError"))
-   if(detailLoading)Text("Loading result details…")
-   if(row.optString("status")=="COMPLETED"&&row.has("resultAvailable")&&!row.optBoolean("resultAvailable"))Text("Result detail expired / pruned. Digest retained.")
-   Text(row.optString("invocationId"),fontSize=11.sp)
-   if(!row.isNull("resultDigest"))Text(row.optString("resultDigest"),fontSize=11.sp)
+   /* UI-102: what happened, then the internals folded. status/error are product-legible;
+      errorCode, httpStatus, invocationId and resultDigest are not, so they move into the
+      collapsible block instead of being printed inline. Folded, not deleted. */
+   Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Text(row.optString("status"), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+    StatusChip(row.optString("status"))
+   }
+   if(row.has("error"))UtFeedback(row.optString("error"), kind = "error")
+   if(row.has("detailError"))UtFeedback(row.optString("detailError"), kind = "error")
+   if(detailLoading)Text("Loading result details…", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+   if(row.optString("status")=="COMPLETED"&&row.has("resultAvailable")&&!row.optBoolean("resultAvailable"))UtFeedback("Result detail expired / pruned. Digest retained.", kind = "warn")
+   TechnicalDetails(listOf(
+    "invocationId" to row.optString("invocationId"),
+    "resultDigest" to (if(row.isNull("resultDigest")) "" else row.optString("resultDigest")),
+    "errorCode" to (if(row.isNull("errorCode")) "" else row.optString("errorCode")),
+    "httpStatus" to (if(row.has("httpStatus")&&!row.isNull("httpStatus")) row.optInt("httpStatus").toString() else ""),
+   ))
    row.optJSONObject("result")?.let { payload ->
     if(payload.has("sections"))Text("Sections: "+payload.getJSONArray("sections").length()+" · "+payload.optString("format"))
     if(payload.has("warnings"))Text(payload.getJSONArray("warnings").toString())

@@ -3,15 +3,27 @@ package city.utopia.control
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import city.utopia.control.theme.Space
+import city.utopia.control.ui.StatusChip
+import city.utopia.control.ui.TechnicalDetails
+import city.utopia.control.ui.UtEmptyState
+import city.utopia.control.ui.UtFeedback
+import city.utopia.control.ui.UtLabel
+import city.utopia.control.ui.UtPanel
 import org.json.JSONObject
 
 // T3 — one Ask / Do entry. Routing is deterministic and done by the gateway; this screen
 // renders the returned ask.status truthfully and never implies a model chose the route.
+//
+// UI-102: every state the gateway can return still has its own branch — working,
+// needs-confirmation, ambiguous, unmatched, unavailable, success, failure. What changed is
+// the reading path: the user sees the outcome in their own words and the technical routing
+// facts (router, route/target/operation, candidate coordinates) are folded into 运行详情
+// rather than printed inline. They are folded, not removed.
 
 @Composable fun AskPanel(state: CityState, client: CityClient?) {
  val online = state.connection == "ONLINE"
@@ -55,86 +67,134 @@ import org.json.JSONObject
    if (response.has("errorCode")) targetsFailure = response.optString("error") else targets = runCatching { parseTargetList(response) }.getOrElse { null }.also { if (it == null) targetsFailure = "The gateway returned an unreadable target list." }
   }
  }
- Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
-  Text("Ask / Do", fontWeight = FontWeight.Bold)
-  Text("Say what you want in your own words. Deterministic rules on the gateway find the right local tool, City service or City task — no model is used to route.", fontSize = 12.sp)
-  OutlinedTextField(text, { text = it }, label = { Text("What do you want to do?") }, enabled = !busy, minLines = 2, modifier = Modifier.fillMaxWidth())
-  Button(onClick = { send(null, false) }, enabled = online && !busy && text.isNotBlank() && client != null, modifier = Modifier.fillMaxWidth()) { Text(if (busy) "Working…" else "Ask / Do") }
-  if (!online) Text("Offline · Ask / Do stays disabled until the gateway reconnects. Nothing is queued.", fontSize = 12.sp)
+ Column(verticalArrangement = Arrangement.spacedBy(Space.md), modifier = Modifier.fillMaxWidth()) {
+  UtLabel("对话 · 执行")
+  Text("Ask / Do", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onBackground)
+  Text(
+   "用你自己的话说想做什么。Gateway 用固定规则找到对应的本地工具、City 能力或 City 任务——没有任何模型参与决定去向。",
+   style = MaterialTheme.typography.bodySmall,
+   color = MaterialTheme.colorScheme.onSurfaceVariant,
+  )
+  OutlinedTextField(text, { text = it }, label = { Text("你想做什么？") }, enabled = !busy, minLines = 2, modifier = Modifier.fillMaxWidth())
+  Button(
+   onClick = { send(null, false) },
+   enabled = online && !busy && text.isNotBlank() && client != null,
+   modifier = Modifier.fillMaxWidth(),
+  ) { Text(if (busy) "正在执行…" else "去做") }
+  if (!online) UtEmptyState("离线", "连接恢复前「去做」不可用，也不会排队。")
   if (busy) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-  failure?.let { Text(it, color = Color(0xFFA15C38), fontSize = 12.sp) }
+  failure?.let { UtFeedback(it, kind = "error") }
   result?.let { answer ->
-   Panel {
-    Text(answer.statusLabel, fontWeight = FontWeight.Bold, color = askStatusColor(answer.status))
-    Text(answer.routerLabel, fontSize = 11.sp, color = Color.Gray)
-    if (!answer.isKnownStatus) Text("Unrecognised status from the gateway; shown exactly as returned.", fontSize = 11.sp)
-    Text("You asked: " + answer.text.ifBlank { text }, fontSize = 12.sp)
-    if (answer.message.isNotBlank()) Text(answer.message, fontSize = 12.sp)
-    (answer.route ?: answer.target)?.let { Text("Matched: " + (answer.route ?: "—") + " / " + (answer.target ?: "—") + (answer.operation?.let { operation -> " · " + operation } ?: ""), fontSize = 12.sp) }
+   UtPanel(accent = answer.status == ASK_COMPLETED) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+     Text("你刚才说的", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+     StatusChip(answer.status)
+    }
+    Text(answer.text.ifBlank { text }, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurface)
+    if (answer.message.isNotBlank()) Text(answer.message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+    if (!answer.isKnownStatus) UtFeedback("Gateway 返回了未识别的状态，这里按原样显示。", kind = "warn")
+    // router label, route/target/operation: folded, still reachable
+    TechnicalDetails(askTechnicalRows(answer))
    }
    if (answer.status == ASK_AWAITING_CONFIRMATION) {
     val confirmation = answer.confirmation
-    Panel {
-     Text("This needs your confirmation", fontWeight = FontWeight.Bold)
-     Text(confirmation?.label ?: (answer.target ?: "Confirm this action"), fontSize = 13.sp)
-     if (!confirmation?.description.isNullOrBlank()) Text(confirmation.description, fontSize = 12.sp)
+    UtPanel(accent = true) {
+     UtLabel("需要你确认", color = MaterialTheme.colorScheme.secondary)
+     Text(confirmation?.label ?: (answer.target ?: "确认这次执行"), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+     if (!confirmation?.description.isNullOrBlank()) Text(confirmation.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
      ConfirmationText(answer, text)
-     Text("Nothing has run yet. Confirming repeats your words with confirm = true.", fontSize = 11.sp, color = Color.Gray)
-     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-      Button(onClick = { send(answer.matchedSelection, true) }, enabled = online && !busy) { Text("Confirm and run") }
-      OutlinedButton(onClick = { result = null }, enabled = !busy) { Text("Cancel") }
+     UtFeedback("还没有执行任何东西。确认会用 confirm = true 重发你的原话。", kind = "warn")
+     Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+      Button(onClick = { send(answer.matchedSelection, true) }, enabled = online && !busy) { Text("确认并执行") }
+      OutlinedButton(onClick = { result = null }, enabled = !busy) { Text("取消") }
      }
     }
    }
    if (answer.status == ASK_AMBIGUOUS) {
-    Panel {
-     Text("Several rules matched — choose one", fontWeight = FontWeight.Bold)
-     if (answer.candidates.isEmpty()) Text("The gateway reported no candidates.", fontSize = 12.sp)
+    UtPanel {
+     UtLabel("有多个规则匹配", color = MaterialTheme.colorScheme.secondary)
+     Text("选一个继续。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+     if (answer.candidates.isEmpty()) UtEmptyState("Gateway 没有给出候选")
      answer.candidates.forEach { candidate -> TargetChoice(candidate, busy || !online) { send(candidate.choice, false) } }
     }
    }
    if (answer.status == ASK_UNMATCHED) {
-    Panel {
-     Text("No rule matched your words", fontWeight = FontWeight.Bold)
-     Text("Nothing ran and nothing was guessed. Pick a target yourself, or rephrase and ask again.", fontSize = 12.sp)
-     OutlinedButton(onClick = { loadTargets() }, enabled = online && !targetsBusy && client != null) { Text(if (targetsBusy) "Loading targets…" else "Show all targets") }
-     targetsFailure?.let { Text(it, color = Color(0xFFA15C38), fontSize = 12.sp) }
+    UtPanel {
+     UtLabel("没有规则匹配你的话", color = MaterialTheme.colorScheme.secondary)
+     Text("什么都没有执行，也没有猜测。你可以自己挑一个目标，或者换句话再说一次。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+     OutlinedButton(onClick = { loadTargets() }, enabled = online && !targetsBusy && client != null) { Text(if (targetsBusy) "正在载入…" else "显示全部目标") }
+     targetsFailure?.let { UtFeedback(it, kind = "error") }
      val manual = targets
      if (manual != null) {
-      if (manual.isEmpty()) Text("The gateway offered no targets.", fontSize = 12.sp) else {
-       Text("MANUAL TARGETS", fontSize = 11.sp, letterSpacing = 2.sp, color = Color.Gray)
+      if (manual.isEmpty()) UtEmptyState("Gateway 没有提供目标") else {
+       UtLabel("手动选择")
        manual.forEach { candidate -> TargetChoice(candidate, busy || !online) { send(candidate.choice, false) } }
       }
      }
     }
    }
-   if (askShowsAction(answer.status)) answer.action?.let { action -> Panel { Text("Action", fontWeight = FontWeight.Bold); ActionRecord(action) } }
-   else if (askShowsAction(answer.status) && answer.action == null && answer.status != ASK_UNAVAILABLE && answer.status != ASK_REFUSED) Text("The gateway reported this status without an Action record.", fontSize = 12.sp, color = Color.Gray)
+   if (askShowsAction(answer.status)) answer.action?.let { action -> UtPanel { UtLabel("执行结果"); ActionRecord(action) } }
+   else if (askShowsAction(answer.status) && answer.action == null && answer.status != ASK_UNAVAILABLE && answer.status != ASK_REFUSED) {
+    UtEmptyState("这个状态没有附带执行记录", "Gateway 只返回了状态本身。")
+   }
   }
  }
 }
 
 @Composable private fun ConfirmationText(answer: AskResult, typed: String) {
- Text("What it will do: " + (answer.confirmation?.description?.takeIf { it.isNotBlank() } ?: answer.message.ifBlank { "run " + (answer.target ?: "the matched target") }), fontSize = 12.sp)
- Text("Your words sent: \"" + answer.text.ifBlank { typed } + "\"", fontSize = 11.sp, color = Color.Gray)
+ Text(
+  "将会做什么：" + (answer.confirmation?.description?.takeIf { it.isNotBlank() } ?: answer.message.ifBlank { "执行 " + (answer.target ?: "匹配到的目标") }),
+  style = MaterialTheme.typography.bodyMedium,
+  color = MaterialTheme.colorScheme.onSurface,
+ )
+ Text(
+  "发送的原话：\"" + answer.text.ifBlank { typed } + "\"",
+  style = MaterialTheme.typography.bodySmall,
+  color = MaterialTheme.colorScheme.onSurfaceVariant,
+ )
 }
 
 @Composable private fun TargetChoice(candidate: TargetOption, disabled: Boolean, choose: () -> Unit) {
- Panel {
-  Text(candidate.label, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-  if (candidate.description.isNotBlank()) Text(candidate.description, fontSize = 12.sp)
-  Text(candidate.route + " / " + candidate.target + (candidate.operation?.let { operation -> " · " + operation } ?: ""), fontSize = 11.sp, color = Color.Gray)
-  Text(candidate.stateLabel, fontSize = 11.sp, color = if (candidate.sideEffect) Color(0xFFA15C38) else Color(0xFF456B29))
-  if (candidate.mutating) Text("Writes local product data.", fontSize = 11.sp, color = Color.Gray)
-  if (candidate.example.isNotBlank()) Text("Example: " + candidate.example, fontSize = 11.sp, color = Color.Gray)
-  OutlinedButton(onClick = choose, enabled = !disabled && candidate.available) { Text("Choose") }
+ UtPanel {
+  Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+   Text(candidate.label, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+   StatusChip(candidate.stateLabel)
+  }
+  if (candidate.description.isNotBlank()) Text(candidate.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+  if (candidate.sideEffect) UtFeedback("这个目标会产生真实的外部副作用。", kind = "warn")
+  if (candidate.mutating) UtFeedback("会写入本地产品数据。", kind = "warn")
+  // route/target/operation and the example stay reachable but folded
+  TechnicalDetails(targetTechnicalRows(candidate))
+  OutlinedButton(onClick = choose, enabled = !disabled && candidate.available) { Text("选择") }
  }
 }
 
-private fun askStatusColor(status: String): Color = when (status) {
- ASK_COMPLETED -> Color(0xFF456B29)
- ASK_FAILED, ASK_REFUSED -> Color(0xFFA15C38)
- ASK_UNAVAILABLE -> Color(0xFF6B6B6B)
- ASK_UNMATCHED -> Color(0xFF6B6B6B)
- else -> Color(0xFF19382F)
-}
+/**
+ * The routing facts the Ask result folds. Extracted so `TechnicalFoldingTest` asserts
+ * against exactly what the screen renders — "folded, not deleted" as a test instead of
+ * a code-reading claim.
+ *
+ * A Compose UI test would assert the collapse itself, but `ui-test-junit4` and
+ * `androidx.test` are absent from this machine's offline Gradle cache, so an androidTest
+ * cannot be built here. This is the strongest check available offline.
+ */
+internal fun askTechnicalRows(answer: AskResult): List<Pair<String, String>> = listOf(
+ "status" to answer.status,
+ "statusLabel" to answer.statusLabel,
+ // both halves: the raw router token is internal vocabulary, the label is what the
+ // surface already shows. Folding the raw one too is what the test caught as missing.
+ "router" to answer.router,
+ "routerLabel" to answer.routerLabel,
+ "route" to (answer.route ?: ""),
+ "target" to (answer.target ?: ""),
+ "operation" to (answer.operation ?: ""),
+)
+
+/** The routing facts one selectable target folds. */
+internal fun targetTechnicalRows(candidate: TargetOption): List<Pair<String, String>> = listOf(
+ "route" to candidate.route,
+ "target" to candidate.target,
+ "operation" to (candidate.operation ?: ""),
+ "available" to candidate.available.toString(),
+ "example" to candidate.example,
+)

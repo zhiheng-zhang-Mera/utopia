@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  CHANGE_TRIGGERS, DECISIONS, DutyPolicyError, POLICY_AXES, PROACTIVITY_LEVELS, createDutyPolicyRegistry,
+  CHANGE_TRIGGERS, DECISIONS, DutyPolicyError, POLICY_AXES, PROACTIVITY_LEVELS, createDutyPolicyRegistry, isIsoInstant,
 } from '../index.mjs';
 
 const T0 = '2026-01-01T00:00:00Z';
@@ -230,4 +230,154 @@ test('the policy engine is strict, frozen, observable and independent', () => {
   assert.equal(registry.sharedCoreContribution().fabric_revalidates_effective_decision, true);
   assert.equal(failure(() => createDutyPolicyRegistry({ clock: 'now' })).code, 'INVALID_CLOCK');
   assert.equal(registry.policy().policy_ref, 'policy:ba-duty-default');
+});
+
+test('the deployment policy is validated and its ceiling cannot be removed', () => {
+  for (const policy of [
+    { proactivity_ceiling: 'NONSENSE' }, { proactivity_ceiling: null }, { unknown_key: 1 },
+    { notification_audiences: 'USER' }, { notification_audiences: [7] },
+    { confirmation_required_for_proactivity: 'ACT_WITH_CONFIRMATION' }, { confirmation_required_for_proactivity: [1] },
+    { policy_ref: '' },
+  ]) {
+    assert.equal(failure(() => createDutyPolicyRegistry({ clock: () => T0, policy })).code, 'INVALID_REQUEST', JSON.stringify(policy));
+  }
+  const bounded = createDutyPolicyRegistry({ clock: () => T0, policy: { proactivity_ceiling: 'SUGGEST' } });
+  assert.equal(bounded.policy().proactivity_ceiling, 'SUGGEST');
+  assert.equal(failure(() => bounded.setDutyPolicy({ assistant_ref: BUTLER, duties: ['*'], proactivity: 'ACT_WITH_CONFIRMATION' })).code, 'PROACTIVITY_LIMIT');
+  assert.equal(bounded.setDutyPolicy({ assistant_ref: BUTLER, duties: ['*'], proactivity: 'SUGGEST' }).proactivity, 'SUGGEST');
+});
+
+test('the confirmation floor comes from the deployment policy, not from the assistant', () => {
+  const { registry } = registryAt();
+  const lowered = registry.setDutyPolicy({ assistant_ref: BUTLER, duties: ['camera.capture'], proactivity: 'ACT_WITH_CONFIRMATION', confirmation_required: false });
+  assert.equal(lowered.confirmation_required, true, 'an assistant policy may add to the floor, not lower it');
+  assert.equal(registry.decide({ assistant_ref: BUTLER, action_ref: 'camera.capture', axes: axesFor() }).decision, 'CONFIRMATION_REQUIRED');
+  const raised = registry.setDutyPolicy({ assistant_ref: SPECIALIST, duties: ['calendar.read'], proactivity: 'NOTIFY', confirmation_required: true });
+  assert.equal(raised.confirmation_required, true);
+  assert.equal(failure(() => registry.setDutyPolicy({ assistant_ref: BUTLER, duties: ['*'], proactivity: 'NOTIFY', confirmation_required: 'yes' })).code, 'INVALID_REQUEST');
+  const autonomous = createDutyPolicyRegistry({ clock: () => T0, policy: { proactivity_ceiling: 'ACT_AUTONOMOUSLY', confirmation_required_for_proactivity: ['ACT_AUTONOMOUSLY'] } });
+  autonomous.setDutyPolicy({ assistant_ref: BUTLER, duties: ['*'], proactivity: 'ACT_AUTONOMOUSLY', confirmation_required: false });
+  assert.equal(autonomous.decide({ assistant_ref: BUTLER, action_ref: 'anything', axes: axesFor() }).decision, 'CONFIRMATION_REQUIRED');
+});
+
+test('notification audiences are a list of references, not a substring match', () => {
+  const { registry } = registryAt();
+  assert.equal(failure(() => registry.setDutyPolicy({ assistant_ref: 'a', duties: ['*'], proactivity: 'NOTIFY', notification_audiences: 'USERS' })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => registry.setDutyPolicy({ assistant_ref: 'a', duties: ['*'], proactivity: 'NOTIFY', notification_audiences: ['USER', 7] })).code, 'INVALID_REQUEST');
+  const scoped = registry.setDutyPolicy({ assistant_ref: 'assistant:scoped', duties: ['*'], proactivity: 'NOTIFY', notification_audiences: ['USER', 'ASSISTANT'] });
+  assert.deepEqual(scoped.notification_audiences, ['USER', 'ASSISTANT']);
+  assert.equal(registry.proactiveNotice({ assistant_ref: 'assistant:scoped', topic_ref: 't', audience: 'USER' }).decision, 'PROACTIVE_NOTIFICATION');
+  const outside = registry.proactiveNotice({ assistant_ref: 'assistant:scoped', topic_ref: 't', audience: 'PUBLIC' });
+  assert.equal(outside.decision, 'REFUSED');
+  assert.equal(outside.reason, 'PROACTIVITY_LIMIT');
+  assert.equal(outside.user_permission_unchanged, true);
+});
+
+test('a handoff payload cannot carry authority whatever its shape', () => {
+  const { registry } = registryAt();
+  for (const handoff of [
+    { grants: { capability: 'root' } }, { grants: 'yes' }, { grants: [] },
+    { permissions: ['shell.execute'] }, { capabilities: ['root'] }, { scopes: ['*'] }, { authority: 'root' }, { elevate: true },
+  ]) {
+    assert.equal(failure(() => registry.decide({ assistant_ref: BUTLER, action_ref: 'calendar.read', axes: axesFor(), handoff })).code, 'HANDOFF_CANNOT_ELEVATE', JSON.stringify(handoff));
+    assert.equal(failure(() => registry.evaluateHandoff({ from_assistant_ref: BUTLER, to_assistant_ref: SPECIALIST, action_ref: 'calendar.read', axes: axesFor(), handoff })).code, 'HANDOFF_CANNOT_ELEVATE');
+  }
+  const benign = registry.decide({ assistant_ref: BUTLER, action_ref: 'calendar.read', axes: axesFor(), handoff: { checkpoint_ref: 'checkpoint:1', evidence_refs: ['evidence:1'] } });
+  assert.equal(benign.decision, 'CONFIRMATION_REQUIRED');
+  assert.equal(benign.effective_permission.active_changes.includes('HANDOFF'), true);
+  assert.equal(failure(() => registry.decide({ assistant_ref: BUTLER, action_ref: 'calendar.read', axes: axesFor(), handoff: 'yes' })).code, 'HANDOFF_CANNOT_ELEVATE');
+});
+
+test('the assistant axis is the registry own duty policy and the Core axes say so', () => {
+  const { registry } = registryAt();
+  const inDuty = registry.decide({ assistant_ref: BUTLER, action_ref: 'calendar.read', axes: axesFor() });
+  assert.equal(inDuty.effective_permission.denied_axes.includes('ASSISTANT_POLICY'), false);
+  const outOfDuty = registry.decide({ assistant_ref: BUTLER, action_ref: 'shell.execute', axes: axesFor({ assistant_policy: true }) });
+  assert.equal(outOfDuty.decision, 'REFUSED', 'asserting the assistant axis cannot outvote the duty policy');
+  assert.equal(outOfDuty.effective_permission.denied_axes.includes('ASSISTANT_POLICY'), true);
+  const narrowed = registry.decide({ assistant_ref: BUTLER, action_ref: 'calendar.read', axes: axesFor({ assistant_policy: false }) });
+  assert.equal(narrowed.decision, 'DENIED', 'a caller may still narrow the assistant axis');
+  assert.deepEqual([...inDuty.effective_permission.caller_declared_axes], ['USER_OWNER_POLICY', 'DEVICE_CAPABILITY', 'TASK_ACTION_GRANT']);
+  assert.equal(inDuty.effective_permission.core_axes_verified_here, false);
+  const leased = registry.decide({ assistant_ref: BUTLER, action_ref: 'calendar.read', axes: axesFor(), lease: { lease_ref: 'forged:1', lease_valid: true } });
+  assert.equal(leased.lease_usable, true);
+  assert.equal(leased.effective_permission.lease_validity_source, 'CALLER_DECLARED');
+  assert.equal(leased.effective_permission.lease_verified_here, false);
+  assert.equal(failure(() => registry.decide({ assistant_ref: BUTLER, action_ref: 'calendar.read', axes: axesFor(), capability_available: 'yes' })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => registry.decide({ assistant_ref: BUTLER, action_ref: 'calendar.read', axes: axesFor(), capability_ref: 7 })).code, 'INVALID_REQUEST');
+});
+
+test('an uninterpretable instant is refused rather than recorded', () => {
+  assert.equal(isIsoInstant('2026-13-45T99:99:99Z'), false);
+  assert.equal(isIsoInstant('2026-01-01T00:00:00.000Z'), true);
+  const registry = createDutyPolicyRegistry({ clock: () => T0 });
+  assert.equal(failure(() => registry.setDutyPolicy({ assistant_ref: BUTLER, duties: ['*'], proactivity: 'NOTIFY', at: '2026-13-45T99:99:99Z' })).code, 'INVALID_REQUEST');
+  assert.equal(registry.dutyPolicy(BUTLER), null, 'nothing was installed from an unusable instant');
+  registry.setDutyPolicy({ assistant_ref: BUTLER, duties: ['calendar.read'], proactivity: 'NOTIFY' });
+  assert.equal(failure(() => registry.checkDuty({ assistant_ref: BUTLER, action_ref: 'calendar.read', at: 5 })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => registry.proactiveNotice({ assistant_ref: BUTLER, topic_ref: 't', at: 'yesterday' })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => registry.decide({ assistant_ref: BUTLER, action_ref: 'calendar.read', axes: axesFor(), at: 'not-an-instant' })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => createDutyPolicyRegistry({ clock: () => '2026-13-45T99:99:99Z' }).setDutyPolicy({ assistant_ref: BUTLER, duties: ['*'], proactivity: 'NOTIFY' })).code, 'INVALID_CLOCK');
+});
+
+test('the duty gate is about the action, and a named duty only narrows it', () => {
+  const { registry } = registryAt();
+  const smuggled = registry.decide({ assistant_ref: BUTLER, action_ref: 'shell.execute.rm-rf', axes: axesFor(), duty_ref: 'calendar.read' });
+  assert.equal(smuggled.decision, 'REFUSED', 'a held duty reference cannot authorise an action outside the duty list');
+  assert.equal(smuggled.reason, 'OUT_OF_DUTY');
+  assert.equal(smuggled.action_in_duty, false);
+  assert.equal(smuggled.duty_ref_in_duty, true);
+  const honest = registry.decide({ assistant_ref: BUTLER, action_ref: 'calendar.read', axes: axesFor(), duty_ref: 'calendar.read' });
+  assert.equal(honest.decision, 'CONFIRMATION_REQUIRED');
+  assert.equal(honest.action_in_duty, true);
+  const narrowed = registry.decide({ assistant_ref: BUTLER, action_ref: 'calendar.read', axes: axesFor(), duty_ref: 'shell.execute' });
+  assert.equal(narrowed.decision, 'REFUSED', 'a named duty outside the list refuses even an in-duty action');
+  const wildcard = registry.setDutyPolicy({ assistant_ref: 'assistant:general', duties: ['*'], proactivity: 'NOTIFY' });
+  assert.deepEqual(wildcard.duties, ['*']);
+  assert.equal(registry.decide({ assistant_ref: 'assistant:general', action_ref: 'anything', axes: axesFor() }).decision, 'ALLOWED');
+});
+
+test('a handoff carries the capability factor and reports relative privilege honestly', () => {
+  const { registry } = registryAt();
+  const withoutCapability = registry.evaluateHandoff({ from_assistant_ref: SPECIALIST, to_assistant_ref: SPECIALIST, action_ref: 'calendar.read', axes: axesFor(), capability_available: false });
+  assert.equal(withoutCapability.to_decision, 'DENIED', 'a handoff does not conjure a missing capability');
+  assert.equal(withoutCapability.recipient_capability_checked, true);
+  assert.equal(withoutCapability.capability_available, false);
+  registry.setDutyPolicy({ assistant_ref: 'assistant:handler', duties: ['camera.capture'], proactivity: 'NOTIFY' });
+  const morePrivileged = registry.evaluateHandoff({ from_assistant_ref: SPECIALIST, to_assistant_ref: 'assistant:handler', action_ref: 'camera.capture', axes: axesFor() });
+  assert.equal(morePrivileged.from_decision, 'REFUSED');
+  assert.equal(morePrivileged.to_decision, 'ALLOWED');
+  assert.equal(morePrivileged.recipient_more_privileged_than_sender, true, 'the recipient privilege is reported, not asserted away');
+  assert.equal(morePrivileged.recipient_more_privileged_than_before, false, 'but the handoff itself granted nothing');
+  assert.equal(morePrivileged.authority_transferred, false);
+});
+
+test('a lease must be unexpired and held here to count as execution safety', () => {
+  const { registry, clock } = registryAt();
+  const live = registry.decide({ assistant_ref: BUTLER, action_ref: 'calendar.read', axes: axesFor(), lease: { lease_ref: 'lease:1', lease_valid: true, holder_ref: BUTLER, expires_at: '2026-01-01T00:10:00Z' } });
+  assert.equal(live.lease_usable, true);
+  const expired = registry.decide({ assistant_ref: BUTLER, action_ref: 'calendar.read', axes: axesFor(), lease: { lease_ref: 'lease:2', lease_valid: true, holder_ref: BUTLER, expires_at: T0 } });
+  assert.equal(expired.lease_usable, false, 'an expired lease is not usable execution safety');
+  const foreign = registry.decide({ assistant_ref: BUTLER, action_ref: 'calendar.read', axes: axesFor(), lease: { lease_ref: 'lease:3', lease_valid: true, holder_ref: SPECIALIST } });
+  assert.equal(foreign.lease_usable, false, 'a lease held by another assistant is not usable here');
+  assert.equal(failure(() => registry.decide({ assistant_ref: BUTLER, action_ref: 'calendar.read', axes: axesFor(), lease: { lease_ref: 'lease:4', lease_valid: true, expires_at: 'not-an-instant' } })).code, 'INVALID_REQUEST');
+  clock.advance(600000);
+  const late = registry.decide({ assistant_ref: BUTLER, action_ref: 'calendar.read', axes: axesFor(), lease: { lease_ref: 'lease:5', lease_valid: true, holder_ref: BUTLER, expires_at: '2026-01-01T00:05:00Z' } });
+  assert.equal(late.lease_usable, false, 'the clock moves and the lease does not follow');
+});
+
+test('a recomputation supersedes the decisions it replaces, and ids are registry scoped', () => {
+  const { registry } = registryAt();
+  const before = registry.decide({ assistant_ref: SPECIALIST, action_ref: 'calendar.read', axes: axesFor() });
+  assert.equal(before.decision, 'ALLOWED');
+  const after = registry.recomputeForChange({ assistant_ref: SPECIALIST, action_ref: 'calendar.read', trigger: 'CAPABILITY_CHANGE', axes: axesFor(), capability_available: false });
+  assert.equal(after.decision, 'DENIED');
+  const stale = registry.decision(before.decision_id);
+  assert.equal(stale.superseded_by, after.decision_id, 'the stale ALLOWED is marked superseded');
+  assert.equal(registry.decision(after.decision_id).superseded_by, undefined);
+  const other = registryAt().registry;
+  const first = registry.decide({ assistant_ref: BUTLER, action_ref: 'calendar.read', axes: axesFor() });
+  const second = other.decide({ assistant_ref: BUTLER, action_ref: 'calendar.read', axes: axesFor() });
+  assert.notEqual(first.decision_id, second.decision_id, 'two registries do not mint the same decision id');
+  assert.equal(other.decision(first.decision_id), null, 'and an id from one registry is not readable in another');
 });

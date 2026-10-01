@@ -49,15 +49,64 @@ export class DutyPolicyError extends Error {
   }
 }
 
-const isPlainObject = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+const isPlainObject = value => {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+};
 const isText = value => typeof value === 'string' && value.trim().length > 0;
 const clone = value => (value === undefined ? undefined : structuredClone(value));
+/** Cycle-safe: a caller-supplied structure must not be able to blow the stack. */
 const freeze = value => {
-  if (value === null || typeof value !== 'object') return value;
-  for (const child of Object.values(value)) freeze(child);
-  return Object.freeze(value);
+  const seen = new WeakSet();
+  const walk = node => {
+    if (node === null || typeof node !== 'object') return node;
+    if (seen.has(node)) return node;
+    seen.add(node);
+    for (const child of Object.values(node)) walk(child);
+    return Object.freeze(node);
+  };
+  return walk(value);
 };
-export const isIsoInstant = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value);
+export const isIsoInstant = value => typeof value === 'string'
+  && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)
+  && !Number.isNaN(Date.parse(value));
+
+const INSTANT_PARTS = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?Z$/;
+const isRealInstant = value => {
+  if (!isIsoInstant(value)) return false;
+  const parts = INSTANT_PARTS.exec(value);
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return false;
+  return date.getUTCFullYear() === Number(parts[1])
+    && date.getUTCMonth() + 1 === Number(parts[2])
+    && date.getUTCDate() === Number(parts[3])
+    && date.getUTCHours() === Number(parts[4])
+    && date.getUTCMinutes() === Number(parts[5])
+    && date.getUTCSeconds() === Number(parts[6]);
+};
+
+const POLICY_KEYS = Object.freeze(['policy_ref', 'proactivity_ceiling', 'notification_audiences', 'confirmation_required_for_proactivity']);
+/** Keys a handoff may carry. Anything authority-bearing is refused whatever its shape. */
+const HANDOFF_ALLOWED_KEYS = Object.freeze(['responsibility_ref', 'checkpoint_ref', 'evidence_refs', 'from_assistant_ref', 'to_assistant_ref', 'task_ref', 'reason']);
+const HANDOFF_AUTHORITY_KEYS = Object.freeze(['grants', 'grant', 'permissions', 'permission', 'capabilities', 'capability', 'scopes', 'scope', 'roles', 'role', 'allow', 'allowed', 'elevate', 'authority']);
+
+function validateDutyPolicy(config) {
+  const errors = [];
+  for (const key of Reflect.ownKeys(config)) {
+    if (typeof key !== 'string' || !POLICY_KEYS.includes(key)) errors.push('policy.' + String(key) + ' is not part of the duty policy');
+  }
+  if (!isText(config.policy_ref)) errors.push('policy.policy_ref must be nonempty text');
+  if (!PROACTIVITY_LEVELS.includes(config.proactivity_ceiling)) errors.push('policy.proactivity_ceiling must be one of ' + PROACTIVITY_LEVELS.join(', '));
+  if (!Array.isArray(config.confirmation_required_for_proactivity) || config.confirmation_required_for_proactivity.some(level => !PROACTIVITY_LEVELS.includes(level))) {
+    errors.push('policy.confirmation_required_for_proactivity must be a list of proactivity levels');
+  }
+  if (!Array.isArray(config.notification_audiences) || config.notification_audiences.some(audience => !isText(audience))) {
+    errors.push('policy.notification_audiences must be a list of audience references');
+  }
+  if (errors.length) throw new DutyPolicyError('INVALID_REQUEST', errors.join('; '));
+  return config;
+}
 
 export const DEFAULT_DUTY_POLICY = Object.freeze({
   policy_ref: 'policy:ba-duty-default',
@@ -68,18 +117,45 @@ export const DEFAULT_DUTY_POLICY = Object.freeze({
 
 const PROACTIVITY_RANK = Object.freeze(Object.fromEntries(PROACTIVITY_LEVELS.map((level, index) => [level, index])));
 
+let REGISTRY_SEQ = 0;
+
 export function createDutyPolicyRegistry({ clock = () => new Date().toISOString(), policy = {} } = {}) {
   if (typeof clock !== 'function') throw new DutyPolicyError('INVALID_CLOCK', 'clock must be a function returning an ISO-8601 UTC instant');
-  const config = { ...DEFAULT_DUTY_POLICY, ...(isPlainObject(policy) ? policy : {}) };
+  if (policy !== undefined && policy !== null && !isPlainObject(policy)) throw new DutyPolicyError('INVALID_REQUEST', 'policy must be a plain object');
+  const config = validateDutyPolicy({ ...DEFAULT_DUTY_POLICY, ...(isPlainObject(policy) ? policy : {}) });
   const duties = new Map();
   const decisions = new Map();
   const journal = [];
   let counter = 0;
+  REGISTRY_SEQ += 1;
+  const registry_token = REGISTRY_SEQ;
 
   const now = () => {
     const produced = clock();
-    if (!isIsoInstant(produced)) throw new DutyPolicyError('INVALID_CLOCK', 'clock() must return an ISO-8601 UTC instant');
+    if (!isRealInstant(produced)) throw new DutyPolicyError('INVALID_CLOCK', 'clock() must return a real ISO-8601 UTC instant');
     return produced;
+  };
+
+  /** A caller-supplied instant is validated: a recorded timestamp is evidence, including its reality. */
+  const atFrom = when => {
+    if (when === undefined || when === null) return now();
+    if (!isRealInstant(when)) throw new DutyPolicyError('INVALID_REQUEST', `at must be a real ISO-8601 UTC instant, got ${String(when)}`);
+    return when;
+  };
+
+  /** A handoff may carry responsibility and references; anything else is an elevation attempt. */
+  const assertHandoffCarriesNoAuthority = handoff => {
+    if (handoff === null || handoff === undefined) return null;
+    if (!isPlainObject(handoff)) throw new DutyPolicyError('HANDOFF_CANNOT_ELEVATE', 'a handoff payload must be a plain record', { recipient_elevated: false, elevation_applied: false });
+    for (const key of Reflect.ownKeys(handoff)) {
+      const name = typeof key === 'string' ? key : String(key);
+      if (HANDOFF_AUTHORITY_KEYS.includes(name) || !HANDOFF_ALLOWED_KEYS.includes(name)) {
+        throw new DutyPolicyError('HANDOFF_CANNOT_ELEVATE', `a handoff payload may not carry ${name}; the recipient recomputes its own permission`, {
+          payload_key: name, recipient_elevated: false, elevation_applied: false, authority_keys: freeze([...HANDOFF_AUTHORITY_KEYS]),
+        });
+      }
+    }
+    return handoff;
   };
 
   const note = (event, at, detail = {}) => {
@@ -100,7 +176,9 @@ export function createDutyPolicyRegistry({ clock = () => new Date().toISOString(
   const evaluate = ({ assistant_ref, axes = {}, context = {} }) => {
     const values = {
       USER_OWNER_POLICY: axes.user_owner_policy === true,
-      ASSISTANT_POLICY: axes.assistant_policy === true,
+      // The assistant axis is the assistant policy this registry owns: an in-duty action inside the
+      // deployment ceiling. A caller may only narrow it, never assert it on the assistant's behalf.
+      ASSISTANT_POLICY: context.assistant_policy_holds === true && axes.assistant_policy !== false,
       DEVICE_CAPABILITY: axes.device_capability === true,
       TASK_ACTION_GRANT: axes.task_action_grant === true,
     };
@@ -115,6 +193,12 @@ export function createDutyPolicyRegistry({ clock = () => new Date().toISOString(
       lease_is_not_permission: true,
       lease_ref: context.lease_ref ?? null,
       lease_present: isText(context.lease_ref),
+      // The three Core-owned axes and a lease's validity are supplied by the caller; this module cannot
+      // verify them, and it says so rather than implying it did.
+      caller_declared_axes: freeze(['USER_OWNER_POLICY', 'DEVICE_CAPABILITY', 'TASK_ACTION_GRANT']),
+      core_axes_verified_here: false,
+      lease_validity_source: 'CALLER_DECLARED',
+      lease_verified_here: false,
       lease_does_not_grant_forbidden_capability: true,
       persona_is_not_permission: true,
       profile_is_not_permission: true,
@@ -152,13 +236,23 @@ export function createDutyPolicyRegistry({ clock = () => new Date().toISOString(
           assistant_ref, requested: proactivity, ceiling: config.proactivity_ceiling, independent_of_digital_me: true,
         });
       }
-      const at = when ?? now();
+      if (confirmation_required !== null && confirmation_required !== undefined && typeof confirmation_required !== 'boolean') {
+        throw new DutyPolicyError('INVALID_REQUEST', 'confirmation_required must be a boolean when supplied');
+      }
+      if (notification_audiences !== null && notification_audiences !== undefined
+        && (!Array.isArray(notification_audiences) || notification_audiences.some(audience => !isText(audience)))) {
+        throw new DutyPolicyError('INVALID_REQUEST', 'notification_audiences must be a list of audience references');
+      }
+      const at = atFrom(when);
+      // The deployment policy sets a confirmation floor for high proactivity; an assistant policy may add to
+      // it but may not switch it off for a level the deployment requires.
+      const policyRequiresConfirmation = config.confirmation_required_for_proactivity.includes(proactivity);
       const duty = {
         assistant_ref,
-        duties: freeze([...duty_refs]),
+        duties: freeze([...new Set(duty_refs)]),
         proactivity,
-        confirmation_required: confirmation_required ?? config.confirmation_required_for_proactivity.includes(proactivity),
-        notification_audiences: freeze(notification_audiences ?? [...config.notification_audiences]),
+        confirmation_required: policyRequiresConfirmation || confirmation_required === true,
+        notification_audiences: freeze([...new Set(notification_audiences ?? [...config.notification_audiences])]),
         updated_at: at,
         revision: (duties.get(assistant_ref)?.revision ?? 0) + 1,
         source: 'ASSISTANT_OWNED_POLICY',
@@ -178,7 +272,7 @@ export function createDutyPolicyRegistry({ clock = () => new Date().toISOString(
     checkDuty({ assistant_ref, action_ref, duty_ref = null, at: when } = {}) {
       const duty = requireDuty(assistant_ref);
       if (!isText(action_ref)) throw new DutyPolicyError('INVALID_REQUEST', 'action_ref is required');
-      const at = when ?? now();
+      const at = atFrom(when);
       const required = duty_ref ?? action_ref;
       const inDuty = duty.duties.includes(required) || duty.duties.includes('*');
       note(inDuty ? 'DUTY_MATCHED' : 'DUTY_MISSED', at, { assistant_ref, action_ref, required });
@@ -202,23 +296,43 @@ export function createDutyPolicyRegistry({ clock = () => new Date().toISOString(
     decide({ assistant_ref, action_ref, duty_ref = null, axes = {}, capability_ref = null, capability_available = true, lease = null, handoff = null, at: when } = {}) {
       const duty = requireDuty(assistant_ref);
       if (!isText(action_ref)) throw new DutyPolicyError('INVALID_REQUEST', 'action_ref is required');
-      const at = when ?? now();
+      if (typeof capability_available !== 'boolean') throw new DutyPolicyError('INVALID_REQUEST', 'capability_available must be true or false');
+      if (capability_ref !== null && !isText(capability_ref)) throw new DutyPolicyError('INVALID_REQUEST', 'capability_ref must be a reference when supplied');
+      const at = atFrom(when);
       counter += 1;
-      const decision_id = `decision:${counter}`;
+      // Ids are scoped to the registry that minted them: a bare counter collides across registries.
+      const decision_id = `decision:${registry_token}:${counter}`;
       const required = duty_ref ?? action_ref;
-      const inDuty = duty.duties.includes(required) || duty.duties.includes('*');
+      // The duty check is bound to the ACTION. A caller-supplied duty reference that the assistant happens
+      // to hold can no longer stand in for an action it is not in duty for; it only narrows the decision.
+      const actionInDuty = duty.duties.includes(action_ref) || duty.duties.includes('*');
+      const namedDutyInDuty = duty_ref === null ? true : duty.duties.includes(duty_ref) || duty.duties.includes('*');
+      const inDuty = actionInDuty && namedDutyInDuty;
 
-      // A handoff payload can never elevate: the recipient's own duty policy and axes are what count.
-      const handoffElevation = isPlainObject(handoff) && (Array.isArray(handoff.grants) ? handoff.grants.length > 0 : false);
-      if (handoffElevation) {
-        note('HANDOFF_ELEVATION_REFUSED', at, { assistant_ref });
-        throw new DutyPolicyError('HANDOFF_CANNOT_ELEVATE', 'a handoff payload may not carry grants; the recipient recomputes its own permission', {
-          assistant_ref, grants_present: handoff.grants.length, elevation_applied: false,
-        });
+      // A handoff payload can never elevate: the recipient's own duty policy and axes are what count, and
+      // any authority-bearing key is refused whatever its shape (an object or string "grants" used to pass).
+      try {
+        assertHandoffCarriesNoAuthority(handoff);
+      } catch (error) {
+        note('HANDOFF_ELEVATION_REFUSED', at, { assistant_ref, payload_key: error.payload_key ?? null });
+        throw error;
       }
 
-      const effective = evaluate({ assistant_ref, axes, context: { lease_ref: lease?.lease_ref ?? null, recomputed_at: at, active_changes: handoff !== null ? ['HANDOFF'] : [] } });
-      const leaseUsable = isPlainObject(lease) && lease.lease_valid === true && isText(lease.lease_ref);
+      const effective = evaluate({
+        assistant_ref,
+        axes,
+        context: { lease_ref: lease?.lease_ref ?? null, recomputed_at: at, active_changes: handoff !== null ? ['HANDOFF'] : [], assistant_policy_holds: inDuty },
+      });
+      // A lease is usable only if it is declared valid, unexpired and held by this assistant. An expired or
+      // foreign lease is not execution safety either.
+      const leaseExpiresAt = isPlainObject(lease) && lease.expires_at !== undefined && lease.expires_at !== null ? lease.expires_at : null;
+      if (leaseExpiresAt !== null && !isRealInstant(leaseExpiresAt)) {
+        throw new DutyPolicyError('INVALID_REQUEST', `lease.expires_at must be a real ISO-8601 UTC instant, got ${String(leaseExpiresAt)}`);
+      }
+      const leaseHolder = isPlainObject(lease) && isText(lease.holder_ref) ? lease.holder_ref : null;
+      const leaseUnexpired = leaseExpiresAt === null || Date.parse(leaseExpiresAt) > Date.parse(at);
+      const leaseHeldHere = leaseHolder === null || leaseHolder === assistant_ref;
+      const leaseUsable = isPlainObject(lease) && lease.lease_valid === true && isText(lease.lease_ref) && leaseUnexpired && leaseHeldHere;
       const proactivityRank = PROACTIVITY_RANK[duty.proactivity];
       const result = {
         contract_version: DUTY_POLICY_CONTRACT_VERSION,
@@ -227,6 +341,8 @@ export function createDutyPolicyRegistry({ clock = () => new Date().toISOString(
         action_ref,
         required_duty_ref: required,
         duty_kind: inDuty ? 'IN_DUTY' : 'OUT_OF_DUTY',
+        action_in_duty: actionInDuty,
+        duty_ref_in_duty: namedDutyInDuty,
         effective_permission: effective,
         capability_ref,
         capability_available,
@@ -264,7 +380,7 @@ export function createDutyPolicyRegistry({ clock = () => new Date().toISOString(
     proactiveNotice({ assistant_ref, topic_ref, audience = 'USER', at: when } = {}) {
       const duty = requireDuty(assistant_ref);
       if (!isText(topic_ref)) throw new DutyPolicyError('INVALID_REQUEST', 'topic_ref is required');
-      const at = when ?? now();
+      const at = atFrom(when);
       const allowedAudiences = duty.notification_audiences;
       if (!allowedAudiences.includes(audience)) {
         return freeze({
@@ -303,8 +419,16 @@ export function createDutyPolicyRegistry({ clock = () => new Date().toISOString(
     recomputeForChange({ assistant_ref, action_ref, trigger, axes = {}, capability_available = true, lease = null, at: when } = {}) {
       if (!CHANGE_TRIGGERS.includes(trigger)) throw new DutyPolicyError('INVALID_REQUEST', `trigger must be one of ${CHANGE_TRIGGERS.join(', ')}`);
       requireDuty(assistant_ref);
-      const at = when ?? now();
+      const at = atFrom(when);
       const decision = api.decide({ assistant_ref, action_ref, axes, capability_available, lease, at });
+      // A decision made before this change is not current authority: earlier decisions about the same
+      // assistant and action are marked superseded rather than left readable as if still valid.
+      for (const [previous_id, previous] of decisions) {
+        if (previous_id === decision.decision_id) continue;
+        if (previous.assistant_ref === assistant_ref && previous.action_ref === action_ref && previous.superseded_by === undefined) {
+          decisions.set(previous_id, freeze({ ...previous, superseded_by: decision.decision_id }));
+        }
+      }
       note('PERMISSION_RECOMPUTED', at, { assistant_ref, trigger });
       return freeze({
         ...clone(decision),
@@ -317,16 +441,16 @@ export function createDutyPolicyRegistry({ clock = () => new Date().toISOString(
     },
 
     /** A handoff moves responsibility, never authority: the recipient's own policy decides. */
-    evaluateHandoff({ from_assistant_ref, to_assistant_ref, action_ref, axes = {}, handoff = null, at: when } = {}) {
+    evaluateHandoff({ from_assistant_ref, to_assistant_ref, action_ref, axes = {}, capability_available = true, handoff = null, at: when } = {}) {
+      if (typeof capability_available !== 'boolean') throw new DutyPolicyError('INVALID_REQUEST', 'capability_available must be true or false');
       requireDuty(from_assistant_ref);
       requireDuty(to_assistant_ref);
-      const at = when ?? now();
-      const grants = isPlainObject(handoff) && Array.isArray(handoff.grants) ? handoff.grants : [];
-      if (grants.length > 0) {
-        throw new DutyPolicyError('HANDOFF_CANNOT_ELEVATE', 'a handoff may carry responsibility and evidence, never grants', { from_assistant_ref, to_assistant_ref, grants_present: grants.length, recipient_elevated: false });
-      }
-      const fromDecision = api.decide({ assistant_ref: from_assistant_ref, action_ref, axes, at });
-      const toDecision = api.decide({ assistant_ref: to_assistant_ref, action_ref, axes, at });
+      const at = atFrom(when);
+      assertHandoffCarriesNoAuthority(handoff);
+      // The recipient is recomputed with the same capability factor: a handoff does not conjure a
+      // capability the target device does not have.
+      const fromDecision = api.decide({ assistant_ref: from_assistant_ref, action_ref, axes, capability_available, at });
+      const toDecision = api.decide({ assistant_ref: to_assistant_ref, action_ref, axes, capability_available, at });
       note('HANDOFF_EVALUATED', at, { from_assistant_ref, to_assistant_ref });
       return freeze({
         contract_version: DUTY_POLICY_CONTRACT_VERSION,
@@ -337,6 +461,9 @@ export function createDutyPolicyRegistry({ clock = () => new Date().toISOString(
         to_decision: toDecision.decision,
         recipient_recomputed_permission: true,
         recipient_inherits_grants: false,
+        recipient_more_privileged_than_sender: fromDecision.decision !== 'ALLOWED' && toDecision.decision === 'ALLOWED',
+        capability_available,
+        recipient_capability_checked: true,
         recipient_more_privileged_than_before: false,
         authority_transferred: false,
         at,

@@ -303,3 +303,319 @@ test('the SDK surface is strict, frozen and free of ambient state', () => {
   assert.equal(adapter.acceptance().marker, ACCEPTANCE_PENDING, 'no runtime evidence means pending, not accepted');
   assert.equal(ACCEPTANCE_PENDING, 'REAL_PROVIDER_ACCEPTANCE_PENDING');
 });
+// EM-012-CORRECTION-REGRESSIONS - the corrected behaviours that the Development head did not have.
+import { isIsoInstant } from '../index.mjs';
+
+const adapterFor = (kind, behaviour = {}, extra = {}) => createSdkAdapter({ definition: definitionFor(kind, behaviour).definition, clock: () => T0, ...extra });
+
+test('a definition cannot be declared with mistyped policy fields or an impossible instant', () => {
+  const handlers = syntheticHandlers().handlers;
+  assert.equal(failure(() => defineConnector({ connector_kind: 'OPTIONAL_STRING', handlers, optional: 'yes' })).code, 'INVALID_DEFINITION');
+  assert.equal(failure(() => defineConnector({ connector_kind: 'CONTROLS_NULL', handlers, supported_controls: null })).code, 'INVALID_DEFINITION');
+  assert.equal(failure(() => defineConnector({ connector_kind: 'CONTROLS_STRING', handlers, supported_controls: 'CANCEL' })).code, 'INVALID_DEFINITION');
+  assert.equal(failure(() => defineConnector({ connector_kind: 'CONTROLS_MIXED', handlers, supported_controls: ['CANCEL', 7] })).code, 'INVALID_DEFINITION');
+  assert.equal(isIsoInstant('2026-01-01T00:00:00.000Z'), true);
+  assert.equal(isIsoInstant('2026-13-45T99:99:99Z'), false, 'an impossible instant is not an instant');
+  assert.equal(isIsoInstant('2026-02-30T00:00:00Z'), false, 'a rolled-over calendar date is not an instant');
+  assert.equal(failure(() => defineConnector({ connector_kind: 'BAD_INSTANT', handlers, at: '2026-02-30T00:00:00Z' })).code, 'INVALID_REQUEST');
+  assert.equal(failure(() => runConformanceHarness({ definition: definitionFor('HARNESS_BAD_AT').definition, at: '2026-13-45T99:99:99Z' })).code, 'INVALID_REQUEST');
+});
+
+test('a cyclic port result crosses the boundary as a frozen cycle, not as the adapter own object', () => {
+  const cyclic = defineConnector({
+    connector_kind: 'CYCLIC_RESULT',
+    capabilities: ['code.generate'],
+    handlers: {
+      ...syntheticHandlers().handlers,
+      capabilities: () => {
+        const value = { capabilities: ['code.generate'] };
+        value.self = value;
+        return value;
+      },
+    },
+    at: T0,
+  });
+  const result = createSdkAdapter({ definition: cyclic, clock: () => T0 }).capabilities();
+  assert.equal(result.self === result, true, 'the snapshot preserves the cycle');
+  assert.equal(Object.isFrozen(result), true, 'a caller cannot mutate the adapter own object');
+  assert.equal(result.capabilities.includes('code.generate'), true);
+});
+
+test('a non-cloneable port result is a typed refusal instead of a live object', () => {
+  const uncloneable = defineConnector({
+    connector_kind: 'UNCLONEABLE_RESULT',
+    capabilities: ['code.generate'],
+    handlers: { ...syntheticHandlers().handlers, capabilities: () => ({ capabilities: ['code.generate'], live: () => 'adapter state' }) },
+    at: T0,
+  });
+  const adapter = createSdkAdapter({ definition: uncloneable, clock: () => T0 });
+  const refused = failure(() => adapter.capabilities());
+  assert.equal(refused.code, 'MALFORMED_RESULT');
+  assert.equal(refused.fault_kind, 'MALFORMED_RESULT');
+});
+
+test('the harness does not certify a connector that silently accepts an unsupported capability', () => {
+  const lenient = defineConnector({
+    connector_kind: 'LENIENT_CAPABILITIES',
+    capabilities: ['code.generate'],
+    handlers: { ...syntheticHandlers().handlers, submit: () => ({ result_ref: 'result:lenient' }) },
+    at: T0,
+  });
+  const report = runConformanceHarness({ definition: lenient });
+  const check = report.checks.find(entry => entry.name.includes('unsupported capabilities'));
+  assert.equal(check.passed, false, 'accepting an unsupported operation is not conformance');
+  assert.equal(check.detail.code, 'MALFORMED_RESULT');
+  assert.equal(report.conformant, false);
+});
+
+test('the harness does not certify a connector that silently accepts an unsupported control', () => {
+  const lenient = defineConnector({
+    connector_kind: 'LENIENT_CONTROLS',
+    capabilities: ['code.generate'],
+    handlers: { ...syntheticHandlers().handlers, control: () => ({ applied: true }) },
+    at: T0,
+  });
+  const report = runConformanceHarness({ definition: lenient, fixtures: { unsupported_control: 'TELEPORT' } });
+  const check = report.checks.find(entry => entry.name.includes('unsupported controls'));
+  assert.equal(check.passed, false);
+  assert.equal(check.detail.code, 'MALFORMED_RESULT');
+  assert.equal(report.conformant, false);
+});
+
+test('an enabled adapter whose product is not installed is not usable, not selected and not accepted', () => {
+  const definition = definitionFor('MISSING_PRODUCT', { installed: false }).definition;
+  const adapter = createSdkAdapter({ definition, clock: () => T0 });
+  assert.equal(adapter.adapterState(), 'ENABLED');
+  assert.equal(adapter.installState(), 'NOT_INSTALLED');
+  const registry = createAdapterRegistry({ clock: () => T0 });
+  registry.register({ adapter });
+  const startup = registry.startupReport();
+  assert.equal(startup.adapters[0].install_state, 'NOT_INSTALLED');
+  assert.equal(startup.usable.includes('MISSING_PRODUCT'), false, 'an uninstalled product is not usable');
+  assert.equal(startup.unavailable.includes('MISSING_PRODUCT'), true);
+  assert.equal(failure(() => registry.selectForCapability({ capability: 'code.generate' })).code, 'OPTIONAL_UNAVAILABLE');
+  const claiming = createSdkAdapter({
+    definition,
+    runtime: { acceptanceEvidence: () => ({ real: true, submit_ref: 'submit:1', terminal_ref: 'terminal:1' }) },
+    clock: () => T0,
+  });
+  const acceptance = claiming.acceptance();
+  assert.equal(acceptance.component_stage_acceptance, false, 'a product that reports itself uninstalled cannot be accepted');
+  assert.equal(acceptance.marker, ACCEPTANCE_PENDING);
+});
+
+test('only a faulted adapter can be cleared, and the fault record survives the clearing', () => {
+  const healthy = adapterFor('CLEAR_WHEN_HEALTHY');
+  assert.equal(failure(() => healthy.clearFaults()).code, 'INVALID_REQUEST');
+  const faulty = createSdkAdapter({
+    definition: defineConnector({
+      connector_kind: 'FAULTY_TO_CLEAR',
+      capabilities: ['code.generate'],
+      handlers: { ...syntheticHandlers().handlers, probe: () => { throw new Error('probe exploded'); } },
+      at: T0,
+    }),
+    clock: () => T0,
+  });
+  assert.equal(failure(() => faulty.probe()).code, 'ADAPTER_FAULT');
+  assert.equal(faulty.adapterState(), 'FAULTED');
+  const cleared = faulty.clearFaults();
+  assert.equal(cleared.adapter_state, 'ENABLED');
+  assert.equal(cleared.cleared_fault_count, 1);
+  assert.equal(cleared.faults_retained, true);
+  assert.equal(faulty.faults().length, 0);
+  assert.equal(faulty.faultHistory().length, 1, 'the cleared fault is retained as a record');
+  assert.equal(faulty.faultHistory()[0].faults.length, 1);
+  assert.equal(faulty.faultHistory()[0].faults[0].isolated_to, 'FAULTY_TO_CLEAR');
+  assert.equal(faulty.faultHistory()[0].faults[0].clock_valid, true);
+});
+
+test('re-declaring availability cannot revive a faulted adapter', () => {
+  const faulty = createSdkAdapter({
+    definition: defineConnector({
+      connector_kind: 'FAULTY_REVIVE',
+      capabilities: ['code.generate'],
+      handlers: { ...syntheticHandlers().handlers, capabilities: () => { throw new Error('capabilities exploded'); } },
+      at: T0,
+    }),
+    clock: () => T0,
+  });
+  assert.equal(failure(() => faulty.capabilities()).code, 'ADAPTER_FAULT');
+  assert.equal(failure(() => faulty.enable()).code, 'ADAPTER_FAULT');
+  assert.equal(faulty.adapterState(), 'FAULTED');
+  assert.equal(failure(() => adapterFor('BAD_AVAILABLE').enable({ available: 'yes' })).code, 'INVALID_REQUEST');
+});
+
+test('the registry refuses an adapter the SDK did not wrap, so isolation cannot be bypassed', () => {
+  const forged = {
+    connectorKind: () => 'FORGED_ADAPTER',
+    adapterState: () => 'ENABLED',
+    optional: () => false,
+    installState: () => 'INSTALLED',
+    capabilities: () => ({ capabilities: ['code.generate'] }),
+    acceptance: () => ({ connector_kind: 'FORGED_ADAPTER', component_stage_acceptance: true }),
+  };
+  const registry = createAdapterRegistry({ clock: () => T0 });
+  const refused = failure(() => registry.register({ adapter: forged }));
+  assert.equal(refused.code, 'INVALID_REQUEST');
+  assert.equal(refused.isolation_wrapped, false);
+  assert.deepEqual([...registry.adapterKinds()], []);
+  const wrapped = registry.register({ adapter: adapterFor('WRAPPED_ADAPTER') });
+  assert.equal(wrapped.isolation_wrapped, true);
+});
+
+test('a caller-declared acceptance says so instead of implying the SDK verified a host', () => {
+  const definition = definitionFor('DECLARED_EVIDENCE').definition;
+  const adapter = createSdkAdapter({
+    definition,
+    runtime: { acceptanceEvidence: () => ({ real: true, submit_ref: 'submit:9', terminal_ref: 'terminal:9' }) },
+    clock: () => T0,
+  });
+  const accepted = adapter.acceptance();
+  assert.equal(accepted.component_stage_acceptance, true);
+  assert.equal(accepted.acceptance_verified_here, false, 'this SDK cannot verify a host runtime');
+  assert.equal(accepted.evidence_declared_by, 'CALLER_SUPPLIED_RUNTIME');
+  assert.equal(accepted.real_evidence_verified_here, false);
+  assert.deepEqual(accepted.real_evidence, { submit_ref: 'submit:9', terminal_ref: 'terminal:9' });
+  const registry = createAdapterRegistry({ clock: () => T0 });
+  registry.register({ adapter });
+  const summary = registry.acceptanceSummary();
+  assert.equal(summary.fabricated_acceptance_claimed, 1, 'an unverified acceptance is counted as such');
+  assert.deepEqual([...summary.unverified_acceptances], ['DECLARED_EVIDENCE']);
+  class Evidence {
+    constructor() {
+      this.real = true;
+      this.submit_ref = 'submit:1';
+      this.terminal_ref = 'terminal:1';
+    }
+  }
+  const classRuntime = createSdkAdapter({ definition, runtime: { acceptanceEvidence: () => new Evidence() }, clock: () => T0 });
+  assert.equal(classRuntime.acceptance().component_stage_acceptance, false, 'a class instance is not a plain evidence record');
+  assert.equal(classRuntime.acceptance().marker, ACCEPTANCE_PENDING);
+});
+// EM-012-CORRECTION-REGRESSIONS-PASS-3 - hostile errors, harness certification, handler record, fault identity.
+
+test('an error whose code getter throws is still an isolated, typed fault', () => {
+  const hostile = createSdkAdapter({
+    definition: defineConnector({
+      connector_kind: 'HOSTILE_ERROR',
+      capabilities: ['code.generate'],
+      handlers: {
+        ...syntheticHandlers().handlers,
+        capabilities: () => {
+          const error = { message: 'hostile' };
+          Object.defineProperty(error, 'code', { get() { throw new Error('code getter exploded'); }, enumerable: true });
+          throw error;
+        },
+      },
+      at: T0,
+    }),
+    clock: () => T0,
+  });
+  const refused = failure(() => hostile.capabilities());
+  assert.equal(refused.code, 'ADAPTER_FAULT');
+  assert.equal(refused.fault_kind, 'EXCEPTION');
+  assert.equal(refused.adapter_state, 'FAULTED');
+  assert.equal(hostile.adapterState(), 'FAULTED');
+  const fault = hostile.faults()[0];
+  assert.equal(fault.code_readable, false);
+  assert.equal(fault.detail, 'unreadable error');
+  assert.equal(fault.recorded_by, 'SDK_ADAPTER');
+});
+
+test('the harness refuses a connector that reports a state outside the vocabulary', () => {
+  const report = runConformanceHarness({
+    definition: defineConnector({
+      connector_kind: 'BAD_RESULT_STATE',
+      capabilities: ['code.generate'],
+      handlers: { ...syntheticHandlers().handlers, result: () => ({ state: 'BANANA', terminal: false }) },
+      at: T0,
+    }),
+  });
+  const check = report.checks.find(entry => entry.name.includes('result distinguishes'));
+  assert.equal(check.passed, false);
+  assert.equal(check.detail.code, 'MALFORMED_RESULT');
+  assert.equal(report.conformant, false);
+});
+
+test('the harness refuses a declared capability the connector does not report', () => {
+  const report = runConformanceHarness({
+    definition: defineConnector({
+      connector_kind: 'UNDECLARED_CAPABILITY',
+      capabilities: ['code.generate', 'telepathy'],
+      handlers: syntheticHandlers({ capabilities: ['code.generate'] }).handlers,
+      at: T0,
+    }),
+  });
+  const check = report.checks.find(entry => entry.name.includes('capabilities are canonical'));
+  assert.equal(check.passed, false);
+  assert.equal(check.detail.code, 'MALFORMED_RESULT');
+  assert.equal(report.conformant, false);
+});
+
+test('the harness proves the unsupported-control expectation instead of skipping it', () => {
+  const report = runConformanceHarness({ definition: definitionFor('DEFAULT_CONTROL_CHECK').definition });
+  const check = report.checks.find(entry => entry.name.includes('unsupported controls'));
+  assert.equal(check.detail.skipped === true, false, 'the control expectation is proven, not skipped');
+  assert.equal(check.passed, true);
+  assert.equal(report.skipped_count, 0);
+  assert.equal(report.conformant, true);
+});
+
+test('a definition whose handlers are only inherited is refused, not claimed as satisfied', () => {
+  const inherited = Object.create(syntheticHandlers().handlers);
+  const refused = failure(() => defineConnector({ connector_kind: 'PROTOTYPE_HANDLERS', handlers: inherited }));
+  assert.equal(refused.code, 'INVALID_DEFINITION', 'handlers must be a plain own-method record');
+});
+
+test('a definition stores the methods it validated, including non-enumerable ones', () => {
+  const handlers = {};
+  for (const [method, fn] of Object.entries(syntheticHandlers().handlers)) {
+    Object.defineProperty(handlers, method, { value: fn, enumerable: false, writable: false });
+  }
+  const definition = defineConnector({ connector_kind: 'HIDDEN_METHODS', capabilities: ['code.generate'], handlers, at: T0 });
+  assert.equal(definition.minimum_methods_satisfied, true);
+  assert.equal(typeof definition.handlers.probe, 'function', 'the stored record carries the validated method');
+  assert.equal(MINIMUM_CONNECTOR_METHODS.every(method => typeof definition.handlers[method] === 'function'), true);
+});
+
+test('a non-conformant connector is given no core-edit certificate', () => {
+  const lenient = defineConnector({
+    connector_kind: 'NO_CERTIFICATE',
+    capabilities: ['code.generate'],
+    handlers: { ...syntheticHandlers().handlers, submit: () => ({ result_ref: 'result:lenient' }) },
+    at: T0,
+  });
+  const report = runConformanceHarness({ definition: lenient });
+  assert.equal(report.conformant, false);
+  assert.equal(report.claims_withheld, true);
+  assert.equal(report.core_edits_required, null);
+  assert.equal(report.foreman_core_edited, null);
+  assert.equal(report.engineering_manager_port_version_unchanged, null);
+});
+
+test('a runtime that throws is not evidence and does not break the acceptance summary', () => {
+  const adapter = adapterFor('BROKEN_RUNTIME', {}, { runtime: { acceptanceEvidence: () => { throw new Error('runtime exploded'); } } });
+  assert.equal(adapter.acceptance().marker, ACCEPTANCE_PENDING);
+  const registry = createAdapterRegistry({ clock: () => T0 });
+  registry.register({ adapter });
+  const summary = registry.acceptanceSummary();
+  assert.equal(summary.pending.includes('BROKEN_RUNTIME'), true);
+  assert.equal(summary.fabricated_acceptance_claimed, 0);
+});
+
+test('fault identities are unique across adapters of the same kind in one process', () => {
+  const faultyFor = message => createSdkAdapter({
+    definition: defineConnector({
+      connector_kind: 'SAME_KIND_FAULT',
+      capabilities: ['code.generate'],
+      handlers: { ...syntheticHandlers().handlers, probe: () => { throw new Error(message); } },
+      at: T0,
+    }),
+    clock: () => T0,
+  });
+  const first = faultyFor('first exploded');
+  const second = faultyFor('second exploded');
+  assert.equal(failure(() => first.probe()).code, 'ADAPTER_FAULT');
+  assert.equal(failure(() => second.probe()).code, 'ADAPTER_FAULT');
+  assert.equal(first.faults()[0].fault_ref === second.faults()[0].fault_ref, false, 'two adapters must not publish the same fault reference');
+});

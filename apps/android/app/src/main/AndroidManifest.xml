@@ -5,6 +5,11 @@
   <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" /><uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" /><uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" /><uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" /><uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
   <application android:theme="@android:style/Theme.Material.Light.NoActionBar" android:label="Utopia" android:allowBackup="false" android:usesCleartextTraffic="true" android:supportsRtl="true">
     <activity android:name=".AutoZoomCaptureActivity" android:exported="false" android:screenOrientation="fullSensor" android:configChanges="orientation|screenSize" />
+    <!-- UI-000 temporary candidate surface: an internal, non-exported Activity that
+         renders one representative Home screen per visual direction. It has no
+         intent-filter, so nothing in the shipping product can reach it. Delete
+         together with apps/web/candidates/ when a direction is chosen. -->
+    <activity android:name=".ui000.CandidateGalleryActivity" android:exported="false" android:label="UI-000 candidates" />
     <activity android:name=".MainActivity" android:exported="true" android:windowSoftInputMode="adjustResize">
       <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
       <intent-filter><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.DEFAULT"/><category android:name="android.intent.category.BROWSABLE"/><data android:scheme="utopia" android:host="pair"/></intent-filter>

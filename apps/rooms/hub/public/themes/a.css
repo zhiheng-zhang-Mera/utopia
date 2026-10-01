@@ -1,0 +1,88 @@
+/* UI-000 · Candidate A theme — "Halo / 随行" for the Room Hub.
+ *
+ * Presentation only: overrides hub.css custom properties and a few surfaces that
+ * hub.css paints with hard-coded hex values. No Room behaviour, markup or API is
+ * touched, and no room module knows this file exists.
+ *
+ * TEMPORARY — deleted when UI-103 folds the chosen direction into hub.css.
+ */
+
+:root {
+  --bg: #fbf8f3;
+  --panel: #ffffff;
+  --panel-2: #f5efe6;
+  --line: #e3dacb;
+  --text: #241f1a;
+  --muted: #8b8073;
+  --accent: #b4502a;
+  --accent-dim: #e0c3b4;
+  --ok: #4a6b3c;
+  --warn: #8a6a1f;
+  --danger: #b4372f;
+  --radius: 8px;
+}
+
+body {
+  font: 15.5px/1.65 "Segoe UI", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+}
+
+/* the rail stops being a console sidebar: no fill, no rules, just quiet text */
+.rail {
+  background: transparent;
+  border-right: 0;
+  border-right: 1px solid var(--line);
+  padding: 22px 16px;
+}
+.brand { font-family: "Iowan Old Style", Palatino, Georgia, "Songti SC", serif; letter-spacing: .01em; }
+.brand .mark { background: var(--accent); color: #fff8f3; border-radius: 50%; width: 24px; height: 24px; }
+.rail-label { letter-spacing: .18em; }
+
+.nav-item {
+  border-radius: 0;
+  border: 0;
+  border-left: 2px solid transparent;
+  padding: 8px 10px;
+}
+.nav-item:hover { background: var(--panel-2); }
+.nav-item[data-active="true"] { background: transparent; border-left-color: var(--accent); color: var(--accent); }
+.nav-item[data-active="true"] .nav-zh { color: var(--accent); }
+.nav-number { font-variant-numeric: tabular-nums; }
+
+.local-only { border-radius: 999px; background: var(--panel-2); border-color: transparent; }
+
+/* rooms read as a page, not as panels stacked in a console */
+.stage { padding: 26px 30px 40px; }
+.stage-head h1 { font-family: "Iowan Old Style", Palatino, Georgia, "Songti SC", serif; font-size: 27px; font-weight: 500; }
+.eyebrow { color: var(--accent); letter-spacing: .16em; }
+.pill { border-radius: 999px; background: var(--panel-2); border-color: transparent; }
+
+.pane { background: transparent; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 18px 0 0; }
+.pane + .pane { margin-top: 26px; }
+.pane-title { font-family: "Iowan Old Style", Palatino, Georgia, "Songti SC", serif; font-size: 17px; font-weight: 600; }
+
+input, textarea, select { background: var(--panel); border-radius: var(--radius); border-color: var(--line); }
+input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent-dim); border-color: var(--accent); }
+label { letter-spacing: .04em; }
+
+button { border-radius: var(--radius); background: var(--panel); border-color: var(--line); }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff8f3; }
+button.danger { border-color: var(--danger); color: var(--danger); }
+button.ghost { color: var(--muted); }
+
+.item { border-radius: 0; border: 0; border-bottom: 1px solid var(--line); background: transparent; padding: 12px 0; }
+.item:hover { background: var(--panel-2); border-color: var(--line); }
+.item[data-selected="true"] { border-bottom-color: var(--accent); background: var(--panel-2); }
+
+.tag { background: var(--panel-2); color: var(--accent); border-radius: 999px; }
+.tag-button { border-radius: 999px; background: var(--panel); }
+.tag-button[data-active="true"] { background: var(--accent); color: #fff8f3; border-color: var(--accent); }
+
+.stat { background: transparent; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; padding: 10px 0; }
+.stat b { font-family: "Iowan Old Style", Palatino, Georgia, serif; font-size: 24px; font-weight: 500; }
+.mono { font-size: 12.5px; }
+
+table.grid th { background: transparent; border-color: var(--line); }
+.empty { border-radius: var(--radius); }
+.banner { background: var(--panel-2); border-color: var(--line); }

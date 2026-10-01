@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="zh-CN" data-candidate="c">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Utopia · Prism</title>
+<link rel="icon" href="../shared/favicon.svg">
+<link rel="stylesheet" href="./c.css">
+</head>
+<body>
+<div class="stage">
+  <header class="bar">
+    <span class="logo"><i></i>Utopia</span>
+    <nav class="acts" id="acts" aria-label="主导航"></nav>
+    <button class="ghost" id="backstage-btn" aria-expanded="false" aria-controls="backstage">后台</button>
+  </header>
+
+  <div class="backstage" id="backstage" hidden></div>
+
+  <main class="scene" id="scene" tabindex="-1"></main>
+</div>
+
+<button class="spot" id="spot" aria-label="打开对话">
+  <span class="spot-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 20 12l-8 8.5L4 12Z"/><path d="M12 8.5 15.5 12 12 15.5 8.5 12Z"/></svg></span>
+  <span class="spot-text">说你想做什么…</span>
+</button>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="overlay-inner">
+    <button class="overlay-close" id="overlay-close" aria-label="关闭">×</button>
+    <p class="overlay-kicker">对话 · 执行</p>
+    <form class="overlay-form" id="overlay-form">
+      <input id="overlay-input" type="text" placeholder="说你想做什么…" aria-label="说你想做什么">
+      <button class="cta" type="submit">去做</button>
+    </form>
+    <div class="overlay-body" id="overlay-body"></div>
+  </div>
+</div>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>

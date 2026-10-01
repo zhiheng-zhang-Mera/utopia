@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Utopia · UI-000 视觉方向候选</title>
+<style>
+  :root { --ink:#14110f; --ink2:#5d554d; --rule:#e2dbd2; --paper:#faf8f5; --accent:#b4502a; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); font:16px/1.6 "Segoe UI","Microsoft YaHei",system-ui,sans-serif; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 56px 28px 90px; }
+  h1 { font-size: 32px; margin: 0 0 6px; letter-spacing: -.01em; }
+  .sub { color: var(--ink2); margin: 0 0 40px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+  .card { border: 1px solid var(--rule); border-radius: 14px; padding: 22px 24px; background: #fff; text-decoration: none; color: inherit; display: block; }
+  .card:hover { border-color: var(--accent); }
+  .tag { font-size: 11px; letter-spacing: .16em; color: var(--accent); font-weight: 700; }
+  h2 { font-size: 22px; margin: 8px 0 4px; }
+  .zh { color: var(--ink2); font-size: 14px; margin: 0 0 12px; }
+  .idea { font-size: 14.5px; color: var(--ink2); margin: 0 0 16px; }
+  .pages { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pages a { font-size: 12.5px; border: 1px solid var(--rule); border-radius: 999px; padding: 4px 11px; text-decoration: none; color: var(--ink2); }
+  .pages a:hover { border-color: var(--accent); color: var(--accent); }
+  footer { margin-top: 46px; color: var(--ink2); font-size: 13px; border-top: 1px solid var(--rule); padding-top: 18px; }
+  code { background: #f1ece5; border-radius: 4px; padding: 1px 5px; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>UI-000 · 视觉方向候选</h1>
+  <p class="sub">三套都基于同一份功能事实（<code>shared/facts.js</code>）。差别在信息架构与视觉语言，不在功能多少。请只看整体感受，选 A / B / C；都不喜欢也可以，一句话说明原因就够。</p>
+  <div class="grid" id="grid"></div>
+  <footer>临时候选面。选定方向后，胜出方向进入 UI-101/102/103，落选候选删除。施工规则见 <code>mission-book/CONSTRUCTION_RULES.md</code>。</footer>
+</div>
+<script type="module">
+import { CANDIDATE_NAMES, PRIMARY_SURFACES, ADVANCED_SURFACES } from './shared/facts.js';
+const grid = document.getElementById('grid');
+for (const id of ['a', 'b', 'c']) {
+  const meta = CANDIDATE_NAMES[id];
+  const card = document.createElement('div');
+  card.className = 'card';
+  const pages = [...PRIMARY_SURFACES, ...ADVANCED_SURFACES]
+    .map((s) => `<a href="./${id}/#${s.id}">${s.label}</a>`).join('');
+  card.innerHTML = `
+    <span class="tag">候选 ${id.toUpperCase()}</span>
+    <h2>${meta.name}</h2>
+    <p class="zh">${meta.zh}</p>
+    <p class="idea">${meta.idea}</p>
+    <div class="pages">
+      <a href="./${id}/"><strong>打开整套 →</strong></a>
+      ${pages}
+    </div>`;
+  grid.append(card);
+}
+</script>
+</body>
+</html>

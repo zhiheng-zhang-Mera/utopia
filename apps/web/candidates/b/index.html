@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN" data-candidate="b">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Utopia · Atlas</title>
+<link rel="icon" href="../shared/favicon.svg">
+<link rel="stylesheet" href="./b.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="rail">
+    <div class="brand"><span class="brand-mark">U</span><span class="brand-text">UTOPIA<em>ATLAS</em></span></div>
+    <p class="rail-label">对象</p>
+    <nav class="objects" id="objects" aria-label="对象导航"></nav>
+    <div class="rail-foot">
+      <span class="conn" id="conn">已连接</span>
+      <button class="rail-more" id="rail-more" aria-expanded="false" aria-controls="rail-advanced">高级</button>
+      <div class="rail-advanced" id="rail-advanced" hidden></div>
+    </div>
+  </aside>
+
+  <main class="canvas" id="canvas" tabindex="-1"></main>
+
+  <aside class="inspector" id="inspector" aria-label="检查器">
+    <header class="inspector-head">
+      <span class="inspector-title" id="inspector-title">检查器</span>
+      <button class="inspector-close" id="inspector-close" aria-label="关闭检查器">×</button>
+    </header>
+    <div class="inspector-body" id="inspector-body">
+      <p class="empty-note">选中任意一行，这里显示对应的运行细节。</p>
+    </div>
+  </aside>
+</div>
+<script type="module" src="./app.js"></script>
+</body>
+</html>

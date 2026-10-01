@@ -1,0 +1,85 @@
+/* UI-000 · Candidate B theme — "Atlas / 工作台" for the Room Hub.
+ *
+ * Presentation only: overrides hub.css custom properties plus the few surfaces
+ * hub.css paints with hard-coded hex values. Near-square corners, a real 1px
+ * grid, mono numerals, uppercase micro-labels.
+ *
+ * TEMPORARY — deleted when UI-103 folds the chosen direction into hub.css.
+ */
+
+:root {
+  --bg: #f6f7f6;
+  --panel: #ffffff;
+  --panel-2: #eef0ee;
+  --line: #dde1dd;
+  --text: #0f1513;
+  --muted: #7e8884;
+  --accent: #1f4ed8;
+  --accent-dim: #c9d5f8;
+  --ok: #17703c;
+  --warn: #8a5a00;
+  --danger: #a52020;
+  --radius: 2px;
+}
+
+body {
+  font: 14px/1.5 "Segoe UI", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+}
+
+.shell { grid-template-columns: 232px 1fr; }
+.rail { padding: 14px 12px; border-right: 1px solid var(--line); }
+.brand { font-size: 13px; letter-spacing: .06em; }
+.brand .mark { background: var(--text); color: #fff; border-radius: 2px; width: 24px; height: 24px; font-family: ui-monospace, Consolas, monospace; }
+.brand-text em { letter-spacing: .2em; font-size: 10px; }
+
+.rail-label, .eyebrow { font-size: 10px; letter-spacing: .14em; font-weight: 600; }
+
+.nav-item { border-radius: 0; border: 0; border-left: 2px solid transparent; padding: 6px 8px; }
+.nav-item[data-active="true"] { background: var(--accent-dim); border-left-color: var(--accent); color: var(--accent); }
+.nav-number { font-family: ui-monospace, Consolas, monospace; font-size: 10.5px; }
+
+.local-only { border-radius: 2px; font-family: ui-monospace, Consolas, monospace; letter-spacing: .08em; }
+.status { font-family: ui-monospace, Consolas, monospace; font-size: 11.5px; }
+
+.stage { padding: 20px 24px 36px; }
+.stage-head { padding-bottom: 12px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+.stage-head h1 { font-size: 19px; font-weight: 650; letter-spacing: -.005em; }
+.pill { border-radius: 2px; font-family: ui-monospace, Consolas, monospace; font-size: 11px; }
+
+.room-grid { gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.pane { border: 0; border-radius: 0; background: var(--panel); padding: 15px 16px; }
+.pane-title { font-size: 13px; letter-spacing: .02em; }
+
+input, textarea, select { background: var(--panel); border-radius: 2px; }
+input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent-dim); border-color: var(--accent); }
+label { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; }
+
+button { border-radius: 2px; background: var(--panel); border-color: var(--line); font-size: 13px; padding: 6px 12px; }
+button:hover { border-color: var(--muted); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+button.danger { border-color: var(--danger); color: var(--danger); }
+button.tiny { font-size: 11.5px; }
+
+.item { border-radius: 0; background: var(--panel); border-color: var(--line); }
+.item:hover { border-color: var(--accent); }
+.item[data-selected="true"] { border-color: var(--accent); background: var(--accent-dim); }
+.item h3 { font-size: 14px; }
+
+.tag { background: transparent; border: 1px solid var(--line); border-radius: 2px; color: var(--muted); font-family: ui-monospace, Consolas, monospace; font-size: 10px; }
+.tag-button { border-radius: 2px; background: var(--panel); }
+.tag-button[data-active="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.stat { border-radius: 0; border-color: var(--line); background: var(--panel); }
+.stat b { font-family: ui-monospace, Consolas, monospace; font-size: 18px; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
+
+.mono { font-size: 12px; }
+table.grid { font-size: 12.5px; }
+table.grid th { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; background: var(--panel-2); }
+.empty { border-radius: 0; }
+.banner { border-radius: 0; background: var(--panel); }
+.feedback { font-size: 12px; }
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 1fr; }
+}

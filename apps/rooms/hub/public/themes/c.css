@@ -1,0 +1,112 @@
+/* UI-000 · Candidate C theme — "Prism / 剧场" for the Room Hub.
+ *
+ * Presentation only: overrides hub.css custom properties plus the few surfaces
+ * hub.css paints with hard-coded hex values. Dark, saturated, layered surfaces
+ * instead of borders, larger display type, generous radii.
+ *
+ * TEMPORARY — deleted when UI-103 folds the chosen direction into hub.css.
+ */
+
+:root {
+  --bg: #0a0912;
+  --panel: #15131f;
+  --panel-2: #1d1a2b;
+  --line: #2f2848;
+  --text: #f4f0ff;
+  --muted: #7d7499;
+  --accent: #8b5cf6;
+  --accent-dim: #4c2f9e;
+  --ok: #c6f24e;
+  --warn: #ffb454;
+  --danger: #ff6b8a;
+  --radius: 18px;
+}
+
+body {
+  font: 15px/1.6 "Segoe UI", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  background-image:
+    radial-gradient(900px 460px at 10% -10%, rgba(139, 92, 246, .25), transparent 62%),
+    radial-gradient(700px 400px at 98% 2%, rgba(198, 242, 78, .10), transparent 60%);
+  background-attachment: fixed;
+}
+
+.shell { grid-template-columns: 262px 1fr; }
+.rail {
+  background: linear-gradient(180deg, rgba(21, 19, 31, .96), rgba(10, 9, 18, .92));
+  border-right: 1px solid var(--line);
+  padding: 22px 16px;
+}
+.brand { font-weight: 700; }
+.brand .mark { background: linear-gradient(135deg, var(--accent), var(--ok)); color: #0a0912; border-radius: 7px; }
+.brand-text em { color: var(--accent); letter-spacing: .22em; }
+.rail-label { color: var(--accent); letter-spacing: .24em; font-weight: 700; font-size: 10px; }
+
+.nav { gap: 6px; }
+.nav-item { border-radius: 14px; border: 1px solid transparent; padding: 9px 11px; }
+.nav-item:hover { background: var(--panel-2); }
+.nav-item[data-active="true"] {
+  background: linear-gradient(120deg, var(--accent-dim), var(--panel-2) 78%);
+  border-color: transparent;
+}
+.nav-item[data-active="true"] .nav-label { font-weight: 700; }
+.nav-number { font-family: ui-monospace, Consolas, monospace; color: var(--accent); }
+.nav-zh { font-size: 10.5px; }
+
+.rail-foot { border-top-color: var(--line); }
+.status { color: var(--ok); font-size: 11.5px; }
+.local-only { border: 0; background: var(--panel-2); color: var(--muted); border-radius: 999px; }
+
+.stage { padding: 26px 30px 40px; }
+.stage-head { margin-bottom: 20px; }
+.stage-head h1 {
+  font-size: clamp(26px, 3.4vw, 38px); font-weight: 700; letter-spacing: -.03em;
+  margin: 4px 0 6px;
+}
+.eyebrow { color: var(--accent); letter-spacing: .3em; font-weight: 700; }
+.pill { border: 0; background: var(--panel-2); border-radius: 999px; color: var(--muted); font-size: 11px; }
+
+.room-grid { gap: 16px; }
+.pane { border: 0; border-radius: var(--radius); background: var(--panel); padding: 20px 22px; }
+.pane + .pane { background: var(--panel-2); }
+.pane-title { font-size: 16px; font-weight: 700; letter-spacing: -.01em; }
+
+input, textarea, select { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; }
+input:focus, textarea:focus, select:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+label { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+
+button { background: var(--panel-2); border: 0; border-radius: 999px; padding: 9px 18px; color: var(--text); }
+button:hover { background: var(--line); }
+button.primary { background: var(--ok); color: #0a0912; font-weight: 700; }
+button.primary:hover { background: #d6ff5f; }
+button.danger { border: 1px solid var(--danger); color: var(--danger); background: transparent; }
+button.ghost { background: transparent; color: var(--muted); }
+button.tiny { padding: 5px 13px; font-size: 12px; }
+
+.item { border: 0; border-radius: 14px; background: var(--panel-2); padding: 13px 16px; }
+.item:hover { background: var(--line); }
+.item[data-selected="true"] { background: linear-gradient(120deg, var(--accent-dim), var(--panel-2) 80%); }
+.item h3 { font-size: 15px; font-weight: 600; }
+.item .preview { font-size: 12.5px; }
+
+.tag { background: rgba(139, 92, 246, .2); color: #cbb6ff; border-radius: 999px; font-size: 10.5px; padding: 2px 9px; }
+.tag-button { border: 0; background: var(--panel-2); border-radius: 999px; color: var(--muted); }
+.tag-button[data-active="true"] { background: var(--accent); color: #fff; border: 0; }
+
+.feedback { font-size: 12.5px; }
+.stat { border: 0; border-radius: 14px; background: var(--panel-2); }
+.stat b { font-size: 22px; font-weight: 700; }
+.stat span { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+
+.mono { font-family: ui-monospace, Consolas, "Cascadia Mono", monospace; font-size: 12px; }
+table.grid { font-size: 12.5px; }
+table.grid th, table.grid td { border-color: var(--line); }
+table.grid th { background: var(--panel-2); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; }
+.empty { border: 0; background: var(--panel); border-radius: 14px; }
+.banner { border: 0; border-radius: 14px; background: var(--panel-2); }
+.banner.error { background: rgba(255, 107, 138, .12); color: var(--danger); }
+.diff-row.added { background: rgba(198, 242, 78, .12); color: var(--ok); }
+.diff-row.removed { background: rgba(255, 107, 138, .12); color: var(--danger); }
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 1fr; }
+}

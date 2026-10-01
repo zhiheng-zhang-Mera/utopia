@@ -1,0 +1,15 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+  xmlns:tools="http://schemas.android.com/tools">
+  <!-- UI-000 candidate surface, DEBUG BUILDS ONLY.
+       The candidate gallery exists so the three visual directions can be launched
+       and screenshotted on a real device. adb cannot start a non-exported Activity,
+       so the debug source set flips the flag; the release manifest keeps
+       android:exported="false", i.e. nothing in a shipping build can reach it.
+       Delete this file together with apps/web/candidates/ when a direction wins. -->
+  <application>
+    <activity
+      android:name=".ui000.CandidateGalleryActivity"
+      android:exported="true"
+      tools:replace="android:exported" />
+  </application>
+</manifest>

@@ -5,6 +5,20 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Utopia · Rooms</title>
 <link rel="stylesheet" href="/hub/hub.css">
+<!-- UI-000 candidate themes. Presentation-only: they override the existing hub.css
+     custom properties and nothing else, so no Room behaviour changes. Selected with
+     ?theme=a|b|c. TEMPORARY — the winning direction is folded into hub.css by
+     UI-103, and this block plus /hub/themes/ is then deleted. -->
+<script>
+  (function () {
+    var id = new URLSearchParams(window.location.search).get('theme');
+    if (id !== 'a' && id !== 'b' && id !== 'c') return;
+    var link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = '/hub/themes/' + id + '.css';
+    document.head.appendChild(link);
+  })();
+</script>
 </head>
 <body>
 <div class="shell">

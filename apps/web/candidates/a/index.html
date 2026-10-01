@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN" data-candidate="a">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Utopia · Halo</title>
+<link rel="icon" href="../shared/favicon.svg">
+<link rel="stylesheet" href="./a.css">
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <a class="wordmark" href="#home"><span class="dot"></span>Utopia</a>
+    <nav class="switch" id="switch" aria-label="主导航"></nav>
+    <button class="more" id="more" aria-expanded="false" aria-controls="more-menu">更多</button>
+  </header>
+  <div class="more-menu" id="more-menu" hidden></div>
+
+  <main id="root" class="surface" tabindex="-1"></main>
+
+  <form class="omnibox" id="omnibox" autocomplete="off">
+    <label class="sr" for="omni-input">对 Utopia 说</label>
+    <input id="omni-input" type="text" placeholder="说你想做什么…" value="">
+    <button class="go" type="submit">去做</button>
+    <p class="omni-note" id="omni-note">本地工具、City 能力或 City 任务，由 Gateway 决定去向。</p>
+  </form>
+</div>
+<script type="module" src="./app.js"></script>
+</body>
+</html>

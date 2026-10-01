@@ -423,3 +423,147 @@ test('an attention acknowledgement records the subject it answers and the read v
   assert.throws(() => { surface.journal().push({}); }, TypeError, 'the journal is a frozen record');
   assert.throws(() => { surface.attentionEntries()[0].state = 'WITHDRAWN'; }, TypeError);
 });
+// EM-013-CORRECTION-REGRESSIONS-PASS-3 - terminal/re-projection guards, the attention gate, job-bound
+// authority, reference-only provenance, the shared-task-core seam and typed clone refusals.
+
+const throttled = (surface, jobRef, overrides = {}) => submit(surface, { job_ref: jobRef, eligibility: 'LOCAL_THROTTLED', ...overrides });
+
+test('a finished job is not re-opened for attention and an answered question is not reset', () => {
+  const { surface } = surfaceAt();
+  submit(surface, { job_ref: 'job:done' });
+  surface.applyResult({ job_ref: 'job:done', state: 'FAILED' });
+  const reopened = failure(() => surface.projectAttention({ job_ref: 'job:done', attention_ref: 'attention:late', question: 'Still there?' }));
+  assert.equal(reopened.code, 'FALSE_SUCCESS_REFUSED');
+  assert.equal(reopened.re_opened, false);
+  assert.equal(surface.status({ job_ref: 'job:done' }).state, 'FAILED');
+
+  submit(surface, { job_ref: 'job:live' });
+  surface.projectAttention({ job_ref: 'job:live', attention_ref: 'attention:1', question: 'Which branch?' });
+  surface.acknowledgeAttention({ attention_ref: 'attention:1', device_ref: LAPTOP });
+  const reProjected = failure(() => surface.projectAttention({ job_ref: 'job:live', attention_ref: 'attention:1', question: 'Which branch, again?' }));
+  assert.equal(reProjected.code, 'ALREADY_ACKNOWLEDGED');
+  assert.equal(reProjected.re_opened, false);
+  assert.equal(surface.attentionEntries()[0].state, 'ACKNOWLEDGED');
+  assert.equal(surface.status({ job_ref: 'job:live' }).attention_refs.length, 1, 'a canonical reference is written once');
+});
+
+test('a blocking canonical question gates progress and resume', () => {
+  const { surface } = surfaceAt();
+  submit(surface);
+  surface.projectAttention({ job_ref: 'job:1', attention_ref: 'attention:1', question: 'Which branch?' });
+  assert.equal(surface.status({ job_ref: 'job:1' }).attention_required, true);
+  assert.equal(surface.status({ job_ref: 'job:1' }).shows_success, false);
+  const progress = failure(() => surface.progress({ job_ref: 'job:1', kind: 'PROGRESS' }));
+  assert.equal(progress.code, 'ATTENTION_REQUIRED');
+  assert.equal(progress.attention_required, true);
+  const resumed = failure(() => surface.control({ job_ref: 'job:1', operation: 'RESUME', by_device_ref: LAPTOP }));
+  assert.equal(resumed.code, 'ATTENTION_REQUIRED');
+  assert.equal(resumed.resumed, false);
+  assert.equal(surface.status({ job_ref: 'job:1' }).state, 'WAITING_CONFIRMATION');
+  const notBoolean = failure(() => surface.projectAttention({ job_ref: 'job:1', attention_ref: 'attention:2', question: 'q', blocking: 'false' }));
+  assert.equal(notBoolean.code, 'INVALID_REQUEST');
+});
+
+test('attention and approvals answer only to devices connected to the job', () => {
+  const { surface } = surfaceAt();
+  submit(surface);
+  surface.projectAttention({ job_ref: 'job:1', attention_ref: 'attention:1', question: 'Which branch?' });
+  const stranger = failure(() => surface.acknowledgeAttention({ attention_ref: 'attention:1', device_ref: 'device:intruder' }));
+  assert.equal(stranger.code, 'NOT_AUTHORIZED_TO_CONTROL');
+  assert.equal(stranger.applied, false);
+  assert.equal(surface.attentionEntries()[0].state, 'PENDING', 'a refused acknowledgement changes nothing');
+  assert.equal(surface.acknowledgeAttention({ attention_ref: 'attention:1', device_ref: DESKTOP }).state, 'ACKNOWLEDGED', 'the execution device is connected to the job');
+
+  throttled(surface, 'job:2');
+  const proposal = surface.proposeRemoteFallback({ job_ref: 'job:2', remote_device_ref: 'device:fast-server' });
+  const refusedApproval = failure(() => surface.approveRemoteFallback({ job_ref: 'job:2', proposal_ref: proposal.proposal_ref, approved: true, approved_by: 'device:intruder' }));
+  assert.equal(refusedApproval.code, 'NOT_AUTHORIZED_TO_CONTROL');
+  assert.equal(surface.job('job:2').executor_device_ref, DESKTOP, 'a refused approval moves nothing');
+  const approved = surface.approveRemoteFallback({ job_ref: 'job:2', proposal_ref: proposal.proposal_ref, approved: true, approved_by: LAPTOP });
+  assert.equal(approved.applied, true);
+  assert.equal(approved.approved_by, LAPTOP);
+  assert.equal(approved.local_eligibility_verdict, 'LOCAL_THROTTLED', 'the local verdict survives the approval');
+  assert.equal(surface.job('job:2').eligibility, 'LOCAL_THROTTLED', 'the eligibility verdict is not rewritten by an approval');
+});
+
+test('an object is not a provenance reference, and a nested payload is refused', () => {
+  const { surface } = surfaceAt();
+  submit(surface);
+  const nested = failure(() => surface.provenance({ job_ref: 'job:1', provenance: { connector_ref: { nested: { deep: 'x' } } } }));
+  assert.equal(nested.code, 'INVALID_REQUEST');
+  assert.equal(nested.references_only, true);
+  const secret = failure(() => surface.provenance({ job_ref: 'job:1', provenance: { connector_ref: { authorization: 'Bearer abc' } } }));
+  assert.equal(secret.code, 'SECRET_MATERIAL_REFUSED', 'a secret under a reference key is still named as a secret');
+  const array = failure(() => surface.provenance({ job_ref: 'job:1', provenance: { device_ref: ['device:laptop'] } }));
+  assert.equal(array.code, 'INVALID_REQUEST');
+  const ok = surface.provenance({ job_ref: 'job:1', provenance: { connector_ref: CONNECTOR, error_ref: null } });
+  assert.equal(ok.contains_secret_material, false);
+});
+
+test('the secret scan reads maps, sets and records it cannot read', () => {
+  assert.deepEqual(findSecretFields(new Map([['token', 'x']])), ['record.token']);
+  assert.deepEqual(findSecretFields(new Set([{ api_key: 'k' }])), ['record[0].api_key']);
+  assert.deepEqual(findSecretFields({ authorization: 'Bearer abc' }), ['record.authorization']);
+  const opaque = findSecretFields({ connector_ref: new Date() });
+  assert.equal(opaque.length, 1);
+  assert.equal(opaque[0].includes('unreadable'), true, 'an unreadable record is reported, not certified free of secrets');
+  assert.deepEqual(findSecretFields({ connector_ref: 'connector:1' }), [], 'a reference is still not a secret');
+});
+
+test('a lease belongs to one job and a shared task core confirms the binding when one is wired in', () => {
+  const { surface } = surfaceAt();
+  submit(surface, { job_ref: 'job:lease', lease_ref: 'lease:1' });
+  const reused = failure(() => submit(surface, { job_ref: 'job:other', lease_ref: 'lease:1' }));
+  assert.equal(reused.code, 'DUPLICATE_JOB');
+  assert.equal(reused.duplicate_execution_prevented, true);
+
+  const refusing = createEngineeringControlSurface({ clock: () => T0, taskCore: { confirmBinding: () => ({ confirmed: false }) } });
+  assert.equal(failure(() => submit(refusing)).code, 'CANONICAL_TASK_REQUIRED');
+  assert.equal(refusing.jobs().length, 0, 'a job the core refused does not exist');
+  const failing = createEngineeringControlSurface({ clock: () => T0, taskCore: { confirmBinding: () => { throw new Error('core down'); } } });
+  assert.equal(failure(() => submit(failing)).code, 'CANONICAL_TASK_REQUIRED');
+  const confirming = createEngineeringControlSurface({ clock: () => T0, taskCore: { confirmBinding: ({ canonical_task_ref }) => ({ confirmed: canonical_task_ref === 'task:canonical-1' }) } });
+  const bound = submit(confirming);
+  assert.equal(bound.canonical_binding_confirmed_by_core, true);
+  assert.equal(bound.task_truth_verified_here, true);
+  assert.equal(bound.lease_verified_here, true);
+  const { surface: bare } = surfaceAt();
+  const declared = submit(bare);
+  assert.equal(declared.canonical_binding_confirmed_by_core, false, 'without a core the binding is caller-declared');
+  assert.equal(declared.task_truth_verified_here, false);
+  assert.equal(declared.execution_responsibility_source, 'CALLER_DECLARED_CANONICAL_TASK_BINDING');
+  assert.equal(declared.lease_verified_here, false);
+});
+
+test('a result that is not a success is not accepted as one, and an uncloneable artifact is a typed refusal', () => {
+  const { surface } = surfaceAt();
+  submit(surface, { job_ref: 'job:failed' });
+  const failed = surface.applyResult({ job_ref: 'job:failed', state: 'FAILED' });
+  assert.equal(failed.result.accepted, false, 'a failure is not an accepted success');
+  assert.equal(failed.result.accepted_as_truth, true);
+  assert.equal(failed.user_visible_success, false);
+  submit(surface, { job_ref: 'job:ok' });
+  const succeeded = surface.applyResult({ job_ref: 'job:ok', state: 'SUCCEEDED', result_ref: 'result:1' });
+  assert.equal(succeeded.result.accepted, true);
+  assert.equal(succeeded.result.accepted_as_truth, true);
+  assert.equal(succeeded.shows_success, true);
+  submit(surface, { job_ref: 'job:artifact' });
+  const uncloneable = failure(() => surface.applyResult({ job_ref: 'job:artifact', state: 'SUCCEEDED', result_ref: 'result:2', artifacts: [{ artifact_ref: 'artifact:1', render: () => 'x' }] }));
+  assert.equal(uncloneable.code, 'INVALID_REQUEST');
+  assert.equal(surface.status({ job_ref: 'job:artifact' }).result, null, 'a refused result leaves no partial state');
+});
+
+test('the surface names where control came from and scopes its structural claims', () => {
+  const { surface } = surfaceAt();
+  submit(surface, { job_ref: 'job:remote', authorized_devices: [DESKTOP] });
+  const fromExecutionDevice = surface.control({ job_ref: 'job:remote', operation: 'PAUSE', by_device_ref: DESKTOP });
+  assert.equal(fromExecutionDevice.controlled_from_execution_device, true, 'control from the execution device is not claimed as the interaction surface');
+  assert.equal(fromExecutionDevice.user_navigated_to_execution_host, false);
+  submit(surface, { job_ref: 'job:local' });
+  const fromInteractionDevice = surface.control({ job_ref: 'job:local', operation: 'PAUSE', by_device_ref: LAPTOP });
+  assert.equal(fromInteractionDevice.controlled_from_execution_device, false);
+  const contract = surface.surfaceContract();
+  assert.equal(contract.claims_scope, 'SURFACE_STRUCTURE');
+  assert.equal(contract.claims_verified_here, false, 'this surface verifies its own structure, not a task core');
+  assert.equal(contract.task_truth_verified_here, false);
+});

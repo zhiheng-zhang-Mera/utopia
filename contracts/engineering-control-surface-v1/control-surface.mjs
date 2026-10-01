@@ -35,10 +35,10 @@ export const CONTROL_SURFACE_CODES = Object.freeze([
   'INVALID_REQUEST', 'INVALID_CLOCK', 'UNKNOWN_JOB', 'DUPLICATE_JOB', 'CANONICAL_TASK_REQUIRED',
   'FALSE_SUCCESS_REFUSED', 'REMOTE_FALLBACK_REQUIRES_APPROVAL', 'LOCAL_WORK_MUST_STAY_LOCAL',
   'UNKNOWN_ATTENTION', 'ALREADY_ACKNOWLEDGED', 'SECOND_ATTENTION_STORE_REFUSED', 'NOT_TERMINAL_ACCEPTED',
-  'SECRET_MATERIAL_REFUSED', 'EXECUTOR_NOT_SEPARATED', 'NOT_AUTHORIZED_TO_CONTROL',
+  'SECRET_MATERIAL_REFUSED', 'EXECUTOR_NOT_SEPARATED', 'NOT_AUTHORIZED_TO_CONTROL', 'ATTENTION_REQUIRED',
 ]);
 
-const CONFLICT_CODES = new Set(['DUPLICATE_JOB', 'FALSE_SUCCESS_REFUSED', 'REMOTE_FALLBACK_REQUIRES_APPROVAL', 'LOCAL_WORK_MUST_STAY_LOCAL', 'ALREADY_ACKNOWLEDGED', 'SECOND_ATTENTION_STORE_REFUSED', 'NOT_TERMINAL_ACCEPTED', 'NOT_AUTHORIZED_TO_CONTROL']);
+const CONFLICT_CODES = new Set(['DUPLICATE_JOB', 'FALSE_SUCCESS_REFUSED', 'REMOTE_FALLBACK_REQUIRES_APPROVAL', 'LOCAL_WORK_MUST_STAY_LOCAL', 'ALREADY_ACKNOWLEDGED', 'SECOND_ATTENTION_STORE_REFUSED', 'NOT_TERMINAL_ACCEPTED', 'NOT_AUTHORIZED_TO_CONTROL', 'ATTENTION_REQUIRED']);
 
 export class ControlSurfaceError extends Error {
   constructor(code, detail, extra = {}) {
@@ -84,8 +84,35 @@ export function findSecretFields(value, path = 'record', found = [], seen = new 
     value.forEach((item, index) => findSecretFields(item, `${path}[${index}]`, found, seen));
     return found;
   }
-  if (typeof value === 'boolean' || value === null) return found;
-  if (!isPlainObject(value)) return found;
+  if (value instanceof Map) {
+    if (seen.has(value)) return found;
+    seen.add(value);
+    for (const [key, child] of value.entries()) {
+      const childPath = `${path}.${String(key)}`;
+      if (SECRET_KEY_SHAPE.test(String(key)) && !/_ref$/.test(String(key)) && typeof child !== 'boolean') {
+        if (!found.includes(childPath)) found.push(childPath);
+        continue;
+      }
+      findSecretFields(child, childPath, found, seen);
+    }
+    return found;
+  }
+  if (value instanceof Set) {
+    if (seen.has(value)) return found;
+    seen.add(value);
+    let index = 0;
+    for (const item of value.values()) { findSecretFields(item, `${path}[${index}]`, found, seen); index += 1; }
+    return found;
+  }
+  if (typeof value === 'boolean' || value === null || value === undefined) return found;
+  if (typeof value === 'number' || typeof value === 'string' || typeof value === 'bigint') return found;
+  if (typeof value === 'function' || typeof value === 'symbol') return found;
+  if (!isPlainObject(value)) {
+    // A record the scanner cannot read is reported rather than certified secret-free.
+    const opaquePath = `${path}.<unreadable:${value?.constructor?.name ?? 'object'}>`;
+    if (!found.includes(opaquePath)) found.push(opaquePath);
+    return found;
+  }
   if (seen.has(value)) return found;
   seen.add(value);
   // Own keys, enumerable or not, string or symbol: a hidden secret field is still a secret field, and a
@@ -113,7 +140,7 @@ export const DEFAULT_SURFACE_POLICY = Object.freeze({
   attention_projection_sources: Object.freeze(['SHARED_CORE_ATTENTION']),
 });
 
-export function createEngineeringControlSurface({ clock = () => new Date().toISOString(), policy = {} } = {}) {
+export function createEngineeringControlSurface({ clock = () => new Date().toISOString(), policy = {}, taskCore = null } = {}) {
   if (typeof clock !== 'function') throw new ControlSurfaceError('INVALID_CLOCK', 'clock must be a function returning a real ISO-8601 UTC instant');
   if (!isPlainObject(policy)) throw new ControlSurfaceError('INVALID_REQUEST', 'policy must be a plain object');
   const unknownPolicyKeys = Object.keys(policy).filter(key => !Object.hasOwn(DEFAULT_SURFACE_POLICY, key));
@@ -149,6 +176,33 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
     return when;
   };
 
+  const cloneOrRefuse = (value, what) => {
+    try {
+      return clone(value);
+    } catch (error) {
+      throw new ControlSurfaceError('INVALID_REQUEST', what + ' must be cloneable: ' + String(error?.message ?? error));
+    }
+  };
+
+  /**
+   * The optional Shared Task Core seam: when a core is wired in, it confirms the canonical binding and the
+   * lease before a job exists. Without one the surface keeps working and says the binding is caller-declared.
+   */
+  const confirmBinding = (canonical_task_ref, lease_ref, executor_connector_ref) => {
+    if (taskCore === null) return { confirmed: false, checked_here: false };
+    if (typeof taskCore.confirmBinding !== 'function') throw new ControlSurfaceError('INVALID_REQUEST', 'taskCore must expose confirmBinding');
+    let verdict = null;
+    try {
+      verdict = taskCore.confirmBinding({ canonical_task_ref, lease_ref, executor_connector_ref });
+    } catch (error) {
+      throw new ControlSurfaceError('CANONICAL_TASK_REQUIRED', 'the shared task core failed to confirm the binding: ' + String(error?.message ?? error), { canonical_task_ref, confirmed_by_core: false });
+    }
+    if (!isPlainObject(verdict) || verdict.confirmed !== true) {
+      throw new ControlSurfaceError('CANONICAL_TASK_REQUIRED', 'the shared task core did not confirm ' + String(canonical_task_ref), { canonical_task_ref, lease_ref: lease_ref ?? null, confirmed_by_core: false });
+    }
+    return { confirmed: true, checked_here: true };
+  };
+
   const note = (event, at, detail = {}) => {
     journal.push(freeze({ event, at, ...detail }));
     return journal.length - 1;
@@ -168,8 +222,10 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
     task_truth_source: 'SHARED_TASK_CORE',
     manager_creates_canonical_truth: false,
     execution_responsibility: job.execution_responsibility,
-    execution_responsibility_source: 'CALLER_DECLARED_CANONICAL_TASK_BINDING',
-    lease_verified_here: false,
+    execution_responsibility_source: job.binding_confirmed_by_core === true ? 'SHARED_TASK_CORE_CONFIRMED' : 'CALLER_DECLARED_CANONICAL_TASK_BINDING',
+    canonical_binding_confirmed_by_core: job.binding_confirmed_by_core === true,
+    task_truth_verified_here: job.binding_confirmed_by_core === true,
+    lease_verified_here: job.binding_confirmed_by_core === true,
     lease_ref: job.lease_ref,
     state: job.state,
     terminal: TERMINAL_JOB_STATES.includes(job.state),
@@ -189,6 +245,10 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
     eligibility: job.eligibility,
     remote_fallback: job.remote_fallback === null ? null : clone(job.remote_fallback),
     attention_refs: freeze(clone(job.attention_refs)),
+    // Derived from the canonical attention ledger, never asserted: a pending projection is attention-required.
+    attention_required: job.attention_refs.some(ref => attention.get(ref)?.state === 'PENDING'),
+    // Success is published only for a job that reached a terminal accepted result.
+    shows_success: job.state === 'SUCCEEDED' && job.result !== null && job.result.accepted === true,
     at: job.updated_at,
   });
 
@@ -205,10 +265,15 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
           job_ref, canonical_task_ref: null, manager_creates_canonical_truth: false,
         });
       }
+      // One lease drives one job: a lease claimed twice would be two executions of the same responsibility.
+      if (isText(lease_ref) && [...jobs.values()].some(job => job.lease_ref === lease_ref)) {
+        throw new ControlSurfaceError('DUPLICATE_JOB', 'lease ' + lease_ref + ' is already claimed by another engineering job', { job_ref, lease_ref, duplicate_execution_prevented: true });
+      }
       if (!isText(logical_owner_ref) || !isText(executor_connector_ref) || !isText(interaction_device_ref)) {
         throw new ControlSurfaceError('INVALID_REQUEST', 'logical_owner_ref, executor_connector_ref and interaction_device_ref are required');
       }
       if (!ELIGIBILITY.includes(eligibility)) throw new ControlSurfaceError('INVALID_REQUEST', `eligibility must be one of ${ELIGIBILITY.join(', ')}`);
+      const binding = confirmBinding(canonical_task_ref, lease_ref, executor_connector_ref);
       const at = atFrom(when);
       counter += 1;
       const authorized = [...new Set([interaction_device_ref, ...(Array.isArray(authorized_devices) ? authorized_devices.filter(isText) : [])])];
@@ -216,7 +281,9 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
         job_ref,
         canonical_task_ref,
         canonical_action_ref,
+        // The responsibility label is the author's contract; whether a core confirmed it is stated separately.
         execution_responsibility: 'OBTAINED_FROM_SHARED_TASK_CORE',
+        binding_confirmed_by_core: binding.confirmed === true,
         lease_ref,
         state: 'SUBMITTED',
         logical_owner_ref,
@@ -259,6 +326,10 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
       // Terminal is a state fact, not a result fact: a cancelled job carries no result and is still finished.
       if (TERMINAL_JOB_STATES.includes(job.state)) {
         throw new ControlSurfaceError('FALSE_SUCCESS_REFUSED', 'job ' + job_ref + ' is already ' + job.state, { job_ref, state: job.state, progress_recorded: false });
+      }
+      // A blocking canonical question means the backend is waiting on the user, not progressing.
+      if (job.attention_refs.some(ref => attention.get(ref)?.state === 'PENDING' && attention.get(ref)?.blocking === true)) {
+        throw new ControlSurfaceError('ATTENTION_REQUIRED', 'job ' + job_ref + ' is attention-required; progress cannot be reported while it waits on the user', { job_ref, attention_required: true, progress_recorded: false });
       }
       const at = atFrom(when);
       counter += 1;
@@ -316,21 +387,31 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
       return proposal;
     },
 
-    approveRemoteFallback({ job_ref, proposal_ref, approved = false, at: when } = {}) {
+    approveRemoteFallback({ job_ref, proposal_ref, approved = false, approved_by = null, at: when } = {}) {
       const job = requireJob(job_ref);
       const proposal = job.remote_fallback;
       if (proposal === null || proposal.proposal_ref !== proposal_ref) throw new ControlSurfaceError('INVALID_REQUEST', 'no fallback proposal ' + String(proposal_ref) + ' for ' + job_ref);
+      // An approval is tied to a device connected to the job when one is named.
+      const connectedDevices = [...job.authorized_devices, ...(isText(job.executor_device_ref) ? [job.executor_device_ref] : [])];
+      if (approved_by !== null && !connectedDevices.includes(approved_by)) {
+        throw new ControlSurfaceError('NOT_AUTHORIZED_TO_CONTROL', String(approved_by) + ' is not connected to ' + job_ref + ' and may not approve a fallback', { job_ref, approved_by, authorized_devices: freeze(clone(connectedDevices)), applied: false });
+      }
       const at = atFrom(when);
       if (approved !== true) {
         return freeze({ ...clone(proposal), approved: false, applied: false, work_stays_local: job.eligibility !== 'REMOTE_REQUIRED', reason: 'USER_DECLINED' });
       }
-      job.remote_fallback = freeze({ ...proposal, approved: true, approved_at: at, applied: true });
+      const alreadyApproved = proposal.approved === true;
+      // The local eligibility verdict is a fact about the work: approving remote execution records where the
+      // job will actually run instead of rewriting the verdict that was computed for it.
+      job.remote_fallback = freeze({ ...proposal, approved: true, approved_by, approved_at: at, applied: true, local_eligibility_verdict: job.eligibility, effective_execution_target: 'REMOTE' });
       job.executor_device_ref = proposal.remote_device_ref;
-      job.eligibility = 'REMOTE_REQUIRED';
       job.updated_at = at;
       note('REMOTE_FALLBACK_APPROVED', at, { job_ref, remote_device_ref: proposal.remote_device_ref });
       return freeze({
         ...clone(job.remote_fallback),
+        duplicate: alreadyApproved,
+        local_eligibility_verdict: job.eligibility,
+        effective_execution_target: 'REMOTE',
         interaction_device_ref: job.interaction_device_ref,
         executor_device_ref: job.executor_device_ref,
         interaction_device_is_execution_device: job.interaction_device_ref === job.executor_device_ref,
@@ -350,6 +431,18 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
     projectAttention({ job_ref, attention_ref, question, blocking = true, source = 'SHARED_CORE_ATTENTION', at: when } = {}) {
       const job = requireJob(job_ref);
       if (!isText(attention_ref) || !isText(question)) throw new ControlSurfaceError('INVALID_REQUEST', 'attention_ref and question are required');
+      if (typeof blocking !== 'boolean') throw new ControlSurfaceError('INVALID_REQUEST', 'blocking must be a boolean');
+      // A finished job is not re-opened for attention, and a canonical attention reference is written once.
+      if (TERMINAL_JOB_STATES.includes(job.state)) {
+        throw new ControlSurfaceError('FALSE_SUCCESS_REFUSED', 'job ' + job_ref + ' is ' + job.state + '; a finished job cannot be re-opened for attention', { job_ref, state: job.state, re_opened: false });
+      }
+      const existing = attention.get(attention_ref);
+      if (existing !== undefined) {
+        if (existing.state === 'ACKNOWLEDGED') {
+          throw new ControlSurfaceError('ALREADY_ACKNOWLEDGED', 'attention ' + attention_ref + ' was already acknowledged and is not re-opened', { attention_ref, job_ref, state: existing.state, re_opened: false });
+        }
+        throw new ControlSurfaceError('DUPLICATE_JOB', 'attention ' + attention_ref + ' is already pending for ' + String(existing.job_ref), { attention_ref, job_ref: existing.job_ref, state: existing.state });
+      }
       if (!config.attention_projection_sources.includes(source)) throw new ControlSurfaceError('SECOND_ATTENTION_STORE_REFUSED', 'attention must come from ' + config.attention_projection_sources.join(', '), { source });
       const at = atFrom(when);
       const entry = freeze({
@@ -378,6 +471,12 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
       const entry = attention.get(attention_ref);
       if (!entry) throw new ControlSurfaceError('UNKNOWN_ATTENTION', 'no attention ' + String(attention_ref));
       if (!isText(device_ref)) throw new ControlSurfaceError('INVALID_REQUEST', 'device_ref is required to acknowledge attention');
+      // Only a device connected to the job may answer its canonical question.
+      const subject = jobs.get(entry.job_ref);
+      const connected = subject === undefined ? [] : [...subject.authorized_devices, ...(isText(subject.executor_device_ref) ? [subject.executor_device_ref] : [])];
+      if (!connected.includes(device_ref)) {
+        throw new ControlSurfaceError('NOT_AUTHORIZED_TO_CONTROL', String(device_ref) + ' is not connected to the job that raised ' + String(attention_ref), { attention_ref, job_ref: entry.job_ref ?? null, device_ref, applied: false });
+      }
       const at = atFrom(when);
       if (entry.state === 'ACKNOWLEDGED') {
         return freeze({ ...clone(entry), acknowledged_by: freeze(acknowledgements.filter(entryRef => entryRef.attention_ref === attention_ref).map(entryRef => entryRef.device_ref)), duplicate: true, reconciles_all_projections: true, second_acknowledgement_needed: false });
@@ -434,7 +533,7 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
       const malformedArtifacts = artifactList.filter(artifact => !isPlainObject(artifact) || !isText(artifact.artifact_ref));
       // A malformed artifact is refused rather than silently dropped from the accepted result.
       if (malformedArtifacts.length > 0) throw new ControlSurfaceError('INVALID_REQUEST', 'every artifact needs a canonical artifact_ref', { job_ref, malformed_count: malformedArtifacts.length });
-      const acceptedArtifacts = artifactList.map(artifact => freeze(clone(artifact)));
+      const acceptedArtifacts = artifactList.map(artifact => freeze(cloneOrRefuse(artifact, 'an artifact')));
       job.state = state;
       job.updated_at = at;
       job.artifacts = freeze([...clone(job.artifacts), ...acceptedArtifacts]);
@@ -444,13 +543,15 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
           contract_version: CONTROL_SURFACE_CONTRACT_VERSION,
           result_ref,
           accepted: true,
+          accepted_as_truth: true,
           terminal_state: state,
           canonical_task_ref: job.canonical_task_ref,
           artifacts: freeze(clone(acceptedArtifacts)),
           accepted_at: at,
         });
       } else {
-        job.result = freeze({ contract_version: CONTROL_SURFACE_CONTRACT_VERSION, result_ref, accepted: true, terminal_state: state, canonical_task_ref: job.canonical_task_ref, artifacts: freeze(clone(acceptedArtifacts)), accepted_at: at });
+        // A failure, refusal or cancellation is accepted as the truth of the job, never as a success.
+        job.result = freeze({ contract_version: CONTROL_SURFACE_CONTRACT_VERSION, result_ref, accepted: state === 'SUCCEEDED', accepted_as_truth: true, terminal_state: state, canonical_task_ref: job.canonical_task_ref, artifacts: freeze(clone(acceptedArtifacts)), accepted_at: at });
       }
       job.stage = state;
       note('JOB_RESULT', at, { job_ref, state });
@@ -472,8 +573,12 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
       const secrets = findSecretFields(provenance);
       if (secrets.length > 0) throw new ControlSurfaceError('SECRET_MATERIAL_REFUSED', `provenance carries secret-shaped material at ${secrets.join(', ')}`, { job_ref, fields: freeze(secrets), stored: false });
       const unknown = Object.keys(provenance).filter(key => !PROVENANCE_FIELDS.includes(key));
-      if (unknown.length > 0) throw new ControlSurfaceError('INVALID_REQUEST', `${unknown.join(', ')} is not a canonical provenance field`, { allowed: freeze([...PROVENANCE_FIELDS]) });
-      job.provenance = freeze(clone(provenance));
+      if (unknown.length > 0) throw new ControlSurfaceError('INVALID_REQUEST', unknown.join(', ') + ' is not a canonical provenance field', { allowed: freeze([...PROVENANCE_FIELDS]) });
+      // A provenance field is a reference or nothing: an object here could carry secret material past the
+      // key-name scan while the surface reports that provenance is secret-free.
+      const notReferences = Object.keys(provenance).filter(key => provenance[key] !== null && !isText(provenance[key]));
+      if (notReferences.length > 0) throw new ControlSurfaceError('INVALID_REQUEST', notReferences.join(', ') + ' must be a reference or null', { job_ref, fields: freeze(notReferences), references_only: true });
+      job.provenance = freeze(cloneOrRefuse(provenance, 'provenance'));
       note('PROVENANCE_VIEWED', at, { job_ref });
       return freeze({
         contract_version: CONTROL_SURFACE_CONTRACT_VERSION,
@@ -505,6 +610,9 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
         const revival = TERMINAL_JOB_STATES.includes(job.state);
         throw new ControlSurfaceError(revival ? 'FALSE_SUCCESS_REFUSED' : 'DUPLICATE_JOB', 'a retry is only valid for a failed job; ' + job_ref + ' is ' + job.state, { job_ref, state: job.state, retry_allowed_from: freeze(['FAILED']), duplicate_execution_prevented: !revival, applied: false });
       }
+      if (operation === 'RESUME' && job.attention_refs.some(ref => attention.get(ref)?.state === 'PENDING' && attention.get(ref)?.blocking === true)) {
+        throw new ControlSurfaceError('ATTENTION_REQUIRED', 'job ' + job_ref + ' is attention-required; it cannot resume while it waits on the user', { job_ref, attention_required: true, resumed: false });
+      }
       const at = atFrom(when);
       if (operation === 'CANCEL') { job.state = 'CANCELLED'; job.stage = 'CANCELLED'; }
       if (operation === 'PAUSE') { job.state = 'WAITING_CONFIRMATION'; job.stage = 'PAUSED'; }
@@ -519,6 +627,7 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
         applied: true,
         state: job.state,
         controlled_from: controlDevice,
+        controlled_from_execution_device: isText(job.executor_device_ref) && controlDevice === job.executor_device_ref,
         interaction_device_ref: job.interaction_device_ref,
         execution_device_ref: job.executor_device_ref,
         user_navigated_to_execution_host: false,
@@ -547,6 +656,10 @@ export function createEngineeringControlSurface({ clock = () => new Date().toISO
         progress_is_not_success: true,
         provenance_is_secret_free: true,
         task_truth_source: 'SHARED_TASK_CORE',
+        // Structural statements about this surface, not facts verified against a task core here.
+        claims_scope: 'SURFACE_STRUCTURE',
+        claims_verified_here: false,
+        task_truth_verified_here: false,
       });
     },
 

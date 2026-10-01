@@ -422,3 +422,31 @@ test('a settled turn cannot accept further transport data', () => {
   registry.cancelTurn({ turn_ref: cancelled.turn_ref });
   assert.equal(failure(() => registry.attachTransport({ partial_ref: cancelledPartial.partial_ref, transport_ref: 'rf:2' })).code, 'TURN_CANCELLED');
 });
+
+test('a refused call leaves no partial write and no poisoned projection', () => {
+  const { registry } = registryAt();
+  const conversation = registry.createConversation();
+  registry.bindBackend({ conversation_id: conversation.conversation_id, channel: 'WEB', thread_ref: 'thread:1' });
+  const before = registry.conversation(conversation.conversation_id);
+  assert.equal(failure(() => registry.bindBackend({ conversation_id: conversation.conversation_id, channel: 'WEB', provider: () => {} })).code, 'INVALID_REQUEST');
+  const after = registry.conversation(conversation.conversation_id);
+  assert.equal(after.binding_version, before.binding_version, 'the refused binding did not bump the version');
+  assert.equal(after.active_binding.thread_ref, 'thread:1', 'the previous binding was not superseded');
+
+  const turn = openTurnWith(registry, conversation.conversation_id);
+  assert.equal(failure(() => registry.finalizeTurn({ turn_ref: turn.turn_ref, result_ref: 'result:1', text: () => {} })).code, 'INVALID_REQUEST');
+  assert.equal(registry.turn(turn.turn_ref).state, 'PENDING', 'the refused result did not complete the turn');
+});
+
+test('each late result is reconciled under its own reference', () => {
+  const { registry } = registryAt();
+  const conversation = registry.createConversation();
+  registry.bindBackend({ conversation_id: conversation.conversation_id, channel: 'WEB' });
+  const turn = openTurnWith(registry, conversation.conversation_id);
+  registry.emitPartial({ turn_ref: turn.turn_ref, text: 'a' });
+  registry.cancelTurn({ turn_ref: turn.turn_ref });
+  const first = registry.finalizeTurn({ turn_ref: turn.turn_ref, result_ref: 'result:late-1' });
+  const second = registry.finalizeTurn({ turn_ref: turn.turn_ref, result_ref: 'result:late-2' });
+  assert.notEqual(first.reconciliation_ref, second.reconciliation_ref, 'distinct late results get distinct references');
+  assert.equal(registry.turn(turn.turn_ref).reconciled_results.length, 2);
+});

@@ -275,6 +275,11 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
       if (conversation.state !== 'OPEN') throw new ConversationError('CONVERSATION_CLOSED', `conversation ${conversation_id} is closed`);
       if (!isText(channel)) throw new ConversationError('INVALID_REQUEST', 'a backend binding needs a channel');
       const at = when === undefined || when === null ? now() : callerInstant(when);
+      // Every stored field is validated before the record changes: an uncloneable or wrongly typed value
+      // must be refused before the previous binding is superseded, not after it is persisted.
+      for (const [label, value] of [['provider', provider], ['model', model], ['thread_ref', thread_ref], ['device_ref', device_ref]]) {
+        if (value !== null && value !== undefined && !isText(value)) throw new ConversationError('INVALID_REQUEST', `binding.${label} must be text when given`);
+      }
       const previous = activeBinding(conversation);
       if (previous) previous.state = 'SUPERSEDED';
       conversation.binding_version += 1;
@@ -488,9 +493,11 @@ export function createConversationRegistry({ entropy, digest = null, clock = () 
     finalizeTurn({ turn_ref, result_ref, text = null, attachments = [], at: when } = {}) {
       const turn = requireTurn(turn_ref);
       if (!isText(result_ref)) throw new ConversationError('INVALID_REQUEST', 'a result needs a reference');
+      if (text !== null && text !== undefined && typeof text !== 'string') throw new ConversationError('INVALID_REQUEST', 'result text must be a string when present');
       const at = when === undefined || when === null ? now() : callerInstant(when);
       if (turn.state === 'CANCELLED') {
-        const reconciliation_ref = `reconciled:${turn_ref}:${turn.partial_count + 1}`;
+        turn.reconciled_seq = (turn.reconciled_seq ?? 0) + 1;
+        const reconciliation_ref = `reconciled:${turn_ref}:${turn.reconciled_seq}`;
         turn.reconciled_results = [...(turn.reconciled_results ?? []), { result_ref, at, reconciliation_ref }];
         note('LATE_RESULT_RECONCILED', at, { turn_ref, result_ref });
         return freeze({

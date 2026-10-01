@@ -445,3 +445,105 @@ test('an uninterpretable instant is refused rather than recorded', () => {
   const registry = createConnectorRegistry({ clock: () => '2026-13-45T99:99:99Z' });
   assert.equal(failure(() => registry.coverage()).code, 'INVALID_CLOCK');
 });
+
+test('acceptance is not claimed for a product this host did not install', () => {
+  const evidence = { real: true, submit_ref: 'submit:1', progress_ref: 'progress:1', terminal_ref: 'terminal:1', terminal_state: 'SUCCEEDED' };
+  const notInstalled = connectorWith({ start: () => ({ started: false }), acceptanceEvidence: () => evidence });
+  const runtime = { ...notInstalled.connector };
+  const missing = createReferenceConnector({
+    kind: 'CODEX',
+    clock: () => T0,
+    runtime: {
+      probe: () => ({ installed: false }),
+      auth: () => ({ state: 'UNAVAILABLE' }),
+      acceptanceEvidence: () => evidence,
+    },
+  });
+  assert.equal(missing.acceptanceReport().component_stage_acceptance, false, 'an uninstalled product cannot prove a real run');
+  assert.equal(missing.acceptanceReport().deferred_marker, ACCEPTANCE_DEFERRED);
+  assert.equal(missing.acceptanceReport().install_state, 'NOT_INSTALLED');
+  const installed = createReferenceConnector({
+    kind: 'CODEX',
+    clock: () => T0,
+    runtime: { probe: () => ({ installed: true, version_output: 'v1.2.3' }), auth: () => ({ state: 'READY' }), acceptanceEvidence: () => evidence },
+  });
+  assert.equal(installed.acceptanceReport().component_stage_acceptance, true, 'installed plus real evidence is still accepted');
+  assert.equal(typeof runtime.acceptanceReport, 'function');
+});
+
+test('a closed session is not reported as live work', () => {
+  const connector = connectorWith({ result: () => ({ state: 'RUNNING', result_ref: 'result:1' }) }).connector;
+  const session = connector.startOrAttach({ canonical_job_ref: 'job:1' });
+  assert.equal(connector.result({ session_ref: session.session_ref }).state, 'RUNNING');
+  connector.control({ session_ref: session.session_ref, operation: 'CANCEL' });
+  const afterCancel = connector.result({ session_ref: session.session_ref });
+  assert.equal(afterCancel.session_closed, true);
+  assert.equal(afterCancel.state, 'CANCELLED', 'a cancelled session is not still running');
+  assert.equal(afterCancel.terminal, true);
+  assert.equal(afterCancel.outcome_unknown_is_not_success, false);
+});
+
+test('the canonical job id addresses control, events and result, and backend refs come back', () => {
+  const connector = connectorWith({}).connector;
+  const session = connector.startOrAttach({ canonical_job_ref: 'job:canonical' });
+  assert.equal(connector.events({ canonical_job_ref: 'job:canonical' }).canonical_job_ref, 'job:canonical');
+  assert.equal(connector.events({ canonical_job_ref: 'job:canonical' }).backend_run_ref, 'backend:run:1');
+  assert.equal(connector.result({ canonical_job_ref: 'job:canonical' }).session_ref, session.session_ref);
+  const controlled = connector.control({ canonical_job_ref: 'job:canonical', operation: 'CANCEL' });
+  assert.equal(controlled.applied, true);
+  assert.equal(controlled.canonical_job_ref, 'job:canonical');
+  assert.equal(controlled.backend_run_ref, 'backend:run:1', 'the control response carries the backend provenance');
+  assert.equal(failure(() => connector.result({ canonical_job_ref: 'job:nope' })).code, 'UNKNOWN_SESSION');
+});
+
+test('one logical action key executes the backend once, even after a cancel and re-attach', () => {
+  const { connector, calls } = connectorWith({});
+  const first = connector.startOrAttach({ canonical_job_ref: 'job:1' });
+  assert.equal(connector.submit({ session_ref: first.session_ref, operation: 'code.generate', action_key: 'action:once' }).submitted, true);
+  connector.control({ session_ref: first.session_ref, operation: 'CANCEL' });
+  const second = connector.startOrAttach({ canonical_job_ref: 'job:1' });
+  assert.notEqual(second.session_ref, first.session_ref, 'the cancelled session is not re-attached');
+  const replay = connector.submit({ session_ref: second.session_ref, operation: 'code.generate', action_key: 'action:once' });
+  assert.equal(replay.submitted, false, 'the same logical action is not executed twice');
+  assert.equal(replay.duplicate, true);
+  assert.equal(replay.repeated, false);
+  assert.equal(replay.result_ref, 'result:1');
+  assert.equal(calls.submit, 1, 'the backend was asked exactly once');
+});
+
+test('a connector kind is an own key, and a crashing probe degrades honestly', () => {
+  for (const kind of ['constructor', 'toString', '__proto__', 'hasOwnProperty']) {
+    assert.equal(failure(() => createReferenceConnector({ kind, runtime: hostWith({}).runtime })).code, 'UNKNOWN_KIND', `kind ${kind}`);
+  }
+  const crashing = createReferenceConnector({
+    kind: 'CODEX',
+    clock: () => T0,
+    runtime: { probe: () => { throw new Error('harness exploded'); }, auth: () => { throw new Error('keyring locked'); } },
+  });
+  const probe = crashing.probe();
+  assert.equal(probe.install_state, 'UNKNOWN', 'a crashing probe is an unproven install state, never INSTALLED');
+  assert.equal(probe.probe_failed, true);
+  assert.equal(probe.emulated, false);
+  assert.equal(crashing.auth().state, 'UNKNOWN', 'a crashing auth channel is never READY');
+  assert.equal(crashing.readiness().state, 'UNKNOWN');
+  assert.equal(crashing.health().health, 'UNKNOWN');
+  assert.equal(crashing.health().attention.kind, 'AUTHENTICATION');
+  assert.equal(failure(() => crashing.startOrAttach({ canonical_job_ref: 'job:1' })).code, 'NOT_READY');
+  assert.equal(crashing.journal().some(entry => entry.event === 'PROBE_FAILED'), true);
+});
+
+test('the registry refuses an under-specified connector and derives its emulated count', () => {
+  const registry = createConnectorRegistry({ clock: () => T0 });
+  assert.equal(failure(() => registry.register({ connector: { connectorKind: () => 'X', capabilities: () => ({ capabilities: [] }) } })).code, 'INVALID_REQUEST');
+  registry.register({ connector: connectorWith({}).connector });
+  assert.equal(registry.acceptanceSummary().emulated_acceptance_claimed, 0);
+  const claiming = {
+    connectorKind: () => 'EMULATED_CLAIM',
+    capabilities: () => ({ capabilities: ['code.generate'], supported_controls: [] }),
+    readiness: () => ({ state: 'READY' }),
+    acceptanceReport: () => ({ connector_kind: 'EMULATED_CLAIM', component_stage_acceptance: true, deferred_marker: null, evidence_source: 'EMULATED', emulated_smoke_labelled_as_acceptance: true }),
+  };
+  registry.register({ connector: claiming });
+  assert.equal(registry.acceptanceSummary().emulated_acceptance_claimed, 1, 'an emulated acceptance claim is counted, not asserted away');
+  assert.equal(registry.acceptanceSummary().component_stage_accepted.includes('EMULATED_CLAIM'), true);
+});

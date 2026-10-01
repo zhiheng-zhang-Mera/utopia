@@ -130,13 +130,16 @@ export const REFERENCE_CONNECTORS = Object.freeze({
 });
 
 export function createReferenceConnector({ kind, runtime, clock = () => new Date().toISOString(), policy = {} } = {}) {
+  // Own key, not prototype-chain membership: 'constructor'/'toString'/'__proto__' are not connector kinds.
+  if (!isText(kind) || !Object.hasOwn(REFERENCE_CONNECTORS, kind)) throw new ConnectorError('UNKNOWN_KIND', `unknown connector kind ${String(kind)}`);
   const descriptor = REFERENCE_CONNECTORS[kind];
-  if (!descriptor) throw new ConnectorError('UNKNOWN_KIND', `unknown connector kind ${String(kind)}`);
   if (!isPlainObject(runtime) || typeof runtime.probe !== 'function') throw new ConnectorError('INVALID_RUNTIME', 'a runtime adapter with probe() is required');
   if (typeof clock !== 'function') throw new ConnectorError('INVALID_CLOCK', 'clock must be a function returning an ISO-8601 UTC instant');
   const config = { required_capabilities: [], ...(isPlainObject(policy) ? policy : {}) };
   const sessions = new Map();
   const jobs = new Map();
+  /** action_key -> the submission it produced. A new session for the same logical action is still a retry. */
+  const actionSubmissions = new Map();
   const journal = [];
   let counter = 0;
 
@@ -159,8 +162,18 @@ export function createReferenceConnector({ kind, runtime, clock = () => new Date
   };
 
   const probeHost = () => {
-    const raw = runtime.probe({ connector_kind: descriptor.connector_kind });
-    const installed = raw?.installed === true ? 'INSTALLED' : raw?.installed === false ? 'NOT_INSTALLED' : 'UNKNOWN';
+    // A provider crash in the probe channel is an unproven install state, never an untyped throw and never
+    // an assumed installation.
+    let raw = null;
+    let probe_failed = false;
+    try {
+      raw = runtime.probe({ connector_kind: descriptor.connector_kind });
+    } catch (error) {
+      probe_failed = true;
+      raw = null;
+      note('PROBE_FAILED', now(), { detail: String(error?.message ?? error) });
+    }
+    const installed = probe_failed ? 'UNKNOWN' : raw?.installed === true ? 'INSTALLED' : raw?.installed === false ? 'NOT_INSTALLED' : 'UNKNOWN';
     const version = installed === 'INSTALLED' && isText(raw?.version_output)
       ? (raw.version_output.match(descriptor.version_pattern)?.[1] ?? 'UNKNOWN')
       : 'UNKNOWN';
@@ -170,9 +183,17 @@ export function createReferenceConnector({ kind, runtime, clock = () => new Date
       version,
       version_known: version !== 'UNKNOWN',
       host_path_ref: isText(raw?.host_path_ref) ? raw.host_path_ref : null,
-      probe_source: 'HOST_PROBE',
+      probe_source: probe_failed ? 'HOST_PROBE_FAILED' : 'HOST_PROBE',
+      probe_failed,
       emulated: false,
     });
+  };
+
+  /** The canonical job id and the backend session ref both address a session; neither is a provider branch. */
+  const resolveSession = (session_ref, canonical_job_ref) => {
+    if (isText(session_ref)) return sessions.get(session_ref) ?? null;
+    if (isText(canonical_job_ref) && jobs.has(canonical_job_ref)) return sessions.get(jobs.get(canonical_job_ref)) ?? null;
+    return null;
   };
 
   const requireInstalled = probe => {
@@ -207,7 +228,16 @@ export function createReferenceConnector({ kind, runtime, clock = () => new Date
       if (probe.install_state !== 'INSTALLED') {
         return freeze({ connector_kind: descriptor.connector_kind, state: probe.install_state === 'NOT_INSTALLED' ? 'UNAVAILABLE' : 'UNKNOWN', ready: false, install_state: probe.install_state });
       }
-      const raw = typeof runtime.auth === 'function' ? runtime.auth({ connector_kind: descriptor.connector_kind }) : { state: 'UNKNOWN' };
+      // A crashing auth channel is UNKNOWN (fail closed), never READY.
+      let raw = { state: 'UNKNOWN' };
+      if (typeof runtime.auth === 'function') {
+        try {
+          raw = runtime.auth({ connector_kind: descriptor.connector_kind });
+        } catch (error) {
+          note('AUTH_PROBE_FAILED', now(), { detail: String(error?.message ?? error) });
+          raw = { state: 'UNKNOWN' };
+        }
+      }
       const state = AUTH_STATES.includes(raw?.state) ? raw.state : 'UNKNOWN';
       return freeze({
         connector_kind: descriptor.connector_kind,
@@ -299,7 +329,7 @@ export function createReferenceConnector({ kind, runtime, clock = () => new Date
     },
 
     submit({ session_ref = null, canonical_job_ref = null, operation, arguments_ref = null, action_key = null, at: when } = {}) {
-      const session = session_ref !== null ? sessions.get(session_ref) ?? null : jobs.has(canonical_job_ref) ? sessions.get(jobs.get(canonical_job_ref)) : null;
+      const session = resolveSession(session_ref, canonical_job_ref);
       if (!session) throw new ConnectorError('UNKNOWN_SESSION', `no session for ${String(session_ref ?? canonical_job_ref)}`);
       if (session.state === 'CLOSED') throw new ConnectorError('UNKNOWN_SESSION', `session ${session.session_ref} is closed`);
       if (!isText(operation)) throw new ConnectorError('INVALID_REQUEST', 'an operation is required');
@@ -309,7 +339,9 @@ export function createReferenceConnector({ kind, runtime, clock = () => new Date
           connector_kind: descriptor.connector_kind, operation, supported: freeze([...descriptor.capabilities]), emulated: false, silently_ignored: false,
         });
       }
-      const duplicate = action_key !== null ? session.submits.find(entry => entry.action_key === action_key) ?? null : null;
+      // The duplicate guard outlives one session: a cancel plus re-attach must not let the same logical
+      // action execute the backend a second time.
+      const duplicate = action_key !== null ? actionSubmissions.get(action_key) ?? null : null;
       if (duplicate) {
         return freeze({
           contract_version: REFERENCE_CONNECTOR_CONTRACT_VERSION,
@@ -339,6 +371,7 @@ export function createReferenceConnector({ kind, runtime, clock = () => new Date
       // identity, and a backend result reference only exists when the backend produced one.
       const result_ref = isText(raw?.result_ref) ? raw.result_ref : null;
       session.submits.push({ operation, action_key, result_ref, at });
+      if (action_key !== null) actionSubmissions.set(action_key, freeze({ action_key, operation, result_ref, session_ref: session.session_ref, at }));
       note('SUBMITTED', at, { operation, submissions: session.submits.length });
       return freeze({
         contract_version: REFERENCE_CONNECTOR_CONTRACT_VERSION,
@@ -357,9 +390,9 @@ export function createReferenceConnector({ kind, runtime, clock = () => new Date
       });
     },
 
-    events({ session_ref, at: when } = {}) {
-      const session = sessions.get(session_ref);
-      if (!session) throw new ConnectorError('UNKNOWN_SESSION', `no session ${String(session_ref)}`);
+    events({ session_ref = null, canonical_job_ref = null, at: when } = {}) {
+      const session = resolveSession(session_ref, canonical_job_ref);
+      if (!session) throw new ConnectorError('UNKNOWN_SESSION', `no session for ${String(session_ref ?? canonical_job_ref)}`);
       let raw = [];
       if (typeof runtime.events === 'function') {
         try {
@@ -381,12 +414,12 @@ export function createReferenceConnector({ kind, runtime, clock = () => new Date
         backend_event_ref: isText(event.backend_event_ref) ? event.backend_event_ref : null,
         is_provenance_only: true,
       }));
-      return freeze({ session_ref, canonical_job_ref: session.canonical_job_ref, events: freeze(events), normalized: true, product_shapes_exposed: false, at: atFrom(when) });
+      return freeze({ session_ref: session.session_ref, canonical_job_ref: session.canonical_job_ref, backend_run_ref: session.backend_run_ref, events: freeze(events), normalized: true, product_shapes_exposed: false, at: atFrom(when) });
     },
 
-    control({ session_ref, operation, at: when } = {}) {
-      const session = sessions.get(session_ref);
-      if (!session) throw new ConnectorError('UNKNOWN_SESSION', `no session ${String(session_ref)}`);
+    control({ session_ref = null, canonical_job_ref = null, operation, at: when } = {}) {
+      const session = resolveSession(session_ref, canonical_job_ref);
+      if (!session) throw new ConnectorError('UNKNOWN_SESSION', `no session for ${String(session_ref ?? canonical_job_ref)}`);
       if (!CONTROL_OPS.includes(operation)) throw new ConnectorError('INVALID_REQUEST', `operation must be one of ${CONTROL_OPS.join(', ')}`);
       if (!descriptor.supported_controls.includes(operation)) {
         note('UNSUPPORTED_OPERATION', atFrom(when), { operation });
@@ -413,8 +446,9 @@ export function createReferenceConnector({ kind, runtime, clock = () => new Date
       note('CONTROLLED', at, { operation });
       return freeze({
         contract_version: REFERENCE_CONNECTOR_CONTRACT_VERSION,
-        session_ref,
+        session_ref: session.session_ref,
         canonical_job_ref: session.canonical_job_ref,
+        backend_run_ref: session.backend_run_ref,
         operation,
         applied: true,
         state: session.state,
@@ -424,9 +458,9 @@ export function createReferenceConnector({ kind, runtime, clock = () => new Date
     },
 
     /** An absent or unparseable outcome is UNKNOWN, never success. */
-    result({ session_ref, at: when } = {}) {
-      const session = sessions.get(session_ref);
-      if (!session) throw new ConnectorError('UNKNOWN_SESSION', `no session ${String(session_ref)}`);
+    result({ session_ref = null, canonical_job_ref = null, at: when } = {}) {
+      const session = resolveSession(session_ref, canonical_job_ref);
+      if (!session) throw new ConnectorError('UNKNOWN_SESSION', `no session for ${String(session_ref ?? canonical_job_ref)}`);
       let raw = null;
       if (typeof runtime.result === 'function') {
         try {
@@ -440,16 +474,20 @@ export function createReferenceConnector({ kind, runtime, clock = () => new Date
       // assumed, so another run's SUCCEEDED can never be attributed here.
       const declaredRun = isPlainObject(raw) && isText(raw.backend_run_ref) ? raw.backend_run_ref : null;
       const correlationMismatch = declaredRun !== null && session.backend_run_ref !== null && declaredRun !== session.backend_run_ref;
-      const state = correlationMismatch ? 'UNKNOWN' : JOB_STATES.includes(rawState) ? rawState : 'UNKNOWN';
+      const sessionClosed = session.state === 'CLOSED';
+      const reportedState = correlationMismatch ? 'UNKNOWN' : JOB_STATES.includes(rawState) ? rawState : 'UNKNOWN';
+      // A backend that still reports a non-terminal state after the session was closed is not live work.
+      const state = sessionClosed && !TERMINAL_OUTCOMES.includes(reportedState) ? 'CANCELLED' : reportedState;
       return freeze({
         contract_version: REFERENCE_CONNECTOR_CONTRACT_VERSION,
-        session_ref,
+        session_ref: session.session_ref,
         canonical_job_ref: session.canonical_job_ref,
         backend_run_ref: session.backend_run_ref,
         declared_backend_run_ref: declaredRun,
         correlation_mismatch: correlationMismatch,
         state,
         terminal: TERMINAL_OUTCOMES.includes(state),
+        session_closed: sessionClosed,
         result_ref: isText(raw?.result_ref) ? raw.result_ref : null,
         outcome_unknown_is_not_success: state === 'UNKNOWN',
         invented_result: false,
@@ -496,7 +534,8 @@ export function createReferenceConnector({ kind, runtime, clock = () => new Date
       // The terminal outcome is reported by the runtime, never defaulted: assuming SUCCEEDED would be exactly
       // the fabricated acceptance this module exists to prevent.
       const terminalState = provided !== null && TERMINAL_OUTCOMES.includes(provided.terminal_state) ? provided.terminal_state : null;
-      const hasEvidence = provided !== null && provided.real === true && threeDistinctStages && terminalState !== null;
+      // A product this host could not even find installed cannot have produced real runtime evidence.
+      const hasEvidence = provided !== null && provided.real === true && threeDistinctStages && terminalState !== null && probe.install_state === 'INSTALLED';
       if (!hasEvidence) {
         return freeze({
           contract_version: REFERENCE_CONNECTOR_CONTRACT_VERSION,
@@ -534,7 +573,10 @@ export function createConnectorRegistry({ clock = () => new Date().toISOString()
   const connectors = new Map();
   return Object.freeze({
     register({ connector }) {
-      if (!isPlainObject(connector) || typeof connector.connectorKind !== 'function' || typeof connector.capabilities !== 'function') {
+      // The registry calls these two on every resolution and summary, so a connector missing them would
+      // turn a registration mistake into an untyped TypeError later.
+      if (!isPlainObject(connector) || typeof connector.connectorKind !== 'function' || typeof connector.capabilities !== 'function'
+        || typeof connector.readiness !== 'function' || typeof connector.acceptanceReport !== 'function') {
         throw new ConnectorError('INVALID_REQUEST', 'a connector must implement the ConnectorPort');
       }
       connectors.set(connector.connectorKind(), connector);
@@ -578,7 +620,9 @@ export function createConnectorRegistry({ clock = () => new Date().toISOString()
         reports: freeze(reports),
         component_stage_accepted: freeze(reports.filter(report => report.component_stage_acceptance).map(report => report.connector_kind)),
         deferred: freeze(reports.filter(report => report.component_stage_acceptance !== true).map(report => report.connector_kind)),
-        emulated_acceptance_claimed: 0,
+        // Derived, not asserted: a report that claims component acceptance without host-runtime evidence is
+        // an emulated acceptance claim however it labels itself.
+        emulated_acceptance_claimed: reports.filter(report => report.component_stage_acceptance === true && report.evidence_source !== 'HOST_RUNTIME').length,
       });
     },
   });

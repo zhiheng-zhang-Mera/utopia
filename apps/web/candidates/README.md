@@ -112,6 +112,12 @@ provenance、apiVersion、schemaVersion、hubUrl、lastCheckpoint、discovery re
 契约测试同时禁止 `=> {}` 空处理器再次出现。这次修正确实找出了两处真实缺口：
 候选 B 完全没有"打开房间"控件、候选 A 没有"打开房间服务"控件。
 
+**降级是被验证的，不是被声明的：** 只证明技术值"可达"是不够的——一个把 `backendRef`
+印在首页的候选同样能通过可达性检查。因此新增 `LEAK_PROBES`：在**未展开任何折叠**的默认状态下读取
+`innerText`（它会排除 `display:none` 与关闭的 `<details>`），要求 5 个一级 surface 上**看不到**
+技术值。5 个降级 surface（Services/Tasks/Actions/Pairing/Settings）不在此列——UI-000 允许它们显示技术值。
+这组探针当场抓到一处真实泄漏：候选 B 把原始事件序号 `#41` 与 task id 印在了 Activity 上。
+
 ## 4. Rooms 代表页
 
 真实 Room Hub 通过 `apps/rooms/hub/public/themes/{a,b,c}.css` 获得三套皮肤。

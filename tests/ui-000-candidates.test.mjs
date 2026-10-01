@@ -90,6 +90,19 @@ test('UI-000 parity probes only reference real surfaces and capabilities', async
   for (const action of runtime.ACTIONS) {
     assert.ok(probes.ACTION_PROBES.some((p) => p.action === action), `runtime action ${action} has no action probe`);
   }
+  /* Reachability alone is satisfied by a candidate that leaks the value, so every
+     primary surface must also carry a demotion (leak) probe. */
+  for (const surface of facts.PRIMARY_SURFACES.map((s) => s.id)) {
+    const leak = probes.LEAK_PROBES.find((p) => p.surface === surface);
+    assert.ok(leak, `primary surface ${surface} has no demotion probe`);
+    assert.ok(leak.forbidden.length > 0, `demotion probe for ${surface} forbids nothing`);
+  }
+  /* Advanced surfaces are allowed to show technical values; probing them as leaks
+     would make the advanced surface useless. */
+  for (const surface of facts.ADVANCED_SURFACES.map((s) => s.id)) {
+    assert.ok(!probes.LEAK_PROBES.some((p) => p.surface === surface),
+      `${surface} is an advanced surface and must not be leak-probed`);
+  }
 });
 
 test('UI-000 candidates are real, glyph-free and genuinely different', { skip: !PRESENT && 'candidate surface retired' }, async () => {

@@ -1,12 +1,34 @@
 # UI-000 capability parity report
 
-- generated: 2026-10-01T10:41:17.410Z
+- generated: 2026-10-01T11:31:29.402Z
 - candidates: a, b, c
-- probes: 285/285 passed
+- probes: 390/390 passed
 - result: PASS
 
 | candidate | probe | where | capability | token | ok |
 |---|---|---|---|---|---|
+| a | leak | home | demotion | tsk- | yes |
+| a | leak | home | demotion | inv- | yes |
+| a | leak | home | demotion | act- | yes |
+| a | leak | home | demotion | apiVersion | yes |
+| a | leak | home | demotion | schemaVersion | yes |
+| a | leak | home | demotion | backendRef | yes |
+| a | leak | home | demotion | provenance | yes |
+| a | leak | home | demotion | #41 | yes |
+| a | leak | ask | demotion | apiVersion | yes |
+| a | leak | ask | demotion | schemaVersion | yes |
+| a | leak | ask | demotion | idempotencyKey | yes |
+| a | leak | ask | demotion | backendRef | yes |
+| a | leak | tools | demotion | LOCAL_PRODUCT | yes |
+| a | leak | tools | demotion | 127.0.0.1:4320 | yes |
+| a | leak | tools | demotion | text-workshop | yes |
+| a | leak | tools | demotion | data-lab | yes |
+| a | leak | devices | demotion | node-3f7a91c2 | yes |
+| a | leak | devices | demotion | agentVersion | yes |
+| a | leak | devices | demotion | lastHeartbeatAt | yes |
+| a | leak | activity | demotion | #41 | yes |
+| a | leak | activity | demotion | "seq" | yes |
+| a | leak | activity | demotion | tsk- | yes |
 | a | surface | home | connection-state | Alien-PC | yes |
 | a | surface | home | city-snapshot | 20:24 | yes |
 | a | surface | home | attention-summary | 10 | yes |
@@ -102,6 +124,41 @@
 | a | ask | ask:unmatched | ask-states | Data Lab | yes |
 | a | ask | ask:working | ask-states | hash C:\tmp\a.txt | yes |
 | a | ask | ask:working | ask-states | 执行 | yes |
+| a | action | tools:打开 | openRoom | click:打开 | yes |
+| a | action | tools:打开 | openRoom | 127.0.0.1:4320 | yes |
+| a | action | tools:打开房间服务 | openHub | click:打开房间服务 | yes |
+| a | action | services:调用 | invoke | click:调用 | yes |
+| a | action | services:调用 | invoke | inv-11 | yes |
+| a | action | tasks:运行一个演示任务 | createDemoTask | click:运行一个演示任务 | yes |
+| a | action | tasks:运行一个演示任务 | createDemoTask | tsk-101 | yes |
+| a | action | tasks:取消 | cancelTask | click:取消 | yes |
+| a | action | tasks:取消 | cancelTask | CANCELLED | yes |
+| a | action | pairing:生成配对码 | startPairing | click:生成配对码 | yes |
+| a | action | pairing:生成配对码 | startPairing | 4821 | yes |
+| a | action | settings:更换令牌 | disconnect | click:更换令牌 | yes |
+| a | action | settings:更换令牌 | disconnect | 已断开 | yes |
+| b | leak | home | demotion | tsk- | yes |
+| b | leak | home | demotion | inv- | yes |
+| b | leak | home | demotion | act- | yes |
+| b | leak | home | demotion | apiVersion | yes |
+| b | leak | home | demotion | schemaVersion | yes |
+| b | leak | home | demotion | backendRef | yes |
+| b | leak | home | demotion | provenance | yes |
+| b | leak | home | demotion | #41 | yes |
+| b | leak | ask | demotion | apiVersion | yes |
+| b | leak | ask | demotion | schemaVersion | yes |
+| b | leak | ask | demotion | idempotencyKey | yes |
+| b | leak | ask | demotion | backendRef | yes |
+| b | leak | tools | demotion | LOCAL_PRODUCT | yes |
+| b | leak | tools | demotion | 127.0.0.1:4320 | yes |
+| b | leak | tools | demotion | text-workshop | yes |
+| b | leak | tools | demotion | data-lab | yes |
+| b | leak | devices | demotion | node-3f7a91c2 | yes |
+| b | leak | devices | demotion | agentVersion | yes |
+| b | leak | devices | demotion | lastHeartbeatAt | yes |
+| b | leak | activity | demotion | #41 | yes |
+| b | leak | activity | demotion | "seq" | yes |
+| b | leak | activity | demotion | tsk- | yes |
 | b | surface | home | connection-state | Alien-PC | yes |
 | b | surface | home | city-snapshot | 20:24 | yes |
 | b | surface | home | attention-summary | 10 | yes |
@@ -197,6 +254,41 @@
 | b | ask | ask:unmatched | ask-states | Data Lab | yes |
 | b | ask | ask:working | ask-states | hash C:\tmp\a.txt | yes |
 | b | ask | ask:working | ask-states | 执行 | yes |
+| b | action | tools:打开 | openRoom | click:打开 | yes |
+| b | action | tools:打开 | openRoom | 127.0.0.1:4320 | yes |
+| b | action | tools:打开房间服务 | openHub | click:打开房间服务 | yes |
+| b | action | services:调用 | invoke | click:调用 | yes |
+| b | action | services:调用 | invoke | inv-11 | yes |
+| b | action | tasks:运行演示作业 | createDemoTask | click:运行演示作业 | yes |
+| b | action | tasks:运行演示作业 | createDemoTask | tsk-101 | yes |
+| b | action | tasks:取消 | cancelTask | click:取消 | yes |
+| b | action | tasks:取消 | cancelTask | CANCELLED | yes |
+| b | action | pairing:生成配对码 | startPairing | click:生成配对码 | yes |
+| b | action | pairing:生成配对码 | startPairing | 4821 | yes |
+| b | action | settings:更换令牌 | disconnect | click:更换令牌 | yes |
+| b | action | settings:更换令牌 | disconnect | 已断开 | yes |
+| c | leak | home | demotion | tsk- | yes |
+| c | leak | home | demotion | inv- | yes |
+| c | leak | home | demotion | act- | yes |
+| c | leak | home | demotion | apiVersion | yes |
+| c | leak | home | demotion | schemaVersion | yes |
+| c | leak | home | demotion | backendRef | yes |
+| c | leak | home | demotion | provenance | yes |
+| c | leak | home | demotion | #41 | yes |
+| c | leak | ask | demotion | apiVersion | yes |
+| c | leak | ask | demotion | schemaVersion | yes |
+| c | leak | ask | demotion | idempotencyKey | yes |
+| c | leak | ask | demotion | backendRef | yes |
+| c | leak | tools | demotion | LOCAL_PRODUCT | yes |
+| c | leak | tools | demotion | 127.0.0.1:4320 | yes |
+| c | leak | tools | demotion | text-workshop | yes |
+| c | leak | tools | demotion | data-lab | yes |
+| c | leak | devices | demotion | node-3f7a91c2 | yes |
+| c | leak | devices | demotion | agentVersion | yes |
+| c | leak | devices | demotion | lastHeartbeatAt | yes |
+| c | leak | activity | demotion | #41 | yes |
+| c | leak | activity | demotion | "seq" | yes |
+| c | leak | activity | demotion | tsk- | yes |
 | c | surface | home | connection-state | Alien-PC | yes |
 | c | surface | home | city-snapshot | 20:24 | yes |
 | c | surface | home | attention-summary | 10 | yes |
@@ -292,3 +384,16 @@
 | c | ask | ask:unmatched | ask-states | Data Lab | yes |
 | c | ask | ask:working | ask-states | hash C:\tmp\a.txt | yes |
 | c | ask | ask:working | ask-states | 执行 | yes |
+| c | action | tools:打开 | openRoom | click:打开 | yes |
+| c | action | tools:打开 | openRoom | 127.0.0.1:4320 | yes |
+| c | action | tools:打开房间服务 | openHub | click:打开房间服务 | yes |
+| c | action | services:调用 | invoke | click:调用 | yes |
+| c | action | services:调用 | invoke | inv-11 | yes |
+| c | action | tasks:运行演示任务 | createDemoTask | click:运行演示任务 | yes |
+| c | action | tasks:运行演示任务 | createDemoTask | tsk-101 | yes |
+| c | action | tasks:取消 | cancelTask | click:取消 | yes |
+| c | action | tasks:取消 | cancelTask | CANCELLED | yes |
+| c | action | pairing:生成配对码 | startPairing | click:生成配对码 | yes |
+| c | action | pairing:生成配对码 | startPairing | 4821 | yes |
+| c | action | settings:更换令牌 | disconnect | click:更换令牌 | yes |
+| c | action | settings:更换令牌 | disconnect | 已断开 | yes |

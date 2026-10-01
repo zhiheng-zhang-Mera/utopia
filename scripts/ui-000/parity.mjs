@@ -7,7 +7,12 @@
  * workbook rule "三套必须共享同样功能事实" (the other half is the independent
  * host's visual critique).
  *
- *   node scripts/ui-000/parity.mjs [--base http://127.0.0.1:4330] [--out evidence/raw/ui-000]
+ *   node scripts/ui-000/parity.mjs [--base http://127.0.0.1:4330] [--out .runtime/evidence/mission-book/UI-000]
+ *
+ * Writes to the git-ignored raw evidence area by default, per
+ * mission-book/PROCESS_DATA_POLICY.md Layer 1 — the same convention as
+ * screenshot.mjs and android-screens.mjs. A bounded subset is published to
+ * evidence/raw/mission-book/UI-000/.
  *
  * Exits non-zero on the first candidate with a failed probe.
  */
@@ -15,13 +20,13 @@ import { chromium } from 'playwright';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { SURFACE_PROBES, TECHNICAL_PROBES, ASK_PROBES, ACTION_PROBES } from '../../apps/web/candidates/shared/parity-probes.js';
+import { SURFACE_PROBES, TECHNICAL_PROBES, ASK_PROBES, ACTION_PROBES, LEAK_PROBES } from '../../apps/web/candidates/shared/parity-probes.js';
 import { REQUIRED_SURFACES, REQUIRED_CAPABILITIES, CANDIDATE_IDS } from '../../apps/web/candidates/shared/facts.js';
 
 const ROOT = resolve(fileURLToPath(new URL('../..', import.meta.url)));
 const arg = (n, d) => { const i = process.argv.indexOf(`--${n}`); return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : d; };
 const BASE = arg('base', 'http://127.0.0.1:4330');
-const OUT = resolve(ROOT, arg('out', 'evidence/raw/ui-000'));
+const OUT = resolve(ROOT, arg('out', '.runtime/evidence/mission-book/UI-000'));
 
 const fail = [];
 const results = [];
@@ -59,6 +64,20 @@ async function run() {
       const declared = await page.evaluate(() => window.__ui000?.surfaces ?? []);
       const missingSurfaces = REQUIRED_SURFACES.filter((s) => !declared.includes(s));
       if (missingSurfaces.length) fail.push(`${id}: surfaces not declared: ${missingSurfaces.join(', ')}`);
+
+      /* Pass 0 — demotion: the technical values must NOT be visible by default.
+         `innerText` is the right accessor here: it excludes display:none and the
+         contents of a closed <details>, i.e. exactly what "folded away" means. */
+      for (const probe of LEAK_PROBES) {
+        await page.evaluate((s) => window.__ui000.go(s), probe.surface);
+        await page.waitForTimeout(60);
+        const visible = await page.evaluate(() => document.body.innerText);
+        for (const token of probe.forbidden) {
+          const leaked = visible.includes(token);
+          results.push({ candidate: id, probe: 'leak', where: probe.surface, cap: 'demotion', token, ok: !leaked });
+          if (leaked) fail.push(`${id}: ${probe.surface} shows technical value ${JSON.stringify(token)} by default (not demoted)`);
+        }
+      }
 
       /* Pass 1 — product facts must read on their own surface, untouched. */
       for (const surface of REQUIRED_SURFACES) {

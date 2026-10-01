@@ -18,8 +18,17 @@
  *                      plainly or through its own demotion mechanism (opened
  *                      <details>, or the inspector after `revealAll()`).
  *
- * `document.body.textContent` is used, not `innerText`, so collapsed <details>
- * content counts: a demoted value is still reachable, and a DELETED value fails.
+ *   LEAK_PROBES      — the other half of the same rule, and the harder half.
+ *                      Reachability alone is satisfied by a candidate that prints
+ *                      `backendRef` on the Home screen, so the demotion rule was
+ *                      never actually tested. These probes read the RENDERED text
+ *                      (`innerText`, which excludes display:none and the contents
+ *                      of a closed <details>) and require the technical values to
+ *                      be ABSENT from the primary surfaces by default.
+ *
+ * `document.body.textContent` is used for reachability, not `innerText`, so
+ * collapsed <details> content counts: a demoted value is still reachable, and a
+ * DELETED value fails. Leak checks deliberately use the opposite accessor.
  */
 
 /** Product facts. Surface + tokens that must be present in that surface's text. */
@@ -128,4 +137,28 @@ export const ACTION_PROBES = [
 /** Text/Unicode geometry the hard rules forbid as an icon system. */
 export const FORBIDDEN_GLYPHS = ['◈', '▦', '◇', '≋', '◉', '▤', '≣', '⊞', '⚙', '▣', '✦', '❖', '◆', '■', '▲'];
 
-export default { SURFACE_PROBES, TECHNICAL_PROBES, ASK_PROBES, ACTION_PROBES, FORBIDDEN_GLYPHS };
+/**
+ * Values that must NOT be visible on a primary surface by default.
+ *
+ * Only the five PRIMARY surfaces are checked. Services / Tasks / Actions /
+ * Pairing / Settings are the advanced surfaces — UI-000 explicitly allows
+ * technical values there, and demoting them a second time would make the
+ * advanced surface useless.
+ */
+export const LEAK_PROBES = [
+  {
+    surface: 'home',
+    forbidden: ['tsk-', 'inv-', 'act-', 'apiVersion', 'schemaVersion', 'backendRef', 'provenance', '#41'],
+  },
+  { surface: 'ask', forbidden: ['apiVersion', 'schemaVersion', 'idempotencyKey', 'backendRef'] },
+  {
+    surface: 'tools',
+    /* the room id slug and the loopback hub origin are internal; the room's
+       ordinal number is NOT, see the note on room-number below */
+    forbidden: ['LOCAL_PRODUCT', '127.0.0.1:4320', 'text-workshop', 'data-lab'],
+  },
+  { surface: 'devices', forbidden: ['node-3f7a91c2', 'agentVersion', 'lastHeartbeatAt'] },
+  { surface: 'activity', forbidden: ['#41', '"seq"', 'tsk-'] },
+];
+
+export default { SURFACE_PROBES, TECHNICAL_PROBES, ASK_PROBES, ACTION_PROBES, LEAK_PROBES, FORBIDDEN_GLYPHS };

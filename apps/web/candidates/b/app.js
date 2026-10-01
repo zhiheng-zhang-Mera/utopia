@@ -282,12 +282,11 @@ function viewActivity() {
       el('h1', { class: 'view-title', text: '记录' }),
       el('p', { class: 'view-sub', text: `${rt.state.events.length} 条事件，按时间倒序。` }),
     ]),
-    grid(['序号', '时间', '事件', '相关作业'], rt.state.events.map((e) =>
+    grid(['时间', '事件', '详情'], rt.state.events.map((e) =>
       row([
-        el('span', { class: 'num', text: '#' + e.seq }),
         el('span', { class: 'num', text: hhmm(e.timestamp) }),
         e.type,
-        e.taskId ? el('span', { class: 'num', text: e.taskId }) : el('span', { class: 'num dim', text: 'City' }),
+        el('button', { class: 'link tiny inspect', text: '检查器', onclick: (ev) => { ev.stopPropagation(); openInspector('事件 · 运行细节', e); } }),
       ], e, '事件 · 运行细节'))),
   ]);
 }

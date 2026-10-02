@@ -120,6 +120,20 @@ export function classifyUnavailability({ reasons = [] } = {}) {
   });
 }
 
+/**
+ * STEP 5's presentation contract, declared as data so a test can assert the summary's key set
+ * EXACTLY. That is what makes "stable" true by construction rather than by discipline: a field added
+ * later for convenience fails the key-set test instead of silently reaching the user.
+ *
+ * Deliberately absent, each for a reason: `digest` and `evidence_ref` are the evidence rather than
+ * the result; `execution_device_ref` and `interaction_device_ref` are internal routing identifiers,
+ * which is the UI phase's fold rule stated in its own terms; `last_sequence` is transport ordering;
+ * and `result_ref` is a handle for the system, not a fact for the person.
+ */
+export const SUMMARY_FIELDS = Object.freeze([
+  'action_ref', 'state', 'remote_state', 'devices_differ', 'has_provenance', 'updated_at',
+]);
+
 
 export const BRIDGE_CODES = Object.freeze([
   'INVALID_REQUEST', 'INVALID_CLOCK', 'INVALID_SURFACE_RESOLVER', 'UNKNOWN_CORRELATION',
@@ -155,7 +169,7 @@ export function createReturnBridge({ resolveSurface, clock = () => new Date().to
 
   /** actionRef -> correlation record */
   const correlations = new Map();
-  const counters = { registered: 0, applied: 0, duplicates: 0, out_of_order: 0, late: 0, unprojected: 0, disconnected: 0, confirmations_requested: 0, confirmations_undeliverable: 0, confirmations_answered: 0, confirmations_refused: 0, confirmations_expired: 0 };
+  const counters = { registered: 0, applied: 0, duplicates: 0, out_of_order: 0, late: 0, unprojected: 0, disconnected: 0, confirmations_requested: 0, confirmations_undeliverable: 0, confirmations_answered: 0, confirmations_refused: 0, confirmations_expired: 0, provenance_bound: 0 };
 
   function register({ actionRef, interactionDeviceRef, executionDeviceRef, ownerRef = null } = {}) {
     if (!isText(actionRef)) throw new ReturnBridgeError('INVALID_REQUEST', 'actionRef is required');
@@ -175,6 +189,7 @@ export function createReturnBridge({ resolveSurface, clock = () => new Date().to
       applied_events: 0,
       terminal: false,
       remote_state: 'ONLINE',
+      provenance: null,
       registered_at: clock(),
       handed_off_at: null,
     };
@@ -495,6 +510,64 @@ export function createReturnBridge({ resolveSurface, clock = () => new Date().to
     });
   }
 
+  /**
+   * STEP 5 - provenance binding for a remote result, and a presentation summary that CANNOT leak it.
+   *
+   * The workbook asks for the result to be bound to its provenance/evidence while the presentation
+   * layer receives "stable summary fields" only. Those pull in opposite directions, so the split is
+   * made structural rather than conventional.
+   *
+   * The provenance is NOT a format invented here. A capability search (not a word search - the
+   * correction recorded in reports/RS-203/STEP1_SEAM_AUDIT.md section 6) found the binding already
+   * owned elsewhere: digest appears 138 times, evidence 259, and the result-to-evidence binding
+   * lives in engineering-job-v1 / engineering-manager-v1 envelopes and remote-typed-dataplane. So
+   * this ACCEPTS a caller-supplied binding and holds it, rather than minting a second one.
+   */
+  function bindProvenance({ actionRef, resultRef, evidenceRef = null, digest = null, producedBy = null, observedAt = null } = {}) {
+    const record = correlations.get(actionRef);
+    if (!record) throw new ReturnBridgeError('UNKNOWN_CORRELATION', `no correlation for ${String(actionRef)}`);
+    if (!isText(resultRef)) throw new ReturnBridgeError('INVALID_REQUEST', 'resultRef is required');
+    if (record.provenance !== null) throw new ReturnBridgeError('DUPLICATE_CORRELATION', `${actionRef} already has provenance bound; it is immutable once bound`);
+    record.provenance = Object.freeze({
+      action_ref: actionRef,
+      result_ref: resultRef,
+      evidence_ref: evidenceRef,
+      digest,
+      produced_by: producedBy ?? record.execution_device_ref,
+      observed_at: observedAt ?? clock(),
+      // The correlation is the glue: it ties a result not just to evidence but to WHICH device
+      // produced it and WHICH device is being shown it, which is the cross-device part.
+      execution_device_ref: record.execution_device_ref,
+      bound_at: clock(),
+    });
+    counters.provenance_bound += 1;
+    return record.provenance;
+  }
+
+  /**
+   * The presentation contract, declared as data so a test can assert the summary's key set EXACTLY.
+   * That is what makes "stable" true by construction instead of by discipline: a future field added
+   * for convenience fails the key-set test rather than silently reaching the user.
+   *
+   * Deliberately absent, and each for a reason: digest and evidence_ref are the evidence, not the
+   * result; execution_device_ref and interaction_device_ref are internal routing identifiers (the UI
+   * phase's fold rule in its own words); last_sequence is transport ordering; result_ref is a handle
+   * for the system, not a fact for the person.
+   */
+  function summary({ actionRef } = {}) {
+    const record = correlations.get(actionRef);
+    if (!record) throw new ReturnBridgeError('UNKNOWN_CORRELATION', `no correlation for ${String(actionRef)}`);
+    return Object.freeze({
+      action_ref: actionRef,
+      state: record.state,
+      remote_state: record.remote_state,
+      devices_differ: record.devices_differ,
+      // Whether evidence exists is presentable; WHAT it is is not.
+      has_provenance: record.provenance !== null,
+      updated_at: clock(),
+    });
+  }
+
   return Object.freeze({
     register,
     handoff,
@@ -504,6 +577,9 @@ export function createReturnBridge({ resolveSurface, clock = () => new Date().to
     respond,
     expire,
     planFallback,
+    bindProvenance,
+    summary,
+    provenance: (actionRef) => (correlations.get(actionRef)?.provenance ?? null),
     confirmation: (promptRef) => (confirmations.has(promptRef) ? Object.freeze({ ...confirmations.get(promptRef) }) : null),
     correlation: (actionRef) => (correlations.has(actionRef) ? Object.freeze({ ...correlations.get(actionRef) }) : null),
     stats: () => Object.freeze({ ...counters }),

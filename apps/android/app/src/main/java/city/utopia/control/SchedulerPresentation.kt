@@ -30,6 +30,14 @@ internal data class SchedulerTermCopy(val term: String, val copy: String, val se
 
 internal data class SchedulerProvider(
   val index: Int,
+  /**
+   * UXI-390: the service identifier, from the DTO's `providerRefs` array, which is aligned by index with
+   * `providers`. The projection used to DROP this, so the Android surface held no identifier for a service
+   * and therefore no way to express a provider choice at all - one half of the CHOOSE_PROVIDER gap. An
+   * empty string means the feed named none, and the client refuses a choice without a ref rather than
+   * inventing one.
+   */
+  val ref: String,
   val reason: String,
   val severity: SchedulerSeverity,
   val selectable: Boolean,
@@ -156,7 +164,8 @@ val UNWIRED_ACTIONS: Set<String> = ACTION_WIRING.filterValues { it == "unwired" 
       ?: throw IllegalArgumentException("unknown presentation state $state; the adapter table has drifted from the contract")
 
     val providerArray = dto.optJSONArray("providers")
-    val providers = ArrayList<SchedulerProvider>()
+    val providerRefs = dto.optJSONArray("providerRefs")
+      val providers = ArrayList<SchedulerProvider>()
     if (providerArray != null) {
       for (i in 0 until providerArray.length()) {
         val entry = providerArray.optJSONObject(i) ?: continue
@@ -166,7 +175,7 @@ val UNWIRED_ACTIONS: Set<String> = ACTION_WIRING.filterValues { it == "unwired" 
         // Selectable ONLY when the feed says so AND the term is permitted. A feed that lies with
         // selectable=true on a refusal still cannot make it selectable here.
         val selectable = entry.optBoolean("selectable", false) && copy.severity == SchedulerSeverity.OK
-        providers.add(SchedulerProvider(i, copy.copy, copy.severity, selectable))
+        providers.add(SchedulerProvider(i, providerRefs?.optString(i) ?: "", copy.copy, copy.severity, selectable))
       }
     }
 

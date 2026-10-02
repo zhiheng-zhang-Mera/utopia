@@ -178,3 +178,57 @@ test('UXI-301 feed: an empty City produces an empty feed rather than a fabricate
   assert.deepEqual([...feed.candidates], []);
   assert.deepEqual(termsInUse(feed), []);
 });
+
+/* ------------------------------------------------- real capacity pressure (the device-busy case) */
+
+test('UXI-301 feed: a node already running OTHER work reports real capacity pressure', () => {
+  // RS-202's session ceiling is 1, and the producer used to pass sessionConcurrency 0 always, so the
+  // ceiling could never be reached and a saturated node was never reported as busy - the workbook's named
+  // "device busy" condition was unreachable through the real feed. The count now comes from the City's own
+  // task store, so this is real state rather than an invented number.
+  const feed = buildPresentationFeed({
+    tasks: [
+      {id: 'running', state: 'RUNNING', assignedNodeId: 'n1'},
+      {id: 'waiting', state: 'QUEUED', assignedNodeId: null},
+    ],
+    nodes: [healthy('n1')],
+  });
+  const running = feed.tasks.find((e) => e.taskId === 'running');
+  const waiting = feed.tasks.find((e) => e.taskId === 'waiting');
+  // A task's OWN node must not look unavailable to the run occupying it: counting itself made running
+  // work render as QUEUED, which is a false report about a running task.
+  assert.equal(running.dto.providers[0].term, 'SELECTABLE', 'a run must not be blocked by its own occupancy');
+  assert.notEqual(running.dto.state, 'QUEUED', 'a running task must not be reported as queued');
+  // A DIFFERENT task sees the node as genuinely at capacity.
+  assert.equal(waiting.dto.providers[0].term, 'AT_CAPACITY', 'a node already running work is busy to everyone else');
+  assert.equal(waiting.dto.providers[0].selectable, false);
+  assert.equal(waiting.dto.state, 'QUEUED');
+});
+
+test('UXI-301 feed: capacity pressure clears once the other work finishes', () => {
+  const busy = buildPresentationFeed({
+    tasks: [{id: 'a', state: 'RUNNING', assignedNodeId: 'n1'}, {id: 'b', state: 'QUEUED'}],
+    nodes: [healthy('n1')],
+  });
+  const idle = buildPresentationFeed({
+    tasks: [{id: 'a', state: 'COMPLETED', assignedNodeId: 'n1'}, {id: 'b', state: 'QUEUED'}],
+    nodes: [healthy('n1')],
+  });
+  assert.equal(busy.tasks.find((e) => e.taskId === 'b').dto.providers[0].term, 'AT_CAPACITY');
+  assert.equal(idle.tasks.find((e) => e.taskId === 'b').dto.providers[0].term, 'SELECTABLE',
+    'a finished task must not keep its node loaded');
+});
+
+test('UXI-301 feed: two busy nodes and one free node is reported truthfully per node', () => {
+  const feed = buildPresentationFeed({
+    tasks: [
+      {id: 'a', state: 'RUNNING', assignedNodeId: 'n1'},
+      {id: 'b', state: 'RUNNING', assignedNodeId: 'n2'},
+      {id: 'c', state: 'QUEUED'},
+    ],
+    nodes: [healthy('n1'), healthy('n2'), healthy('n3')],
+  });
+  const c = feed.tasks.find((e) => e.taskId === 'c');
+  const byIndex = c.dto.providers.map((p) => p.term);
+  assert.deepEqual(byIndex, ['AT_CAPACITY', 'AT_CAPACITY', 'SELECTABLE'], 'the free node must remain usable');
+});

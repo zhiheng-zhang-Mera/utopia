@@ -122,11 +122,19 @@ export function eligibilityFor(candidate, {load, enablement = 'ENABLED', session
  * The task's own terminal truth comes from the City's state, never from the absence of bad news: only
  * a genuinely terminal state sets `terminal`, so `COMPLETED` is unreachable by omission.
  */
-export function projectTaskStatus({task, candidates = [], load, routeStage = null} = {}) {
+export function projectTaskStatus({task, candidates = [], load, routeStage = null, otherInFlightByNode = null} = {}) {
   if (!task || typeof task !== 'object') throw new Error('projectTaskStatus requires a task');
   const state = String(task.state ?? '');
   const terminal = TERMINAL_STATES.includes(state);
-  const refs = candidates.map((candidate) => eligibilityFor(candidate, load === undefined ? {} : {load}).ref);
+  const refs = candidates.map((candidate) => {
+    // REAL capacity pressure, from the City's own task store rather than an invented number. The count
+    // EXCLUDES this task itself, because a run occupying a node is not a reason for that node to look
+    // unavailable to the very run it is executing - counting itself made running tasks render as QUEUED.
+    const sessionConcurrency = typeof otherInFlightByNode?.get === 'function'
+      ? (otherInFlightByNode.get(candidate.deviceRef) ?? 0)
+      : 0;
+    return eligibilityFor(candidate, {...(load === undefined ? {} : {load}), sessionConcurrency}).ref;
+  });
   return projectStatus({
     providerRefs: refs,
     routeStageRef: routeStage === null ? null : termRef('RS-202.ROUTE_STAGES', routeStage),
@@ -144,6 +152,24 @@ export function projectTaskStatus({task, candidates = [], load, routeStage = nul
  */
 export function buildPresentationFeed({tasks = [], nodes = [], includeTerminal = false, generatedAt = null} = {}) {
   const candidates = nodes.map(candidateFromNode);
+  // Real in-flight counts per node, taken from the City's task store. This is what lets RS-202's session
+  // ceiling actually be reached, so "device busy" is a condition the surface can truthfully report.
+  const inFlightByNode = new Map();
+  for (const task of tasks) {
+    const state = String(task?.state ?? '');
+    const nodeRef = task?.assignedNodeId;
+    if (TERMINAL_STATES.includes(state) || typeof nodeRef !== 'string' || nodeRef.length === 0) continue;
+    inFlightByNode.set(nodeRef, (inFlightByNode.get(nodeRef) ?? 0) + 1);
+  }
+  const othersFor = (task) => {
+    const nodeRef = task?.assignedNodeId;
+    const others = new Map(inFlightByNode);
+    if (typeof nodeRef === 'string' && others.has(nodeRef)) {
+      const remaining = others.get(nodeRef) - 1;
+      if (remaining > 0) others.set(nodeRef, remaining); else others.delete(nodeRef);
+    }
+    return others;
+  };
   const entries = [];
   for (const task of tasks) {
     const state = String(task?.state ?? '');
@@ -151,7 +177,7 @@ export function buildPresentationFeed({tasks = [], nodes = [], includeTerminal =
     entries.push(Object.freeze({
       taskId: typeof task?.id === 'string' ? task.id : null,
       taskState: state,
-      dto: projectTaskStatus({task, candidates}),
+      dto: projectTaskStatus({task, candidates, otherInFlightByNode: othersFor(task)}),
     }));
   }
   return Object.freeze({

@@ -63,7 +63,9 @@ try {
   children.push(gateway);
   await waitFor('health', async () => (await api('health')).status === 200);
   const node = startNode();
-  await waitFor('a registered node', async () => ((await api('city')).json?.nodes ?? []).length > 0);
+  // Wait for an ONLINE node, not merely a known one: the store persists across runs and the gateway
+  // marks every known node offline at startup, so a present record proves nothing about this run.
+  await waitFor('an ONLINE node', async () => ((await api('city')).json?.nodes ?? []).some((n) => n.online === true));
   console.log('gateway + real reference node ready\n');
 
   /* ---------------------------------------------------- CASE 1: real concurrency */
@@ -80,6 +82,26 @@ try {
   check('concurrent work does not leak raw vocabulary into the panel', !RAW.test(panel));
   cases.concurrency = {taskIds: ids, feedTaskCount: feedIds.length, panelCards: cards, pass: ids.every((id) => feedIds.includes(id)) && cards >= 2};
 
+  /* ------------------------------------------------------- CASE 3: device busy, real */
+  // Driven from REAL City state rather than a load burner or a synthetic record: RS-202's session ceiling
+  // is 1, and the producer now counts the City's own in-flight tasks per node, so a node already running
+  // work is genuinely at capacity for any other task. That is the workbook's named condition, induced
+  // honestly - a CPU burner was rejected earlier because it would destabilise the host, and a synthetic
+  // node record is the static mock step 7 forbids.
+  console.log('\n=== CASE 3: device busy ===');
+  const busyFeed = await api('presentation');
+  const busyTerms = [...new Set((busyFeed.json?.tasks ?? []).flatMap((e) => (e.dto.providers ?? []).map((p) => p.term)))];
+  const atCapacity = busyTerms.includes('AT_CAPACITY');
+  const busyPanel = schedulerPanel(busyFeed.json, {isOnline: true});
+  const eligibleForRunningOwn = (busyFeed.json?.tasks ?? []).some((e) =>
+    e.taskState === 'RUNNING' && (e.dto.providers ?? []).some((p) => p.term === 'SELECTABLE'));
+  check('a node already running work reports AT_CAPACITY to other tasks', atCapacity, busyTerms.join(', '));
+  check('a RUNNING task is not blocked by its own occupancy, so it still reports as running', eligibleForRunningOwn,
+    'a run must not be reported as queued because it occupies the node itself');
+  check('the panel states the busy condition in user language', /busy at the moment|congested|paused while|catching up/i.test(busyPanel), busyPanel.slice(0, 160));
+  check('the busy condition leaks no raw vocabulary', !RAW.test(busyPanel));
+  cases.deviceBusy = {terms: busyTerms, atCapacity, eligibleForRunningOwn, panel: busyPanel.slice(0, 300), driven: true, pass: atCapacity && eligibleForRunningOwn && !RAW.test(busyPanel)};
+
   /* ------------------------------------------- CASE 2: provider unavailable (device gone) */
   console.log('\n=== CASE 2: provider unavailable ===');
   node.kill();
@@ -95,17 +117,13 @@ try {
   cases.providerUnavailable = {terms, structuralTerms: structural, panel: starvedPanel.slice(0, 400), pass: structural.length > 0 && !RAW.test(starvedPanel)};
 
   /* ------------------------------------------------------------- the two NOT driven */
-  cases.deviceBusy = {
-    driven: false,
-    reason: 'RS-202 reports PRESSURE_PAUSED only from a measured load above the policy ceiling. The reference node reports real cpu/memory from THIS host, so inducing it needs a CPU burner on a machine shared with the harness and the DSH server. Deliberately NOT run rather than approximated with a synthetic node record, because a synthetic record is the static mock step 7 forbids.',
-  };
   cases.remoteHandoff = {
     driven: false,
     reason: 'REMOTE_HANDOFF requires a route stage the City does not produce: the feed calls projectStatus with routeStageRef null because no routing-sequence integration exists on this branch, and a handoff would need two real devices. Recorded as not driven rather than asserted from a fabricated route stage.',
   };
   console.log('\n=== NOT DRIVEN, and why ===');
-  console.log('  device busy    : ' + cases.deviceBusy.reason);
   console.log('  remote handoff : ' + cases.remoteHandoff.reason);
+  console.log('  (device busy is DRIVEN above, not owed)');
 
   const verdict = results.every((r) => r.ok) ? 'PASS' : 'FAIL';
   writeFileSync(`${EVIDENCE}/named-cases.json`, JSON.stringify({

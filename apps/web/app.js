@@ -1,4 +1,8 @@
 import {renderServices} from './services.js';
+import {schedulerPanel} from './scheduler.js';
+// UXI-301: the scheduler presentation feed, refreshed alongside the snapshot. When it is missing the
+// panel says it is not being reported rather than rendering a healthy or idle surface.
+let schedulerFeed=null;
 import {renderTerminal,TERMINAL_PAGES} from './terminal.js';
 import { t, applyTranslations, getLocale, setLocale, subscribe, formatTime, SUPPORTED_LOCALES, localeLabel } from './i18n/index.js';
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -24,7 +28,7 @@ function homeRooms(){
  api('rooms').then(payload=>{homeRoomsData=payload?.rooms??null;if(!homeRoomsData)homeRoomsError=t('terminal.rooms.malformed');}).catch(e=>{homeRoomsError=e.message;}).finally(renderHomeRooms);
 }
 function status(s){if(s!=='ONLINE')clearPairing('pairing.reconnect');connection=s;$('#connection').textContent=t('connection.'+s.toLowerCase());$('#connection').className=s==='ONLINE'?'online':'';$('#run').disabled=s!=='ONLINE';render();}
-async function refresh(){if(refreshing){pending=true;return;}if(externalPage&&city)return;refreshing=true;try{const gen=generation;const snapshot=await api('city');if(gen!==generation)return;city=snapshot;if(pairing&&city.descriptor?.pairingSessionId!==pairing.pairingSessionId)clearPairing('pairing.unavailable');$('#pair').hidden=true;$('#content').hidden=false;$('#error').textContent='';render();}finally{refreshing=false;if(pending){pending=false;refresh().catch(disconnected);}}}
+async function refresh(){if(refreshing){pending=true;return;}if(externalPage&&city)return;refreshing=true;try{const gen=generation;const snapshot=await api('city');if(gen!==generation)return;city=snapshot;try{schedulerFeed=await api('presentation');}catch{schedulerFeed=null;}if(pairing&&city.descriptor?.pairingSessionId!==pairing.pairingSessionId)clearPairing('pairing.unavailable');$('#pair').hidden=true;$('#content').hidden=false;$('#error').textContent='';render();}finally{refreshing=false;if(pending){pending=false;refresh().catch(disconnected);}}}
 function disconnected(e){status('OFFLINE');if(e?.message)$('#error').textContent=e.message;}
 async function connect(){const gen=++generation;clearTimeout(timer);ws?.close();status('RECONNECTING');try{await refresh();if(gen!==generation)return;ws=new WebSocket(location.origin.replace(/^http/,'ws')+'/api/v0/events/stream?apiVersion=0&schemaVersion=0',['city-v0','city-token.'+btoa(token).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_')]);ws.onopen=()=>{if(gen===generation)status('ONLINE');};ws.onmessage=()=>refresh().catch(disconnected);ws.onerror=()=>disconnected();ws.onclose=()=>{if(gen===generation){disconnected();timer=setTimeout(connect,1800);}};}catch(e){if(gen===generation){disconnected(e);timer=setTimeout(connect,2500);}}}
 const badge=(stateClass, displayLabel=stateClass)=>`<span class="badge ${esc(stateClass)}">${esc(displayLabel)}</span>`;
@@ -70,7 +74,7 @@ function render(){
  // Terminal pages mount lazily: `terminal` is only created once a terminal page is shown,
  // which is why this must not depend on `terminal` already existing.
  if(TERMINAL_PAGES.includes(page)){if(!terminal)mountTerminal();if(terminal)terminal.render($('#view'),city,connection==='ONLINE',api,{page,go,api});}
- if(page==='Devices')$('#view').innerHTML=`<section class="panel">${nodeRows()}</section>`;
+ if(page==='Devices')$('#view').innerHTML=schedulerPanel(schedulerFeed,{isOnline:connection==='ONLINE'})+`<section class="panel">${nodeRows()}</section>`;
  if(page==='Tasks')$('#view').innerHTML=`<section class="panel"><h2>${esc(t('section.taskRegistry'))}</h2>${taskRows(tasks)}</section>`;
  if(page==='Activity')$('#view').innerHTML=`<section class="panel"><h2>${esc(t('section.eventTimeline',{count:city.events.length}))}</h2><button data-goto="Actions">${esc(t('nav.actions'))}</button>${events(city.events)}</section>`;
  if(page==='Settings')$('#view').innerHTML=`<section class="panel">${languageSection()}<h2>${esc(t('section.connectionDiagnostics'))}</h2><p>${esc(t('settings.cityUrl'))}: ${esc(location.origin)}</p><details><summary>${esc(t('common.runDetails'))}</summary><div class="task-id">apiVersion = 0 · schemaVersion = 0</div></details><p>${esc(t('settings.tokenNote'))}</p><button id="disconnect">${esc(t('settings.changeToken'))}</button></section>`;

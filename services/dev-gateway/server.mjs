@@ -19,7 +19,8 @@ import { createActions } from './actions.mjs';
 import { buildTargets, handleAsk } from './intents.mjs';
 import { serveWeb } from './static.mjs';
 // UXI-301: the scheduler presentation feed producer. Consumes the frozen RS-290 contract read-only.
-import { buildPresentationFeed } from './presentation.mjs';
+import { buildPresentationFeed, routeInputsFor, routePlanFor } from './presentation.mjs';
+import { createHandoffBridge } from './handoff.mjs';
 // City Core (MB-001 cluster C). The "can this node accept this work?" decision is
 // owned by the migrated fleet-routing module instead of being re-derived inline
 // here. Utopia's own policy travels as data (REQUIRED_TASK_CAPABILITIES and
@@ -66,6 +67,10 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   const auth=(req,node=false)=>{const raw=req.headers.authorization||'';if(!equals(raw,'Bearer '+(node?nodeToken:token)))fail(401,'Invalid pairing token');};
   const version=req=>{if(req.headers['x-city-api-version']!=='0'||req.headers['x-city-schema-version']!=='0')fail(409,'Protocol mismatch: apiVersion=0 and schemaVersion=0 required');};
   const bridge=createBridge(store,emit,{artifactRoot:resolve(dir,'theme-packages')});
+  // UXI-391: the ownership-transfer bridge. planRoute decides and never acts; this consumes its decision and
+  // executes the move under the City's single-execution guard, so REMOTE_HANDOFF is a state with an execution
+  // behind it rather than a label.
+  const handoff=createHandoffBridge();
   // Product closeout (T1–T3). The Room Hub is reached over loopback only, and the Action
   // facade is the single user-facing record over Rooms, capabilities and City tasks.
   const rooms=createRoomPack({baseUrl:roomHubUrl,disabled:roomsDisabled,fetchImpl:roomFetch});
@@ -172,6 +177,24 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
           if(terminal.includes(t.state))fail(409,'Task already finished');
           out=change(t,t.state,{switchDeclined:true,userDeclinedSwitchAt:now()});
           emit('TASK_SWITCH_DECLINED',t.id,{},'user');
+          // UXI-391: THIS is where the plan is consumed. The user's decline is the only condition under which
+          // RS-202 reaches ALTERNATE_DEVICE, so the orchestration plans over live City state and executes the
+          // transfer the planner decided - the planner itself stays pure and never acts. If the stage is
+          // DIRECT, SWITCH_OFFERED or QUEUED nothing moves, and that is recorded rather than papered over.
+          {
+            const inputs=routeInputsFor({task:out,nodes:store.list('nodes'),tasks:store.list('tasks')});
+            const decided=routePlanFor({task:out,...inputs});
+            const move=handoff.consider({task:out,decided});
+            if(move.outcome==='TRANSFERRED'){
+              // progress:0 is deliberate - the new holder starts the task from the beginning, and the protocol
+              // requires monotonic progress, so carrying the dead holder's progress across would be rejected by
+              // the next report. handoffTargetRef is what survives a gateway restart and keeps the task
+              // reserved for the device it moved to, so a recovered A cannot re-claim it.
+              out=change(out,'QUEUED',{assignedNodeId:null,progress:0,lastCheckpoint:null,handoffFromRef:move.from,handoffTargetRef:move.to,handoffEpoch:move.epoch,attempts:(out.attempts??0)+1,history:[...(out.history??[]),`handoff:${move.from}->${move.to}@epoch${move.epoch}`]},'TASK_HANDOFF_TRANSFERRED');
+            } else if(move.outcome==='REFUSED'){
+              emit('TASK_HANDOFF_REFUSED',out.id,{reason:move.reason,from:move.from??null,to:move.to??null},'gateway');
+            }
+          }
       } else if(req.method==='POST' && path==='/api/v0/node/register'){
         const b=await body(req);if(!/^[a-zA-Z0-9-]{1,80}$/.test(b.id||'')||typeof b.displayName!=='string'||!Array.isArray(b.capabilities)||!b.capabilities.every(c=>typeof c==='string'))fail(400,'Invalid node registration');
         const prior=store.get('nodes',b.id);
@@ -183,7 +206,12 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         const b=await body(req);const n=required('nodes',b.id);
         const ready=acceptsWork(claimNodeFor(n),{requiredCapabilities:REQUIRED_TASK_CAPABILITIES});
         const busy=store.list('tasks').some(t=>t.assignedNodeId===n.id&&!terminal.includes(t.state));
-        const t=ready&&!busy?store.list('tasks').find(t=>t.state==='QUEUED'):null;
+        // UXI-391: a QUEUED task may be handed out only to a device the handoff bridge allows. A task that
+        // was transferred to B stays RESERVED for B, and a device the guard shows as its current holder is the
+        // only one that may take it - so a recovered A cannot re-claim work that has already moved to B.
+        const claimable=t=>t.state==='QUEUED'&&handoff.claimAllowed({subjectRef:t.id,deviceRef:n.id,reservedFor:typeof t.handoffTargetRef==='string'&&t.handoffTargetRef.length>0?t.handoffTargetRef:null});
+        const t=ready&&!busy?store.list('tasks').find(claimable):null;
+        if(t)handoff.noteAssignment({subjectRef:t.id,deviceRef:n.id});
         out={task:t?change(t,'ASSIGNED',{assignedNodeId:n.id}):null};
       } else if(req.method==='POST' && path==='/api/v0/node/report'){
         const b=await body(req);const t=required('tasks',b.taskId);if(t.assignedNodeId!==b.id)fail(403,'Task belongs to another node');

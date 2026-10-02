@@ -1,0 +1,74 @@
+{
+  "task": "UXI-391",
+  "step": "3 (single-machine dual-node handoff E2E)",
+  "at": "2026-10-02T22:29:44.413Z",
+  "port": 4371,
+  "targetTaskId": "Q-d3032093-8051-407c-83b0-2a753aa3750e",
+  "nodes": [
+    "uxi391-node-a",
+    "uxi391-node-b"
+  ],
+  "assignmentSurvivedDropout": true,
+  "routeStageReached": "REMOTE_HANDOFF",
+  "presentationState": "REMOTE_HANDOFF",
+  "terms": [
+    "DEVICE_REFUSING",
+    "SELECTABLE",
+    "REMOTE_HANDOFF"
+  ],
+  "candidates": 2,
+  "failures": [],
+  "log": [
+    "=== UXI-391 handoff E2E: port 4371, fresh runtime D:\\utopia-uxi391/.runtime-uxi391-e2e ===",
+    "  gateway healthy",
+    "  node A registered and online",
+    "  [PASS] the target WAIT task was created - id=Q-d3032093-8051-407c-83b0-2a753aa3750e",
+    "  [PASS] node A really ran the target - state=RUNNING assigned=uxi391-node-a",
+    "  [PASS] the hold is sustained rather than instantaneous - after 1.5s state=RUNNING assigned=uxi391-node-a progress=18",
+    "  [PASS] node A stopped - killed=true exit=null",
+    "  [PASS] the assignment SURVIVES the node dropout, which is what makes a route decision possible at all - assigned=uxi391-node-a state=RUNNING",
+    "  [PASS] node B reports telemetry, so a PARTIAL load vector exists for it - cpu=null memUsed=24381108224",
+    "  [PASS] B did not create or steal a second task: the target is still the only task - tasks=1",
+    "  [PASS] switch-declined was accepted by the backend - status=200",
+    "  presentation entry: {\n  \"taskId\": \"Q-d3032093-8051-407c-83b0-2a753aa3750e\",\n  \"taskState\": \"QUEUED\",\n  \"dto\": {\n    \"presentation_version\": 1,\n    \"state\": \"REMOTE_HANDOFF\",\n    \"providers\": [\n      {\n        \"index\": 0,\n        \"selectable\": false,\n        \"term\": \"DEVICE_REFUSING\",\n        \"class\": \"STRUCTURAL\",\n        \"resolves_by_waiting\": false\n      },\n      {\n        \"index\": 1,\n        \"selectable\": true,\n        \"term\": \"SELECTABLE\",\n        \"class\": \"PERMITTED\",\n        \"resolves_by_waiting\": false\n      }\n    ],\n    \"provider_choice_required\": false,\n    \"provider_choice_taken\": false,\n    \"actions\": [\n      \"CANCEL\"\n    ],\n    \"degraded\": false,\n    \"structural_refusal\": true,\n    \"from_backend_truth\": true,\n    \"fabricated\": false,\n    \"terms\": [\n      \"DEVICE_REFUSING\",\n      \"SELECTABLE\",\n      \"REMOTE_HANDOFF\"\n    ]\n  }\n}",
+    "  [PASS] the presentation feed contains the target",
+    "  [PASS] the feed has TWO candidates, or no route decision is possible - candidates=2",
+    "  [PASS] the planner reached ALTERNATE_DEVICE / the surface reached REMOTE_HANDOFF - routeStageRef=REMOTE_HANDOFF state=undefined",
+    "  [PASS] ownership really moved to node B - assigned=null reservedFor=uxi391-node-b",
+    "  [PASS] the SAME task id continued - no replacement task was created - id=Q-d3032093-8051-407c-83b0-2a753aa3750e",
+    "  [PASS] the transfer recorded where it came from - from=uxi391-node-a",
+    "  [PASS] the transfer happened only AFTER the user declined - switchDeclined=true",
+    "  [PASS] the task reached terminal success - state=COMPLETED",
+    "  [PASS] the result came from REAL execution, not from the harness - result={\"waitedMs\":6000}",
+    "  [PASS] exactly one task exists in the City - the original, not a copy - tasks=1",
+    "  [PASS] exactly one terminal completion exists (no double execution) - completed=1",
+    "  [PASS] the ownership transfer is recorded as a backend event - {\"state\":\"QUEUED\",\"progress\":0,\"assignedNodeId\":null,\"lastCheckpoint\":null,\"handoffFromRef\":\"uxi391-node-a\",\"handoffTargetRef\":\"uxi391-node-b\",\"handoffEpoch\":2,",
+    "  [PASS] the assignment history shows the handoff - [\"handoff:uxi391-node-a->uxi391-node-b@epoch2\"]"
+  ],
+  "phaseB": {
+    "assignedAfterTransfer": null,
+    "reservedFor": "uxi391-node-b",
+    "handoffFrom": "uxi391-node-a",
+    "terminal": "COMPLETED",
+    "result": {
+      "waitedMs": 6000
+    },
+    "taskCount": 1,
+    "transferEvent": {
+      "state": "QUEUED",
+      "progress": 0,
+      "assignedNodeId": null,
+      "lastCheckpoint": null,
+      "handoffFromRef": "uxi391-node-a",
+      "handoffTargetRef": "uxi391-node-b",
+      "handoffEpoch": 2,
+      "attempts": 1,
+      "history": [
+        "handoff:uxi391-node-a->uxi391-node-b@epoch2"
+      ]
+    },
+    "history": [
+      "handoff:uxi391-node-a->uxi391-node-b@epoch2"
+    ]
+  }
+}

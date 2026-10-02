@@ -79,6 +79,22 @@ export function candidateFromNode(node) {
       state: online ? 'READY' : 'OFFLINE',
       presence: online ? 'ONLINE' : 'OFFLINE',
     }),
+    // UXI-391 FIX, and it is the defect that made ALTERNATE_DEVICE unreachable: this object carried NO
+    // `enablement` at all, and the two consumers disagreed about what that means. `eligibilityFor` (the
+    // presentation TERM path) has the default parameter `enablement = 'ENABLED'`, so a healthy node rendered
+    // as SELECTABLE; the ROUTE path passes `candidate?.enablement ?? null` into RS-202, whose rule is that
+    // anything which is not an explicit ENABLED is refused - so every candidate was judged USER_DISABLED
+    // ("enablement=null is not an explicit ENABLED") and `planRoute` could never find an eligible alternate.
+    // The measurement that pinned it: with a real, telemetry-reporting node B online, the surface said
+    // SELECTABLE while the planner said USER_DISABLED, and stage 3 therefore fell through to QUEUED.
+    //
+    // WHY 'ENABLED' IS THE HONEST VALUE HERE RATHER THAN A CONVENIENT ONE: this City keeps no per-node
+    // user-disable state at all - `server.mjs` writes node records with id/displayName/metadata/telemetry/
+    // capabilities/online/lastHeartbeatAt and nothing else - so absence is not "unknown consent", it is
+    // "this City cannot express disablement yet". Should it gain that ability, this line must READ the field
+    // rather than keep a default, and the regression test next to this fix fails if a node that IS explicitly
+    // marked disabled is ever treated as enabled.
+    enablement: typeof node?.enablement === 'string' ? node.enablement : 'ENABLED',
     load: loadFromTelemetry(node?.telemetry),
   });
 }
@@ -124,20 +140,27 @@ export function eligibilityFor(candidate, {load, enablement = 'ENABLED', session
  * a genuinely terminal state sets `terminal`, so `COMPLETED` is unreachable by omission.
  */
 /**
- * The route stage for a task, decided by RS-202's own planner over REAL City state.
+ * The FULL route decision for a task, from RS-202's own planner over REAL City state.
  *
- * TWO stages are returned, and MEASURING the planner is what settled which. Probing planRoute over real
- * inputs showed that a busy device with a free alternative yields 'SWITCH_OFFERED', and reaches
- * 'ALTERNATE_DEVICE' ONLY when userDeclinedSwitch is set - so an AUTOMATIC handoff is unreachable in this
- * City, which has no switch-decline flow, while the SWITCH OFFER is reachable today. Reporting the offer is
- * therefore the honest surface, and 'ALTERNATE_DEVICE' is included so a real handoff renders the moment one
- * can occur.
+ * UXI-391: this used to be `routeStageFor` and it discarded everything except the stage name. The stage is
+ * what the SURFACE needs; the ORCHESTRATION also needs the device the planner chose, because it has to
+ * execute the transfer the planner decided. Returning both from one function keeps a single source of truth
+ * for the decision instead of letting a second caller re-derive it.
  *
- * 'DIRECT' and the rest are deliberately NOT returned: 'DIRECT' maps to the SELECTABLE term, so reporting it
- * for every task would add a permitted term to every DTO and render every run as RUNNING regardless of its
- * providers. A stage is surfaced only when it tells the surface something it could not infer.
+ * THE COMMENT THAT STOOD HERE WAS WRONG AND IS CORRECTED IN PLACE. It claimed `ALTERNATE_DEVICE` is
+ * unreachable because "this City has no switch-decline flow". The flow exists (`POST
+ * /api/v0/tasks/:id/switch-declined`, which records the user's own intent), the load vector IS produced from
+ * telemetry as a partial vector, and the seam was in fact blocked by a plumbing defect: `candidateFromNode`
+ * carried no `enablement`, so RS-202 refused every alternate as USER_DISABLED while the presentation term for
+ * the same candidates read SELECTABLE. With that fixed, a correctly constructed target reaches
+ * ALTERNATE_DEVICE and the surface renders REMOTE_HANDOFF - measured, see reports/UXI-391/.
+ *
+ * 'DIRECT' and the rest are deliberately NOT surfaced by `routeStageFor`: 'DIRECT' maps to the SELECTABLE
+ * term, so reporting it for every task would add a permitted term to every DTO and render every run as
+ * RUNNING regardless of its providers. A stage is surfaced only when it tells the surface something it could
+ * not infer.
  */
-export function routeStageFor({task, candidates = [], load, otherInFlightByNode = null} = {}) {
+export function routePlanFor({task, candidates = [], load, otherInFlightByNode = null} = {}) {
   if (candidates.length < 2) return null;
   const assigned = typeof task?.assignedNodeId === 'string' && task.assignedNodeId.length > 0 ? task.assignedNodeId : null;
   // No assignment means no current device, so there is no routing decision to report. Returning a stage
@@ -147,7 +170,7 @@ export function routeStageFor({task, candidates = [], load, otherInFlightByNode 
     const sessionConcurrency = typeof otherInFlightByNode?.get === 'function'
       ? (otherInFlightByNode.get(candidate.deviceRef) ?? 0)
       : 0;
-    return {...candidate.device, load: load === undefined ? (candidate.load ?? null) : load, sessionConcurrency};
+    return {...candidate.device, enablement: candidate.enablement ?? null, load: load === undefined ? (candidate.load ?? null) : load, sessionConcurrency};
   });
   const currentIndex = candidates.findIndex((c) => c.deviceRef === assigned);
   if (currentIndex < 0) return null; // the assigned device is not among the candidates
@@ -156,14 +179,62 @@ export function routeStageFor({task, candidates = [], load, otherInFlightByNode 
   const alternates = candidates
     .map((candidate, index) => ({deviceRef: candidate.deviceRef, ...inputs[index]}))
     .filter((_, index) => index !== currentIndex);
-  const {stage} = planRoute({
+  const plan = planRoute({
     originDeviceRef: candidates[currentIndex].deviceRef,
     current,
     alternates,
     // The user's own decision, read from the task record rather than assumed.
     userDeclinedSwitch: task?.switchDeclined === true,
   });
-  return stage === 'ALTERNATE_DEVICE' || stage === 'SWITCH_OFFERED' ? stage : null;
+  // UXI-391: the CHOSEN device ref is now returned, not only the stage. The orchestration has to know WHICH
+  // device the planner picked in order to execute the transfer the planner decided, and a second copy of this
+  // decision logic elsewhere is exactly how this task's defect class begins.
+  return Object.freeze({stage: plan.stage, chosenDeviceRef: plan.chosen_device_ref ?? null, plan});
+}
+
+/**
+ * The route stage for a task, decided by RS-202's own planner over REAL City state.
+ *
+ * UXI-391 CORRECTION, in place because this comment was itself part of the wrong record: it used to say an
+ * AUTOMATIC handoff is "unreachable in this City, which has no switch-decline flow". The City DOES have that
+ * flow - `POST /api/v0/tasks/:id/switch-declined` records the user's own intent - and measuring the planner
+ * with a correctly constructed target (one WAIT held by A, A's agent stopped, B started afterwards) reaches
+ * ALTERNATE_DEVICE and renders REMOTE_HANDOFF. What actually made it unreachable was a plumbing defect: the
+ * candidate mapping carried no `enablement`, so RS-202 refused EVERY alternate as USER_DISABLED while the
+ * presentation term for the same candidates read SELECTABLE. See `candidateFromNode` for the fix and
+ * reports/UXI-391/ for the erratum.
+ *
+ * 'DIRECT' and the rest are deliberately NOT returned: 'DIRECT' maps to the SELECTABLE term, so reporting it
+ * for every task would add a permitted term to every DTO and render every run as RUNNING regardless of its
+ * providers. A stage is surfaced only when it tells the surface something it could not infer.
+ */
+export function routeStageFor(options = {}) {
+  const decided = routePlanFor(options);
+  if (decided === null) return null;
+  return decided.stage === 'ALTERNATE_DEVICE' || decided.stage === 'SWITCH_OFFERED' ? decided.stage : null;
+}
+
+/**
+ * The route inputs for ONE task, straight from live City state.
+ *
+ * Exported for the orchestration, which must plan over the same inputs the surface plans over. Every candidate
+ * is built by `candidateFromNode`, so the enablement/load fields cannot drift between the two callers.
+ */
+export function routeInputsFor({task, nodes = [], tasks = []} = {}) {
+  const candidates = nodes.map(candidateFromNode);
+  const otherInFlightByNode = new Map();
+  for (const other of tasks) {
+    const state = String(other?.state ?? '');
+    const nodeRef = other?.assignedNodeId;
+    if (TERMINAL_STATES.includes(state) || typeof nodeRef !== 'string' || nodeRef.length === 0) continue;
+    otherInFlightByNode.set(nodeRef, (otherInFlightByNode.get(nodeRef) ?? 0) + 1);
+  }
+  const nodeRef = task?.assignedNodeId;
+  if (typeof nodeRef === 'string' && otherInFlightByNode.has(nodeRef)) {
+    const remaining = otherInFlightByNode.get(nodeRef) - 1;
+    if (remaining > 0) otherInFlightByNode.set(nodeRef, remaining); else otherInFlightByNode.delete(nodeRef);
+  }
+  return {candidates, otherInFlightByNode};
 }
 
 export function projectTaskStatus({task, candidates = [], load, routeStage = null, otherInFlightByNode = null} = {}) {
@@ -179,6 +250,14 @@ export function projectTaskStatus({task, candidates = [], load, routeStage = nul
       : 0;
     return eligibilityFor(candidate, {...(load === undefined ? {} : {load}), sessionConcurrency}).ref;
   });
+  // UXI-391: a task that has been handed to another of the user's own devices IS in a remote-handoff state
+  // from the moment the transfer is recorded until that device finishes it. That is DATA ON THE TASK RECORD
+  // (`handoffTargetRef`, written by the execution bridge), not something the surface recomputes - and the
+  // surface must not pick a device. Without this rule the state existed only for the instant between the
+  // decline and the transfer, so the City could execute a handoff the user was never shown.
+  const pendingHandoff = !terminal && typeof task?.handoffTargetRef === 'string' && task.handoffTargetRef.length > 0;
+  const termRefs = routeStage === null ? [] : [termRef('RS-202.ROUTE_STAGES', routeStage)];
+  if (pendingHandoff && routeStage !== 'ALTERNATE_DEVICE') termRefs.push(termRef('RS-202.ROUTE_STAGES', 'ALTERNATE_DEVICE'));
   return projectStatus({
     providerRefs: refs,
     /**
@@ -189,7 +268,7 @@ export function projectTaskStatus({task, candidates = [], load, routeStage = nul
      * WAITING_USER TERM in the same table, and presenting it as a term is exactly what it is: the run is
      * waiting on a user decision. ALTERNATE_DEVICE maps to REMOTE_HANDOFF, so both reach the state.
      */
-    termRefs: routeStage === null ? [] : [termRef('RS-202.ROUTE_STAGES', routeStage)],
+    termRefs,
     terminal,
     failed: state === 'FAILED',
     cancelled: state === 'CANCELLED',

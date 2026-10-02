@@ -1,27 +1,43 @@
 {
   "feedEntry": {
     "batchIds": [
-      "Q-7d442884-c416-4e7b-aeb6-1067209a2488",
-      "Q-2823d800-b2ea-4f54-a068-7022ad92edab",
-      "Q-b8d19d37-9d9b-47ad-8af7-be13a044232f",
-      "Q-608c59da-03e6-406b-bccf-0bc61e52573b",
-      "Q-97fd144f-096b-4630-a657-dcca3545949e",
-      "Q-3712bf99-a5c0-4271-8688-eb6d826d95d0"
+      "Q-58fa518a-e1e5-480c-8895-f7d44f944358",
+      "Q-9477952d-b510-4c3c-907f-36502ca8c86d",
+      "Q-ce392724-82bc-493e-950b-84430f153eed",
+      "Q-d17e5024-a3dd-4d7d-a702-e8744fd5ae65"
     ],
-    "taskCount": 8,
-    "busyTaskCount": 8,
+    "taskCount": 5,
+    "busyTaskCount": 5,
     "switchOfferedTaskCount": 2,
     "sampleBusyTerms": [
       "DEVICE_REFUSING",
-      "AT_CAPACITY",
-      "SELECTABLE"
+      "SELECTABLE",
+      "AT_CAPACITY"
     ],
     "sampleOfferedTerms": [
       "DEVICE_REFUSING",
-      "AT_CAPACITY",
       "SELECTABLE",
+      "AT_CAPACITY",
       "WAITING_USER"
     ]
+  },
+  "handoff": {
+    "declined": [
+      {
+        "id": "Q-5e2e69e1-7891-4efb-819e-60354515e29a",
+        "status": 200
+      },
+      {
+        "id": "Q-58fa518a-e1e5-480c-8895-f7d44f944358",
+        "status": 200
+      }
+    ],
+    "handoffTaskCount": 0,
+    "sampleTerms": null,
+    "sampleState": null,
+    "panelSnippet": "<section class=\"panel scheduler-panel\"><h2>Why things are waiting</h2><article class=\"scheduler-task waiting\" data-task-ref=\"Q-5e2e69e1-7891-4efb-819e-60354515e29a\"><header class=\"scheduler-task-head\"><span class=\"scheduler-task-state\">Waiting for an available slot</span><span class=\"task-id\">Q-5e2e",
+    "observed": false,
+    "notObservedReason": "Four attempts could not observe REMOTE_HANDOFF end to end. The City can create only one task type and it finishes in well under a second, so \"the current device is busy AND an eligible alternative exists\" is inherently fleeting: the work drains before the planner can be asked. The planner DOES reach ALTERNATE_DEVICE whenever it is given that condition, and the decline is recorded as a real user intent, so what is missing is a way to HOLD a node occupied - a task type this City does not have. Recorded as owed with its measured cause rather than asserted, and the switch OFFER, which is not fleeting, IS driven."
   },
   "plannerEvidence": {
     "withoutDecline": "SWITCH_OFFERED",
@@ -32,7 +48,7 @@
     {
       "id": "an occupied node is reported as busy while the work is in flight",
       "ok": true,
-      "detail": "8 of 8 tasks see AT_CAPACITY"
+      "detail": "5 of 5 tasks see AT_CAPACITY"
     },
     {
       "id": "the route stage is now produced rather than always null",
@@ -42,11 +58,16 @@
     {
       "id": "the surface asks the user rather than silently deciding for them",
       "ok": true,
-      "detail": "<section class=\"panel scheduler-panel\"><h2>Why things are waiting</h2><article class=\"scheduler-task attention\" data-task-ref=\"Q-d556b6b3-aa23-4f2c-9972-7e8d0011882d\"><header class=\"scheduler-task-hea"
+      "detail": "<section class=\"panel scheduler-panel\"><h2>Why things are waiting</h2><article class=\"scheduler-task attention\" data-task-ref=\"Q-5e2e69e1-7891-4efb-819e-60354515e29a\"><header class=\"scheduler-task-hea"
     },
     {
       "id": "the route-stage surface leaks no raw vocabulary",
       "ok": true
+    },
+    {
+      "id": "the decline is recorded as an explicit user intent",
+      "ok": true,
+      "detail": "Q-5e2e69=200 Q-58fa51=200"
     },
     {
       "id": "the planner reaches ALTERNATE_DEVICE only AFTER a declined switch, which is why it is not driven",

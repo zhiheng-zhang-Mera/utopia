@@ -156,7 +156,13 @@ export function routeStageFor({task, candidates = [], load, otherInFlightByNode 
   const alternates = candidates
     .map((candidate, index) => ({deviceRef: candidate.deviceRef, ...inputs[index]}))
     .filter((_, index) => index !== currentIndex);
-  const {stage} = planRoute({originDeviceRef: candidates[currentIndex].deviceRef, current, alternates});
+  const {stage} = planRoute({
+    originDeviceRef: candidates[currentIndex].deviceRef,
+    current,
+    alternates,
+    // The user's own decision, read from the task record rather than assumed.
+    userDeclinedSwitch: task?.switchDeclined === true,
+  });
   return stage === 'ALTERNATE_DEVICE' || stage === 'SWITCH_OFFERED' ? stage : null;
 }
 

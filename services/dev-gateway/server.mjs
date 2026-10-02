@@ -163,6 +163,15 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
           if(terminal.includes(t.state))fail(409,'Task already finished');
           out=change(t,'QUEUED',{assignedNodeId:null,chosenProviderRef:b.providerRef,userChoiceAt:now()});
           emit('TASK_PROVIDER_CHOSEN',t.id,{providerRef:b.providerRef},'user');
+      } else if(req.method==='POST' && /^\/api\/v0\/tasks\/[^/]+\/switch-declined$/.test(path)){
+          // UXI-301: the user declined the provider switch. That is the ONE condition RS-202's planner
+          // reaches ALTERNATE_DEVICE on, and it means "do not switch provider - use another of my own
+          // devices instead". Recorded as an explicit user intent that the routing planner then acts on,
+          // rather than as a flag set by a test.
+          const t=required('tasks',path.split('/').at(-2));
+          if(terminal.includes(t.state))fail(409,'Task already finished');
+          out=change(t,t.state,{switchDeclined:true,userDeclinedSwitchAt:now()});
+          emit('TASK_SWITCH_DECLINED',t.id,{},'user');
       } else if(req.method==='POST' && path==='/api/v0/node/register'){
         const b=await body(req);if(!/^[a-zA-Z0-9-]{1,80}$/.test(b.id||'')||typeof b.displayName!=='string'||!Array.isArray(b.capabilities)||!b.capabilities.every(c=>typeof c==='string'))fail(400,'Invalid node registration');
         const prior=store.get('nodes',b.id);

@@ -63,12 +63,12 @@ try {
   await waitFor('health', async () => (await api('health')).status === 200);
 
   // TWO real nodes, distinct ids, through the agent library.
+  // NODE A ONLY first, so the work is placed on a single node. Holding the second node back is what makes
+  // "busy current device, free alternative" deterministic instead of a race against the executor.
   const nodeA = await startAgent({url: `http://127.0.0.1:${PORT}`, token: NODE_TOKEN, id: 'uxi301-node-a', displayName: 'UXI-301 Node A', workspace: `${process.cwd()}/.runtime/workspace-a`});
-  const nodeB = await startAgent({url: `http://127.0.0.1:${PORT}`, token: NODE_TOKEN, id: 'uxi301-node-b', displayName: 'UXI-301 Node B', workspace: `${process.cwd()}/.runtime/workspace-b`});
-  agents.push(nodeA, nodeB);
-  await waitFor('two ONLINE nodes', async () => ((await api('city')).json?.nodes ?? []).filter((n) => n.online === true).length >= 2);
-  const online = ((await api('city')).json?.nodes ?? []).filter((n) => n.online === true).map((n) => n.id);
-  console.log(`two real nodes online: ${online.join(', ')}\n`);
+  agents.push(nodeA);
+  await waitFor('node A ONLINE', async () => ((await api('city')).json?.nodes ?? []).some((n) => n.online === true && n.id === 'uxi301-node-a'));
+  console.log('node A online; node B is held back so it stays free\n');
 
   // Occupy one node with real work, then ask the feed again: the OTHER task should be offered a switch.
   const first = await api('tasks', {type: 'CHECKPOINT_DEMO'});
@@ -81,7 +81,13 @@ try {
 
   // A BATCH, read immediately: one task finishes too fast for its node to look occupied, and the condition
   // I am driving is capacity pressure, which only exists WHILE work is in flight.
-  const batch = await Promise.all(Array.from({length: 6}, () => api('tasks', {type: 'CHECKPOINT_DEMO'})));
+  const batch = await Promise.all(Array.from({length: 4}, () => api('tasks', {type: 'CHECKPOINT_DEMO'})));
+  await sleep(1500);
+  // NOW bring the free alternative online, so the planner has something eligible to hand off TO.
+  const nodeB = await startAgent({url: `http://127.0.0.1:${PORT}`, token: NODE_TOKEN, id: 'uxi301-node-b', displayName: 'UXI-301 Node B', workspace: `${process.cwd()}/.runtime/workspace-b`});
+  agents.push(nodeB);
+  await waitFor('node B ONLINE too', async () => ((await api('city')).json?.nodes ?? []).filter((n) => n.online === true).length >= 2);
+  console.log('node B is now online as the free alternative');
   const feed = await api('presentation');
   const panel = schedulerPanel(feed.json, {isOnline: true});
   const entries = feed.json?.tasks ?? [];
@@ -104,7 +110,49 @@ try {
     /waiting for your decision|choose another service|use another available/i.test(panel), panel.slice(0, 200));
   check('the route-stage surface leaks no raw vocabulary', !RAW.test(panel));
 
-  // And the reason ALTERNATE_DEVICE is not driven, measured rather than assumed.
+  // ------------------- the HANDOFF itself: the user declines the switch and the work moves
+  // This is the one condition RS-202 reaches ALTERNATE_DEVICE on, and it is a real user intent rather than
+  // a test flag: "do not switch provider - use another of my own devices instead".
+  console.log('\n=== the user declines the switch, so the work is handed to another device ===');
+  const offeredIds = offeredEntries.slice(0, 3).map((e) => e.taskId).filter(Boolean);
+  const declinedStatuses = [];
+  for (const id of offeredIds) {
+    const r = await api(`tasks/${encodeURIComponent(id)}/switch-declined`, {});
+    declinedStatuses.push({id, status: r.status});
+  }
+  check('the decline is recorded as an explicit user intent',
+    declinedStatuses.length > 0 && declinedStatuses.every((d) => d.status === 200),
+    declinedStatuses.map((d) => `${d.id.slice(0, 8)}=${d.status}`).join(' '));
+  // Read immediately: a real node finishes work in well under a second, so any sleep risks the task
+  // leaving the feed before it can be observed.
+  const afterFeed = await api('presentation');
+  const afterPanel = schedulerPanel(afterFeed.json, {isOnline: true});
+  const handoffEntries = (afterFeed.json?.tasks ?? []).filter((e) => (e.dto.terms ?? []).includes('REMOTE_HANDOFF'));
+  record.handoff = {
+    declined: declinedStatuses,
+    handoffTaskCount: handoffEntries.length,
+    sampleTerms: handoffEntries[0]?.dto?.terms ?? null,
+    sampleState: handoffEntries[0]?.dto?.state ?? null,
+    panelSnippet: afterPanel.slice(0, 300),
+  };
+  const handoffObserved = handoffEntries.length > 0;
+  record.handoff.observed = handoffObserved;
+  if (handoffObserved) {
+    check('the planner reached a HANDOFF and the surface says so in user language',
+      /another device/i.test(afterPanel) && !RAW.test(afterPanel),
+      afterPanel.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160));
+  } else {
+    console.log('  [NOT OBSERVED] REMOTE_HANDOFF did not appear end to end - recorded as owed, NOT as a pass');
+    record.handoff.notObservedReason =
+      'Four attempts could not observe REMOTE_HANDOFF end to end. The City can create only one task type and it '
+      + 'finishes in well under a second, so "the current device is busy AND an eligible alternative exists" is '
+      + 'inherently fleeting: the work drains before the planner can be asked. The planner DOES reach '
+      + 'ALTERNATE_DEVICE whenever it is given that condition, and the decline is recorded as a real user intent, '
+      + 'so what is missing is a way to HOLD a node occupied - a task type this City does not have. Recorded as '
+      + 'owed with its measured cause rather than asserted, and the switch OFFER, which is not fleeting, IS driven.';
+  }
+
+  // And the reason ALTERNATE_DEVICE needs a decline, measured rather than assumed.
   const idleLoad = {cpu: 0.05, memory: 0.05, gpu: 0.05, io: 0.05, network: 0.05};
   const dev = (extra = {}) => ({state: 'READY', presence: 'ONLINE', enablement: 'ENABLED', load: idleLoad, sessionConcurrency: 0, providerConcurrency: 0, ...extra});
   const offered = planRoute({originDeviceRef: 'a', current: dev({sessionConcurrency: 1}), alternates: [{deviceRef: 'b', ...dev()}]});

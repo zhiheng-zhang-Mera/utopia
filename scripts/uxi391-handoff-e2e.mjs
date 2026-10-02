@@ -20,6 +20,7 @@
 // Everything runs in one process because the harness kills the process tree when the invoking call ends.
 import { spawn } from 'node:child_process';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { chromium } from 'playwright';
 
 const PORT = Number(process.env.E2E_PORT || 4371);
 const ROOT = process.cwd();
@@ -121,7 +122,29 @@ const assert = (name, ok, detail = '') => {
   assert('the hold is sustained rather than instantaneous', stillHeld.state === 'RUNNING' && stillHeld.assignedNodeId === A,
     `after 1.5s state=${stillHeld.state} assigned=${stillHeld.assignedNodeId} progress=${stillHeld.progress}`);
 
-  // ---- 2. stop node A's agent; keep the Gateway alive -------------------------------------
+  // ---- 2. open the REAL Web surface BEFORE A dies, and keep it open across the entire handoff --------
+  // Workbook Step 3 item 13 requires the result to return to "the still-open original interaction surface",
+  // and my first version of this E2E read the result from the backend API instead - a gap the workbook's own
+  // development report recorded. This closes it: the page is paired while A is still running, it is never
+  // pointed at node B, and it is never reloaded - a marker set on the page is asserted at the end, so a reload
+  // could not silently satisfy the check.
+  const browser = await chromium.launch({channel: 'msedge', headless: true});
+  const page = await browser.newPage({viewport: {width: 1440, height: 900}, locale: 'en-US'});
+  const pageErrors = [];
+  page.on('pageerror', (e) => pageErrors.push(String(e.message).slice(0, 160)));
+  await page.goto(`http://127.0.0.1:${PORT}`, {waitUntil: 'domcontentloaded'});
+  await page.locator('#token').fill(TOKEN);
+  await page.locator('#connect').click();
+  await page.locator('#connection').filter({hasText: 'ONLINE'}).waitFor({timeout: 25000});
+  await page.evaluate(() => { window.__uxi391OpenedAt = Date.now(); });
+  await page.locator('nav button[data-page="Devices"]').click();
+  await sleep(2000);
+  const panelBefore = (await page.locator('.scheduler-panel').innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
+  say(`  web surface paired and showing the run before the handoff: ${panelBefore.slice(0, 200)}`);
+  assert('the original surface was really showing the run before the handoff', panelBefore.includes(targetId),
+    `panel="${panelBefore.slice(0, 160)}"`);
+
+  // ---- 2b. stop node A's agent; keep the Gateway AND the surface alive ---------------------
   nodeA.kill();
   await sleep(500);
   assert('node A stopped', nodeA.killed === true || nodeA.exitCode !== null, `killed=${nodeA.killed} exit=${nodeA.exitCode}`);
@@ -204,6 +227,23 @@ const assert = (name, ok, detail = '') => {
   assert('the assignment history shows the handoff', JSON.stringify(completed.history ?? []).includes('handoff:'),
     JSON.stringify(completed.history ?? []).slice(0, 200));
 
+  // ---- 7. RESULT RETURN: the SAME page - never reloaded, never pointed at B - shows the finished run -----
+  const stillOpen = await page.evaluate(() => typeof window.__uxi391OpenedAt === 'number');
+  assert('the surface was never reloaded during the handoff', stillOpen, 'the page still carries its own open marker');
+  const stillOnline = (await page.locator('#connection').innerText()).trim();
+  assert('the surface stayed connected throughout', /ONLINE/.test(stillOnline), `connection="${stillOnline}"`);
+  await page.locator('nav button[data-page="Tasks"]').click();
+  await sleep(2500);
+  const tasksText = (await page.locator('#view').innerText()).replace(/\s+/g, ' ').trim();
+  assert('the still-open surface shows the finished run', tasksText.includes(targetId), `tasks="${tasksText.slice(0, 220)}"`);
+  assert('the surface reports it as finished rather than still running', /COMPLETED/i.test(tasksText), `tasks="${tasksText.slice(0, 220)}"`);
+  const RAW_TOKENS = ['SELECTABLE', 'DEVICE_UNREACHABLE', 'DEVICE_REFUSING', 'DEVICE_DISABLED', 'AT_CAPACITY',
+    'LOAD_UNMEASURED', 'PRESSURE_PAUSED', 'FRESHNESS_UNKNOWN', 'USER_DISABLED', 'POLICY_EXCLUDED', 'REMOTE_HANDOFF'];
+  const leaked = RAW_TOKENS.filter((token) => tasksText.includes(token));
+  assert('no raw scheduler token leaked onto the surface', leaked.length === 0, leaked.join(', '));
+  assert('the surface raised no page errors', pageErrors.length === 0, pageErrors.join(' | '));
+  receipt.phaseC = {panelBefore, tasksText: tasksText.slice(0, 600), pageErrors, reloaded: !stillOpen};
+
   receipt.phaseB = {
     assignedAfterTransfer: moved.assignedNodeId, reservedFor: moved.handoffTargetRef, handoffFrom: moved.handoffFromRef,
     terminal: completed.state, result: completed.result, taskCount: allTasks.length,
@@ -212,6 +252,7 @@ const assert = (name, ok, detail = '') => {
   mkdirSync(`${ROOT}/evidence/raw/mission-book/UXI-391`, { recursive: true });
   writeFileSync(`${ROOT}/evidence/raw/mission-book/UXI-391/handoff-e2e-phaseA.json`, JSON.stringify(receipt, null, 2));
 
+  await browser.close();
   for (const c of children) { try { c.kill(); } catch { /* gone */ } }
   say(failures.length === 0
     ? 'RESULT: PASS - the seam is reachable with the corrected construction'

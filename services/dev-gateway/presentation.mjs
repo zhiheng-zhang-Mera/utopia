@@ -107,8 +107,15 @@ export function candidateFromNode(node) {
  * telemetry arrives. Presenting that honestly as "still measuring how busy it is" is the truthful
  * outcome; inventing a zeroed vector would render an unmeasured node as idle, which is a fabricated
  * reassurance and exactly what step 4 forbids.
+ * UXI-391: the headline above is the claim I quoted while getting this wrong, and it is left standing because
+ * the LOAD half of it is still true. What it got wrong was everything else: `loadFromTelemetry` DOES produce a
+ * partial vector from the telemetry the node really reports, so an unmeasured city is not the normal case, and
+ * the reason an alternate was refused was never load at all - it was `enablement`, which this function used to
+ * take from a DEFAULT PARAMETER rather than from the candidate. That is why the term said SELECTABLE while the
+ * route said USER_DISABLED about the same device. It now reads the candidate's own field first, exactly as the
+ * route path does, so the two cannot disagree about one device.
  */
-export function eligibilityFor(candidate, {load, enablement = 'ENABLED', sessionConcurrency = 0, providerConcurrency = 0, excludedByPolicy = false} = {}) {
+export function eligibilityFor(candidate, {load, enablement = candidate?.enablement ?? 'ENABLED', sessionConcurrency = 0, providerConcurrency = 0, excludedByPolicy = false} = {}) {
   const {reason, eligible} = evaluateEligibility({
     device: candidate.device,
     enablement,

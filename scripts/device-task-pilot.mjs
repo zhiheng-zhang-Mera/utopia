@@ -27,7 +27,10 @@ const nodeByText=(source,text)=>[...source.matchAll(/<node\s+([^>]+)>/g)].find(m
 const centreOf=(tag)=>{const b=tag.match(/bounds="([^"]+)"/)[1].match(/\d+/g).map(Number);return [String((b[0]+b[2])>>1),String((b[1]+b[3])>>1)];};
 let xml=dumpUi();
 if(!nodeByText(xml,'Run Test Task')){
-  const route=['Activity','Actions','行动','操作记录'].map(t=>nodeByText(xml,t)).find(Boolean);
+  // Candidates are ordered by where the target is KNOWN to render, read from the source rather than
+  // guessed: the Run Test Task button is emitted for `page in listOf("Home","Tasks")`, so Home comes
+  // first and Activity - which a blind "task-ish page" guess would pick - is last.
+  const route=['Home','Tasks','首页','任务','Activity','Actions','行动','操作记录'].map(t=>nodeByText(xml,t)).find(Boolean);
   if(!route)throw Error('no route to the task surface was found in the current UI; refusing to tap blindly');
   cmd('shell','input','tap',...centreOf(route[1]));
   await wait(1500);

@@ -149,7 +149,25 @@ private fun SchedulerTaskCard(entry: JSONObject, candidateRefs: List<String>, su
           // Sending null is the honest state until that per-row control exists: the client refuses a blank
           // ref, so this can never transmit a choice the user did not make.
           val chosenRef: String? = null
-          TextButton(onClick = { handler?.invoke(taskId, action.token, chosenRef) }, enabled = live) { Text(action.label) }
+          // UXI-390 REQUIRED REPAIR C-2 (Mech's review verdict): a disabled control must say WHY it is
+          // disabled, IN THE SAME WORDS the web surface uses. The web composes `label · reason`
+          // (apps/web/scheduler.js:80 and :91-92) and Android rendered the bare label, so on this side of
+          // the boundary the greyed control gave no reason at all:
+          //   unwired action  -> "<label> · not yet available"          (web i18n scheduler.action.notWired)
+          //   CHOOSE_PROVIDER -> "<label> · nothing available to switch to", or "· choose one above" when some
+          //                      provider row IS selectable - chosen by the SAME anySelectable test the web
+          //                      uses (web i18n nothingToSwitchTo / chooseFromList), not by a new rule here.
+          // The words are copied from the web language pack deliberately: the divergence Mech found was that
+          // the same disclosure was named differently on the two surfaces, and inventing a third wording here
+          // would recreate the defect in a new place.
+          val note = when {
+            action.token in SchedulerPresentation.UNWIRED_ACTIONS -> "not yet available"
+            action.token == "CHOOSE_PROVIDER" ->
+              if (view.providers.any { it.selectable }) "choose one above" else "nothing available to switch to"
+            else -> null
+          }
+          val actionLabel = if (note == null) action.label else "${action.label} · $note"
+          TextButton(onClick = { handler?.invoke(taskId, action.token, chosenRef) }, enabled = live) { Text(actionLabel) }
         }
       }
     }
@@ -164,6 +182,15 @@ private fun SchedulerTaskCard(entry: JSONObject, candidateRefs: List<String>, su
       "from backend truth" to dto?.optBoolean("from_backend_truth", false).toString(),
       "fabricated" to dto?.optBoolean("fabricated", false).toString(),
     )
-    TechnicalDetails(rows, title = "Scheduling detail")
+    // UXI-390 REQUIRED REPAIR C-1 (Mech's review verdict): this disclosure is the SAME control the web
+    // renders, and the web names it from its language pack - apps/web/i18n/en.js:55
+    // "scheduler.advanced.summary": "Technical detail". Android named it "Scheduling detail", a hardcoded
+    // literal, so one disclosure had two names across the boundary and only one of them was translatable.
+    // The words now match the web pack exactly. WHAT THIS DOES NOT FIX, recorded because Mech attributed it
+    // correctly: apps/android has NO strings.xml and no getString(R.string...), so this literal - like every
+    // other string in this app - is still untranslatable. That is the frozen baseline's architecture, not
+    // this task's, and replacing string literals with resources is a baseline decision rather than a repair
+    // inside UXI-390.
+    TechnicalDetails(rows, title = "Technical detail")
   }
 }

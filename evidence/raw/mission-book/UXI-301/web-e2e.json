@@ -1,0 +1,192 @@
+{
+  "startedAt": "2026-10-02T05:25:04.520Z",
+  "port": 4341,
+  "conditions": {
+    "executorKilledWithWork": {
+      "panel": "WHY THINGS ARE WAITING Running in a reduced state Q-16195b77-9ed3-4d2b-acb6-51e28eac1315 The current service is responding slowly. Use another available one? Some of what this depends on is not fully known right now. Not available This device isn't taking new work CancelChoose another service · nothing available to switch to Running in a reduced state Q-f10ef508-d674-4445-9d2e-43755ba4689a The current service is responding slowly. Use another available one? Some of what this depends on is not fully known right now. Not available This device isn't taking new work CancelChoose another service · nothing available to switch to Running in a reduced state Q-20be13e0-2de2-4659-be42-b381519e4078 The current service is responding slowly. Use another available one? Some of what this depends on is not fully known right now. Not available This device isn't taking new work CancelChoose another service · nothing available to switch to",
+      "taskCards": 3,
+      "feed": {
+        "apiVersion": 0,
+        "schemaVersion": 0,
+        "presentation_feed_version": 1,
+        "generatedAt": "2026-10-02T05:25:19.239Z",
+        "candidates": [
+          "alien-reference-node"
+        ],
+        "tasks": [
+          {
+            "taskId": "Q-16195b77-9ed3-4d2b-acb6-51e28eac1315",
+            "taskState": "RUNNING",
+            "dto": {
+              "presentation_version": 1,
+              "state": "DEGRADED",
+              "providers": [
+                {
+                  "index": 0,
+                  "selectable": false,
+                  "term": "DEVICE_REFUSING",
+                  "class": "STRUCTURAL",
+                  "resolves_by_waiting": false
+                }
+              ],
+              "provider_choice_required": true,
+              "provider_choice_taken": false,
+              "actions": [
+                "CANCEL",
+                "CHOOSE_PROVIDER"
+              ],
+              "degraded": true,
+              "structural_refusal": true,
+              "from_backend_truth": true,
+              "fabricated": false,
+              "terms": [
+                "DEVICE_REFUSING"
+              ]
+            }
+          },
+          {
+            "taskId": "Q-f10ef508-d674-4445-9d2e-43755ba4689a",
+            "taskState": "QUEUED",
+            "dto": {
+              "presentation_version": 1,
+              "state": "DEGRADED",
+              "providers": [
+                {
+                  "index": 0,
+                  "selectable": false,
+                  "term": "DEVICE_REFUSING",
+                  "class": "STRUCTURAL",
+                  "resolves_by_waiting": false
+                }
+              ],
+              "provider_choice_required": true,
+              "provider_choice_taken": false,
+              "actions": [
+                "CANCEL",
+                "CHOOSE_PROVIDER"
+              ],
+              "degraded": true,
+              "structural_refusal": true,
+              "from_backend_truth": true,
+              "fabricated": false,
+              "terms": [
+                "DEVICE_REFUSING"
+              ]
+            }
+          },
+          {
+            "taskId": "Q-20be13e0-2de2-4659-be42-b381519e4078",
+            "taskState": "QUEUED",
+            "dto": {
+              "presentation_version": 1,
+              "state": "DEGRADED",
+              "providers": [
+                {
+                  "index": 0,
+                  "selectable": false,
+                  "term": "DEVICE_REFUSING",
+                  "class": "STRUCTURAL",
+                  "resolves_by_waiting": false
+                }
+              ],
+              "provider_choice_required": true,
+              "provider_choice_taken": false,
+              "actions": [
+                "CANCEL",
+                "CHOOSE_PROVIDER"
+              ],
+              "degraded": true,
+              "structural_refusal": true,
+              "from_backend_truth": true,
+              "fabricated": false,
+              "terms": [
+                "DEVICE_REFUSING"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "executorRestored": {
+      "panel": "WHY THINGS ARE WAITING Nothing is waiting to run.",
+      "taskCards": 0
+    },
+    "userChoice": {
+      "chosen": {
+        "providerRef": "alien-reference-node",
+        "taskId": "Q-f79bd314-7fac-4e90-9fb7-e1ab7529b919"
+      },
+      "recordedProviderRef": "alien-reference-node",
+      "userChoiceAt": "2026-10-02T05:25:26.836Z"
+    },
+    "markup": {
+      "containsTechnicalFold": false,
+      "length": 976
+    }
+  },
+  "assertions": [
+    {
+      "name": "a real task in flight produces a task card, so later assertions are not vacuous",
+      "ok": true,
+      "detail": "cards=3"
+    },
+    {
+      "name": "the panel explains the unavailability in user language",
+      "ok": true,
+      "detail": "WHY THINGS ARE WAITING Running in a reduced state Q-16195b77-9ed3-4d2b-acb6-51e28eac1315 The current service is responding slowly. Use another available one? Some of what this depends on is not fully "
+    },
+    {
+      "name": "no raw scheduler token appears in that explanation",
+      "ok": true
+    },
+    {
+      "name": "the panel changes once the real executor returns",
+      "ok": true,
+      "detail": "changed=true"
+    },
+    {
+      "name": "a selectable provider offers a real choice control",
+      "ok": true,
+      "detail": "{\"providerRef\":\"alien-reference-node\",\"taskId\":\"Q-f79bd314-7fac-4e90-9fb7-e1ab7529b919\"}"
+    },
+    {
+      "name": "the choice made in the UI really reached the backend",
+      "ok": true,
+      "detail": "recorded alien-reference-node for Q-f79bd314-7fac-4e90-9fb7-e1ab7529b919"
+    },
+    {
+      "name": "the backend recorded when the user chose",
+      "ok": true,
+      "detail": "2026-10-02T05:25:26.836Z"
+    },
+    {
+      "name": "raw vocabulary is absent from the rendered markup by default",
+      "ok": true
+    }
+  ],
+  "notes": [
+    "=== starting a real Gateway and a real reference node ===",
+    "[main.mjs ERR] (node:29088) ExperimentalWarning: SQLite is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)",
+    "[main.mjs] Utopia Gateway http://127.0.0.1:4341",
+    "  gateway healthy on 4341",
+    "  reference node registered",
+    "[main.mjs] City Node Reference Agent started",
+    "  web UI paired and ONLINE",
+    "  scheduler panel present on the Devices page",
+    "=== condition 1: kill the real executor, THEN create real work ===",
+    "  executor killed",
+    "  [PASS] a real task in flight produces a task card, so later assertions are not vacuous - cards=3",
+    "  [PASS] the panel explains the unavailability in user language - WHY THINGS ARE WAITING Running in a reduced state Q-16195b77-9ed3-4d2b-acb6-51e28eac1315 The current service is responding slowly. Use another available one? Some of what this depends on is not fully ",
+    "  [PASS] no raw scheduler token appears in that explanation",
+    "=== condition 2: restore the executor and watch the surface follow reality ===",
+    "[main.mjs] City Node Reference Agent started",
+    "  [PASS] the panel changes once the real executor returns - changed=true",
+    "=== condition 3: the user chooses a service through the real control ===",
+    "  [PASS] a selectable provider offers a real choice control - {\"providerRef\":\"alien-reference-node\",\"taskId\":\"Q-f79bd314-7fac-4e90-9fb7-e1ab7529b919\"}",
+    "  [PASS] the choice made in the UI really reached the backend - recorded alien-reference-node for Q-f79bd314-7fac-4e90-9fb7-e1ab7529b919",
+    "  [PASS] the backend recorded when the user chose - 2026-10-02T05:25:26.836Z",
+    "  [PASS] raw vocabulary is absent from the rendered markup by default"
+  ],
+  "finishedAt": "2026-10-02T05:25:26.852Z",
+  "verdict": "PASS"
+}

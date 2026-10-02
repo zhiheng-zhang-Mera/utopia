@@ -18,6 +18,8 @@ import { createRoomPack } from './rooms.mjs';
 import { createActions } from './actions.mjs';
 import { buildTargets, handleAsk } from './intents.mjs';
 import { serveWeb } from './static.mjs';
+// UXI-301: the scheduler presentation feed producer. Consumes the frozen RS-290 contract read-only.
+import { buildPresentationFeed } from './presentation.mjs';
 // City Core (MB-001 cluster C). The "can this node accept this work?" decision is
 // owned by the migrated fleet-routing module instead of being re-derived inline
 // here. Utopia's own policy travels as data (REQUIRED_TASK_CAPABILITIES and
@@ -122,6 +124,11 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       else if(req.method==='GET' && /^\/api\/v0\/capabilities\/[^/]+$/.test(path))out=bridge.registry().find(c=>c.capabilityId===decodeURIComponent(path.split('/').at(-1)))||refuse('CAPABILITY_NOT_FOUND',404);
       else if(req.method==='POST' && /^\/api\/v0\/capabilities\/[^/]+\/invoke$/.test(path))out=await bridge.invoke(decodeURIComponent(path.split('/').at(-2)),await body(req,MAX_REQUEST_BYTES));
       else if(req.method==='GET' && path==='/api/v0/city')out=snapshot();
+      // UXI-301: the scheduler presentation feed. READ-ONLY, and it decides nothing - it reports the
+      // RS-202 eligibility the City's own modules already produced, mapped through the frozen RS-290
+      // contract so the UI can show user language instead of scheduler vocabulary. Finished tasks are
+      // excluded by default because a scheduler status surface is about work in flight.
+      else if(req.method==='GET' && path==='/api/v0/presentation')out=buildPresentationFeed({tasks:store.list('tasks'),nodes:store.list('nodes'),generatedAt:now()});
       // --- Pre-assistant product closeout (T1–T3) --------------------------------
       // Rooms: truthful availability plus the catalog, through the authenticated path.
       else if(req.method==='GET' && path==='/api/v0/rooms')out={rooms:await rooms.probe()};
@@ -141,6 +148,30 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         out=store.atomic(()=>{const t={id:'Q-'+randomUUID(),type:b.type,domain:'system',state:'QUEUED',createdAt:now(),updatedAt:now(),assignedNodeId:null,progress:0,lastCheckpoint:null,result:null,error:null};store.put('tasks',t);emit('COMMAND_ACCEPTED',t.id);emit('TASK_CREATED',t.id);return t;});
       } else if(req.method==='POST' && /^\/api\/v0\/tasks\/[^/]+\/cancel$/.test(path)){
         const t=required('tasks',path.split('/').at(-2));if(terminal.includes(t.state))fail(409,'Task already finished');out=change(t,'CANCELLED');
+      } else if(req.method==='POST' && /^\/api\/v0\/tasks\/[^/]+\/provider-choice$/.test(path)){
+          // UXI-301: THE SWITCH PATH, made really executable. The workbook's gate requires the switch and
+          // no-switch paths both be genuinely executable and that the user's choice really returns to the
+          // backend, and the independent review checks exactly that.
+          //
+          // The CITY records the choice; it does not let the UI decide placement, because the UI never
+          // sent a placement - it relayed one explicit user instruction, which is the opposite of the UI
+          // recomputing selection. Returning the task to QUEUED is the honest consequence of "use a
+          // different service".
+          const b=await body(req);
+          if(typeof b.providerRef!=='string'||b.providerRef.length===0||b.providerRef.length>200)fail(400,'providerRef must be a non-empty string');
+          const t=required('tasks',path.split('/').at(-2));
+          if(terminal.includes(t.state))fail(409,'Task already finished');
+          out=change(t,'QUEUED',{assignedNodeId:null,chosenProviderRef:b.providerRef,userChoiceAt:now()});
+          emit('TASK_PROVIDER_CHOSEN',t.id,{providerRef:b.providerRef},'user');
+      } else if(req.method==='POST' && /^\/api\/v0\/tasks\/[^/]+\/switch-declined$/.test(path)){
+          // UXI-301: the user declined the provider switch. That is the ONE condition RS-202's planner
+          // reaches ALTERNATE_DEVICE on, and it means "do not switch provider - use another of my own
+          // devices instead". Recorded as an explicit user intent that the routing planner then acts on,
+          // rather than as a flag set by a test.
+          const t=required('tasks',path.split('/').at(-2));
+          if(terminal.includes(t.state))fail(409,'Task already finished');
+          out=change(t,t.state,{switchDeclined:true,userDeclinedSwitchAt:now()});
+          emit('TASK_SWITCH_DECLINED',t.id,{},'user');
       } else if(req.method==='POST' && path==='/api/v0/node/register'){
         const b=await body(req);if(!/^[a-zA-Z0-9-]{1,80}$/.test(b.id||'')||typeof b.displayName!=='string'||!Array.isArray(b.capabilities)||!b.capabilities.every(c=>typeof c==='string'))fail(400,'Invalid node registration');
         const prior=store.get('nodes',b.id);

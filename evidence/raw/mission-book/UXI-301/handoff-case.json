@@ -1,0 +1,48 @@
+{
+  "switchOffer": {
+    "terms": null,
+    "state": null
+  },
+  "handoff": {
+    "terms": null,
+    "state": null,
+    "panelText": "Why things are waiting Nothing is waiting to run."
+  },
+  "verdict": "FAIL",
+  "results": [
+    {
+      "id": "the work is still assigned after its device goes away, so the condition is real",
+      "ok": false,
+      "detail": "state=COMPLETED assigned=uxi301-handoff-a"
+    },
+    {
+      "id": "the planner offers a switch: the current device is gone and another is free",
+      "ok": false,
+      "detail": "terms=undefined"
+    },
+    {
+      "id": "the offer is put to the user in their own language",
+      "ok": false,
+      "detail": "Why things are waiting Nothing is waiting to run."
+    },
+    {
+      "id": "the decline is recorded as an explicit user intent",
+      "ok": false,
+      "detail": "status=409"
+    },
+    {
+      "id": "the planner now HANDED THE WORK OFF, so REMOTE_HANDOFF is produced",
+      "ok": false,
+      "detail": "terms=undefined"
+    },
+    {
+      "id": "the surface tells the user the work moved to another device, in their own language",
+      "ok": false,
+      "detail": "Why things are waiting Nothing is waiting to run."
+    },
+    {
+      "id": "the surface keeps reassuring them they can stay where they are",
+      "ok": false
+    }
+  ]
+}

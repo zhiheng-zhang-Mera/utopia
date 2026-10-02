@@ -1,0 +1,105 @@
+{
+  "startedAt": "2026-10-02T05:04:55.015Z",
+  "port": 4341,
+  "conditions": {
+    "executorKilledWithWork": {
+      "panel": "WHY THINGS ARE WAITING Running in a reduced state Q-afa0e76a-1dc9-4a6e-b477-b539e7426c5e The current service is responding slowly. Use another available one? Some of what this depends on is not fully known right now. Not available This device isn't taking new work CancelChoose another service",
+      "taskCards": 1,
+      "feed": {
+        "apiVersion": 0,
+        "schemaVersion": 0,
+        "presentation_feed_version": 1,
+        "generatedAt": "2026-10-02T05:05:10.765Z",
+        "candidates": [
+          "alien-reference-node"
+        ],
+        "tasks": [
+          {
+            "taskId": "Q-afa0e76a-1dc9-4a6e-b477-b539e7426c5e",
+            "taskState": "QUEUED",
+            "dto": {
+              "presentation_version": 1,
+              "state": "DEGRADED",
+              "providers": [
+                {
+                  "index": 0,
+                  "selectable": false,
+                  "term": "DEVICE_REFUSING",
+                  "class": "STRUCTURAL",
+                  "resolves_by_waiting": false
+                }
+              ],
+              "provider_choice_required": true,
+              "provider_choice_taken": false,
+              "actions": [
+                "CANCEL",
+                "CHOOSE_PROVIDER"
+              ],
+              "degraded": true,
+              "structural_refusal": true,
+              "from_backend_truth": true,
+              "fabricated": false,
+              "terms": [
+                "DEVICE_REFUSING"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "executorRestored": {
+      "panel": "WHY THINGS ARE WAITING Nothing is waiting to run.",
+      "taskCards": 0
+    },
+    "markup": {
+      "containsTechnicalFold": false,
+      "length": 78
+    }
+  },
+  "assertions": [
+    {
+      "name": "a real task in flight produces a task card, so later assertions are not vacuous",
+      "ok": true,
+      "detail": "cards=1"
+    },
+    {
+      "name": "the panel explains the unavailability in user language",
+      "ok": true,
+      "detail": "WHY THINGS ARE WAITING Running in a reduced state Q-afa0e76a-1dc9-4a6e-b477-b539e7426c5e The current service is responding slowly. Use another available one? Some of what this depends on is not fully "
+    },
+    {
+      "name": "no raw scheduler token appears in that explanation",
+      "ok": true
+    },
+    {
+      "name": "the panel changes once the real executor returns",
+      "ok": true,
+      "detail": "changed=true"
+    },
+    {
+      "name": "raw vocabulary is absent from the rendered markup by default",
+      "ok": true
+    }
+  ],
+  "notes": [
+    "=== starting a real Gateway and a real reference node ===",
+    "[main.mjs ERR] (node:37388) ExperimentalWarning: SQLite is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)",
+    "[main.mjs] Utopia Gateway http://127.0.0.1:4341",
+    "  gateway healthy on 4341",
+    "  reference node registered",
+    "[main.mjs] City Node Reference Agent started",
+    "  web UI paired and ONLINE",
+    "  scheduler panel present on the Devices page",
+    "=== condition 1: kill the real executor, THEN create real work ===",
+    "  executor killed",
+    "  [PASS] a real task in flight produces a task card, so later assertions are not vacuous - cards=1",
+    "  [PASS] the panel explains the unavailability in user language - WHY THINGS ARE WAITING Running in a reduced state Q-afa0e76a-1dc9-4a6e-b477-b539e7426c5e The current service is responding slowly. Use another available one? Some of what this depends on is not fully ",
+    "  [PASS] no raw scheduler token appears in that explanation",
+    "=== condition 2: restore the executor and watch the surface follow reality ===",
+    "[main.mjs] City Node Reference Agent started",
+    "  [PASS] the panel changes once the real executor returns - changed=true",
+    "  [PASS] raw vocabulary is absent from the rendered markup by default"
+  ],
+  "finishedAt": "2026-10-02T05:05:17.330Z",
+  "verdict": "PASS"
+}

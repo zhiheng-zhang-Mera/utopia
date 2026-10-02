@@ -1,0 +1,28 @@
+{
+  "codeSha": "c97c8216ca8bfdb3112c64b8f856ce804b6d653b",
+  "apkSha256": "7c42f4231fe5c0f8e16d61c69ea2e36880f51fb8882acac264f7bc107ab59721",
+  "localApkSha256": "7c42f4231fe5c0f8e16d61c69ea2e36880f51fb8882acac264f7bc107ab59721",
+  "installedApkMatchesLocal": true,
+  "startedAt": "2026-10-02T02:15:57.539Z",
+  "completedAt": "2026-10-02T02:16:08.827Z",
+  "taskId": "Q-06da27ba-6510-444c-9026-5623578b0fbe",
+  "state": "COMPLETED",
+  "androidShowsTaskAndCompletion": true,
+  "webShowsTaskAndCompletion": true,
+  "eventTypes": [
+    "COMMAND_ACCEPTED",
+    "TASK_CREATED",
+    "TASK_ASSIGNED",
+    "TASK_STARTED",
+    "TASK_CHECKPOINTED",
+    "TASK_CHECKPOINTED",
+    "TASK_COMPLETED"
+  ],
+  "resultAvailable": true,
+  "checkpointAvailable": true,
+  "scope": "Android UI submitted task; real reference node; Web UI observes same task identity and completion",
+  "artifactSha256": "815832a2a331b18c499b8022a6531849078d7016784a688e93ab6b8f0385d590",
+  "androidResultMatches": true,
+  "webResultMatches": true,
+  "success": true
+}

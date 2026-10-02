@@ -108,6 +108,7 @@ class MainActivity : ComponentActivity() {
        SchedulerStatusPanel(
          state.feed, online,
          supportedActions = setOf("CANCEL"),
+         onChooseProvider = { taskId, providerRef -> client?.providerChoice(taskId, providerRef) },
          onAction = { taskId, token, providerRef ->
            when (token) {
              "CANCEL" -> client?.cancel(taskId)

@@ -38,6 +38,7 @@ fun SchedulerStatusPanel(
   feed: JSONObject?,
   online: Boolean,
   supportedActions: Set<String> = emptySet(),
+  onChooseProvider: ((taskId: String, providerRef: String) -> Unit)? = null,
   onAction: ((taskId: String, token: String, providerRef: String?) -> Unit)? = null,
 ) {
   UtPanel {
@@ -53,7 +54,7 @@ fun SchedulerStatusPanel(
           } else {
             for (i in 0 until tasks.length()) {
               val entry = tasks.optJSONObject(i) ?: continue
-              SchedulerTaskCard(entry, supportedActions, onAction)
+              SchedulerTaskCard(entry, supportedActions, onAction, onChooseProvider)
             }
           }
         }
@@ -63,7 +64,7 @@ fun SchedulerStatusPanel(
 }
 
 @Composable
-private fun SchedulerTaskCard(entry: JSONObject, supportedActions: Set<String>, onAction: ((String, String, String?) -> Unit)?) {
+private fun SchedulerTaskCard(entry: JSONObject, supportedActions: Set<String>, onAction: ((String, String, String?) -> Unit)?, choose: ((String, String) -> Unit)?) {
   val taskId = entry.optString("taskId")
   val dto = entry.optJSONObject("dto")
   // A malformed or drifted DTO must not crash the surface. It is rendered as an honest "not reported"
@@ -96,11 +97,22 @@ private fun SchedulerTaskCard(entry: JSONObject, supportedActions: Set<String>, 
       Text("No device is being considered for this yet.", style = MaterialTheme.typography.bodyMedium)
     }
     for (provider in view.providers) {
-      // Text only: no clickable, no button. An unavailable provider must not become interactive.
-      Text(
-        (if (provider.selectable) "Available · " else "Not available · ") + provider.reason,
-        style = MaterialTheme.typography.bodyMedium,
-      )
+      // Text only by default: an unavailable provider must not become interactive. A SELECTABLE one gets
+      // the choose control, because that is where a choice belongs - see the note below.
+      Row {
+        Text(
+          (if (provider.selectable) "Available · " else "Not available · ") + provider.reason,
+          style = MaterialTheme.typography.bodyMedium,
+        )
+        // UXI-390: the choice is made HERE, on the row that NAMES the service, and the ref sent is THAT
+        // row's own. This is how the web does it, and it is why the web's action-row CHOOSE_PROVIDER is a
+        // note rather than a button: a task-level control sending "the first available" ref would be the UI
+        // MAKING the choice, which the workbook forbids. Only a selectable row with a real ref offers it,
+        // and an absent or blank ref offers nothing rather than a control that cannot send anything.
+        if (provider.selectable && choose != null && provider.ref.isNotBlank()) {
+          TextButton(onClick = { choose.invoke(taskId, provider.ref) }) { Text("Choose") }
+        }
+      }
     }
     if (view.actions.isNotEmpty()) {
       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {

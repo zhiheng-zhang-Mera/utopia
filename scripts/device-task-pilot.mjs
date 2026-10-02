@@ -1,7 +1,8 @@
 import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
-import {readFileSync,writeFileSync} from 'node:fs';
+import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
 import {chromium} from 'playwright';
+import {nodeByLabel,centreOf,resolveRoute} from './lib/ui-route.mjs';
 const adb=process.env.ADB||'adb';
 const cmd=(...a)=>execFileSync(adb,a,{timeout:30000,maxBuffer:8*1024*1024}).toString();
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
@@ -14,6 +15,13 @@ const apkSha256=cmd('shell','sha256sum',apkPath).trim().split(/\s/)[0];
 const localApkSha256=createHash('sha256').update(readFileSync('apps/android/app/build/outputs/apk/debug/app-debug.apk')).digest('hex');
 const installedApkMatchesLocal=apkSha256===localApkSha256;
 if(!/^[a-f0-9]{64}$/.test(apkSha256)||!installedApkMatchesLocal)throw Error('INSTALLED_APK_MISMATCH');
+// The evidence directory is created here rather than at the write, because the write is the LAST
+// thing this script does: on a clean tree - the normal state after a clone or in a fresh worktree,
+// since .runtime is gitignored - the previous version reached the end of the whole dual-device run
+// and only then died, with `ENOENT: no such file or directory, open
+// '.runtime/evidence/v0.2/task-regression.json'`. Creating it up front turns a lost run into an
+// immediate failure. scripts/device-recovery-pilot.mjs already did this; the task pilot did not.
+mkdirSync('.runtime/evidence/v0.2',{recursive:true});
 const before=await snapshot();
 // Geometry-independent navigation, replacing a hard-coded `input tap 108 2195` whose y-coordinate
 // assumed roughly a 1080x2400 device and therefore landed off-screen on any other host. This was the
@@ -23,22 +31,24 @@ const before=await snapshot();
 // there is found BY ITS LABEL and tapped at its own centre, so the route survives both a different
 // device geometry and the redesigned five-entry bar.
 const dumpUi=()=>{cmd('shell','uiautomator','dump','/sdcard/utopia-task.xml');return cmd('shell','cat','/sdcard/utopia-task.xml');};
-const nodeByText=(source,text)=>[...source.matchAll(/<node\s+([^>]+)>/g)].find(m=>m[1].includes('text="'+text+'"'));
-const centreOf=(tag)=>{const b=tag.match(/bounds="([^"]+)"/)[1].match(/\d+/g).map(Number);return [String((b[0]+b[2])>>1),String((b[1]+b[3])>>1)];};
+// Resolution lives in scripts/lib/ui-route.mjs so it is unit-testable, and it returns null rather
+// than a zero-bounds node: see that file for why a size filter alone is NOT sufficient and why the
+// label lookup this replaced selected a no-op target on the shipped shell.
+const nodeByText=(xml,text)=>nodeByLabel(xml,[text]);
 let xml=dumpUi();
 if(!nodeByText(xml,'Run Test Task')){
   // Candidates are ordered by where the target is KNOWN to render, read from the source rather than
   // guessed: the Run Test Task button is emitted for `page in listOf("Home","Tasks")`, so Home comes
   // first and Activity - which a blind "task-ish page" guess would pick - is last.
-  const route=['Home','Tasks','首页','任务','Activity','Actions','行动','操作记录'].map(t=>nodeByText(xml,t)).find(Boolean);
+  const route=resolveRoute(xml,{tabIndex:0});
   if(!route)throw Error('no route to the task surface was found in the current UI; refusing to tap blindly');
-  cmd('shell','input','tap',...centreOf(route[1]));
+  cmd('shell','input','tap',...route.centre);
   await wait(1500);
   xml=dumpUi();
 }
 const node=nodeByText(xml,'Run Test Task');
 if(!node)throw Error('Run Test Task is not visible');
-const startedAt=new Date().toISOString();cmd('shell','input','tap',...centreOf(node[1]));
+const startedAt=new Date().toISOString();cmd('shell','input','tap',...centreOf(node));
 let task,after;for(let i=0;i<30;i++){await wait(1000);after=await snapshot();task=after.tasks.find(t=>!before.tasks.some(p=>p.id===t.id));if(task&&['COMPLETED','FAILED'].includes(task.state))break;}
 if(!task)throw Error('No new task observed');cmd('shell','uiautomator','dump','/sdcard/utopia-task.xml');xml=cmd('shell','cat','/sdcard/utopia-task.xml');
 const browser=await chromium.launch({channel:'msedge',headless:true}),page=await browser.newPage({locale:'en-US'});

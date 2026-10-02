@@ -1,0 +1,56 @@
+{
+  "hold": {
+    "taskType": "WAIT",
+    "heldMs": 34,
+    "offeredTerms": [
+      "AT_CAPACITY",
+      "SELECTABLE",
+      "WAITING_USER"
+    ]
+  },
+  "handoff": {
+    "terms": [
+      "AT_CAPACITY",
+      "SELECTABLE"
+    ],
+    "state": "QUEUED",
+    "panelText": "Why things are waiting Waiting for your decision Q-1b1d7dd2-71e8-43b1-8fcc-75dde62729fb Available Available now Use this Not available Busy at the moment Cancel Confirm · not yet available Keep waiting Waiting for an available slot Q-ddd4a2db-4334-4b1d-8541-60138123a4e7 Not avail"
+  },
+  "verdict": "FAIL",
+  "results": [
+    {
+      "id": "a WAIT task is accepted, which is the type that HOLDS a node",
+      "ok": true,
+      "detail": "status=200 id=Q-1b1d7dd2-71e8-43b1-8fcc-75dde62729fb"
+    },
+    {
+      "id": "the WAIT task held its node long enough to be observed",
+      "ok": false,
+      "detail": "held 34ms"
+    },
+    {
+      "id": "the planner is offered the switch: the current device is busy and another is free",
+      "ok": true,
+      "detail": "terms=[\"AT_CAPACITY\",\"SELECTABLE\",\"WAITING_USER\"]"
+    },
+    {
+      "id": "the decline is recorded as an explicit user intent",
+      "ok": true,
+      "detail": "status=200"
+    },
+    {
+      "id": "the planner HANDED THE WORK OFF, so REMOTE_HANDOFF is produced",
+      "ok": false,
+      "detail": "terms=[\"AT_CAPACITY\",\"SELECTABLE\"]"
+    },
+    {
+      "id": "the surface tells the user in their own language that it moved to another device",
+      "ok": false,
+      "detail": "Why things are waiting Waiting for your decision Q-1b1d7dd2-71e8-43b1-8fcc-75dde62729fb Available Available now Use this Not available Busy at the moment Cancel Confirm · not yet available Keep waiting Waiting for an available slot Q-ddd4a2db-4334-4b1d-8541-60138123a4e7 Not avail"
+    },
+    {
+      "id": "and reassures them they can stay where they are",
+      "ok": false
+    }
+  ]
+}

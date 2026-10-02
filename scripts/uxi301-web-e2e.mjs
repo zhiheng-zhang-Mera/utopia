@@ -214,7 +214,14 @@ async function main() {
   // ---------------------------------------------------------------- advanced gate
   const html = await page.locator('.scheduler-panel').innerHTML();
   run.conditions.markup = {containsTechnicalFold: html.includes('scheduler-technical'), length: html.length};
-  assert('raw vocabulary is absent from the rendered markup by default', !html.includes('scheduler-technical') || !/>\s*(SELECTABLE|DEVICE_REFUSING)\s*</.test(html));
+  // STRENGTHENED after Mech found this assertion vacuous: it was an || of two negations, so it passed when
+  // the fold markup was missing OR when no raw token was rendered - meaning it would have passed if the
+  // Advanced feature were DELETED. It could not distinguish the item it was credited with covering from the
+  // absence of the feature, which is the non-vacuity failure this programme keeps cataloguing. It now
+  // requires the fold to be PRESENT, COLLAPSED by default, and free of bare raw tokens.
+  assert('the technical fold is PRESENT, not absent', html.includes('scheduler-technical'));
+  assert('the technical fold is COLLAPSED by default', /<details class="scheduler-technical"(?![^>]*\bopen\b)/.test(html));
+  assert('no bare raw scheduler token is rendered', !/>\s*(SELECTABLE|DEVICE_REFUSING)\s*</.test(html));
 
   run.finishedAt = new Date().toISOString();
   run.verdict = run.assertions.every((a) => a.ok) ? 'PASS' : 'FAIL';

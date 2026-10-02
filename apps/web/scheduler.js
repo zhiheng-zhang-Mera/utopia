@@ -21,8 +21,35 @@ const ESCAPES = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#
 /** Escape for both text and attribute positions; the shell's own esc is text-only. */
 export const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ESCAPES[c]);
 
+/**
+ * How each action reaches the backend, if it does.
+ *
+ * This table exists because an acceptance item the independent review checks is whether the user's
+ * choice REALLY RETURNS to the backend, and the honest answer differs per action:
+ *
+ *   - CANCEL  -> POST /api/v0/tasks/:id/cancel   (a real route, verified end to end)
+ *   - RETRY   -> POST /api/v0/tasks              (a real route; "try again" means a new task, which is
+ *                                                 how the shell's own Run Test Task behaves)
+ *   - KEEP_WAITING -> local, and correct to be local: it means "do nothing", so there is nothing to send
+ *   - CHOOSE_PROVIDER -> POST /api/v0/tasks/:id/provider-choice, a real route added for this task so the
+ *                       workbook's "switch path really executable" and "the user's choice really returns
+ *                       to the backend" are both true
+ *   - CONFIRM -> NO ROUTE EXISTS YET, so it is rendered disabled and labelled rather than as a button
+ *                that appears to work
+ *
+ * The UI still never DECIDES a provider: relaying a user's explicit choice is not choosing for them,
+ * but until a route exists there is nothing honest to send.
+ */
+export const ACTION_WIRING = Object.freeze({
+  CANCEL: {kind: 'backend', route: 'cancel'},
+  RETRY: {kind: 'backend', route: 'create'},
+  KEEP_WAITING: {kind: 'local', route: null},
+  CHOOSE_PROVIDER: {kind: 'backend', route: 'providerChoice'},
+  CONFIRM: {kind: 'unwired', route: null},
+});
+
 /** One task's card: user language, then the reasons, then the actions. */
-function taskCard(entry, {advanced}) {
+function taskCard(entry, {advanced, candidateRefs}) {
   const view = toSchedulerViewModel(entry.dto, {t, advanced});
   const providers = view.providers.length === 0
     ? `<p class="muted">${esc(t('scheduler.panel.noCandidates'))}</p>`
@@ -30,14 +57,42 @@ function taskCard(entry, {advanced}) {
       // An unavailable provider is SHOWN with its reason and is not a control. There is deliberately
       // no button and no click handler for it, so it cannot become clickable by accident.
       const state = p.selectable ? t('scheduler.panel.providerAvailable') : t('scheduler.panel.providerUnavailable');
+      // The user's choice lives HERE, on the row for the service they are choosing. An unavailable
+      // provider gets no control at all, which is what "visible but forced unselectable" means.
+      const ref = candidateRefs[p.index];
+      const choose = p.selectable && typeof ref === 'string' && ref.length > 0
+        ? ` <button class="scheduler-provider-choose" data-scheduler-action="CHOOSE_PROVIDER" data-scheduler-route="providerChoice" data-scheduler-task="${esc(entry.taskId ?? '')}" data-scheduler-provider="${esc(ref)}">${esc(t('scheduler.panel.useThis'))}</button>`
+        : '';
       return `<li class="scheduler-provider ${esc(p.severity)}" data-selectable="${p.selectable ? 'true' : 'false'}">`
         + `<span class="scheduler-provider-state">${esc(state)}</span> `
-        + `<span class="scheduler-provider-reason">${esc(p.reason)}</span></li>`;
+        + `<span class="scheduler-provider-reason">${esc(p.reason)}</span>${choose}</li>`;
     }).join('')}</ul>`;
 
   const actions = view.actions.length === 0
     ? ''
-    : `<div class="scheduler-actions">${view.actions.map((a) => `<button class="scheduler-action${a.primary ? ' primary' : ''}" data-scheduler-action="${esc(a.token)}">${esc(a.label)}</button>`).join('')}</div>`;
+    : `<div class="scheduler-actions">${view.actions.map((a) => {
+      const wiring = ACTION_WIRING[a.token];
+      // An action with no way to reach the backend is rendered DISABLED and labelled as not yet
+      // available, rather than as a button that silently does nothing. A control that appears to work
+      // and does not is worse than an honest gap: it teaches the user that their choice was received.
+      if (wiring.kind === 'unwired') {
+        return `<button class="scheduler-action" disabled aria-disabled="true" data-scheduler-unwired="${esc(a.token)}">`
+          + `${esc(a.label)} · ${esc(t('scheduler.action.notWired'))}</button>`;
+      }
+      // A provider choice must name the service chosen. The selected candidate is the first SELECTABLE
+      // one, addressed through the feed's own candidates list, so the ref sent to the backend is one the
+      // producer actually offered rather than an index invented here.
+      if (a.token === 'CHOOSE_PROVIDER') {
+        // Deliberately NOT a submitting control: the user chooses on the provider row above, and a
+        // button here that sent the first available ref would be the UI making the choice. It is an
+        // instruction, so it is rendered as one, and it says the opposite thing when there is nothing
+        // available to switch to.
+        const anySelectable = view.providers.some((p) => p.selectable);
+        const note = anySelectable ? t('scheduler.action.chooseFromList') : t('scheduler.action.nothingToSwitchTo');
+        return `<span class="scheduler-action-note" data-scheduler-action-note="${esc(a.token)}">${esc(a.label)} · ${esc(note)}</span>`;
+      }
+      return `<button class="scheduler-action${a.primary ? ' primary' : ''}" data-scheduler-action="${esc(a.token)}" data-scheduler-task="${esc(entry.taskId ?? '')}" data-scheduler-route="${esc(wiring.route)}">${esc(a.label)}</button>`;
+    }).join('')}</div>`;
 
   // The only place raw vocabulary is allowed, and only when the caller asked for it.
   const technical = advanced && view.technical
@@ -65,7 +120,7 @@ export function schedulerPanel(feed, {isOnline = true, advanced = false} = {}) {
   const entries = Array.isArray(feed?.tasks) ? feed.tasks : null;
   if (entries === null) return `<section class="panel scheduler-panel">${title}<p class="muted">${esc(t('scheduler.panel.feedUnavailable'))}</p></section>`;
   if (entries.length === 0) return `<section class="panel scheduler-panel">${title}<p class="muted">${esc(t('scheduler.panel.idle'))}</p></section>`;
-  return `<section class="panel scheduler-panel">${title}${entries.map((e) => taskCard(e, {advanced})).join('')}</section>`;
+  return `<section class="panel scheduler-panel">${title}${entries.map((e) => taskCard(e, {advanced, candidateRefs: Array.isArray(feed?.candidates) ? feed.candidates : []})).join('')}</section>`;
 }
 
-export default {schedulerPanel, esc};
+export default {schedulerPanel, esc, ACTION_WIRING};

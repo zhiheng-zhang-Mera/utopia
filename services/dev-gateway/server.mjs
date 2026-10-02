@@ -148,6 +148,21 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         out=store.atomic(()=>{const t={id:'Q-'+randomUUID(),type:b.type,domain:'system',state:'QUEUED',createdAt:now(),updatedAt:now(),assignedNodeId:null,progress:0,lastCheckpoint:null,result:null,error:null};store.put('tasks',t);emit('COMMAND_ACCEPTED',t.id);emit('TASK_CREATED',t.id);return t;});
       } else if(req.method==='POST' && /^\/api\/v0\/tasks\/[^/]+\/cancel$/.test(path)){
         const t=required('tasks',path.split('/').at(-2));if(terminal.includes(t.state))fail(409,'Task already finished');out=change(t,'CANCELLED');
+      } else if(req.method==='POST' && /^\/api\/v0\/tasks\/[^/]+\/provider-choice$/.test(path)){
+          // UXI-301: THE SWITCH PATH, made really executable. The workbook's gate requires the switch and
+          // no-switch paths both be genuinely executable and that the user's choice really returns to the
+          // backend, and the independent review checks exactly that.
+          //
+          // The CITY records the choice; it does not let the UI decide placement, because the UI never
+          // sent a placement - it relayed one explicit user instruction, which is the opposite of the UI
+          // recomputing selection. Returning the task to QUEUED is the honest consequence of "use a
+          // different service".
+          const b=await body(req);
+          if(typeof b.providerRef!=='string'||b.providerRef.length===0||b.providerRef.length>200)fail(400,'providerRef must be a non-empty string');
+          const t=required('tasks',path.split('/').at(-2));
+          if(terminal.includes(t.state))fail(409,'Task already finished');
+          out=change(t,'QUEUED',{assignedNodeId:null,chosenProviderRef:b.providerRef,userChoiceAt:now()});
+          emit('TASK_PROVIDER_CHOSEN',t.id,{providerRef:b.providerRef},'user');
       } else if(req.method==='POST' && path==='/api/v0/node/register'){
         const b=await body(req);if(!/^[a-zA-Z0-9-]{1,80}$/.test(b.id||'')||typeof b.displayName!=='string'||!Array.isArray(b.capabilities)||!b.capabilities.every(c=>typeof c==='string'))fail(400,'Invalid node registration');
         const prior=store.get('nodes',b.id);

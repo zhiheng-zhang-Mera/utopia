@@ -64,10 +64,16 @@ test('UXI-301 panel: an unavailable provider is visible with its reason and is N
   assert.equal(items.filter((i) => i.includes('data-selectable="true"')).length, 1);
 });
 
-test('UXI-301 panel: actions carry the token for wiring and the LABEL in user language', () => {
-  const html = schedulerPanel(feedFor([{id: 't1', state: 'RUNNING'}], [offline()]));
-  const buttons = html.match(/<button class="scheduler-action[^"]*" data-scheduler-action="([A-Z_]+)">([^<]*)<\/button>/g) ?? [];
-  assert.ok(buttons.length > 0, 'a structurally refused fleet must offer an action');
+test('UXI-301 panel: a submitting action carries its token for wiring and its LABEL in user language', () => {
+  /* THIS TEST WAS CHANGED, and the reason matters more than the change. It used an OFFLINE fleet, where
+     the only action the contract offers is CHOOSE_PROVIDER - and it demanded a submitting button for it.
+     My first implementation satisfied that by sending the ref of the first selectable provider, which is
+     the UI CHOOSING FOR THE USER, exactly what the workbook forbids. The correct design puts the choice
+     on the provider row (see the next test), so CHOOSE_PROVIDER is no longer a submitting control and
+     this test now uses a fleet that genuinely offers submitting actions. */
+  const html = schedulerPanel(feedFor([{id: 't1', state: 'RUNNING'}], [healthy('ok'), hot('busy')]));
+  const buttons = html.match(/<button class="scheduler-action[^"]*" data-scheduler-action="([A-Z_]+)"[^>]*>([^<]*)<\/button>/g) ?? [];
+  assert.ok(buttons.length > 0, 'a live run with a resource-blocked peer must still offer an action');
   for (const b of buttons) {
     const token = /data-scheduler-action="([A-Z_]+)"/.exec(b)[1];
     const label = />([^<]*)<\/button>/.exec(b)[1];
@@ -75,6 +81,36 @@ test('UXI-301 panel: actions carry the token for wiring and the LABEL in user la
     assert.ok(!label.includes(token), `the label must be user language, not the token (${b})`);
     assert.ok(label.trim().length > 0);
   }
+});
+
+test('UXI-301 panel: the provider choice lives on the ROW and names a candidate the feed offered', () => {
+  // The user's choice belongs on the service they are choosing, and the ref sent must be one the
+  // producer actually listed - not an index this renderer invented, and not a first-match the UI picked.
+  const feed = feedFor([{id: 't1', state: 'RUNNING'}], [healthy('alpha'), hot('beta'), offline('gamma')]);
+  const html = schedulerPanel(feed);
+  const choices = [...html.matchAll(/data-scheduler-provider="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(choices, ['alpha'], 'exactly the selectable candidate carries a choice control');
+  for (const ref of choices) {
+    assert.ok(feed.candidates.includes(ref), `${ref} is not a candidate the feed offered`);
+  }
+  // An unavailable provider has NO control of any kind on its row.
+  const rows = html.match(/<li class="scheduler-provider[^"]*"[^>]*>.*?<\/li>/g) ?? [];
+  const unavailable = rows.filter((r) => r.includes('data-selectable="false"'));
+  assert.equal(unavailable.length, 2);
+  for (const row of unavailable) assert.doesNotMatch(row, /<button|data-scheduler-provider/);
+  // NOTE: with a selectable provider present the contract does not offer the CHOOSE_PROVIDER action at
+  // all, because no choice is required - so the "it is an instruction, not a submitting control"
+  // assertion belongs to the case where it IS offered, which is the next test.
+  assert.equal(feed.tasks[0].dto.provider_choice_required, false, 'a usable provider means no choice is demanded');
+});
+
+test('UXI-301 panel: with nothing available to switch to, the instruction says so', () => {
+  const html = schedulerPanel(feedFor([{id: 't1', state: 'RUNNING'}], [offline('gone')]));
+  assert.match(html, /data-scheduler-action-note="CHOOSE_PROVIDER"/);
+  assert.match(html, new RegExp(esc(t('scheduler.action.nothingToSwitchTo'))));
+  assert.doesNotMatch(html, /data-scheduler-provider="/, 'no candidate means no choice control anywhere');
+  // The standalone action must NOT be a submitting control that picks for the user.
+  assert.doesNotMatch(html, /<button[^>]*data-scheduler-action="CHOOSE_PROVIDER"/, 'the UI must never submit a choice the user did not make');
 });
 
 test('UXI-301 panel: a decision is asked for only when the feed requires one', () => {

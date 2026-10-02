@@ -95,3 +95,36 @@ test('UXI-301 android: the parity guard would actually fail on drift', () => {
   const extra = [...rows.map((r) => r.key), 'INVENTED_TERM'].sort();
   assert.notDeepEqual(extra, [...TERMS].sort(), 'the comparison must detect an invented term');
 });
+
+/**
+ * UXI-390: the ACTION WIRING must agree across the two surfaces.
+ *
+ * This is the guard that was missing, and its absence is measured rather than theoretical. Android rendered
+ * every action in the feed as an enabled TextButton, while the web rendered CONFIRM -- an action the web's
+ * own comment says has "NO ROUTE EXISTS YET" -- as a DISABLED, labelled button. So a control that could not
+ * work read as available on one surface and as unavailable on the other, and a real-device tap on it
+ * silently did nothing and recorded nothing.
+ *
+ * The workbook requires Web and Android to share SEMANTICS, and which actions are real is part of that, not
+ * a rendering detail. Comparing the two tables here means neither surface can quietly gain or lose a route
+ * without failing.
+ */
+test('UXI-390: Android action wiring equals the web surface wiring map', () => {
+  const web = readFileSync(new URL('../apps/web/scheduler.js', import.meta.url), 'utf8');
+  const webWiring = Object.fromEntries(
+    [...web.matchAll(/^\s*([A-Z_]+):\s*\{kind:\s*'([a-z]+)'/gm)].map((m) => [m[1], m[2]]),
+  );
+  const kotlinWiring = Object.fromEntries(
+    [...slice('val ACTION_WIRING', 'val UNWIRED_ACTIONS').matchAll(/"([A-Z_]+)"\s+to\s+"([a-z]+)"/g)]
+      .map((m) => [m[1], m[2]]),
+  );
+  // A table that parsed as empty on either side would make the comparison pass vacuously.
+  assert.ok(Object.keys(webWiring).length >= 5, `parsed only ${Object.keys(webWiring).length} web entries`);
+  assert.ok(Object.keys(kotlinWiring).length >= 5, `parsed only ${Object.keys(kotlinWiring).length} Kotlin entries`);
+  assert.deepEqual(kotlinWiring, webWiring, 'the two surfaces disagree about which actions have a route');
+  // The unrouted set is DERIVED from the map rather than hand-listed, so it cannot drift from it.
+  assert.deepEqual(
+    Object.entries(kotlinWiring).filter(([, kind]) => kind === 'unwired').map(([token]) => token),
+    ['CONFIRM'],
+  );
+});

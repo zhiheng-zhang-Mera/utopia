@@ -104,7 +104,17 @@ private fun SchedulerTaskCard(entry: JSONObject, onAction: (String, String) -> U
     if (view.actions.isNotEmpty()) {
       Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
         for (action in view.actions) {
-          TextButton(onClick = { onAction(taskId, action.token) }) { Text(action.label) }
+          // An action with no backend route must NOT be presented as a live control. The web surface
+          // renders exactly these as a DISABLED button carrying the label and `data-scheduler-unwired`;
+          // Android used to render every action as an enabled TextButton, so CONFIRM -- which the web says
+          // has "NO ROUTE EXISTS YET" -- read as available and silently did nothing when tapped. A disabled
+          // button is the same affordance the web chosen, and it says "not available" without inventing a
+          // route the backend does not have.
+          if (action.token in SchedulerPresentation.UNWIRED_ACTIONS) {
+            TextButton(onClick = {}, enabled = false) { Text(action.label) }
+          } else {
+            TextButton(onClick = { onAction(taskId, action.token) }) { Text(action.label) }
+          }
         }
       }
     }

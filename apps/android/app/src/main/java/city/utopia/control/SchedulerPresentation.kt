@@ -3,7 +3,7 @@ package city.utopia.control
 import org.json.JSONObject
 
 /**
- * UTOPIA · Android Control Surface — scheduler presentation adapter (UXI-301 step 2).
+ * UTOPIA 路 Android Control Surface 鈥?scheduler presentation adapter (UXI-301 step 2).
  *
  * The Android half of the SAME semantics as `apps/web/scheduler-adapter.js`. The workbook requires the
  * two surfaces to share semantics, not pixels, so this mirrors the web adapter's rules exactly:
@@ -104,7 +104,7 @@ internal object SchedulerPresentation {
   val STATE_COPY: Map<String, SchedulerTermCopy> = mapOf(
     "QUEUED" to SchedulerTermCopy("QUEUED", "Waiting for an available slot", SchedulerSeverity.WAITING),
     "RUNNING" to SchedulerTermCopy("RUNNING", "In progress", SchedulerSeverity.OK),
-    "REMOTE_HANDOFF" to SchedulerTermCopy("REMOTE_HANDOFF", "Running on another device — you can stay right here", SchedulerSeverity.NEUTRAL),
+    "REMOTE_HANDOFF" to SchedulerTermCopy("REMOTE_HANDOFF", "Running on another device 鈥?you can stay right here", SchedulerSeverity.NEUTRAL),
     "WAITING_USER" to SchedulerTermCopy("WAITING_USER", "Waiting for your decision", SchedulerSeverity.ATTENTION),
     "DEGRADED" to SchedulerTermCopy("DEGRADED", "Running in a reduced state", SchedulerSeverity.ATTENTION),
     "COMPLETED" to SchedulerTermCopy("COMPLETED", "Finished", SchedulerSeverity.OK),
@@ -125,6 +125,31 @@ internal object SchedulerPresentation {
    * `GET /api/v0/presentation`; nothing else is accepted, because the contract has already refused raw
    * component words upstream.
    */
+/**
+ * Which actions have a backend route, mirroring `apps/web/scheduler.js` exactly.
+ *
+ * The web surface keeps this map and uses it so that an action with NO route is rendered DISABLED and
+ * LABELLED rather than as a button -- its own comment says of CONFIRM that "NO ROUTE EXISTS YET". Android
+ * previously rendered every action in the feed as an enabled TextButton, so an action that cannot work
+ * read as available: tapping it did nothing and recorded nothing, and the user had no way to tell that
+ * apart from a slow system. Measured on a real device, the CONFIRM control was `clickable=true` and
+ * `enabled=true` while having no route to call.
+ *
+ * Keeping the same table in the same shape on both surfaces is the point: it is the reason states and
+ * terms are parity-guarded, applied to action wiring, so the two surfaces cannot drift about which actions
+ * are real.
+ */
+val ACTION_WIRING: Map<String, String> = mapOf(
+  "CANCEL" to "backend",
+  "RETRY" to "backend",
+  "KEEP_WAITING" to "local",
+  "CHOOSE_PROVIDER" to "backend",
+  "CONFIRM" to "unwired",
+)
+
+/** Actions with no route: presented as disabled and labelled, never as a live control. */
+val UNWIRED_ACTIONS: Set<String> = ACTION_WIRING.filterValues { it == "unwired" }.keys
+
   fun viewModel(dto: JSONObject, advanced: Boolean = false): SchedulerView {
     val state = dto.optString("state")
     val stateCopy = STATE_COPY[state]

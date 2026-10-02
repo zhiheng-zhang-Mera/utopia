@@ -98,6 +98,9 @@ class MainActivity : ComponentActivity() {
     if (page == "Find") {
      item { PairingPanel(log, intent?.dataString, { page="Settings" }, { h,t,id -> host=h; token=t; prefs.edit().putString("host",h).putString("token",t).putString("cityId",id).apply(); state=CityState("RECONNECTING"); settingsRevision++; page="Devices"; intent.data=null }) }
     } else if (page == "Devices") {
+     // UXI-301: show WHY things are waiting ahead of the device list, on the overview only - a single
+     // device's detail view is about that device, and repeating the fleet-wide panel there would bury it.
+     if(selectedNode==null) item { SchedulerStatusPanel(state.feed, online) }
      if(nodes.isEmpty()) item { Text("Waiting for devices") }
      nodes.filter { selectedNode == null || it.optString("id")==selectedNode }.forEach { n -> item { DeviceCard(n,online,now,selectedNode!=null,tasks,events) { selectedNode=n.optString("id") } } }
      if(selectedNode!=null) item { OutlinedButton(onClick={selectedNode=null}) { Text("All devices") } }

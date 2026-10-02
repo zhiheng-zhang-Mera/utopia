@@ -18,6 +18,8 @@ import { createRoomPack } from './rooms.mjs';
 import { createActions } from './actions.mjs';
 import { buildTargets, handleAsk } from './intents.mjs';
 import { serveWeb } from './static.mjs';
+// UXI-301: the scheduler presentation feed producer. Consumes the frozen RS-290 contract read-only.
+import { buildPresentationFeed } from './presentation.mjs';
 // City Core (MB-001 cluster C). The "can this node accept this work?" decision is
 // owned by the migrated fleet-routing module instead of being re-derived inline
 // here. Utopia's own policy travels as data (REQUIRED_TASK_CAPABILITIES and
@@ -122,6 +124,11 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       else if(req.method==='GET' && /^\/api\/v0\/capabilities\/[^/]+$/.test(path))out=bridge.registry().find(c=>c.capabilityId===decodeURIComponent(path.split('/').at(-1)))||refuse('CAPABILITY_NOT_FOUND',404);
       else if(req.method==='POST' && /^\/api\/v0\/capabilities\/[^/]+\/invoke$/.test(path))out=await bridge.invoke(decodeURIComponent(path.split('/').at(-2)),await body(req,MAX_REQUEST_BYTES));
       else if(req.method==='GET' && path==='/api/v0/city')out=snapshot();
+      // UXI-301: the scheduler presentation feed. READ-ONLY, and it decides nothing - it reports the
+      // RS-202 eligibility the City's own modules already produced, mapped through the frozen RS-290
+      // contract so the UI can show user language instead of scheduler vocabulary. Finished tasks are
+      // excluded by default because a scheduler status surface is about work in flight.
+      else if(req.method==='GET' && path==='/api/v0/presentation')out=buildPresentationFeed({tasks:store.list('tasks'),nodes:store.list('nodes'),generatedAt:now()});
       // --- Pre-assistant product closeout (T1–T3) --------------------------------
       // Rooms: truthful availability plus the catalog, through the authenticated path.
       else if(req.method==='GET' && path==='/api/v0/rooms')out={rooms:await rooms.probe()};

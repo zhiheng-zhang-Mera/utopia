@@ -1,9 +1,18 @@
-﻿// RS-290 step 2 conformance: the unified presentation vocabulary.
+// RS-290 step 2 conformance: the unified presentation vocabulary.
 //
 // The property defended here is stronger than "no duplicate words". A UI consumer needs that no two
 // DISTINCT MEANINGS share a presentation term - so the four UNKNOWN senses must stay four terms - while
 // the SAME meaning reached through different components must MERGE to one term. Both halves are tested,
 // and so is the thing a naive unification would break: RS-202's structural/resource partition.
+//
+// Mech's RS-290 review added three findings, and each is now a test in its own right rather than a
+// property the module merely claimed:
+//
+//   F1  provenance, not spelling, decides meaning - a raw word colliding with a term name is mapped by
+//       its vocabulary, and the projection refuses anything that does not declare where it came from;
+//   F2  a terminal outcome outranks waitingUser, so a failed run is never masked and RETRY is offered;
+//   F3  no collapse of two meanings onto one term goes undeclared, QUANTIFIED over the whole table
+//       instead of spot-checked - which is how FRESHNESS.STALE was found hiding inside FRESHNESS_UNKNOWN.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -14,8 +23,8 @@ import * as routing from '../../../city/00-foundation/01-city-core/fleet-routing
 import * as bridge from '../../rs-cross-device-return-v1/return-bridge.mjs';
 
 import {
-  ALLOWED_ACTIONS, PRESENTATION_CONTRACT_VERSION, PRESENTATION_STATES, TERMS, TERM_CLASS, TERM_OF,
-  presentState, presentTerm, projectStatus,
+  ALLOWED_ACTIONS, INTENDED_COLLAPSES, PRESENTATION_CONTRACT_VERSION, PRESENTATION_STATES, TERMS, TERM_CLASS, TERM_OF,
+  presentState, presentTerm, projectStatus, termRef,
 } from '../presentation.mjs';
 
 /** The real vocabularies, so the mapping table is checked against the components rather than itself. */
@@ -145,7 +154,7 @@ test('RS-290: the action and state vocabularies are closed sets of the shapes st
 /* ------------------------------------------- step 3: the presentation DTO, and step 4's truth rule */
 
 test('RS-290: a selectable provider renders RUNNING with CANCEL and no choice demanded', () => {
-  const dto = projectStatus({ providerTerms: ['SELECTABLE'] });
+  const dto = projectStatus({ providerRefs: [termRef('RS-201.AVAILABILITY_REASONS', 'AVAILABLE')] });
   assert.equal(dto.state, 'RUNNING');
   assert.equal(dto.provider_choice_required, false);
   assert.equal(dto.providers[0].selectable, true);
@@ -155,7 +164,12 @@ test('RS-290: a selectable provider renders RUNNING with CANCEL and no choice de
 test('RS-290: a pool that is only BUSY does NOT demand a choice, because waiting can help', () => {
   // This is the distinction the RESOURCE class carries: saturation resolves on its own, so asking the
   // user to choose a provider would be asking them to solve something that fixes itself.
-  const dto = projectStatus({ providerTerms: ['AT_CAPACITY', 'PRESSURE_PAUSED'] });
+  const dto = projectStatus({
+    providerRefs: [
+      termRef('RS-202.ELIGIBILITY_REASONS', 'AT_CAPACITY'),
+      termRef('RS-202.ELIGIBILITY_REASONS', 'PRESSURE_PAUSED'),
+    ],
+  });
   assert.equal(dto.provider_choice_required, false);
   assert.ok(dto.actions.includes('KEEP_WAITING'), 'waiting must be offered when it can help');
   assert.equal(dto.providers.every(entry => entry.resolves_by_waiting), true);
@@ -163,7 +177,12 @@ test('RS-290: a pool that is only BUSY does NOT demand a choice, because waiting
 });
 
 test('RS-290: a structurally refused pool DOES demand a choice, and does not offer waiting', () => {
-  const dto = projectStatus({ providerTerms: ['REGION_UNSUPPORTED', 'USER_DISABLED'] });
+  const dto = projectStatus({
+    providerRefs: [
+      termRef('RS-201.AVAILABILITY_REASONS', 'REGION_UNSUPPORTED'),
+      termRef('RS-202.ELIGIBILITY_REASONS', 'USER_DISABLED'),
+    ],
+  });
   assert.equal(dto.provider_choice_required, true);
   assert.ok(dto.actions.includes('CHOOSE_PROVIDER'));
   assert.equal(dto.actions.includes('KEEP_WAITING'), false, 'waiting cannot fix a structural refusal');
@@ -172,18 +191,145 @@ test('RS-290: a structurally refused pool DOES demand a choice, and does not off
   assert.equal(dto.provider_choice_taken, false);
 });
 
-test('RS-290: RAW component words are REFUSED - only mapped terms may enter the DTO', () => {
-  // The anti-leak guard: without it a component's private vocabulary could reach the UI through the
-  // projection and the three-vocabulary problem would return by the back door.
-  assert.throws(() => projectStatus({ providerTerms: ['AUTH_REQUIRED'] }), /not a presentation term/);
-  assert.throws(() => projectStatus({ terms: ['CACHED_WITHIN_TTL'] }), /not a presentation term/);
+/* ------------------------------------------------------------------ Mech's RS-290 review, F1, F2, F3 */
+
+test('RS-290 F1: a raw word that COLLIDES with a term name is still mapped by its VOCABULARY', () => {
+  // The anti-leak guard used to be a name check, so a raw word spelled like a term was accepted
+  // unchanged. RS-202.REACHABLE_STATES.DEGRADED is exactly such a word, and accepting it produced the
+  // WORSE answer: the term DEGRADED (class STATE) instead of the prescribed PRESSURE_PAUSED (RESOURCE),
+  // which demanded CHOOSE_PROVIDER from the user and withheld KEEP_WAITING for a pool that only needed
+  // to wait. The module's own reasoning says a saturated pool needs waiting, not a decision.
+  assert.equal(presentTerm('RS-202.REACHABLE_STATES', 'DEGRADED'), 'PRESSURE_PAUSED');
+  const byProvenance = projectStatus({ providerRefs: [termRef('RS-202.REACHABLE_STATES', 'DEGRADED')] });
+  assert.equal(byProvenance.state, 'QUEUED');
+  assert.deepEqual([...byProvenance.actions], ['CANCEL', 'KEEP_WAITING']);
+  assert.equal(byProvenance.provider_choice_required, false, 'a pool under pressure must not demand a choice');
+
+  // Quantified, so the fix is not just the one case Mech reported: EVERY source word that IS a declared
+  // term while meaning something else is mapped by its vocabulary rather than by its name.
+  //
+  // Measured, not assumed, and the measurement is worth recording because my first version of this line
+  // asserted nine from memory and the suite refused it: exactly ONE word in the whole table is in that
+  // position, DEGRADED above. Near-collisions like ONLINE, UNKNOWN and DISABLED are NOT in the set,
+  // because their terms are spelled DEVICE_ONLINE, AVAILABILITY_UNKNOWN and USER_DISABLED - a name check
+  // cannot confuse a word with a term that is spelled differently. Only a word that IS a term name can
+  // fool the guard, which is why this exact set is the one that matters, and why Mech's operative claim
+  // ("for one of them the collision changes the answer") is what the executable measurement confirms.
+  const colliding = [];
+  for (const [source, table] of Object.entries(TERM_OF)) {
+    for (const [word, term] of Object.entries(table)) {
+      if (TERMS.includes(word) && word !== term) colliding.push([source, word, term]);
+    }
+  }
+  assert.deepEqual(colliding, [['RS-202.REACHABLE_STATES', 'DEGRADED', 'PRESSURE_PAUSED']],
+    'the set of words that both ARE a term name and mean something else has changed - re-audit the guard, because each one can defeat a name check');
+  for (const [source, word, term] of colliding) {
+    assert.equal(presentTerm(source, word), term, `${source}.${word} must map by vocabulary, not by name`);
+  }
+});
+
+test('RS-290 F1: the guard needs PROVENANCE - bare words and bare terms are both refused', () => {
+  // A name check cannot tell a raw word from a term of the same name, because the ambiguity IS the name.
+  // The projection therefore takes {source, word} references and maps them itself, so anything that does
+  // not declare where it came from is refused rather than guessed at.
+  assert.throws(() => projectStatus({ providerRefs: ['AUTH_REQUIRED'] }), /bare string/);
+  assert.throws(() => projectStatus({ termRefs: ['CACHED_WITHIN_TTL'] }), /bare string/);
+  assert.throws(() => projectStatus({ providerRefs: ['DEGRADED'] }), /bare string/, 'a bare colliding spelling is refused, not accepted on its name');
+  assert.throws(() => projectStatus({ providerRefs: [termRef('RS-201.ENABLEMENT', 'MAYBE')] }), /no mapping/);
+  assert.throws(() => projectStatus({ providerRefs: [termRef('RS-202.NOPE', 'X')] }), /unknown source vocabulary/);
+  // The removed parameter names are REFUSED rather than ignored: a rename that silently dropped its
+  // input would reproduce F1's failure mode in a new form, as a plausible DTO computed from nothing.
+  assert.throws(() => projectStatus({ providerTerms: ['SELECTABLE'] }), /was replaced by providerRefs/);
+  assert.throws(() => projectStatus({ terms: [] }), /was replaced by termRefs/);
+  assert.throws(() => projectStatus({ routeStage: 'QUEUED' }), /was replaced by routeStageRef/);
+  // And a word that exists only on Object.prototype is not a mapping.
+  assert.throws(() => presentTerm('RS-201.ENABLEMENT', 'constructor'), /no mapping/);
+  assert.throws(() => presentTerm('RS-201.ENABLEMENT', 'toString'), /no mapping/);
+});
+
+test('RS-290 F2: a terminal outcome OUTRANKS waitingUser, so a failure is never masked', () => {
+  // waitingUser used to short-circuit the state before presentState was consulted, so a run that was
+  // terminal AND failed reported WAITING_USER: a finished failure rendered as something awaiting the
+  // user, with RETRY withheld - because RETRY is gated on FAILED. The fix is the removal of that
+  // override, so presentState's single precedence decides, exactly as it already did for `cancelled`.
+  const failed = projectStatus({ terminal: true, failed: true, waitingUser: true });
+  assert.equal(failed.state, 'FAILED', 'a finished failure must not be masked by a pending confirmation');
+  assert.ok(failed.actions.includes('RETRY'), 'the recovery action must reach the only user who needs it');
+  assert.equal(failed.actions.includes('CONFIRM'), false, 'nothing is waiting on the user in a terminal run');
+
+  assert.equal(projectStatus({ terminal: true, waitingUser: true }).state, 'COMPLETED');
+  assert.deepEqual([...projectStatus({ terminal: true, waitingUser: true }).actions], []);
+  assert.equal(projectStatus({ terminal: true, cancelled: true, waitingUser: true }).state, 'CANCELLED');
+
+  // Non-terminal: a pending confirmation still drives the state and offers CONFIRM.
+  const waiting = projectStatus({ waitingUser: true });
+  assert.equal(waiting.state, 'WAITING_USER');
+  assert.deepEqual([...waiting.actions], ['CANCEL', 'CONFIRM']);
+});
+
+test('RS-290 F3: FRESHNESS.STALE and FRESHNESS.UNKNOWN stay DISTINCT terms', () => {
+  // "we measured, and the measurement is out of date" is not "we have never measured". Collapsing those
+  // two is the same ambiguity the four UNKNOWN terms were split apart to remove, and the collapsed term
+  // was even named FRESHNESS_UNKNOWN while being the target for a value that is not unknown-freshness.
+  const stale = presentTerm('RS-201.FRESHNESS', 'STALE');
+  const unknown = presentTerm('RS-201.FRESHNESS', 'UNKNOWN');
+  assert.notEqual(stale, unknown, 'stale must not render as never-measured');
+  assert.equal(stale, 'FRESHNESS_STALE');
+  assert.equal(unknown, 'FRESHNESS_UNKNOWN');
+  // Both are knowledge states, so neither is silently treated as current truth.
+  assert.equal(TERM_CLASS[stale], 'KNOWLEDGE');
+  assert.equal(TERM_CLASS[unknown], 'KNOWLEDGE');
+  assert.notEqual(presentTerm('RS-201.FRESHNESS', 'FRESH'), stale);
+  assert.equal(projectStatus({ termRefs: [termRef('RS-201.FRESHNESS', 'STALE')] }).degraded, true);
+});
+
+test('RS-290 F3: NO collapse of two meanings onto one term goes UNDECLARED - quantified over the table', () => {
+  // The module claimed this property in its header and asserted it NOWHERE. The two tests that looked
+  // like they covered it were spot checks - one hard-coded the four UNKNOWN senses, the other two named
+  // same-spelling pairs - so a collapse anywhere else passed the whole suite 21/21, and one did.
+  //
+  // So the property is quantified over the entire table and stated honestly: a collapse is permitted
+  // only when it is DECLARED with its reason, because coarsening a category is sometimes right (five
+  // "unknown X" codes are one meaning to a UI) and that judgement should be visible rather than
+  // implied. An undeclared collapse fails; a declaration with no collapse behind it fails too, so this
+  // table cannot rot into a list of things that used to be true.
+  const actual = new Map();
+  for (const [source, table] of Object.entries(TERM_OF)) {
+    const byTerm = new Map();
+    for (const [word, term] of Object.entries(table)) {
+      if (!byTerm.has(term)) byTerm.set(term, []);
+      byTerm.get(term).push(word);
+    }
+    for (const [term, words] of byTerm) {
+      if (words.length > 1) actual.set(`${source} -> ${term}`, [...words].sort());
+    }
+  }
+
+  const declared = new Set();
+  for (const [source, collapses] of Object.entries(INTENDED_COLLAPSES)) {
+    assert.ok(TERM_OF[source], `INTENDED_COLLAPSES names an unknown vocabulary ${source}`);
+    for (const [term, reason] of Object.entries(collapses)) {
+      const key = `${source} -> ${term}`;
+      declared.add(key);
+      assert.ok(typeof reason === 'string' && reason.length > 40, `${key} must carry a real reason, not a placeholder`);
+      const words = actual.get(key);
+      assert.ok(words, `${key} is declared as a collapse, but no two words in ${source} map to it`);
+      assert.ok(words.length > 1, `${key} is declared as a collapse but only one word maps to it`);
+    }
+  }
+  for (const [key, words] of actual) {
+    assert.ok(declared.has(key), `${key} silently collapses ${words.join(', ')}; declare it in INTENDED_COLLAPSES with the reason it is one meaning at UI granularity`);
+  }
+  // The property is only meaningful if collapses actually exist to be judged - otherwise this test
+  // would pass vacuously on an empty table.
+  assert.ok(actual.size > 0, 'the table must exercise this property, not dodge it');
 });
 
 test('RS-290: no path FABRICATES success - COMPLETED needs an explicit terminal flag', () => {
   // Step 4 as an executable property: absence of bad news is not good news.
-  assert.notEqual(projectStatus({ providerTerms: ['SELECTABLE'] }).state, 'COMPLETED');
-  assert.notEqual(projectStatus({ terms: [] }).state, 'COMPLETED');
-  assert.notEqual(projectStatus({ terms: ['SELECTABLE'], terminal: false }).state, 'COMPLETED');
+  assert.notEqual(projectStatus({ providerRefs: [termRef('RS-201.AVAILABILITY_REASONS', 'AVAILABLE')] }).state, 'COMPLETED');
+  assert.notEqual(projectStatus({ termRefs: [] }).state, 'COMPLETED');
+  assert.notEqual(projectStatus({ termRefs: [termRef('RS-201.AVAILABILITY_REASONS', 'AVAILABLE')], terminal: false }).state, 'COMPLETED');
   assert.equal(projectStatus({ terminal: true }).state, 'COMPLETED');
   assert.equal(projectStatus({ terminal: true, failed: true }).state, 'FAILED');
   assert.equal(projectStatus({ terminal: true, cancelled: true }).state, 'CANCELLED');
@@ -192,21 +338,32 @@ test('RS-290: no path FABRICATES success - COMPLETED needs an explicit terminal 
   assert.equal(dto.fabricated, false);
 });
 
-test('RS-290: waiting-user, failure and route stage each drive the state and the offered action', () => {
-  assert.equal(projectStatus({ waitingUser: true }).state, 'WAITING_USER');
-  assert.ok(projectStatus({ waitingUser: true }).actions.includes('CONFIRM'));
-  assert.ok(projectStatus({ terminal: true, failed: true }).actions.includes('RETRY'));
-  assert.equal(projectStatus({ routeStage: 'QUEUED' }).state, 'QUEUED');
-  assert.equal(projectStatus({ routeStage: 'ALTERNATE_DEVICE' }).state, 'REMOTE_HANDOFF');
+test('RS-290: the route stage drives the state through its own vocabulary, and only where it should', () => {
+  assert.equal(projectStatus({ routeStageRef: termRef('RS-202.ROUTE_STAGES', 'QUEUED') }).state, 'QUEUED');
+  assert.equal(projectStatus({ routeStageRef: termRef('RS-202.ROUTE_STAGES', 'ALTERNATE_DEVICE') }).state, 'REMOTE_HANDOFF');
+  // Only the two stages that settle a state are folded. DIRECT is routing detail and must NOT override a
+  // state the terms already determine - behaviour deliberately preserved from before the F1 repair, and
+  // asserted because folding every stage would silently turn a refused run into a running one.
+  const direct = projectStatus({
+    routeStageRef: termRef('RS-202.ROUTE_STAGES', 'DIRECT'),
+    termRefs: [termRef('RS-202.ELIGIBILITY_REASONS', 'USER_DISABLED')],
+  });
+  assert.equal(direct.state, 'DEGRADED', 'a DIRECT stage must not make a refused run look live');
 });
 
 test('RS-290: every DTO output is inside the declared vocabularies', () => {
   const states = new Set(PRESENTATION_STATES);
   const actions = new Set(ALLOWED_ACTIONS);
   const inputs = [
-    { providerTerms: ['SELECTABLE'] }, { providerTerms: ['AT_CAPACITY'] }, { providerTerms: ['USER_DISABLED'] },
-    { terms: ['FRESHNESS_UNKNOWN'] }, { routeStage: 'QUEUED' }, { routeStage: 'ALTERNATE_DEVICE' },
-    { waitingUser: true }, { terminal: true }, { terminal: true, failed: true }, { terminal: true, cancelled: true },
+    { providerRefs: [termRef('RS-201.AVAILABILITY_REASONS', 'AVAILABLE')] },
+    { providerRefs: [termRef('RS-202.ELIGIBILITY_REASONS', 'AT_CAPACITY')] },
+    { providerRefs: [termRef('RS-201.AVAILABILITY_REASONS', 'USER_DISABLED')] },
+    { termRefs: [termRef('RS-201.FRESHNESS', 'UNKNOWN')] },
+    { termRefs: [termRef('RS-201.FRESHNESS', 'STALE')] },
+    { routeStageRef: termRef('RS-202.ROUTE_STAGES', 'QUEUED') },
+    { routeStageRef: termRef('RS-202.ROUTE_STAGES', 'ALTERNATE_DEVICE') },
+    { waitingUser: true }, { terminal: true }, { terminal: true, failed: true },
+    { terminal: true, cancelled: true }, { terminal: true, failed: true, waitingUser: true },
   ];
   for (const input of inputs) {
     const dto = projectStatus(input);

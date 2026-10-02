@@ -19,7 +19,7 @@ import * as rescan from '../../../city/00-foundation/01-city-core/fleet-routing/
 import * as hysteresis from '../../../city/00-foundation/01-city-core/fleet-routing/hysteresis.mjs';
 import * as guard from '../../../city/00-foundation/01-city-core/fleet-routing/assignment-guard.mjs';
 import { createReturnBridge } from '../../rs-cross-device-return-v1/return-bridge.mjs';
-import { presentTerm, projectStatus } from '../presentation.mjs';
+import { presentTerm, projectStatus, termRef } from '../presentation.mjs';
 
 const idle = Object.freeze({ cpu: 0.05, memory: 0.05, gpu: 0.05, io: 0.05, network: 0.05 });
 const hot = Object.freeze({ cpu: 0.95, memory: 0.9, gpu: 0.9, io: 0.9, network: 0.9 });
@@ -42,8 +42,8 @@ test('RS-290 matrix: concurrent submissions cannot double-execute, and the pool 
 
   // The same fact reaches the UI through the unified vocabulary, not through three component dialects.
   const dto = projectStatus({
-    providerTerms: [presentTerm('RS-202.ELIGIBILITY_REASONS', 'ELIGIBLE')],
-    routeStage: 'DIRECT',
+    providerRefs: [termRef('RS-202.ELIGIBILITY_REASONS', 'ELIGIBLE')],
+    routeStageRef: termRef('RS-202.ROUTE_STAGES', 'DIRECT'),
   });
   assert.equal(dto.state, 'RUNNING');
   assert.equal(dto.providers[0].selectable, true);
@@ -57,8 +57,8 @@ test('RS-290 matrix: a saturated device is routed around, and the projection say
   assert.equal(plan.stage, 'ALTERNATE_DEVICE');
 
   const dto = projectStatus({
-    providerTerms: [presentTerm('RS-202.ELIGIBILITY_REASONS', loaded.reason)],
-    routeStage: plan.stage,
+    providerRefs: [termRef('RS-202.ELIGIBILITY_REASONS', loaded.reason)],
+    routeStageRef: termRef('RS-202.ROUTE_STAGES', plan.stage),
   });
   // The plan genuinely diverted to another device, so REMOTE_HANDOFF is the CORRECT state here - the
   // property that matters is that a resource refusal never renders as an ACTIVE run on the origin.
@@ -94,8 +94,8 @@ test('RS-290 matrix: a disconnect degrades truthfully and recovery restores, thr
   assert.equal(down.truthful_success, false);
 
   const degraded = projectStatus({
-    terms: [presentTerm('RS-203.REMOTE_STATES', down.remote_state)],
-    routeStage: 'QUEUED',
+    termRefs: [termRef('RS-203.REMOTE_STATES', down.remote_state)],
+    routeStageRef: termRef('RS-202.ROUTE_STAGES', 'QUEUED'),
   });
   assert.equal(degraded.state, 'DEGRADED');
   assert.equal(degraded.degraded, true);
@@ -103,7 +103,7 @@ test('RS-290 matrix: a disconnect degrades truthfully and recovery restores, thr
 
   const up = bridge.apply({ actionRef: 'act-3', sequence: 2, kind: 'PROGRESS' });
   assert.equal(up.remote_state_recovered, true);
-  assert.equal(projectStatus({ terms: [presentTerm('RS-203.REMOTE_STATES', up.remote_state)] }).state, 'RUNNING');
+  assert.equal(projectStatus({ termRefs: [termRef('RS-203.REMOTE_STATES', up.remote_state)] }).state, 'RUNNING');
 });
 
 /* --------------------------------------------------------------------- 4. provider flap, damped */
@@ -137,14 +137,14 @@ test('RS-290 matrix: availability, routing and return compose into ONE stable pr
   const list = availability.buildCandidates({ registry: reg, now: Date.parse('2026-10-02T00:00:00.000Z') });
   assert.deepEqual([...list.selectable], ['p-ok']);
 
-  const providerTerms = list.candidates.map(candidate => presentTerm('RS-201.AVAILABILITY_REASONS', candidate.reason));
+  const providerRefs = list.candidates.map(candidate => termRef('RS-201.AVAILABILITY_REASONS', candidate.reason));
   const bridge = createReturnBridge({ resolveSurface: () => surface('device-A') });
   bridge.register({ actionRef: 'act-5', interactionDeviceRef: 'device-A', executionDeviceRef: 'device-B' });
   const applied = bridge.apply({ actionRef: 'act-5', sequence: 1, kind: 'FINAL' });
 
   const dto = projectStatus({
-    providerTerms,
-    routeStage: 'DIRECT',
+    providerRefs,
+    routeStageRef: termRef('RS-202.ROUTE_STAGES', 'DIRECT'),
     terminal: applied.terminal,
     failed: applied.canonical_state === 'FAILED',
   });
@@ -152,10 +152,24 @@ test('RS-290 matrix: availability, routing and return compose into ONE stable pr
   assert.equal(dto.providers.length, 2);
   // Every provider carries a REASON as a canonical term, so the UI never has to know which component
   // produced it - which is the property that makes step 2's consolidation worth having.
-  for (const entry of dto.providers) {
-    assert.ok(entry.class === 'PERMITTED' || entry.class === 'STRUCTURAL' || entry.class === 'RESOURCE' || entry.class === 'KNOWLEDGE');
-    assert.equal(typeof entry.resolves_by_waiting, 'boolean');
-  }
+  //
+  // Mech's RS-290 addendum found the assertions that used to sit here could not fail: `entry.class` is
+  // `TERM_CLASS[term]` and every value in `TERM_CLASS` is one of those four strings by construction,
+  // while `resolves_by_waiting` is assigned from that same table - so they restated the table's shape
+  // rather than testing behaviour, and "a test that cannot fail is not evidence". These replace them
+  // with a cross-check against the mapping computed independently here, which a projection that
+  // dropped, reordered or mismapped a provider WOULD fail.
+  assert.deepEqual(
+    dto.providers.map(entry => entry.term),
+    providerRefs.map(reference => presentTerm(reference.source, reference.word)),
+    'each provider must carry the term its own source reason maps to, in order',
+  );
+  assert.deepEqual(dto.providers.map(entry => entry.index), [0, 1], 'provider indices must follow input order');
+  // And the decision the classes exist to drive: p-ok is selectable and p-off is user-disabled, so the
+  // pool is structurally refused overall but does NOT demand a provider choice while one is usable.
+  assert.equal(dto.providers.some(entry => entry.selectable), true);
+  assert.equal(dto.structural_refusal, true, 'a USER_DISABLED provider is structural');
+  assert.equal(dto.provider_choice_required, false, 'a usable provider means no choice is demanded');
   assert.equal(dto.from_backend_truth, true);
   assert.equal(dto.fabricated, false);
   // The presentation surface exposes exactly one vocabulary's worth of fields, not three.

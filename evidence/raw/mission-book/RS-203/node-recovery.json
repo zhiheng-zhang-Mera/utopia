@@ -1,0 +1,129 @@
+[
+  {
+    "kind": "node",
+    "run": 1,
+    "codeSha": "6e0145a1dc33ab3eaa23eb496c556c44d9e7d488",
+    "apkSha256": "6d0965aa7ec9ca8c59e7e35053c1d0a7a9ecb3d82a6b80b66923cd1a1a9ba8bb",
+    "localApkSha256": "6d0965aa7ec9ca8c59e7e35053c1d0a7a9ecb3d82a6b80b66923cd1a1a9ba8bb",
+    "installedApkMatchesLocal": true,
+    "disconnectAt": "2026-10-02T00:35:02.671Z",
+    "offlineObservedAt": "2026-10-02T00:35:13.531Z",
+    "restoreAt": "2026-10-02T00:35:13.543Z",
+    "onlineObservedAt": null,
+    "historyPreserved": true,
+    "cityIdentityPreserved": true,
+    "observations": [
+      {
+        "androidCaptureStartedAt": "2026-10-02T00:35:06.080Z",
+        "at": "2026-10-02T00:35:08.908Z",
+        "androidUiPresent": true,
+        "android": [
+          "ONLINE",
+          "UNKNOWN"
+        ],
+        "web": "ONLINE",
+        "webNode": "UNKNOWN"
+      },
+      {
+        "androidCaptureStartedAt": "2026-10-02T00:35:10.935Z",
+        "at": "2026-10-02T00:35:13.531Z",
+        "androidUiPresent": true,
+        "android": [
+          "ONLINE",
+          "OFFLINE"
+        ],
+        "web": "ONLINE",
+        "webNode": "OFFLINE"
+      },
+      {
+        "androidCaptureStartedAt": "2026-10-02T00:35:15.574Z",
+        "at": "2026-10-02T00:35:18.145Z",
+        "androidUiPresent": true,
+        "android": [
+          "ONLINE",
+          "UNKNOWN"
+        ],
+        "web": "ONLINE",
+        "webNode": "UNKNOWN"
+      },
+      {
+        "androidCaptureStartedAt": "2026-10-02T00:35:20.162Z",
+        "at": "2026-10-02T00:35:22.771Z",
+        "androidUiPresent": true,
+        "android": [
+          "ONLINE",
+          "UNKNOWN"
+        ],
+        "web": "ONLINE",
+        "webNode": "UNKNOWN"
+      },
+      {
+        "androidCaptureStartedAt": "2026-10-02T00:35:24.792Z",
+        "at": "2026-10-02T00:35:27.474Z",
+        "androidUiPresent": true,
+        "android": [
+          "ONLINE",
+          "UNKNOWN"
+        ],
+        "web": "ONLINE",
+        "webNode": "UNKNOWN"
+      },
+      {
+        "androidCaptureStartedAt": "2026-10-02T00:35:29.486Z",
+        "at": "2026-10-02T00:35:32.128Z",
+        "androidUiPresent": true,
+        "android": [
+          "ONLINE",
+          "UNKNOWN"
+        ],
+        "web": "ONLINE",
+        "webNode": "UNKNOWN"
+      },
+      {
+        "androidCaptureStartedAt": "2026-10-02T00:35:34.142Z",
+        "at": "2026-10-02T00:35:36.727Z",
+        "androidUiPresent": true,
+        "android": [
+          "ONLINE",
+          "UNKNOWN"
+        ],
+        "web": "ONLINE",
+        "webNode": "UNKNOWN"
+      },
+      {
+        "androidCaptureStartedAt": "2026-10-02T00:35:38.736Z",
+        "at": "2026-10-02T00:35:41.340Z",
+        "androidUiPresent": true,
+        "android": [
+          "ONLINE",
+          "UNKNOWN"
+        ],
+        "web": "ONLINE",
+        "webNode": "UNKNOWN"
+      },
+      {
+        "androidCaptureStartedAt": "2026-10-02T00:35:43.366Z",
+        "at": "2026-10-02T00:35:45.950Z",
+        "androidUiPresent": true,
+        "android": [
+          "ONLINE",
+          "UNKNOWN"
+        ],
+        "web": "ONLINE",
+        "webNode": "UNKNOWN"
+      },
+      {
+        "androidCaptureStartedAt": "2026-10-02T00:35:47.973Z",
+        "at": "2026-10-02T00:35:50.611Z",
+        "androidUiPresent": true,
+        "android": [
+          "ONLINE",
+          "UNKNOWN"
+        ],
+        "web": "ONLINE",
+        "webNode": "UNKNOWN"
+      }
+    ],
+    "success": false
+  }
+]

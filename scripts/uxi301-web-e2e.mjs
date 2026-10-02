@@ -191,7 +191,11 @@ main()
   .then((code) => { teardown(); process.exitCode = code; })
   .catch((error) => {
     console.error('E2E FAILED:', error.message);
-    writeFileSync(`${EVIDENCE}/web-e2e.json`, JSON.stringify({verdict: 'ERROR', error: error.message, notes}, null, 2));
+    // A FAILED run must not overwrite the record of a run that PASSED. My first version wrote the error to
+    // the same path, so an aborted attempt DESTROYED the evidence of a successful one - the exact way a
+    // green result is lost without anyone noticing. Errors go to their own file; web-e2e.json records the
+    // last COMPLETED run.
+    writeFileSync(`${EVIDENCE}/web-e2e-error.json`, JSON.stringify({verdict: 'ERROR', error: error.message, at: new Date().toISOString(), notes}, null, 2));
     teardown();
     process.exitCode = 1;
   });

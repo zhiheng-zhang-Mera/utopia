@@ -1,0 +1,19 @@
+{
+  "verdict": "ERROR",
+  "error": "no work survived on node A; the handoff condition cannot be produced in this City",
+  "results": [
+    {
+      "id": "work survives its device disappearing, assigned and still in flight",
+      "ok": false,
+      "detail": "0 of 10 task(s) survived on node A"
+    }
+  ],
+  "record": {
+    "surviving": {
+      "batch": 10,
+      "stillAssignedAndInFlight": 0,
+      "picked": null,
+      "states": []
+    }
+  }
+}

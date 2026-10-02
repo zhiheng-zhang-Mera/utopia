@@ -221,3 +221,78 @@ export function presentState({ terms = [], terminal = false, failed = false, can
   if (terms.includes('SELECTABLE')) return 'RUNNING';
   return 'DEGRADED';
 }
+
+/**
+ * Assemble the presentation-facing DTO step 3 asks for, from canonical terms only.
+ *
+ * Step 4's rule shapes the whole function: the state must come from BACKEND TRUTH and the layer must
+ * never manufacture a success for the UI. Two structural consequences, not comments:
+ *
+ *   - the projection accepts already-resolved TERMS rather than raw component words, so every input has
+ *     passed through the mapping above and no component's private vocabulary can leak in;
+ *   - the output carries `from_backend_truth` and `fabricated`, and COMPLETED is reachable ONLY from an
+ *     explicit terminal flag with no failure - there is no path that infers success from absence.
+ *
+ * Provider choice is reported but never taken: `provider_choice_required` says whether the user must
+ * decide, and there is no field and no parameter by which this function could make that decision.
+ */
+export function projectStatus({
+  providerTerms = [],
+  terms = [],
+  routeStage = null,
+  terminal = false,
+  failed = false,
+  cancelled = false,
+  waitingUser = false,
+} = {}) {
+  for (const term of [...providerTerms, ...terms]) {
+    if (!TERMS.includes(term)) throw new Error(`${String(term)} is not a presentation term; raw component words must be mapped first`);
+  }
+
+  const providers = Object.freeze(providerTerms.map((term, index) => Object.freeze({
+    index,
+    selectable: term === 'SELECTABLE' || term === 'DEVICE_ONLINE' || term === 'REMOTE_ONLINE',
+    term,
+    class: TERM_CLASS[term],
+    /** A structural refusal will NOT resolve by waiting, so the UI can say so honestly. */
+    resolves_by_waiting: TERM_CLASS[term] === 'RESOURCE',
+  })));
+
+  const anySelectable = providers.some(entry => entry.selectable);
+  const anyStructural = providers.some(entry => entry.class === 'STRUCTURAL');
+  // The user must decide only when no provider is usable AND at least one is not merely busy - a pool
+  // where everything is temporarily saturated needs waiting, not a choice.
+  const providerChoiceRequired = providers.length > 0 && !anySelectable && !providers.every(entry => entry.resolves_by_waiting);
+
+  const allTerms = [...new Set([...providerTerms, ...terms])];
+
+  // The route stage is folded in as a term BEFORE the state is derived, so a queued or handed-off run
+  // renders as such even when no provider reason happens to mention it.
+  const stateTerm = routeStage === 'ALTERNATE_DEVICE' ? 'REMOTE_HANDOFF' : (routeStage === 'QUEUED' ? 'QUEUED' : null);
+  if (stateTerm !== null && !allTerms.includes(stateTerm)) allTerms.push(stateTerm);
+  const finalState = waitingUser ? 'WAITING_USER' : presentState({ terms: allTerms, terminal, failed, cancelled });
+
+  const actionSet = new Set();
+  const isTerminal = ['COMPLETED', 'FAILED', 'CANCELLED'].includes(finalState);
+  if (finalState === 'FAILED') actionSet.add('RETRY');
+  if (!isTerminal) actionSet.add('CANCEL');
+  if (finalState === 'WAITING_USER') actionSet.add('CONFIRM');
+  // Waiting is offered only when waiting can actually help, which is what the RESOURCE class means.
+  if (finalState === 'QUEUED' || allTerms.some(term => TERM_CLASS[term] === 'RESOURCE')) actionSet.add('KEEP_WAITING');
+  if (providerChoiceRequired) actionSet.add('CHOOSE_PROVIDER');
+
+  return Object.freeze({
+    presentation_version: PRESENTATION_CONTRACT_VERSION,
+    state: finalState,
+    providers,
+    provider_choice_required: providerChoiceRequired,
+    provider_choice_taken: false,
+    actions: Object.freeze([...actionSet].filter(action => ALLOWED_ACTIONS.includes(action))),
+    degraded: finalState === 'DEGRADED' || allTerms.some(term => TERM_CLASS[term] === 'KNOWLEDGE'),
+    structural_refusal: anyStructural,
+    /** Step 4, as data: this layer derives state, it never invents it. */
+    from_backend_truth: true,
+    fabricated: false,
+    terms: Object.freeze(allTerms),
+  });
+}

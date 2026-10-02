@@ -1,4 +1,4 @@
-// RS-290 step 2 conformance: the unified presentation vocabulary.
+﻿// RS-290 step 2 conformance: the unified presentation vocabulary.
 //
 // The property defended here is stronger than "no duplicate words". A UI consumer needs that no two
 // DISTINCT MEANINGS share a presentation term - so the four UNKNOWN senses must stay four terms - while
@@ -15,7 +15,7 @@ import * as bridge from '../../rs-cross-device-return-v1/return-bridge.mjs';
 
 import {
   ALLOWED_ACTIONS, PRESENTATION_CONTRACT_VERSION, PRESENTATION_STATES, TERMS, TERM_CLASS, TERM_OF,
-  presentState, presentTerm,
+  presentState, presentTerm, projectStatus,
 } from '../presentation.mjs';
 
 /** The real vocabularies, so the mapping table is checked against the components rather than itself. */
@@ -139,5 +139,79 @@ test('RS-290: the action and state vocabularies are closed sets of the shapes st
   // Step 3's list of states a UI renders, all present.
   for (const required of ['QUEUED', 'RUNNING', 'REMOTE_HANDOFF', 'WAITING_USER', 'DEGRADED', 'COMPLETED']) {
     assert.ok(PRESENTATION_STATES.includes(required), `${required} must be a presentation state`);
+  }
+});
+
+/* ------------------------------------------- step 3: the presentation DTO, and step 4's truth rule */
+
+test('RS-290: a selectable provider renders RUNNING with CANCEL and no choice demanded', () => {
+  const dto = projectStatus({ providerTerms: ['SELECTABLE'] });
+  assert.equal(dto.state, 'RUNNING');
+  assert.equal(dto.provider_choice_required, false);
+  assert.equal(dto.providers[0].selectable, true);
+  assert.deepEqual([...dto.actions], ['CANCEL']);
+});
+
+test('RS-290: a pool that is only BUSY does NOT demand a choice, because waiting can help', () => {
+  // This is the distinction the RESOURCE class carries: saturation resolves on its own, so asking the
+  // user to choose a provider would be asking them to solve something that fixes itself.
+  const dto = projectStatus({ providerTerms: ['AT_CAPACITY', 'PRESSURE_PAUSED'] });
+  assert.equal(dto.provider_choice_required, false);
+  assert.ok(dto.actions.includes('KEEP_WAITING'), 'waiting must be offered when it can help');
+  assert.equal(dto.providers.every(entry => entry.resolves_by_waiting), true);
+  assert.equal(dto.structural_refusal, false);
+});
+
+test('RS-290: a structurally refused pool DOES demand a choice, and does not offer waiting', () => {
+  const dto = projectStatus({ providerTerms: ['REGION_UNSUPPORTED', 'USER_DISABLED'] });
+  assert.equal(dto.provider_choice_required, true);
+  assert.ok(dto.actions.includes('CHOOSE_PROVIDER'));
+  assert.equal(dto.actions.includes('KEEP_WAITING'), false, 'waiting cannot fix a structural refusal');
+  assert.equal(dto.structural_refusal, true);
+  // And the projection never makes the choice on the user's behalf.
+  assert.equal(dto.provider_choice_taken, false);
+});
+
+test('RS-290: RAW component words are REFUSED - only mapped terms may enter the DTO', () => {
+  // The anti-leak guard: without it a component's private vocabulary could reach the UI through the
+  // projection and the three-vocabulary problem would return by the back door.
+  assert.throws(() => projectStatus({ providerTerms: ['AUTH_REQUIRED'] }), /not a presentation term/);
+  assert.throws(() => projectStatus({ terms: ['CACHED_WITHIN_TTL'] }), /not a presentation term/);
+});
+
+test('RS-290: no path FABRICATES success - COMPLETED needs an explicit terminal flag', () => {
+  // Step 4 as an executable property: absence of bad news is not good news.
+  assert.notEqual(projectStatus({ providerTerms: ['SELECTABLE'] }).state, 'COMPLETED');
+  assert.notEqual(projectStatus({ terms: [] }).state, 'COMPLETED');
+  assert.notEqual(projectStatus({ terms: ['SELECTABLE'], terminal: false }).state, 'COMPLETED');
+  assert.equal(projectStatus({ terminal: true }).state, 'COMPLETED');
+  assert.equal(projectStatus({ terminal: true, failed: true }).state, 'FAILED');
+  assert.equal(projectStatus({ terminal: true, cancelled: true }).state, 'CANCELLED');
+  const dto = projectStatus({ terminal: true });
+  assert.equal(dto.from_backend_truth, true);
+  assert.equal(dto.fabricated, false);
+});
+
+test('RS-290: waiting-user, failure and route stage each drive the state and the offered action', () => {
+  assert.equal(projectStatus({ waitingUser: true }).state, 'WAITING_USER');
+  assert.ok(projectStatus({ waitingUser: true }).actions.includes('CONFIRM'));
+  assert.ok(projectStatus({ terminal: true, failed: true }).actions.includes('RETRY'));
+  assert.equal(projectStatus({ routeStage: 'QUEUED' }).state, 'QUEUED');
+  assert.equal(projectStatus({ routeStage: 'ALTERNATE_DEVICE' }).state, 'REMOTE_HANDOFF');
+});
+
+test('RS-290: every DTO output is inside the declared vocabularies', () => {
+  const states = new Set(PRESENTATION_STATES);
+  const actions = new Set(ALLOWED_ACTIONS);
+  const inputs = [
+    { providerTerms: ['SELECTABLE'] }, { providerTerms: ['AT_CAPACITY'] }, { providerTerms: ['USER_DISABLED'] },
+    { terms: ['FRESHNESS_UNKNOWN'] }, { routeStage: 'QUEUED' }, { routeStage: 'ALTERNATE_DEVICE' },
+    { waitingUser: true }, { terminal: true }, { terminal: true, failed: true }, { terminal: true, cancelled: true },
+  ];
+  for (const input of inputs) {
+    const dto = projectStatus(input);
+    assert.ok(states.has(dto.state), `${JSON.stringify(input)} gave undeclared state ${dto.state}`);
+    for (const action of dto.actions) assert.ok(actions.has(action), `undeclared action ${action}`);
+    assert.equal(dto.provider_choice_taken, false, 'the DTO must never record a choice it did not make');
   }
 });

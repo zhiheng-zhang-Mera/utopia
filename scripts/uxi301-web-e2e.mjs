@@ -78,6 +78,18 @@ async function waitFor(label, predicate, {tries = 40, every = 500} = {}) {
   throw new Error(`timed out waiting for ${label}`);
 }
 
+const WATCHDOG_MS = Number(process.env.E2E_WATCHDOG_MS || 240000);
+const watchdog = setTimeout(() => {
+  writeFileSync(`${EVIDENCE}/web-e2e-error.json`, JSON.stringify({
+    verdict: 'TIMEOUT', at: new Date().toISOString(),
+    error: `exceeded the internal ${WATCHDOG_MS}ms budget`, notes,
+  }, null, 2));
+  console.error(`WATCHDOG: exceeded ${WATCHDOG_MS}ms; wrote web-e2e-error.json`);
+  for (const child of children) { try { child.kill(); } catch { /* gone */ } }
+  process.exit(1);
+}, WATCHDOG_MS);
+watchdog.unref?.();
+
 const teardown = () => {
   for (const child of children) {
     try { child.kill(); } catch { /* already gone */ }
@@ -173,6 +185,32 @@ async function main() {
     restoredPanel !== starvedPanel,
     `changed=${restoredPanel !== starvedPanel}`);
 
+  // ------------------- condition 3: the user's choice really reaches the backend THROUGH THE UI
+  // The previous attempt at this condition hung. The cause is that the shell RE-RENDERS the Devices page
+  // every second, so a Playwright locator is detached and re-created before its actionability checks can
+  // settle. Dispatching the click IN PAGE targets the live DOM node the user would press and still runs
+  // the shell's real handler, so the backend call under test is the real one.
+  log('=== condition 3: the user chooses a service through the real control ===');
+  await page.locator('#run').click();
+  await waitFor('a selectable provider control', async () => (await page.locator('[data-scheduler-provider]').count()) > 0, {tries: 30, every: 1000});
+  const target = await page.evaluate(() => {
+    const el = document.querySelector('[data-scheduler-provider]');
+    if (!el) return null;
+    const info = {providerRef: el.getAttribute('data-scheduler-provider'), taskId: el.getAttribute('data-scheduler-task')};
+    el.click();
+    return info;
+  });
+  assert('a selectable provider offers a real choice control', !!target && !!target.providerRef, JSON.stringify(target));
+  const recorded = await waitFor('the backend to record the user choice', async () => {
+    const tasks = (await api('tasks')).tasks ?? [];
+    const task = tasks.find((t) => t.id === target.taskId);
+    return task?.chosenProviderRef ? task : null;
+  }, {tries: 30, every: 1000});
+  run.conditions.userChoice = {chosen: target, recordedProviderRef: recorded.chosenProviderRef, userChoiceAt: recorded.userChoiceAt};
+  assert('the choice made in the UI really reached the backend', recorded.chosenProviderRef === target.providerRef,
+    `recorded ${recorded.chosenProviderRef} for ${target.taskId}`);
+  assert('the backend recorded when the user chose', typeof recorded.userChoiceAt === 'string' && recorded.userChoiceAt.length > 0, String(recorded.userChoiceAt));
+
   // ---------------------------------------------------------------- advanced gate
   const html = await page.locator('.scheduler-panel').innerHTML();
   run.conditions.markup = {containsTechnicalFold: html.includes('scheduler-technical'), length: html.length};
@@ -188,8 +226,9 @@ async function main() {
 }
 
 main()
-  .then((code) => { teardown(); process.exitCode = code; })
+  .then((code) => { clearTimeout(watchdog); teardown(); process.exitCode = code; })
   .catch((error) => {
+    clearTimeout(watchdog);
     console.error('E2E FAILED:', error.message);
     // A FAILED run must not overwrite the record of a run that PASSED. My first version wrote the error to
     // the same path, so an aborted attempt DESTROYED the evidence of a successful one - the exact way a

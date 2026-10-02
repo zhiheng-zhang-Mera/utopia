@@ -1,4 +1,4 @@
-# RS-290 two-device E2E pipeline - ONE command, because the harness kills the process tree
+﻿# RS-290 two-device E2E pipeline - ONE command, because the harness kills the process tree
 # when a tool call ends (Mech's measured environment fact), so services cannot be started in an
 # earlier call. The APK is already built from the integrated head and installed with a verified
 # hash match, so it is deliberately NOT rebuilt here.
@@ -54,7 +54,7 @@ Start-Sleep -Seconds 5
 
 # 5. the two config files the pilot READS but never writes
 [System.IO.File]::WriteAllText("$root\.runtime\local-config.json", (@{ token = $env:CITY_TOKEN; nodeToken = $env:CITY_NODE_TOKEN } | ConvertTo-Json -Compress), (New-Object System.Text.UTF8Encoding($false)))
-[System.IO.File]::WriteAllText("$root\.runtime\processes.json", (@{ url = 'http://127.0.0.1:4310'; roomsUrl = 'http://127.0.0.1:4320' } | ConvertTo-Json -Compress), (New-Object System.Text.UTF8Encoding($false)))
+[System.IO.File]::WriteAllText("$root\.runtime\processes.json", (@{ url = 'http://127.0.0.1:4310'; roomsUrl = 'http://127.0.0.1:4320'; gatewayPid = $gw.Id; agentPid = $node.Id } | ConvertTo-Json -Compress), (New-Object System.Text.UTF8Encoding($false)))
 Write-Output "configs written"
 
 # 5b. seed the APP's own stored connection with THIS run's credentials.

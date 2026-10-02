@@ -2,42 +2,47 @@
   {
     "kind": "node",
     "run": 1,
-    "codeSha": "6514733810208aaf24c0d11358dc13c96965b6a3",
+    "codeSha": "5cc081b6e08ccce65bc281e6abfa09c454756488",
     "apkSha256": "7c42f4231fe5c0f8e16d61c69ea2e36880f51fb8882acac264f7bc107ab59721",
     "localApkSha256": "7c42f4231fe5c0f8e16d61c69ea2e36880f51fb8882acac264f7bc107ab59721",
     "installedApkMatchesLocal": true,
-    "disconnectAt": "2026-10-02T02:19:43.769Z",
-    "offlineObservedAt": "2026-10-02T02:20:02.357Z",
-    "restoreAt": "2026-10-02T02:20:02.362Z",
-    "onlineObservedAt": "2026-10-02T02:20:12.155Z",
+    "sweptStrayAgents": 4,
+    "disconnectAt": "2026-10-02T04:03:02.884Z",
+    "offlineObservedAt": "2026-10-02T04:03:22.096Z",
+    "restoreAt": "2026-10-02T04:03:22.758Z",
+    "onlineObservedAt": "2026-10-02T04:03:33.614Z",
     "historyPreserved": true,
     "cityIdentityPreserved": true,
     "observations": [
       {
-        "androidCaptureStartedAt": "2026-10-02T02:19:46.498Z",
-        "at": "2026-10-02T02:19:53.327Z",
+        "androidCaptureStartedAt": "2026-10-02T04:03:05.600Z",
+        "at": "2026-10-02T04:03:12.516Z",
         "androidUiPresent": true,
         "android": [
           "ONLINE",
           "ONLINE"
         ],
         "web": "ONLINE",
-        "webNode": "OFFLINE"
+        "webNode": "OFFLINE",
+        "stoppedPid": 66732,
+        "stoppedPidAlive": false
       },
       {
-        "androidCaptureStartedAt": "2026-10-02T02:19:55.342Z",
-        "at": "2026-10-02T02:20:02.357Z",
+        "androidCaptureStartedAt": "2026-10-02T04:03:15.161Z",
+        "at": "2026-10-02T04:03:22.096Z",
         "androidUiPresent": true,
         "android": [
           "ONLINE",
           "OFFLINE"
         ],
         "web": "ONLINE",
-        "webNode": "OFFLINE"
+        "webNode": "OFFLINE",
+        "stoppedPid": 66732,
+        "stoppedPidAlive": false
       },
       {
-        "androidCaptureStartedAt": "2026-10-02T02:20:05.292Z",
-        "at": "2026-10-02T02:20:12.155Z",
+        "androidCaptureStartedAt": "2026-10-02T04:03:25.710Z",
+        "at": "2026-10-02T04:03:33.614Z",
         "androidUiPresent": true,
         "android": [
           "ONLINE",
@@ -52,42 +57,47 @@
   {
     "kind": "node",
     "run": 2,
-    "codeSha": "6514733810208aaf24c0d11358dc13c96965b6a3",
+    "codeSha": "5cc081b6e08ccce65bc281e6abfa09c454756488",
     "apkSha256": "7c42f4231fe5c0f8e16d61c69ea2e36880f51fb8882acac264f7bc107ab59721",
     "localApkSha256": "7c42f4231fe5c0f8e16d61c69ea2e36880f51fb8882acac264f7bc107ab59721",
     "installedApkMatchesLocal": true,
-    "disconnectAt": "2026-10-02T02:20:12.167Z",
-    "offlineObservedAt": "2026-10-02T02:20:31.254Z",
-    "restoreAt": "2026-10-02T02:20:31.259Z",
-    "onlineObservedAt": "2026-10-02T02:20:41.040Z",
+    "sweptStrayAgents": 4,
+    "disconnectAt": "2026-10-02T04:03:33.627Z",
+    "offlineObservedAt": "2026-10-02T04:03:52.933Z",
+    "restoreAt": "2026-10-02T04:03:53.575Z",
+    "onlineObservedAt": "2026-10-02T04:04:03.424Z",
     "historyPreserved": true,
     "cityIdentityPreserved": true,
     "observations": [
       {
-        "androidCaptureStartedAt": "2026-10-02T02:20:14.861Z",
-        "at": "2026-10-02T02:20:21.797Z",
+        "androidCaptureStartedAt": "2026-10-02T04:03:36.385Z",
+        "at": "2026-10-02T04:03:43.391Z",
         "androidUiPresent": true,
         "android": [
           "ONLINE",
           "ONLINE"
         ],
         "web": "ONLINE",
-        "webNode": "OFFLINE"
+        "webNode": "OFFLINE",
+        "stoppedPid": 49028,
+        "stoppedPidAlive": false
       },
       {
-        "androidCaptureStartedAt": "2026-10-02T02:20:23.814Z",
-        "at": "2026-10-02T02:20:31.254Z",
+        "androidCaptureStartedAt": "2026-10-02T04:03:46.041Z",
+        "at": "2026-10-02T04:03:52.933Z",
         "androidUiPresent": true,
         "android": [
           "ONLINE",
           "OFFLINE"
         ],
         "web": "ONLINE",
-        "webNode": "OFFLINE"
+        "webNode": "OFFLINE",
+        "stoppedPid": 49028,
+        "stoppedPidAlive": false
       },
       {
-        "androidCaptureStartedAt": "2026-10-02T02:20:34.189Z",
-        "at": "2026-10-02T02:20:41.040Z",
+        "androidCaptureStartedAt": "2026-10-02T04:03:56.492Z",
+        "at": "2026-10-02T04:04:03.424Z",
         "androidUiPresent": true,
         "android": [
           "ONLINE",
@@ -102,42 +112,34 @@
   {
     "kind": "node",
     "run": 3,
-    "codeSha": "6514733810208aaf24c0d11358dc13c96965b6a3",
+    "codeSha": "5cc081b6e08ccce65bc281e6abfa09c454756488",
     "apkSha256": "7c42f4231fe5c0f8e16d61c69ea2e36880f51fb8882acac264f7bc107ab59721",
     "localApkSha256": "7c42f4231fe5c0f8e16d61c69ea2e36880f51fb8882acac264f7bc107ab59721",
     "installedApkMatchesLocal": true,
-    "disconnectAt": "2026-10-02T02:20:41.051Z",
-    "offlineObservedAt": "2026-10-02T02:20:59.648Z",
-    "restoreAt": "2026-10-02T02:20:59.652Z",
-    "onlineObservedAt": "2026-10-02T02:21:09.559Z",
+    "sweptStrayAgents": 4,
+    "disconnectAt": "2026-10-02T04:04:03.438Z",
+    "offlineObservedAt": "2026-10-02T04:04:13.193Z",
+    "restoreAt": "2026-10-02T04:04:13.864Z",
+    "onlineObservedAt": "2026-10-02T04:04:23.746Z",
     "historyPreserved": true,
     "cityIdentityPreserved": true,
     "observations": [
       {
-        "androidCaptureStartedAt": "2026-10-02T02:20:43.722Z",
-        "at": "2026-10-02T02:20:50.734Z",
-        "androidUiPresent": true,
-        "android": [
-          "ONLINE",
-          "ONLINE"
-        ],
-        "web": "ONLINE",
-        "webNode": "OFFLINE"
-      },
-      {
-        "androidCaptureStartedAt": "2026-10-02T02:20:52.749Z",
-        "at": "2026-10-02T02:20:59.648Z",
+        "androidCaptureStartedAt": "2026-10-02T04:04:06.117Z",
+        "at": "2026-10-02T04:04:13.193Z",
         "androidUiPresent": true,
         "android": [
           "ONLINE",
           "OFFLINE"
         ],
         "web": "ONLINE",
-        "webNode": "OFFLINE"
+        "webNode": "OFFLINE",
+        "stoppedPid": 51644,
+        "stoppedPidAlive": false
       },
       {
-        "androidCaptureStartedAt": "2026-10-02T02:21:02.607Z",
-        "at": "2026-10-02T02:21:09.559Z",
+        "androidCaptureStartedAt": "2026-10-02T04:04:16.793Z",
+        "at": "2026-10-02T04:04:23.746Z",
         "androidUiPresent": true,
         "android": [
           "ONLINE",

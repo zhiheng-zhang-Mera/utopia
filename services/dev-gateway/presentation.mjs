@@ -25,6 +25,7 @@
 
 import {presentTerm, termRef, projectStatus} from '../../contracts/rs-presentation-contract-v1/presentation.mjs';
 import {evaluateEligibility} from '../../city/00-foundation/01-city-core/fleet-routing/pressure.mjs';
+import {planRoute} from '../../city/00-foundation/01-city-core/fleet-routing/routing-sequence.mjs';
 
 export const PRESENTATION_FEED_VERSION = 1;
 
@@ -122,6 +123,43 @@ export function eligibilityFor(candidate, {load, enablement = 'ENABLED', session
  * The task's own terminal truth comes from the City's state, never from the absence of bad news: only
  * a genuinely terminal state sets `terminal`, so `COMPLETED` is unreachable by omission.
  */
+/**
+ * The route stage for a task, decided by RS-202's own planner over REAL City state.
+ *
+ * TWO stages are returned, and MEASURING the planner is what settled which. Probing planRoute over real
+ * inputs showed that a busy device with a free alternative yields 'SWITCH_OFFERED', and reaches
+ * 'ALTERNATE_DEVICE' ONLY when userDeclinedSwitch is set - so an AUTOMATIC handoff is unreachable in this
+ * City, which has no switch-decline flow, while the SWITCH OFFER is reachable today. Reporting the offer is
+ * therefore the honest surface, and 'ALTERNATE_DEVICE' is included so a real handoff renders the moment one
+ * can occur.
+ *
+ * 'DIRECT' and the rest are deliberately NOT returned: 'DIRECT' maps to the SELECTABLE term, so reporting it
+ * for every task would add a permitted term to every DTO and render every run as RUNNING regardless of its
+ * providers. A stage is surfaced only when it tells the surface something it could not infer.
+ */
+export function routeStageFor({task, candidates = [], load, otherInFlightByNode = null} = {}) {
+  if (candidates.length < 2) return null;
+  const assigned = typeof task?.assignedNodeId === 'string' && task.assignedNodeId.length > 0 ? task.assignedNodeId : null;
+  // No assignment means no current device, so there is no routing decision to report. Returning a stage
+  // here would describe a move that cannot happen, from a device the task was never placed on.
+  if (assigned === null) return null;
+  const inputs = candidates.map((candidate) => {
+    const sessionConcurrency = typeof otherInFlightByNode?.get === 'function'
+      ? (otherInFlightByNode.get(candidate.deviceRef) ?? 0)
+      : 0;
+    return {...candidate.device, load: load === undefined ? (candidate.load ?? null) : load, sessionConcurrency};
+  });
+  const currentIndex = candidates.findIndex((c) => c.deviceRef === assigned);
+  if (currentIndex < 0) return null; // the assigned device is not among the candidates
+
+  const current = inputs[currentIndex];
+  const alternates = candidates
+    .map((candidate, index) => ({deviceRef: candidate.deviceRef, ...inputs[index]}))
+    .filter((_, index) => index !== currentIndex);
+  const {stage} = planRoute({originDeviceRef: candidates[currentIndex].deviceRef, current, alternates});
+  return stage === 'ALTERNATE_DEVICE' || stage === 'SWITCH_OFFERED' ? stage : null;
+}
+
 export function projectTaskStatus({task, candidates = [], load, routeStage = null, otherInFlightByNode = null} = {}) {
   if (!task || typeof task !== 'object') throw new Error('projectTaskStatus requires a task');
   const state = String(task.state ?? '');
@@ -137,7 +175,15 @@ export function projectTaskStatus({task, candidates = [], load, routeStage = nul
   });
   return projectStatus({
     providerRefs: refs,
-    routeStageRef: routeStage === null ? null : termRef('RS-202.ROUTE_STAGES', routeStage),
+    /**
+     * The route stage is passed as a TERM, not as a routeStageRef, and that distinction was found by
+     * driving it. The contract folds only 'REMOTE_HANDOFF' and 'QUEUED' out of a routeStageRef - its own
+     * choice, and the workbook forbids me changing the contract - so a SWITCH_OFFERED stage was passed in
+     * and silently dropped, making the whole route integration inert. SWITCH_OFFERED maps to the
+     * WAITING_USER TERM in the same table, and presenting it as a term is exactly what it is: the run is
+     * waiting on a user decision. ALTERNATE_DEVICE maps to REMOTE_HANDOFF, so both reach the state.
+     */
+    termRefs: routeStage === null ? [] : [termRef('RS-202.ROUTE_STAGES', routeStage)],
     terminal,
     failed: state === 'FAILED',
     cancelled: state === 'CANCELLED',
@@ -177,7 +223,12 @@ export function buildPresentationFeed({tasks = [], nodes = [], includeTerminal =
     entries.push(Object.freeze({
       taskId: typeof task?.id === 'string' ? task.id : null,
       taskState: state,
-      dto: projectTaskStatus({task, candidates, otherInFlightByNode: othersFor(task)}),
+      dto: projectTaskStatus({
+        task,
+        candidates,
+        otherInFlightByNode: othersFor(task),
+        routeStage: routeStageFor({task, candidates, otherInFlightByNode: othersFor(task)}),
+      }),
     }));
   }
   return Object.freeze({
@@ -200,4 +251,4 @@ export function termsInUse(feed) {
 
 export {presentTerm};
 
-export default {PRESENTATION_FEED_VERSION, candidateFromNode, eligibilityFor, projectTaskStatus, buildPresentationFeed, termsInUse};
+export default {PRESENTATION_FEED_VERSION, candidateFromNode, eligibilityFor, routeStageFor, projectTaskStatus, buildPresentationFeed, termsInUse};

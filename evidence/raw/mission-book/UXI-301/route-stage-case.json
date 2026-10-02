@@ -1,0 +1,60 @@
+{
+  "feedEntry": {
+    "batchIds": [
+      "Q-7d442884-c416-4e7b-aeb6-1067209a2488",
+      "Q-2823d800-b2ea-4f54-a068-7022ad92edab",
+      "Q-b8d19d37-9d9b-47ad-8af7-be13a044232f",
+      "Q-608c59da-03e6-406b-bccf-0bc61e52573b",
+      "Q-97fd144f-096b-4630-a657-dcca3545949e",
+      "Q-3712bf99-a5c0-4271-8688-eb6d826d95d0"
+    ],
+    "taskCount": 8,
+    "busyTaskCount": 8,
+    "switchOfferedTaskCount": 2,
+    "sampleBusyTerms": [
+      "DEVICE_REFUSING",
+      "AT_CAPACITY",
+      "SELECTABLE"
+    ],
+    "sampleOfferedTerms": [
+      "DEVICE_REFUSING",
+      "AT_CAPACITY",
+      "SELECTABLE",
+      "WAITING_USER"
+    ]
+  },
+  "plannerEvidence": {
+    "withoutDecline": "SWITCH_OFFERED",
+    "withDecline": "ALTERNATE_DEVICE"
+  },
+  "verdict": "PASS",
+  "results": [
+    {
+      "id": "an occupied node is reported as busy while the work is in flight",
+      "ok": true,
+      "detail": "8 of 8 tasks see AT_CAPACITY"
+    },
+    {
+      "id": "the route stage is now produced rather than always null",
+      "ok": true,
+      "detail": "2 task(s) carry WAITING_USER from the switch offer"
+    },
+    {
+      "id": "the surface asks the user rather than silently deciding for them",
+      "ok": true,
+      "detail": "<section class=\"panel scheduler-panel\"><h2>Why things are waiting</h2><article class=\"scheduler-task attention\" data-task-ref=\"Q-d556b6b3-aa23-4f2c-9972-7e8d0011882d\"><header class=\"scheduler-task-hea"
+    },
+    {
+      "id": "the route-stage surface leaks no raw vocabulary",
+      "ok": true
+    },
+    {
+      "id": "the planner reaches ALTERNATE_DEVICE only AFTER a declined switch, which is why it is not driven",
+      "ok": true,
+      "detail": "withoutDecline=SWITCH_OFFERED withDecline=ALTERNATE_DEVICE"
+    }
+  ],
+  "notDriven": {
+    "alternateDevice": "ALTERNATE_DEVICE (automatic remote handoff) is reached by planRoute only when userDeclinedSwitch is set. This City has no switch-decline flow, so an automatic handoff cannot occur yet, and it is NOT asserted from a fabricated flag - the planner evidence above shows the exact condition it needs. REMOTE_HANDOFF remains owed with that precise cause."
+  }
+}

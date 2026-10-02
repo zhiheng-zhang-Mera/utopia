@@ -4,6 +4,7 @@
 // which handles the neutral SecureHandleStorePort owns. It never logs in, executes or chooses.
 export * from './records.mjs';
 export * from './registry.mjs';
+export * from './availability.mjs';
 
 export const GAI_REGISTRY_CONTRACT = Object.freeze({
   id: 'general-ai-registry',

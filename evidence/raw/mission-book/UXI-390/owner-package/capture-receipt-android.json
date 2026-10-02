@@ -1,0 +1,35 @@
+{
+    "task":  "UXI-390",
+    "step":  "5 (Android half of the minimal Owner-facing package)",
+    "capturedAt":  "2026-10-02T10:57:06Z",
+    "implementationHead":  "40bd11811c2170446e14335d10aa3ba1f66d31f7",
+    "device":  "List of devices attached BICIPVNB5HS85H9T\tdevice",
+    "gatewayPort":  4361,
+    "roomHubPort":  4320,
+    "roomsAvailable":  true,
+    "screenshots":  [
+                        {
+                            "file":  "evidence/raw/mission-book/UXI-390/owner-package/android-home.png",
+                            "bytes":  101207,
+                            "sha256":  "d58d2e7d347e7aae857c21819ef37142843ff054bd85c6771eadc28176e49ec9",
+                            "tabTapped":  "home @(108,2220) label=\u0027\u0027",
+                            "visibleText":  "UTOPIA | ONLINE | Digital City | Your devices. One shared view. | RUNTIME NODES | Alien-PC | ONLINE | RUNNING | 0 | COMPLETED | 0 | Run Test Task | RECENT TASKS | No tasks yet. Start with a safe test task. | Last snapshot: 下午8:56:38 | Home | Ask | Rooms | Devices | Activity | 更多"
+                        },
+                        {
+                            "file":  "evidence/raw/mission-book/UXI-390/owner-package/android-ask.png",
+                            "bytes":  123927,
+                            "sha256":  "520850a6aaf04baa02ec325f55a91065767e2dfb71273566527173967a9636d4",
+                            "tabTapped":  "ask @(324,2220) label=\u0027\u0027",
+                            "visibleText":  "UTOPIA | ONLINE | Ask / Do | Your devices. One shared view. | 对话 · 执行 | Ask / Do | 用你自己的话说想做什么。Gateway 用固定规则找到对应的本地工具、City 能力或 City 任务——没有任何模型参与决定去向。 | 你想做什么？ | 去做 | Last snapshot: 下午8:56:50 | Home | Ask | Rooms | Devices | Activity | 更多"
+                        },
+                        {
+                            "file":  "evidence/raw/mission-book/UXI-390/owner-package/android-tools.png",
+                            "bytes":  109446,
+                            "sha256":  "89604fc5a0e1333b67c819dab820feb5ac95ca716af4246531f928037585dbe2",
+                            "tabTapped":  "tools @(540,2220) label=\u0027\u0027",
+                            "visibleText":  "UTOPIA | ONLINE | Rooms · local tools | Your devices. One shared view. | Local Rooms | Ten local personal tools on your Utopia host. Android observes them through the authenticated gateway; it never talks to the Room Hub directly and never opens its loopback port. | Check Room availability | Room availability has not been read yet. | Last snapshot: 下午8:57:02 | Home | Ask | Rooms | Devices | Activity | 更多"
+                        }
+                    ],
+    "distinctSurfaces":  3,
+    "distinctImageHashes":  3
+}

@@ -1,0 +1,94 @@
+{
+  "at": "2026-10-02T05:50:40.453Z",
+  "verdict": "PASS",
+  "results": [
+    {
+      "id": "two tasks submitted CONCURRENTLY are both accepted",
+      "ok": true,
+      "detail": "Q-c597f681-9492-4532-aac8-98701ead9996, Q-a1216c20-eec5-4233-b4ea-279f5c3976df"
+    },
+    {
+      "id": "the feed carries both in-flight tasks, so the surface sees the real concurrency",
+      "ok": true,
+      "detail": "feed has 5 task(s)"
+    },
+    {
+      "id": "the panel renders one card per in-flight task, not a collapsed summary",
+      "ok": true,
+      "detail": "cards=5"
+    },
+    {
+      "id": "concurrent work does not leak raw vocabulary into the panel",
+      "ok": true
+    },
+    {
+      "id": "a node already running work reports AT_CAPACITY to other tasks",
+      "ok": true,
+      "detail": "SELECTABLE, AT_CAPACITY"
+    },
+    {
+      "id": "a RUNNING task is not blocked by its own occupancy, so it still reports as running",
+      "ok": true,
+      "detail": "a run must not be reported as queued because it occupies the node itself"
+    },
+    {
+      "id": "the panel states the busy condition in user language",
+      "ok": true,
+      "detail": "<section class=\"panel scheduler-panel\"><h2>Why things are waiting</h2><article class=\"scheduler-task ok\" data-task-ref=\"Q-41782cf0-3d4f-44ba-90c0-8370fee295a7\">"
+    },
+    {
+      "id": "the busy condition leaks no raw vocabulary",
+      "ok": true
+    },
+    {
+      "id": "the contract reports a structural DEVICE refusal for the absent executor",
+      "ok": true,
+      "detail": "DEVICE_REFUSING"
+    },
+    {
+      "id": "the panel states that refusal in user language",
+      "ok": true,
+      "detail": "<section class=\"panel scheduler-panel\"><h2>Why things are waiting</h2><article class=\"scheduler-task attention\" data-task-ref=\"Q-41782cf0-3d4f-44ba-90"
+    },
+    {
+      "id": "and still leaks no raw vocabulary",
+      "ok": true
+    }
+  ],
+  "cases": {
+    "concurrency": {
+      "taskIds": [
+        "Q-c597f681-9492-4532-aac8-98701ead9996",
+        "Q-a1216c20-eec5-4233-b4ea-279f5c3976df"
+      ],
+      "feedTaskCount": 5,
+      "panelCards": 5,
+      "pass": true
+    },
+    "deviceBusy": {
+      "terms": [
+        "SELECTABLE",
+        "AT_CAPACITY"
+      ],
+      "atCapacity": true,
+      "eligibleForRunningOwn": true,
+      "panel": "<section class=\"panel scheduler-panel\"><h2>Why things are waiting</h2><article class=\"scheduler-task ok\" data-task-ref=\"Q-41782cf0-3d4f-44ba-90c0-8370fee295a7\"><header class=\"scheduler-task-head\"><span class=\"scheduler-task-state\">In progress</span><span class=\"task-id\">Q-41782cf0-3d4f-44ba-90c0-837",
+      "driven": true,
+      "pass": true
+    },
+    "providerUnavailable": {
+      "terms": [
+        "DEVICE_REFUSING"
+      ],
+      "structuralTerms": [
+        "DEVICE_REFUSING"
+      ],
+      "panel": "<section class=\"panel scheduler-panel\"><h2>Why things are waiting</h2><article class=\"scheduler-task attention\" data-task-ref=\"Q-41782cf0-3d4f-44ba-90c0-8370fee295a7\"><header class=\"scheduler-task-head\"><span class=\"scheduler-task-state\">Running in a reduced state</span><span class=\"task-id\">Q-41782cf0-3d4f-44ba-90c0-8370fee295a7</span></header><p class=\"scheduler-question\">The current service is ",
+      "pass": true
+    },
+    "remoteHandoff": {
+      "driven": false,
+      "reason": "REMOTE_HANDOFF requires a route stage the City does not produce: the feed calls projectStatus with routeStageRef null because no routing-sequence integration exists on this branch, and a handoff would need two real devices. Recorded as not driven rather than asserted from a fabricated route stage."
+    }
+  }
+}

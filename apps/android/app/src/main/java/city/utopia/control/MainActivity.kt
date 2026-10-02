@@ -98,6 +98,24 @@ class MainActivity : ComponentActivity() {
     if (page == "Find") {
      item { PairingPanel(log, intent?.dataString, { page="Settings" }, { h,t,id -> host=h; token=t; prefs.edit().putString("host",h).putString("token",t).putString("cityId",id).apply(); state=CityState("RECONNECTING"); settingsRevision++; page="Devices"; intent.data=null }) }
     } else if (page == "Devices") {
+     // UXI-301: show WHY things are waiting ahead of the device list, on the overview only - a single
+     // device's detail view is about that device, and repeating the fleet-wide panel there would bury it.
+     // UXI-390: the surface now WIRES its actions instead of omitting the handler. supportedActions names
+     // the ones this surface actually implements, and the panel renders anything else DISABLED rather than
+     // inert - the honesty rule. CHOOSE_PROVIDER sends the service the panel resolved from the feed, to the
+     // same backend route the web surface already uses.
+     if(selectedNode==null) item {
+       SchedulerStatusPanel(
+         state.feed, online,
+         supportedActions = setOf("CANCEL"),
+         onChooseProvider = { taskId, providerRef -> client?.providerChoice(taskId, providerRef) },
+         onAction = { taskId, token, providerRef ->
+           when (token) {
+             "CANCEL" -> client?.cancel(taskId)
+           }
+         },
+       )
+     }
      if(nodes.isEmpty()) item { Text("Waiting for devices") }
      nodes.filter { selectedNode == null || it.optString("id")==selectedNode }.forEach { n -> item { DeviceCard(n,online,now,selectedNode!=null,tasks,events) { selectedNode=n.optString("id") } } }
      if(selectedNode!=null) item { OutlinedButton(onClick={selectedNode=null}) { Text("All devices") } }

@@ -12,7 +12,7 @@ import org.json.JSONObject
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-data class CityState(val connection: String = "OFFLINE", val snapshot: JSONObject? = null, val message: String = "Choose Scan QR, Nearby Cities (LAN), Nearby via Bluetooth, or Manual connection.")
+data class CityState(val connection: String = "OFFLINE", val snapshot: JSONObject? = null, val message: String = "Choose Scan QR, Nearby Cities (LAN), Nearby via Bluetooth, or Manual connection.", val feed: JSONObject? = null)
 
 class CityClient(context: Context, private val host: String, private val token: String, private val log: PilotLog, private val expectedCity: String?, private val changed: (CityState) -> Unit) {
  private val handler = Handler(Looper.getMainLooper())
@@ -23,9 +23,19 @@ class CityClient(context: Context, private val host: String, private val token: 
  @Volatile private var socket: WebSocket? = null
  @Volatile private var socketOnline = false
  private var snapshot: JSONObject? = null
+ /**
+  * UXI-301: the scheduler presentation feed from GET /api/v0/presentation, held beside the snapshot so
+  * the Devices surface can explain WHY something is waiting using the same semantics as Web.
+  *
+  * It is fetched non-fatally: a gateway that does not serve the route, or a transient failure, leaves
+  * this null and the surface says the status is not being reported. It must NOT fall back to deriving a
+  * status from the snapshot here, because that would be the Android client recomputing scheduling truth
+  * - which the workbook forbids and which is how the two surfaces would start to disagree.
+  */
+ @Volatile private var feed: JSONObject? = null
  private var snapshotLogged = false
  private var lastPublishedConnection = ""
- private fun publish(connection: String, message: String = "") { val value = CityState(connection, snapshot, message); handler.post { if (!closed) { if (connection != lastPublishedConnection) { android.util.Log.i("UtopiaConnection", connection); log.event("connection_" + connection); if(connection == "ONLINE") log.event("websocketOnline"); lastPublishedConnection = connection }; changed(value) } } }
+ private fun publish(connection: String, message: String = "") { val value = CityState(connection, snapshot, message, feed); handler.post { if (!closed) { if (connection != lastPublishedConnection) { android.util.Log.i("UtopiaConnection", connection); log.event("connection_" + connection); if(connection == "ONLINE") log.event("websocketOnline"); lastPublishedConnection = connection }; changed(value) } } }
  private fun request(path: String, body: JSONObject? = null): JSONObject {
   val builder = Request.Builder().url(host.trimEnd('/') + "/api/v0/" + path).header("Authorization", "Bearer $token").header("X-City-Api-Version", "0").header("X-City-Schema-Version", "0")
   if (body != null) builder.post(body.toString().toRequestBody("application/json".toMediaType()))
@@ -49,6 +59,10 @@ class CityClient(context: Context, private val host: String, private val token: 
    val fresh = request("city")
    check(expectedCity == null || fresh.optString("cityId") == expectedCity) { "City identity conflict; clear pairing and verify host" }
    snapshot = fresh
+   // UXI-301: the scheduler feed is fetched NON-FATALLY. A gateway without the route leaves this null
+   // and the surface reports "not being reported" rather than inventing a status. The failure mode this
+   // must never have is presenting a healthy surface because the fetch silently failed.
+   feed = runCatching { request("presentation") }.getOrNull()
    if(!snapshotLogged) { log.event("authenticated"); log.event("snapshotLoaded"); snapshotLogged=true }
    if (socket == null) openStream()
    publish(if (socketOnline) "ONLINE" else "RECONNECTING")
@@ -96,5 +110,9 @@ class CityClient(context: Context, private val host: String, private val token: 
  }
  fun askTargets(done: (JSONObject) -> Unit) { submit { deliver(row("ask/targets"),done) } }
  fun cancel(id: String) { submit { try { request("tasks/$id/cancel", JSONObject()); refresh() } catch (e: Exception) { publish(if (socketOnline) "ONLINE" else "OFFLINE", e.message ?: "Cancel failed") } } }
+ fun providerChoice(id: String, providerRef: String) {
+  if (providerRef.isBlank()) { publish(if (socketOnline) "ONLINE" else "OFFLINE", "No service named for the choice"); return }
+  submit { try { request("tasks/$id/provider-choice", JSONObject().put("providerRef", providerRef)); refresh() } catch (e: Exception) { publish(if (socketOnline) "ONLINE" else "OFFLINE", e.message ?: "Choice failed") } }
+ }
  fun close() { closed = true; runCatching { connectivity.unregisterNetworkCallback(callback) }; socket?.cancel(); executor.shutdownNow(); http.dispatcher.cancelAll(); http.connectionPool.evictAll() }
 }

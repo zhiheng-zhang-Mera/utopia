@@ -47,7 +47,7 @@ fun SchedulerStatusPanel(
       // an index into this list. Vars are resolved after dumping the real gateway feed, having first wrongly
       // assumed a providerRefs field inside the DTO.
       val candidateRefs: List<String> = feed?.optJSONArray("candidates")?.let { arr ->
-        (0 until arr.length()).map { i -> arr.optJSONObject(i)?.optString("deviceRef").orEmpty() }
+        (0 until arr.length()).map { i -> arr.optString(i) }
       } ?: emptyList()
       UtLabel("Why things are waiting")
       when {

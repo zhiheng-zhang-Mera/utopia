@@ -112,7 +112,6 @@ class MainActivity : ComponentActivity() {
          onAction = { taskId, token, providerRef ->
            when (token) {
              "CANCEL" -> client?.cancel(taskId)
-             "CHOOSE_PROVIDER" -> providerRef?.takeIf { it.isNotBlank() }?.let { ref -> client?.providerChoice(taskId, ref) }
            }
          },
        )

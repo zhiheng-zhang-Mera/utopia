@@ -1,8 +1,0 @@
-{
-    "verdict":  "ERROR",
-    "error":  "The term \u0027.\\gradlew.bat\u0027 is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.",
-    "notes":  [
-                  "=== building the APK from this head ===",
-                  "ERROR: The term \u0027.\\gradlew.bat\u0027 is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again."
-              ]
-}

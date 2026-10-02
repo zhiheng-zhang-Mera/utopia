@@ -6,8 +6,8 @@
 // Handles (browser-profile and credential references) are stored through the neutral
 // `SecureHandleStorePort`; this module deliberately owns no credential store of its own.
 import {
-  ABSENCE_CODES, CAPABILITY_FACTS, CHANNELS, RegistryError, assertModelDescriptor, assertProviderAccount,
-  assertProviderDescriptor, capabilityOf, channelReadiness, freshnessOf
+  ABSENCE_CODES, CAPABILITY_FACTS, CHANNELS, ENABLEMENT, RegistryError, assertModelDescriptor,
+  assertProviderAccount, assertProviderDescriptor, capabilityOf, channelReadiness, freshnessOf
 } from './records.mjs';
 
 /** The neutral storage primitive. General AI must not grow its own credential engine. */
@@ -109,6 +109,12 @@ export function createProviderRegistry({ handleStore, clock = () => null } = {})
    */
   const identities = new Map();
   const claimIdentity = (kind, ref, parentRef = null) => {
+    // A removed reference is not free for the taking. Without this guard an upsert would happily
+    // re-register a tombstoned ref, and every reference still holding it would silently start meaning
+    // a DIFFERENT record — the residual-reference failure this task is asked to defend against.
+    if (retired.has(ref)) {
+      throw new RegistryError(`RETIRED_${kind.toUpperCase()}`, `${ref} was removed by the user; restore it explicitly before registering it again, so a removed identity is never silently reused`);
+    }
     const existing = identities.get(ref);
     if (existing && existing.kind !== kind) {
       throw new RegistryError('IDENTITY_COLLISION', `${ref} is already a ${existing.kind} reference and cannot also be a ${kind} reference`);
@@ -124,7 +130,46 @@ export function createProviderRegistry({ handleStore, clock = () => null } = {})
 
   /** One place maps a subject kind to its typed absence code, so no query can report the wrong one. */
   const ABSENCE_BY_SUBJECT = Object.freeze({ PROVIDER: 'UNKNOWN_PROVIDER', MODEL: 'UNKNOWN_MODEL', ACCOUNT: 'UNKNOWN_ACCOUNT' });
-  const absenceCodeFor = subject => ABSENCE_BY_SUBJECT[subject] ?? 'INVALID_REGISTRY_RECORD';
+  const RETIRED_BY_SUBJECT = Object.freeze({ PROVIDER: 'RETIRED_PROVIDER', MODEL: 'RETIRED_MODEL', ACCOUNT: 'RETIRED_ACCOUNT' });
+
+  /**
+   * Tombstones for user-removed references (RS-201).
+   *
+   * Removing a record does NOT free its reference. Two failure modes are closed by that:
+   *   - a removed reference stays distinguishable from one that was never registered, so a surface can
+   *     say "you removed this" instead of "never heard of it"; and
+   *   - the reference cannot be silently reused, so a later record can never inherit the identity of a
+   *     removed one and make an old reference quietly mean something new.
+   */
+  const retired = new Map();
+
+  const mapFor = subject => {
+    if (subject === 'PROVIDER') return providers;
+    if (subject === 'MODEL') return models;
+    if (subject === 'ACCOUNT') return accounts;
+    throw new RegistryError('INVALID_REGISTRY_RECORD', `${subject} is not a registry subject`);
+  };
+
+  /**
+   * Which records would be left pointing at nothing if this one were removed. Only a provider can have
+   * dependents, and removal REFUSES rather than cascading: a silent cascade would delete models and
+   * accounts the user never asked to delete, and any other order would leave a dangling reference.
+   */
+  const dependentsOf = (subject, ref) => {
+    if (subject !== 'PROVIDER') return [];
+    return [
+      ...[...models.values()].filter(entry => entry.provider_ref === ref).map(entry => entry.model_ref),
+      ...[...accounts.values()].filter(entry => entry.provider_ref === ref).map(entry => entry.account_ref),
+    ].sort();
+  };
+
+  /** A retired reference is absent for a REASON, and the reason outlives the record. */
+  const absenceCodeFor = (subject, ref) => {
+    if (ref !== undefined && ref !== null && retired.has(ref)) {
+      return RETIRED_BY_SUBJECT[subject] ?? 'INVALID_REGISTRY_RECORD';
+    }
+    return ABSENCE_BY_SUBJECT[subject] ?? 'INVALID_REGISTRY_RECORD';
+  };
 
   const registry = {
     // ---- admission -------------------------------------------------------
@@ -155,18 +200,87 @@ export function createProviderRegistry({ handleStore, clock = () => null } = {})
       return { account_ref: record.account_ref, provider_ref: record.provider_ref };
     },
 
+    // ---- reversible user control (RS-201) --------------------------------
+    /**
+     * Turn a record on or off. Reversible and non-destructive: a user may disable a provider, a model
+     * or an account and turn it back on later without losing its identity, its handles, or when it was
+     * last observed. Disabling is neither deletion nor unavailability — a DISABLED record keeps all its
+     * facts, and the reason it cannot be used is the user's choice, not a probe result.
+     */
+    setEnablement({ subject, ref, enablement }) {
+      if (!ENABLEMENT.includes(enablement)) {
+        throw new RegistryError('INVALID_REGISTRY_RECORD', `${String(enablement)} is not an enablement (${ENABLEMENT.join(', ')})`);
+      }
+      const map = mapFor(subject);
+      const existing = map.get(ref);
+      if (!existing) return absent(absenceCodeFor(subject, ref), `${subject} ${String(ref)} is not registered`);
+      const updated = Object.freeze({ ...existing, enablement });
+      map.set(ref, updated);
+      return present(subject, updated);
+    },
+
+    /**
+     * Remove a record the USER no longer wants. Deliberately three things it is not:
+     *   - NOT triggered by unavailability. This contract never removes a provider because it is down,
+     *     region-blocked or logged out; that is forbidden outright, and a removal only ever happens
+     *     because a user asked for one.
+     *   - NOT a cascade. A provider that still has models or accounts is refused with HAS_DEPENDENTS
+     *     and the dependents NAMED, so a removal can never leave a reference pointing at nothing.
+     *   - NOT a freed reference. A tombstone keeps the ref claimed, so a later record cannot silently
+     *     inherit the identity of the removed one and make an old reference mean something new.
+     */
+    remove({ subject, ref }) {
+      const map = mapFor(subject);
+      const record = map.get(ref);
+      if (!record) return absent(absenceCodeFor(subject, ref), `${subject} ${String(ref)} is not registered`);
+      const dependents = dependentsOf(subject, ref);
+      if (dependents.length > 0) {
+        return Object.freeze({
+          found: true,
+          removed: false,
+          code: 'HAS_DEPENDENTS',
+          detail: `${String(ref)} still has ${dependents.length} dependent record(s): ${dependents.join(', ')}`,
+          subject,
+          dependents: Object.freeze(dependents),
+        });
+      }
+      map.delete(ref);
+      retired.set(ref, Object.freeze({ kind: subject }));
+      return Object.freeze({ found: true, removed: true, code: null, detail: null, subject, retired_ref: ref });
+    },
+
+    /** Whether a reference was removed by a user, so a caller can tell that apart from a typo. */
+    isRetired(ref) { return retired.has(ref); },
+    listRetired() { return Object.freeze([...retired.keys()].sort()); },
+
+    /**
+     * Clear a tombstone. This is the ONLY way a removed reference becomes registerable again, and it is
+     * a separate explicit act precisely so that reuse can never arrive as a side effect of an upsert.
+     * It restores nothing on its own — the record was removed, so the caller must register it afresh.
+     */
+    restore({ subject, ref }) {
+      mapFor(subject);
+      const was = retired.get(ref);
+      if (!was) {
+        return Object.freeze({ found: false, restored: false, code: null, detail: `${String(ref)} was not removed`, subject });
+      }
+      retired.delete(ref);
+      identities.delete(ref);
+      return Object.freeze({ found: true, restored: true, code: null, detail: null, subject, restored_ref: ref, was_kind: was.kind });
+    },
+
     // ---- typed absence ---------------------------------------------------
     getProvider(providerRef) {
       const record = providers.get(providerRef);
-      return record ? present('PROVIDER', record) : absent('UNKNOWN_PROVIDER', `provider ${String(providerRef)} is not registered`);
+      return record ? present('PROVIDER', record) : absent(absenceCodeFor('PROVIDER', providerRef), `provider ${String(providerRef)} is not registered`);
     },
     getModel(modelRef) {
       const record = models.get(modelRef);
-      return record ? present('MODEL', record) : absent('UNKNOWN_MODEL', `model ${String(modelRef)} is not registered`);
+      return record ? present('MODEL', record) : absent(absenceCodeFor('MODEL', modelRef), `model ${String(modelRef)} is not registered`);
     },
     getAccount(accountRef) {
       const record = accounts.get(accountRef);
-      return record ? present('ACCOUNT', record) : absent('UNKNOWN_ACCOUNT', `account ${String(accountRef)} is not registered`);
+      return record ? present('ACCOUNT', record) : absent(absenceCodeFor('ACCOUNT', accountRef), `account ${String(accountRef)} is not registered`);
     },
 
     /** A model that exists but belongs to another provider is a distinct, typed answer. */
@@ -207,19 +321,19 @@ export function createProviderRegistry({ handleStore, clock = () => null } = {})
     /** Capability and readiness answers carry their freshness, so a caller cannot read a stale fact as current. */
     capability({ subject, ref, fact }) {
       const record = registry.__recordFor(subject, ref);
-      if (!record) return absent(absenceCodeFor(subject), `${subject} ${String(ref)} is not registered`);
+      if (!record) return absent(absenceCodeFor(subject, ref), `${subject} ${String(ref)} is not registered`);
       return { found: true, code: null, ...capabilityOf(record, fact, now()) };
     },
     readiness({ subject, ref, channel }) {
       const record = registry.__recordFor(subject, ref);
-      if (!record) return absent(absenceCodeFor(subject), `${subject} ${String(ref)} is not registered`);
+      if (!record) return absent(absenceCodeFor(subject, ref), `${subject} ${String(ref)} is not registered`);
       return { found: true, code: null, ...channelReadiness(record, channel, now()) };
     },
     freshness({ subject, ref }) {
       const record = registry.__recordFor(subject, ref);
       // This used to hard-code UNKNOWN_PROVIDER whatever the subject was, so a missing model or
       // account was reported as a missing provider while capability/readiness answered correctly.
-      if (!record) return absent(absenceCodeFor(subject), `${subject} ${String(ref)} is not registered`);
+      if (!record) return absent(absenceCodeFor(subject, ref), `${subject} ${String(ref)} is not registered`);
       return { found: true, code: null, freshness: freshnessOf(record, now()), observed_at: record.observed_at, source: clone(record.source) };
     },
     __recordFor(subject, ref) {

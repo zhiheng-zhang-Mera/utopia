@@ -32,7 +32,7 @@ internal data class SchedulerProvider(
   val index: Int,
   /**
    * UXI-390: the service identifier, from the DTO's `providerRefs` array, which is aligned by index with
-   * `providers`. The projection used to DROP this, so the Android surface held no identifier for a service
+   * NOT from the DTO, which deliberately carries no raw identifiers and gives providers only an index. The
    * and therefore no way to express a provider choice at all - one half of the CHOOSE_PROVIDER gap. An
    * empty string means the feed named none, and the client refuses a choice without a ref rather than
    * inventing one.
@@ -158,13 +158,12 @@ val ACTION_WIRING: Map<String, String> = mapOf(
 /** Actions with no route: presented as disabled and labelled, never as a live control. */
 val UNWIRED_ACTIONS: Set<String> = ACTION_WIRING.filterValues { it == "unwired" }.keys
 
-  fun viewModel(dto: JSONObject, advanced: Boolean = false): SchedulerView {
+  fun viewModel(dto: JSONObject, advanced: Boolean = false, candidateRefs: List<String> = emptyList()): SchedulerView {
     val state = dto.optString("state")
     val stateCopy = STATE_COPY[state]
       ?: throw IllegalArgumentException("unknown presentation state $state; the adapter table has drifted from the contract")
 
     val providerArray = dto.optJSONArray("providers")
-    val providerRefs = dto.optJSONArray("providerRefs")
       val providers = ArrayList<SchedulerProvider>()
     if (providerArray != null) {
       for (i in 0 until providerArray.length()) {
@@ -175,7 +174,7 @@ val UNWIRED_ACTIONS: Set<String> = ACTION_WIRING.filterValues { it == "unwired" 
         // Selectable ONLY when the feed says so AND the term is permitted. A feed that lies with
         // selectable=true on a refusal still cannot make it selectable here.
         val selectable = entry.optBoolean("selectable", false) && copy.severity == SchedulerSeverity.OK
-        providers.add(SchedulerProvider(i, providerRefs?.optString(i) ?: "", copy.copy, copy.severity, selectable))
+        providers.add(SchedulerProvider(i, candidateRefs.getOrNull(i).orEmpty(), copy.copy, copy.severity, selectable))
       }
     }
 

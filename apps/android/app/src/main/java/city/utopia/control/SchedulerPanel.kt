@@ -43,6 +43,12 @@ fun SchedulerStatusPanel(
 ) {
   UtPanel {
     Column(Modifier.fillMaxWidth().padding(Space.md), verticalArrangement = Arrangement.spacedBy(Space.sm)) {
+      // UXI-390: service identifiers live on the FEED's candidates, NOT in the DTO, whose providers carry only
+      // an index into this list. Vars are resolved after dumping the real gateway feed, having first wrongly
+      // assumed a providerRefs field inside the DTO.
+      val candidateRefs: List<String> = feed?.optJSONArray("candidates")?.let { arr ->
+        (0 until arr.length()).map { i -> arr.optJSONObject(i)?.optString("deviceRef").orEmpty() }
+      } ?: emptyList()
       UtLabel("Why things are waiting")
       when {
         !online -> Text("Reconnect to see why this is waiting.", style = MaterialTheme.typography.bodyMedium)
@@ -54,7 +60,7 @@ fun SchedulerStatusPanel(
           } else {
             for (i in 0 until tasks.length()) {
               val entry = tasks.optJSONObject(i) ?: continue
-              SchedulerTaskCard(entry, supportedActions, onAction, onChooseProvider)
+              SchedulerTaskCard(entry, candidateRefs, supportedActions, onAction, onChooseProvider)
             }
           }
         }
@@ -64,13 +70,13 @@ fun SchedulerStatusPanel(
 }
 
 @Composable
-private fun SchedulerTaskCard(entry: JSONObject, supportedActions: Set<String>, onAction: ((String, String, String?) -> Unit)?, choose: ((String, String) -> Unit)?) {
+private fun SchedulerTaskCard(entry: JSONObject, candidateRefs: List<String>, supportedActions: Set<String>, onAction: ((String, String, String?) -> Unit)?, choose: ((String, String) -> Unit)?) {
   val taskId = entry.optString("taskId")
   val dto = entry.optJSONObject("dto")
   // A malformed or drifted DTO must not crash the surface. It is rendered as an honest "not reported"
   // line instead: a blank or invented status would be worse than an explicit gap, and a crash would be
   // worst of all for the person holding the device.
-  val view = dto?.let { runCatching { SchedulerPresentation.viewModel(it) }.getOrNull() }
+  val view = dto?.let { runCatching { SchedulerPresentation.viewModel(it, candidateRefs = candidateRefs) }.getOrNull() }
   if (view == null) {
     Text("This task's status is not being reported right now.", style = MaterialTheme.typography.bodyMedium)
     return

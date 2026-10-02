@@ -218,7 +218,16 @@ export function presentState({ terms = [], terminal = false, failed = false, can
   if (terms.includes('REMOTE_HANDOFF')) return 'REMOTE_HANDOFF';
   if (terms.includes('DEGRADED') || terms.includes('REMOTE_STATE_UNKNOWN')) return 'DEGRADED';
   if (terms.some(term => TERM_CLASS[term] === 'RESOURCE') || terms.includes('QUEUED')) return 'QUEUED';
-  if (terms.includes('SELECTABLE')) return 'RUNNING';
+  /**
+   * ANY permitted term means the run is live, not just SELECTABLE.
+   *
+   * The first version tested only SELECTABLE, and the regression matrix caught the consequence: after a
+   * restore, RS-203 reports remote_state ONLINE, which maps to REMOTE_ONLINE - a PERMITTED term - and the
+   * projection rendered it DEGRADED, i.e. a healthy recovered run displayed as degraded. Keying on the
+   * TERM_CLASS instead of on one spelling is the same correction step 2 makes at the vocabulary level,
+   * applied here at the state level: classify by MEANING, not by which word happened to be present.
+   */
+  if (terms.some(term => TERM_CLASS[term] === 'PERMITTED')) return 'RUNNING';
   return 'DEGRADED';
 }
 

@@ -110,5 +110,9 @@ class CityClient(context: Context, private val host: String, private val token: 
  }
  fun askTargets(done: (JSONObject) -> Unit) { submit { deliver(row("ask/targets"),done) } }
  fun cancel(id: String) { submit { try { request("tasks/$id/cancel", JSONObject()); refresh() } catch (e: Exception) { publish(if (socketOnline) "ONLINE" else "OFFLINE", e.message ?: "Cancel failed") } } }
+ fun providerChoice(id: String, providerRef: String) {
+  if (providerRef.isBlank()) { publish(if (socketOnline) "ONLINE" else "OFFLINE", "No service named for the choice"); return }
+  submit { try { request("tasks/$id/provider-choice", JSONObject().put("providerRef", providerRef)); refresh() } catch (e: Exception) { publish(if (socketOnline) "ONLINE" else "OFFLINE", e.message ?: "Choice failed") } }
+ }
  fun close() { closed = true; runCatching { connectivity.unregisterNetworkCallback(callback) }; socket?.cancel(); executor.shutdownNow(); http.dispatcher.cancelAll(); http.connectionPool.evictAll() }
 }

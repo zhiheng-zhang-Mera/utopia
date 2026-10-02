@@ -37,7 +37,7 @@ import org.json.JSONObject
 fun SchedulerStatusPanel(
   feed: JSONObject?,
   online: Boolean,
-  onAction: (taskId: String, token: String) -> Unit = { _, _ -> },
+  onAction: ((taskId: String, token: String) -> Unit)? = null,
 ) {
   UtPanel {
     Column(Modifier.fillMaxWidth().padding(Space.md), verticalArrangement = Arrangement.spacedBy(Space.sm)) {
@@ -62,7 +62,7 @@ fun SchedulerStatusPanel(
 }
 
 @Composable
-private fun SchedulerTaskCard(entry: JSONObject, onAction: (String, String) -> Unit) {
+private fun SchedulerTaskCard(entry: JSONObject, onAction: ((String, String) -> Unit)?) {
   val taskId = entry.optString("taskId")
   val dto = entry.optJSONObject("dto")
   // A malformed or drifted DTO must not crash the surface. It is rendered as an honest "not reported"
@@ -110,11 +110,17 @@ private fun SchedulerTaskCard(entry: JSONObject, onAction: (String, String) -> U
           // has "NO ROUTE EXISTS YET" -- read as available and silently did nothing when tapped. A disabled
           // button is the same affordance the web chosen, and it says "not available" without inventing a
           // route the backend does not have.
-          if (action.token in SchedulerPresentation.UNWIRED_ACTIONS) {
-            TextButton(onClick = {}, enabled = false) { Text(action.label) }
-          } else {
-            TextButton(onClick = { onAction(taskId, action.token) }) { Text(action.label) }
-          }
+          // TWO independent reasons an action must not be offered as live, and BOTH are now checked:
+          //   1. it has no backend ROUTE -- the web's wiring map marks CONFIRM 'unwired'; and
+          //   2. NO HANDLER was wired by the caller at all. MainActivity passes no onAction, so before this
+          //      fix EVERY action on this surface was enabled, clickable and inert -- CANCEL included, not
+          //      just CONFIRM. That is the honesty fault exactly as Mech diagnosed it: "a control that looks
+          //      functional and does nothing teaches the user their choice was received, which is worse than
+          //      an honest gap." The route map alone would have fixed only the unrouted action and left the
+          //      rest looking live, so the handler check is the load-bearing half.
+          val handler = onAction
+          val live = handler != null && action.token !in SchedulerPresentation.UNWIRED_ACTIONS
+          TextButton(onClick = { handler?.invoke(taskId, action.token) }, enabled = live) { Text(action.label) }
         }
       }
     }

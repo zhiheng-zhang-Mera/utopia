@@ -114,3 +114,22 @@ test('an unresolvable tree returns null rather than a zero-bounds node', () => {
   const noNav='<?xml version="1.0"?><hierarchy bounds="[0,0][1080,2400]"><node text="Home" class="android.widget.TextView" clickable="false" bounds="[0,0][0,0]" /></hierarchy>';
   assert.equal(resolveRoute(noNav,{labels:['Home']}),null,'must be a loud null, not a tap on (0,0)');
 });
+
+// The pilots can only be exercised end to end with a device attached, so the precondition that broke
+// a real run is guarded statically. It is worth guarding because it is invisible in review and only
+// fails at RUNTIME on a clean tree, at the very end of a multi-minute dual-device pipeline.
+test('the task pilot creates its evidence directory before writing into it', () => {
+  const src=readFileSync(join(here,'..','scripts','device-task-pilot.mjs'),'utf8');
+  const mkdir=src.indexOf("mkdirSync('.runtime/evidence/v0.2'");
+  const write=src.indexOf("writeFileSync('.runtime/evidence/v0.2/task-regression.json'");
+  assert.ok(write>-1,'the pilot is expected to write task-regression.json');
+  assert.ok(mkdir>-1,'the pilot must create .runtime/evidence/v0.2; without it a clean tree hits ENOENT');
+  assert.ok(mkdir<write,'the directory must be created BEFORE the write, and ideally before the pipeline');
+  // And it must happen before the run proper begins, so a missing directory fails fast rather than
+  // after the whole dual-device pipeline has already been spent. Anchored on the first snapshot,
+  // NOT on the first `cmd('shell',...)` - the APK integrity checks legitimately use that earlier,
+  // and asserting against it was my own mistake when this guard was first written.
+  const pipelineStart=src.indexOf('await snapshot()');
+  assert.ok(pipelineStart>-1,'expected the pilot to take a city snapshot');
+  assert.ok(mkdir<pipelineStart,'fail fast: create the directory before the pipeline starts');
+});

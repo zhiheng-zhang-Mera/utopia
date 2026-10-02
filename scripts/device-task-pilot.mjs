@@ -1,6 +1,6 @@
 import {createHash} from 'node:crypto';
 import {execFileSync} from 'node:child_process';
-import {readFileSync,writeFileSync} from 'node:fs';
+import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
 import {chromium} from 'playwright';
 import {nodeByLabel,centreOf,resolveRoute} from './lib/ui-route.mjs';
 const adb=process.env.ADB||'adb';
@@ -15,6 +15,13 @@ const apkSha256=cmd('shell','sha256sum',apkPath).trim().split(/\s/)[0];
 const localApkSha256=createHash('sha256').update(readFileSync('apps/android/app/build/outputs/apk/debug/app-debug.apk')).digest('hex');
 const installedApkMatchesLocal=apkSha256===localApkSha256;
 if(!/^[a-f0-9]{64}$/.test(apkSha256)||!installedApkMatchesLocal)throw Error('INSTALLED_APK_MISMATCH');
+// The evidence directory is created here rather than at the write, because the write is the LAST
+// thing this script does: on a clean tree - the normal state after a clone or in a fresh worktree,
+// since .runtime is gitignored - the previous version reached the end of the whole dual-device run
+// and only then died, with `ENOENT: no such file or directory, open
+// '.runtime/evidence/v0.2/task-regression.json'`. Creating it up front turns a lost run into an
+// immediate failure. scripts/device-recovery-pilot.mjs already did this; the task pilot did not.
+mkdirSync('.runtime/evidence/v0.2',{recursive:true});
 const before=await snapshot();
 // Geometry-independent navigation, replacing a hard-coded `input tap 108 2195` whose y-coordinate
 // assumed roughly a 1080x2400 device and therefore landed off-screen on any other host. This was the

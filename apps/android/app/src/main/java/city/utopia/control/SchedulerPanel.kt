@@ -37,7 +37,8 @@ import org.json.JSONObject
 fun SchedulerStatusPanel(
   feed: JSONObject?,
   online: Boolean,
-  onAction: ((taskId: String, token: String) -> Unit)? = null,
+  supportedActions: Set<String> = emptySet(),
+  onAction: ((taskId: String, token: String, providerRef: String?) -> Unit)? = null,
 ) {
   UtPanel {
     Column(Modifier.fillMaxWidth().padding(Space.md), verticalArrangement = Arrangement.spacedBy(Space.sm)) {
@@ -52,7 +53,7 @@ fun SchedulerStatusPanel(
           } else {
             for (i in 0 until tasks.length()) {
               val entry = tasks.optJSONObject(i) ?: continue
-              SchedulerTaskCard(entry, onAction)
+              SchedulerTaskCard(entry, supportedActions, onAction)
             }
           }
         }
@@ -62,7 +63,7 @@ fun SchedulerStatusPanel(
 }
 
 @Composable
-private fun SchedulerTaskCard(entry: JSONObject, onAction: ((String, String) -> Unit)?) {
+private fun SchedulerTaskCard(entry: JSONObject, supportedActions: Set<String>, onAction: ((String, String, String?) -> Unit)?) {
   val taskId = entry.optString("taskId")
   val dto = entry.optJSONObject("dto")
   // A malformed or drifted DTO must not crash the surface. It is rendered as an honest "not reported"
@@ -119,8 +120,18 @@ private fun SchedulerTaskCard(entry: JSONObject, onAction: ((String, String) -> 
           //      an honest gap." The route map alone would have fixed only the unrouted action and left the
           //      rest looking live, so the handler check is the load-bearing half.
           val handler = onAction
-          val live = handler != null && action.token !in SchedulerPresentation.UNWIRED_ACTIONS
-          TextButton(onClick = { handler?.invoke(taskId, action.token) }, enabled = live) { Text(action.label) }
+          // Live only if a handler EXISTS, the surface SUPPORTS the action, and the action is ROUTED.
+          // Three independent reasons a control must not be offered as available, all checked.
+          val live = handler != null && action.token in supportedActions && action.token !in SchedulerPresentation.UNWIRED_ACTIONS
+          // A provider choice must NAME a service, and THE UI MUST NOT NAME IT. The web is explicit about
+          // this: its CHOOSE_PROVIDER is "deliberately NOT a submitting control", because "a button here
+          // that sent the first available ref would be the UI making the choice" -- and the workbook
+          // forbids the UI recomputing the provider choice. So no ref is resolved here at all; a real
+          // choice must come from a control ON the provider row that carries that provider's own ref.
+          // Sending null is the honest state until that per-row control exists: the client refuses a blank
+          // ref, so this can never transmit a choice the user did not make.
+          val chosenRef: String? = null
+          TextButton(onClick = { handler?.invoke(taskId, action.token, chosenRef) }, enabled = live) { Text(action.label) }
         }
       }
     }

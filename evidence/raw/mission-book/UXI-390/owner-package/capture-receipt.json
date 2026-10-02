@@ -1,0 +1,78 @@
+{
+  "task": "UXI-390",
+  "step": "5 (Web half of the minimal Owner-facing package)",
+  "capturedAt": "2026-10-02T10:54:46.894Z",
+  "implementationHead": "40bd11811c2170446e14335d10aa3ba1f66d31f7",
+  "port": 4357,
+  "freshCityData": "D:\\utopia-uxi390/.runtime-ownerpkg-web",
+  "viewport": "1440x900",
+  "locale": "en-US",
+  "browser": "msedge headless via Playwright",
+  "pageErrors": [],
+  "taskCardsInProviderShot": 1,
+  "roomSurfaceChanged": true,
+  "images": [
+    {
+      "file": "evidence/raw/mission-book/UXI-390/owner-package/01-web-home.png",
+      "bytes": 168222,
+      "sha256": "f14ec4c14494437b6a825202108d46a9ce71fde2e1049cc0f806e81722d7a502",
+      "note": "Web Home, paired and ONLINE, with the assistant slot and the rooms grid",
+      "region": "#view",
+      "contentChars": 1942,
+      "contentExcerpt": "ASSISTANT SLOT 01 ASSISTANT · ASSISTANT Unassigned This is your assistant. Naming, appearance, voice and duty are bound in Settings later; for now the slot is only a placeholder. Bound device Alien-PC Appearance Placeholder silhouette Voice Not enabled Duty Not set RUNTIME NODES Alien-PC win32 · Agent 0.2.0 Last seen 2s ago ONLINE Live telemetry · observed 3s ago CPU Unknown Memory 25.2 GB / 31.8 "
+    },
+    {
+      "file": "evidence/raw/mission-book/UXI-390/owner-package/02-web-ask.png",
+      "bytes": 115682,
+      "sha256": "c65d6b7579ee11db287fd611b03fb5e9ce5500eb641128e77095432a2d5696c1",
+      "note": "Web Ask/Do mounted by submitting a real prompt through the real control",
+      "region": "#view",
+      "contentChars": 3118,
+      "contentExcerpt": "ASK / DO One deterministic entry for Rooms, City capabilities and City tasks. Routing is decided by the Gateway, not by a model. Type in the Ask / Do bar above. This page shows the resolved route and the result. Clear RESULT What is my city doing right now? No deterministic rule matched. Pick a target below — nothing was executed. NO MATCH No rule matched this text. Choose a target manually. Check"
+    },
+    {
+      "file": "evidence/raw/mission-book/UXI-390/owner-package/03-web-tools-rooms.png",
+      "bytes": 124184,
+      "sha256": "75912f25816491106231f534794500c42e2aaac4048f4276a7bc93c96342847e",
+      "note": "Web Tools / Rooms surface as the nav opens it",
+      "region": "#view",
+      "contentChars": 1752,
+      "contentExcerpt": "Tools / Rooms The ten accepted Rooms, read from the Gateway. Opening a Room uses the existing Room Hub. Refresh Room Hub available · 10 rooms Knowledge Room 本地知识室 01 Run details PERSISTENT Plain-text knowledge entries with search, tags and replace import. notes · search Run details Open Open in a new tab Bookmark Room 收藏室 02 Run details PERSISTENT Local URL collection with tags, notes and explicit"
+    },
+    {
+      "file": "evidence/raw/mission-book/UXI-390/owner-package/04-web-room-open.png",
+      "bytes": 196617,
+      "sha256": "eb79628af96f79a4c98d813f8546bce29677250e24b8924ba534e630375cb177",
+      "note": "One Room OPENED from the Rooms page (room id knowledge); the close control is present, so the surface is in the open state",
+      "region": "#view",
+      "contentChars": 1961,
+      "contentExcerpt": "Tools / Rooms The ten accepted Rooms, read from the Gateway. Opening a Room uses the existing Room Hub. Refresh Room Hub available · 10 rooms Knowledge Room 本地知识室 01 Run details PERSISTENT Plain-text knowledge entries with search, tags and replace import. notes · search Run details Open Open in a new tab Bookmark Room 收藏室 02 Run details PERSISTENT Local URL collection with tags, notes and explicit"
+    },
+    {
+      "file": "evidence/raw/mission-book/UXI-390/owner-package/05-web-provider-state.png",
+      "bytes": 100573,
+      "sha256": "e9d3f34208770585813cd38e0d46a1e6b80c9785d9783ec1b73353543117f1c3",
+      "note": "Real task in flight with the executor gone; scheduler task cards = 1",
+      "region": ".scheduler-panel",
+      "contentChars": 343,
+      "contentExcerpt": "WHY THINGS ARE WAITING Running in a reduced state Q-f987c542-122f-4818-875b-9ffbf7bf4313 The current service is responding slowly. Use another available one? Some of what this depends on is not fully known right now. Not available This device isn't taking new work CancelChoose another service · nothing available to switch to Technical detail"
+    }
+  ],
+  "log": [
+    "=== UXI-390 step 5, Web package: port 4357, fresh CITY_DATA, head 40bd11811c2170446e14335d10aa3ba1f66d31f7 ===",
+    "starting the real Room Hub, the real Gateway and a real reference node",
+    "  hub, gateway healthy, node registered: alien-reference-node; rooms available = true, 10 rooms, hub http://127.0.0.1:4320/",
+    "  paired and ONLINE",
+    "  captured 01-web-home.png  168222 bytes  sha256=f14ec4c14494437b…  region=#view",
+    "    content: ASSISTANT SLOT 01 ASSISTANT · ASSISTANT Unassigned This is your assistant. Naming, appearance, voice and duty are bound in Settings later; for now the slot is only a placeholder. Bound device Alien-PC Appearance Placeholder silhouette Voice",
+    "  captured 02-web-ask.png  115682 bytes  sha256=c65d6b7579ee11db…  region=#view",
+    "    content: ASK / DO One deterministic entry for Rooms, City capabilities and City tasks. Routing is decided by the Gateway, not by a model. Type in the Ask / Do bar above. This page shows the resolved route and the result. Clear RESULT What is my city",
+    "  captured 03-web-tools-rooms.png  124184 bytes  sha256=75912f2581649110…  region=#view",
+    "    content: Tools / Rooms The ten accepted Rooms, read from the Gateway. Opening a Room uses the existing Room Hub. Refresh Room Hub available · 10 rooms Knowledge Room 本地知识室 01 Run details PERSISTENT Plain-text knowledge entries with search, tags and ",
+    "  captured 04-web-room-open.png  196617 bytes  sha256=eb79628af96f79a4…  region=#view",
+    "    content: Tools / Rooms The ten accepted Rooms, read from the Gateway. Opening a Room uses the existing Room Hub. Refresh Room Hub available · 10 rooms Knowledge Room 本地知识室 01 Run details PERSISTENT Plain-text knowledge entries with search, tags and ",
+    "  executor killed; creating real work through the real control",
+    "  captured 05-web-provider-state.png  100573 bytes  sha256=e9d3f34208770585…  region=.scheduler-panel",
+    "    content: WHY THINGS ARE WAITING Running in a reduced state Q-f987c542-122f-4818-875b-9ffbf7bf4313 The current service is responding slowly. Use another available one? Some of what this depends on is not fully known right now. Not available This devi"
+  ]
+}

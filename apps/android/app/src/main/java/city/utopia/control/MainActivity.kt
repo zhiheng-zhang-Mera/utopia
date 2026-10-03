@@ -55,6 +55,10 @@ class MainActivity : ComponentActivity() {
   var selected by remember { mutableStateOf<String?>(null) }
   var client by remember { mutableStateOf<CityClient?>(null) }
   var creating by remember { mutableStateOf(false) }
+  // MESH-301: the device this surface's next safe task is strictly bound to. "" means unspecified, which is
+  // the pre-existing scheduler behaviour and must stay reachable - a target surface that cannot express "no
+  // target" would make the untargeted regression check impossible to perform from this device.
+  var runTarget by remember { mutableStateOf("") }
   DisposableEffect(settingsRevision) {
    val c = CityClient(this@MainActivity, host, token, log, prefs.getString("cityId", null)) { state = it; creating = false }
    client = c; c.start(); onDispose { c.close() }
@@ -145,7 +149,22 @@ class MainActivity : ComponentActivity() {
       item { Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) { Metric("Running", tasks.count { canCancel(it.optString("state")) }, Modifier.weight(1f)); Metric("Completed", tasks.count { it.optString("state") == "COMPLETED" }, Modifier.weight(1f)) } }
      }
      if (page in listOf("Home", "Tasks")) {
-      item { Button(onClick = { creating = true; client?.createTask { selected = it; page = "Tasks"; creating = false } }, enabled = online && !creating, colors = ButtonDefaults.buttonColors(containerColor = Moss, contentColor = Ink), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().height(54.dp)) { Text(if (creating) "Creating…" else "Run Test Task", fontWeight = FontWeight.Bold) } }
+      item { Text("RUN ON", fontSize = 11.sp, letterSpacing = 2.sp, color = Color.Gray) }
+      // MESH-301: the choices are built from the City's OWN node list, so a target this surface offers is a
+      // target the City currently knows about. Nothing here is hardcoded and nothing is guessed.
+      item { Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (runTarget.isEmpty()) Button(onClick = { runTarget = "" }, colors = ButtonDefaults.buttonColors(containerColor = Moss, contentColor = Ink)) { Text("Any node") } else OutlinedButton(onClick = { runTarget = "" }) { Text("Any node") }
+        nodes.forEach { n ->
+          val id = n.optString("id"); val label = n.optString("displayName").ifBlank { id }
+          if (runTarget == id) Button(onClick = { runTarget = id }, colors = ButtonDefaults.buttonColors(containerColor = Moss, contentColor = Ink)) { Text(label) } else OutlinedButton(onClick = { runTarget = id }) { Text(label) }
+        }
+      } }
+      item { Button(onClick = {
+        creating = true
+        val target = runTarget
+        if (target.isEmpty()) client?.createTask { selected = it; page = "Tasks"; creating = false }
+        else client?.createTargetedTask(target, java.util.UUID.randomUUID().toString()) { id -> if (id != null) { selected = id; page = "Tasks" }; creating = false }
+      }, enabled = online && !creating, colors = ButtonDefaults.buttonColors(containerColor = Moss, contentColor = Ink), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().height(54.dp)) { Text(if (creating) "Creating…" else if (runTarget.isEmpty()) "Run Test Task" else "Run on " + runTarget, fontWeight = FontWeight.Bold) } }
       item { Text(if (page == "Home") "RECENT TASKS" else "TASK REGISTRY", fontSize = 11.sp, letterSpacing = 2.sp, color = Color.Gray) }
       val visible = if (page == "Home") tasks.takeLast(3) else tasks
       if (visible.isEmpty()) item { Text("No tasks yet. Start with a safe test task.", color = Color.Gray) }

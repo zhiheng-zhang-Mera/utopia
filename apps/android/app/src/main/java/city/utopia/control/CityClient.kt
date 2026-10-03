@@ -3,6 +3,7 @@ package city.utopia.control
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import okhttp3.*
@@ -19,6 +20,17 @@ class CityClient(context: Context, private val host: String, private val token: 
  private val executor = Executors.newSingleThreadScheduledExecutor()
  private val http = OkHttpClient.Builder().connectTimeout(3, TimeUnit.SECONDS).readTimeout(5, TimeUnit.SECONDS).callTimeout(6, TimeUnit.SECONDS).pingInterval(3, TimeUnit.SECONDS).build()
  private val connectivity = context.getSystemService(ConnectivityManager::class.java)
+ /**
+  * MESH-301: this control surface declares ITSELF on the event-stream handshake, so the City records which
+  * surface is attached rather than every surface having to infer it privately.
+  *
+  * The physical identity is generated once and PERSISTED, never derived from the label: a device keeps one
+  * identity while its display name stays free to change, which is the same rule the worker nodes follow. The
+  * label is `Build.MODEL`, which is what the Owner's naming rule asks an Android control client to show.
+  */
+ private val identityPrefs = context.getSharedPreferences("city-connection", Context.MODE_PRIVATE)
+ private val clientRef: String = identityPrefs.getString("clientRef", null) ?: ("android-" + Build.MODEL.replace(Regex("[^A-Za-z0-9-]"), "-")).also { identityPrefs.edit().putString("clientRef", it).apply() }
+ private val clientLabel: String = Build.MODEL.ifBlank { "android-device" }
  @Volatile private var closed = false
  @Volatile private var socket: WebSocket? = null
  @Volatile private var socketOnline = false
@@ -69,7 +81,7 @@ class CityClient(context: Context, private val host: String, private val token: 
   } catch (e: Exception) { socketOnline = false; socket?.cancel(); socket = null; publish("OFFLINE", e.message ?: "Gateway unavailable") }
  }
  private fun openStream() {
-  val url = host.trimEnd('/').replaceFirst("http", "ws") + "/api/v0/events/stream?apiVersion=0&schemaVersion=0"
+  val url = host.trimEnd('/').replaceFirst("http", "ws") + "/api/v0/events/stream?apiVersion=0&schemaVersion=0&clientRef=" + java.net.URLEncoder.encode(clientRef, "UTF-8") + "&clientLabel=" + java.net.URLEncoder.encode(clientLabel, "UTF-8")
   socket = http.newWebSocket(Request.Builder().url(url).header("Authorization", "Bearer $token").build(), object : WebSocketListener() {
    override fun onOpen(webSocket: WebSocket, response: Response) { if (closed) { webSocket.cancel(); return }; socketOnline = true; submit { refresh() } }
    override fun onMessage(webSocket: WebSocket, text: String) { if (webSocket === socket) submit { refresh() } }
@@ -83,6 +95,37 @@ class CityClient(context: Context, private val host: String, private val token: 
  }
  fun start() { connectivity.registerDefaultNetworkCallback(callback); executor.scheduleWithFixedDelay({ refresh() }, 0, 2, TimeUnit.SECONDS) }
  fun createTask(done: (String) -> Unit) { submit { try { val task = request("tasks", JSONObject().put("type", "CHECKPOINT_DEMO")); handler.post { if (!closed) done(task.getString("id")) }; refresh() } catch (e: Exception) { publish(if (socketOnline) "ONLINE" else "OFFLINE", e.message ?: "Task creation failed") } } }
+ /**
+  * MESH-301 step 4 — a strict target-device safe task, issued from this control surface.
+  *
+  * The target travels inside `input`, which is where every other route's parameters travel. That is more than
+  * tidiness: the gateway's request fingerprint already covers `input`, so the SAME idempotency key cannot be
+  * made to mean two different devices, and replaying a key returns the first Action instead of executing a
+  * second time. The low-level `/tasks` route is deliberately NOT used, because it accepts only `type`.
+  *
+  * `done` receives the created task id, or null when the City refused. An unknown target is REFUSED rather
+  * than silently queued, and the refusal is reported through the same publish channel as any other failure -
+  * so a refused target cannot be mistaken for a waiting one.
+  */
+ fun createTargetedTask(targetDeviceRef: String, idempotencyKey: String, done: (String?) -> Unit) {
+  submit {
+   try {
+    val body = JSONObject()
+      .put("route", "CITY_TASK")
+      .put("target", "city.task")
+      .put("operation", "CHECKPOINT_DEMO")
+      .put("input", JSONObject().put("targetDeviceRef", targetDeviceRef))
+      .put("idempotencyKey", idempotencyKey)
+    val data = request("actions", body)
+    val taskId = data.optJSONObject("action")?.optJSONObject("backendRef")?.optString("taskId")?.takeIf { it.isNotBlank() }
+    handler.post { if (!closed) done(taskId) }
+    refresh()
+   } catch (e: Exception) {
+    publish(if (socketOnline) "ONLINE" else "OFFLINE", e.message ?: "Targeted task failed")
+    handler.post { if (!closed) done(null) }
+   }
+  }
+ }
  private fun capabilityError(error: Exception): JSONObject { val failure=capabilityFailure(error,socketOnline);return JSONObject().put("status","FAILED").put("errorCode",failure.code).put("httpStatus",failure.status ?: JSONObject.NULL).put("error",failure.message) }
  fun invokeCapability(id: String, operation: String, input: JSONObject, done: (JSONObject) -> Unit) { submit { val response=try { request("capabilities/$id/invoke",JSONObject().put("operationId",operation).put("input",input)) } catch(e: Exception) { capabilityError(e) };handler.post {if(!closed)done(response)};refresh() } }
  fun invocationDetail(id: String, done: (JSONObject) -> Unit) { submit { val response=try { request("capability-invocations/"+java.net.URLEncoder.encode(id,"UTF-8")) } catch(e: Exception) { capabilityError(e) };handler.post {if(!closed)done(response)} } }

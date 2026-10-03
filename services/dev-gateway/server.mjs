@@ -47,6 +47,19 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   if(!token||!nodeToken||token===nodeToken) throw new Error('Separate control and node tokens are required');
   if(host==='0.0.0.0'||host==='::') throw new Error('Configure an explicit loopback or LAN interface');
   const store=new Store(dir); const wss=new WebSocketServer({noServer:true}); let closed=false;
+  // MESH-301: WHICH control surfaces are attached to this City, and what each of them calls itself.
+  //
+  // The identity is declared on the event-stream handshake and travels in the CLIENT_CONNECTED /
+  // CLIENT_DISCONNECTED payloads, so "the Android client is here, as PERM00" becomes a canonical fact with
+  // its own `seq` that every surface can converge on - rather than something each surface infers privately
+  // from the state of its own socket. A surface that declares nothing is still recorded, with nulls: an
+  // anonymous client is a fact too, and omitting the event would make it invisible to the other surfaces.
+  const controlSurfaces=new Map();
+  const readClientIdentity=params=>{
+    const ref=params.get('clientRef');const label=params.get('clientLabel');
+    if(ref!==null&&ref!==''&&!/^[a-zA-Z0-9-]{1,80}$/.test(ref))fail(400,'clientRef must match [a-zA-Z0-9-]{1,80}');
+    return {clientRef:ref?ref:null,clientLabel:label?String(label).slice(0,100):null};
+  };
   let discovery=null,discoveryState={mdns:{state:'DISABLED'},ble:{state:'DISABLED'}};
   const pairing=new Pairing({cityId:store.cityId,endpoint:`http://${host}:${port}`,credential:token,clock:pairingClock,ttlMs:pairingTtlMs,onChange:d=>discovery?.update(d)});
   const telemetry=b=>{if(b.telemetry===undefined)return {};if(b.telemetry===null)return {telemetry:null};try{validateTelemetry(b.telemetry);return {telemetry:b.telemetry};}catch(e){fail(400,e.message);}};
@@ -180,7 +193,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   const askTargets=async()=>{const roomState=await rooms.probe();return buildTargets({roomState,capabilities:bridge.registry(),cityAvailability:cityAvailability(),roomsAvailable:roomState.available});};
   const body=async (req,limit=16384)=>{let size=0;const chunks=[];for await(const c of req){size+=c.length;if(size>limit){if(limit===MAX_REQUEST_BYTES)refuse('INPUT_TOO_LARGE',413);fail(413,'Request too large');}chunks.push(c);}try{return JSON.parse(Buffer.concat(chunks).toString('utf8')||'{}');}catch{if(limit===MAX_REQUEST_BYTES)refuse('INVALID_JSON');fail(400,'Invalid JSON');}};
   const required=(table,id)=>store.get(table,id)||fail(404,'Not found');
-  const snapshot=()=>envelope({status:'ONLINE',updatedAt:now(),cityId:store.cityId,displayName:'Utopia · Alien',descriptor:pairing.descriptor(),discovery:discoveryState,nodes:store.list('nodes'),tasks:store.list('tasks'),events:store.events(),capabilities:bridge.registry(),invocations:bridge.list()});
+  const snapshot=()=>envelope({status:'ONLINE',updatedAt:now(),cityId:store.cityId,displayName:'Utopia · Alien',descriptor:pairing.descriptor(),discovery:discoveryState,nodes:store.list('nodes'),controlSurfaces:[...controlSurfaces.values()],tasks:store.list('tasks'),events:store.events(),capabilities:bridge.registry(),invocations:bridge.list()});
   const server=http.createServer(async(req,res)=>{
     try {
       const path=new URL(req.url,'http://city').pathname;
@@ -343,7 +356,14 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       const protocols=String(req.headers['sec-websocket-protocol']||'').split(',').map(s=>s.trim());
       if(!req.headers.authorization){const p=protocols.find(p=>p.startsWith('city-token.'));req.headers.authorization='Bearer '+(p?Buffer.from(p.slice(11),'base64url').toString():'');}
       auth(req);if(u.searchParams.get('apiVersion')!=='0'||u.searchParams.get('schemaVersion')!=='0')fail(409,'Protocol mismatch');
-      wss.handleUpgrade(req,socket,head,ws=>{emit('CLIENT_CONNECTED');ws.send(JSON.stringify(envelope({type:'REFRESH'})));ws.on('error',()=>{});ws.on('close',()=>{if(!closed)emit('CLIENT_DISCONNECTED');});});
+      const identity=readClientIdentity(u.searchParams);
+      wss.handleUpgrade(req,socket,head,ws=>{
+        controlSurfaces.set(ws,{...identity,connectedAt:now()});
+        emit('CLIENT_CONNECTED',null,{clientRef:identity.clientRef,clientLabel:identity.clientLabel});
+        ws.send(JSON.stringify(envelope({type:'REFRESH'})));
+        ws.on('error',()=>{});
+        ws.on('close',()=>{const gone=controlSurfaces.get(ws);controlSurfaces.delete(ws);if(!closed)emit('CLIENT_DISCONNECTED',null,{clientRef:gone?.clientRef??null,clientLabel:gone?.clientLabel??null});});
+      });
     }catch(e){socket.write('HTTP/1.1 '+(e.status||400)+' Rejected\r\nConnection: close\r\n\r\n');socket.destroy();}
   });
   const timer=setInterval(()=>{

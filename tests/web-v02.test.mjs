@@ -21,28 +21,45 @@ test('Web Devices and ephemeral pairing share the authoritative Gateway',async()
  // Localization must not reconnect, rotate the live session, or turn protocol state into translated logic.
  const connectionsBefore=app.store.events().filter(e=>e.type==='CLIENT_CONNECTED').length;
  const qrBefore=await page.locator('#pairing-qr svg').evaluate(el=>el.outerHTML);
+ const codeBefore=await page.locator('#pairing-code').innerText();
+ const sessionBefore=await page.evaluate(()=>fetch('/api/v0/pairing/info',{headers:{'X-City-Api-Version':'0','X-City-Schema-Version':'0'}}).then(r=>r.json()).then(x=>x.descriptor.pairingSessionId));
  await page.evaluate(()=>window.UtopiaI18n.setLocale('zh-CN'));
  assert.equal(await page.locator('#connection').innerText(),'在线');
  assert.equal(await page.locator('#run').isDisabled(),false);
- assert.equal(await page.locator('#generate-pairing').innerText(),'撤销并刷新会话');
- assert.ok(await page.locator('#pairing-qr svg').evaluate((el,expected)=>el.outerHTML===expected,qrBefore));
+ // JOIN-501: while a session is ACTIVE the page offers NO rotation control. The label states that the code is
+ // live and expires on its own, and the button is disabled - the old "Revoke and refresh session" control was
+ // the exact behaviour the Owner rule removed.
+ const generate=page.locator('#generate-pairing');
+ assert.equal(await generate.innerText(),'配对码有效中 · 到期自动失效');
+ assert.equal(await generate.isDisabled(),true,'an ACTIVE session must not be re-generatable');
+ assert.ok(await page.locator('#pairing-qr svg').evaluate((el,expected)=>el.outerHTML===expected,qrBefore),'the QR is unchanged');
  assert.equal(app.store.events().filter(e=>e.type==='CLIENT_CONNECTED').length,connectionsBefore);
+ // A disabled button must also be a dead button: the client must not have sent a create. (The request counter is
+ // the instrument that matters here - a disabled element can still be dispatched at synthetically.)
+ const creations=[];page.on('request',r=>{if(r.method()==='POST'&&r.url().includes('/api/v0/pairing/session'))creations.push(r.url());});
+ await generate.click({force:true}).catch(()=>{});
+ await page.waitForTimeout(400);
+ assert.equal(creations.length,0,'a forced click on the ACTIVE control must not call the creation API');
+ assert.equal(await page.locator('#pairing-code').count(),1);
+ assert.equal(await page.evaluate(()=>fetch('/api/v0/pairing/info',{headers:{'X-City-Api-Version':'0','X-City-Schema-Version':'0'}}).then(r=>r.json()).then(x=>x.descriptor.pairingSessionId)),sessionBefore,'the canonical session did not rotate');
  await page.evaluate(()=>window.UtopiaI18n.setLocale('en'));
- const priorSession=await page.evaluate(()=>fetch('/api/v0/pairing/info',{headers:{'X-City-Api-Version':'0','X-City-Schema-Version':'0'}}).then(r=>r.json()).then(x=>x.descriptor.pairingSessionId));
- await page.getByRole('button',{name:'Revoke and refresh session',exact:true}).click();
- await page.locator('#pairing-qr svg').waitFor();
- const nextSession=await page.evaluate(()=>fetch('/api/v0/pairing/info',{headers:{'X-City-Api-Version':'0','X-City-Schema-Version':'0'}}).then(r=>r.json()).then(x=>x.descriptor.pairingSessionId));
- assert.notEqual(nextSession,priorSession);
+ assert.equal(await generate.innerText(),'Code active · expires on its own');
+ assert.equal(await page.locator('#pairing-code').innerText(),codeBefore,'the code itself is unchanged by a locale change');
  assert.equal(await page.locator('#pairing-code').count(),1);
  assert.match(await page.locator('#view').innerText(),/LAN DEVELOPMENT ONLY/);
+ // JOIN-501: leaving the page no longer clears the code. Navigation away and back shows the SAME session.
  await page.locator('[data-page="Devices"]').click();
  assert.equal(await page.locator('#pairing-code').count(),0);
  await page.locator('[data-page="Pairing"]').click();
- assert.equal(await page.locator('#pairing-code').count(),0);
- await page.getByRole('button',{name:'Generate pairing session',exact:true}).click();
- await page.locator('#pairing-qr svg').waitFor();
+ assert.equal(await page.locator('#pairing-code').count(),1,'the active code survives in-page navigation');
+ assert.equal(await page.evaluate(()=>fetch('/api/v0/pairing/info',{headers:{'X-City-Api-Version':'0','X-City-Schema-Version':'0'}}).then(r=>r.json()).then(x=>x.descriptor.pairingSessionId)),sessionBefore,'and it is still the same session');
  await app.close();await page.locator('#connection.online').waitFor({state:'hidden'});
- assert.equal(await page.locator('#pairing-code').count(),0);
+ // JOIN-501: losing the connection is not a reason to destroy the user's code either. The City going away is
+ // visible as OFFLINE; the material stays until it is consumed or expires, which is when the rule says it goes.
+ assert.equal(await page.locator('#connection').innerText(),'OFFLINE');
+ assert.equal(await page.locator('#pairing-code').count(),1,'a disconnect must not clear an unexpired code');
+ assert.equal(await generate.isDisabled(),true,'and nothing can be generated while the City is unreachable');
+ assert.equal(creations.length,0,'no creation call was made at any point after the first explicit one');
  }finally{await browser?.close();await app?.close();await rm(dir,{recursive:true,force:true});}
 });
 
@@ -69,7 +86,10 @@ test('Web freshness, device detail, node offline and pairing expiry',async()=>{
  const node=app.store.get('nodes','test-device');app.store.put('nodes',{...node,online:false});
  await page.locator('#view .badge.OFFLINE').waitFor();
  await page.locator('[data-page="Pairing"]').click();await page.getByRole('button',{name:'Generate pairing session',exact:true}).click();await page.locator('#pairing-qr svg').waitFor();
+ // JOIN-501: expiry removes the material, says so, and offers generation again - it does not auto-generate.
  await page.locator('#pairing-code').waitFor({state:'detached',timeout:5000});assert.match(await page.locator('#view').innerText(),/expired/);
+ await page.getByRole('button',{name:'Generate pairing session',exact:true}).waitFor();
+ assert.equal(await page.locator('#pairing-code').count(),0);
  await app.close();await page.locator('#connection.online').waitFor({state:'hidden'});await page.locator('[data-page="Devices"]').click();
  assert.equal(await page.locator('#view .badge.UNKNOWN').count(),1);assert.equal(await page.locator('#view .telemetry.fresh').count(),0);
  }finally{await browser?.close();await app?.close();await rm(dir,{recursive:true,force:true});}

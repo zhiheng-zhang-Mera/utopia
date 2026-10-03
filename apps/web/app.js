@@ -18,6 +18,57 @@ function webClientRef(){let ref=null;try{ref=localStorage.getItem('utopia.client
 function webClientLabel(){let label=null;try{label=localStorage.getItem('utopia.clientLabel');}catch{}if(label)return label;return 'Web · '+(navigator.platform||'browser');}
 // Exposed so the surface can be named from the console during a run: localStorage.setItem('utopia.clientLabel','Alien Web')
 window.utopiaWebSurface={ref:webClientRef,label:webClientLabel,rename:name=>{try{localStorage.setItem('utopia.clientLabel',String(name));}catch{}return String(name);}};
+// LOCAL BOOTSTRAP AND SHAREABLE INVITES.
+//
+// Two things a joining client needs that a bare token cannot give it:
+//   1. to be opened ALREADY CONNECTED, so the launcher in the repository root can hand a browser a freshly
+//      generated local token without anyone typing it;
+//   2. to be handed SOMEBODY ELSE'S City - and that requires the token to say WHICH City it belongs to. An
+//      opaque credential cannot, so the shareable form is the same `utopia://pair?...` payload the QR already
+//      carries: host + cityId + one-time secret + expiry. Entering that switches City. Entering a bare token
+//      keeps the old meaning of "connect to this page's own origin", because nothing else is well defined.
+//
+// Both arrive in the URL FRAGMENT, which browsers never send to a server, so a credential or a secret in it is
+// not written into the City's logs. It is stripped from the address bar as soon as it has been read.
+// The invite payload is parsed by a pure module so it can be tested without a browser; see apps/web/invite.js.
+import {parseInvite} from './invite.js';
+// 销毁本地令牌: the bootstrap token belongs to THIS City. Once this client moves to another City it is dead
+// weight, so it is removed here rather than left behind in session storage for a later accidental reuse.
+function destroyLocalToken(){try{sessionStorage.removeItem('city-token');}catch{}token='';}
+async function exchangeInvite(value){
+ // Accepts EITHER the raw invite string or an already-parsed invite. The first version of this only accepted the
+ // string, and the connect handler passed it the parsed object instead - so it re-parsed "[object Object]", got
+ // null, and the client reported "the City returned no credential" for an invite that was perfectly valid. The
+ // type confusion was mine; accepting both shapes removes the trap rather than relying on every caller to
+ // remember which one this function wants.
+ const parsed=(typeof value==='string')?parseInvite(value):(value&&value.host?value:null);
+ if(!parsed)return null;
+ const here=location.origin.replace(/\/$/,''),there=String(parsed.host).replace(/\/$/,'');
+ if(there!==here){
+  // Switching City is a NAVIGATION, not a fetch: `pairing/exchange` is a route on the City that owns the
+  // session, and the gateway sends no CORS headers for it, so a cross-origin POST from this page would be
+  // refused by the browser. Carrying the invite to the target origin in its fragment keeps the exchange
+  // same-origin and keeps the secret out of every server log on the way.
+  destroyLocalToken();
+  location.assign(there+'/#pair='+encodeURIComponent(parsed.invite));
+  return {navigating:true};
+ }
+ const r=await fetch('/api/v0/pairing/exchange',{method:'POST',headers:{'Content-Type':'application/json','X-City-Api-Version':'0','X-City-Schema-Version':'0'},body:JSON.stringify({cityId:parsed.cityId,method:'qr',sessionId:parsed.sessionId,secret:parsed.secret}),signal:AbortSignal.timeout(8000)});
+ const x=await r.json().catch(()=>null);
+ // Errors name the City that was actually asked. A generic "no credential" cannot tell "this City refused the
+ // invite" from "this client asked the WRONG City", and those need completely different fixes.
+ if(!r.ok)throw Error(`the City at ${here} refused that invite: ${x?.error||r.status}`);
+ if(!x?.credential)throw Error(`the City at ${here} accepted the invite but returned no credential`);
+ return {credential:x.credential};
+}
+const bootParams=new URLSearchParams(location.hash.replace(/^#/,''));
+const bootToken=bootParams.get('token'),bootInvite=bootParams.get('pair');
+// Exposed for the same reason window.utopiaWebSurface is: an acceptance run has to be able to exercise the invite
+// path directly instead of only through a click, and a feature that can only be exercised by clicking is a
+// feature no script can check.
+window.utopiaInvite={parse:parseInvite,exchange:exchangeInvite,destroyLocalToken};
+if(bootToken||bootInvite)history.replaceState(null,'',location.pathname+location.search);
+if(bootToken){token=bootToken;try{sessionStorage.setItem('city-token',token);}catch{}}
 // MESH-301: the strict-target choices are built from the City's OWN node list, so a target this surface
 // offers is one the City currently knows about. Nothing here is hardcoded, and "Any node" stays reachable:
 // a surface that can only issue TARGETED work makes the untargeted regression check impossible to perform
@@ -68,7 +119,7 @@ const nodeRows=()=>city.nodes.map(n=>`<article class="device-card"><div class="r
 const cityUrl=()=>{const e=city.descriptor?.endpoint;return e?e.scheme+'://'+e.host+':'+e.port:location.origin;};
 function pairingView(){
  const d=city.discovery||{},remaining=pairing?Math.max(0,Math.ceil((Date.parse(pairing.expiresAt)-Date.now())/1000)):0;
- return `<section class="panel"><h2>${esc(t('pairing.title'))} ${esc(city.displayName||t('pairing.yourCity'))}</h2><p>${esc(t('settings.cityUrl'))}: ${esc(cityUrl())}</p><p class="task-id">${esc(t('pairing.cityId'))}: ${esc(city.cityId||t('device.unknown'))}</p><p>${esc(t('pairing.session'))}: ${esc(pairing?.pairingSessionId||city.descriptor?.pairingSessionId||t('pairing.none'))}</p><p class="muted">${esc(pairingNotice?t(pairingNotice):'')}</p>${pairing?`<div class="pairing-material"><div id="pairing-qr" role="img" aria-label="${esc(t('pairing.qr'))}"></div><div><p>${esc(t('pairing.code'))}</p><strong id="pairing-code">${esc(pairing.shortCode)}</strong><p id="pairing-countdown">${esc(t('pairing.countdown',{seconds:remaining}))}</p><p>${esc(t('pairing.single'))}</p></div></div>`:''}<button id="generate-pairing" ${connection!=='ONLINE'||pairingBusy?'disabled':''}>${pairing?t('pairing.refresh'):t('pairing.generate')}</button><p class="muted">${esc(t('pairing.explanation'))}</p><h3>${esc(t('section.connectionDiagnostics'))}</h3><p>mDNS: ${esc(d.mdns?.state||'UNKNOWN')} · ${esc(d.mdns?.reason||'')}</p><p>Bluetooth: ${esc(d.ble?.state||'UNKNOWN')} · ${esc(d.ble?.reason||'')}</p><p>Gateway: ${esc(connection)}</p><details><summary>${esc(t('common.runDetails'))}</summary><div class="task-id">apiVersion 0 · schemaVersion 0</div></details><h3>${esc(t('pairing.choose'))}</h3><ol><li><strong>QR:</strong> ${esc(t('pairing.qrHelp'))}</li><li><strong>${esc(t('pairing.lan'))}:</strong> ${esc(t('pairing.lanHelp'))}</li><li><strong>${esc(t('pairing.ble'))}:</strong> ${esc(t('pairing.bleHelp'))}</li><li><strong>${esc(t('pairing.manual'))}:</strong> ${esc(t('pairing.manualHelp'))}</li></ol><p>${esc(t('pairing.plane'))}</p><p class="lan-warning">LAN DEVELOPMENT ONLY · NOT FOR PUBLIC INTERNET</p></section>`;
+ return `<section class="panel"><h2>${esc(t('pairing.title'))} ${esc(city.displayName||t('pairing.yourCity'))}</h2><p>${esc(t('settings.cityUrl'))}: ${esc(cityUrl())}</p><p class="task-id">${esc(t('pairing.cityId'))}: ${esc(city.cityId||t('device.unknown'))}</p><p>${esc(t('pairing.session'))}: ${esc(pairing?.pairingSessionId||city.descriptor?.pairingSessionId||t('pairing.none'))}</p><p class="muted">${esc(pairingNotice?t(pairingNotice):'')}</p>${pairing?`<div class="pairing-material"><div id="pairing-qr" role="img" aria-label="${esc(t('pairing.qr'))}"></div><div><p>${esc(t('pairing.code'))}</p><strong id="pairing-code">${esc(pairing.shortCode)}</strong><p id="pairing-countdown">${esc(t('pairing.countdown',{seconds:remaining}))}</p><p>${esc(t('pairing.single'))}</p></div></div><div class="pairing-share"><h3>${esc(t('pairing.share'))}</h3><p class="muted">${esc(t('pairing.shareHint'))}</p><textarea id="pairing-invite" readonly rows="3" spellcheck="false">${esc(pairing.qrPayload)}</textarea><button id="copy-invite">${esc(t('pairing.copy'))}</button><p class="muted" id="copy-note"></p></div>`:''}<button id="generate-pairing" ${connection!=='ONLINE'||pairingBusy?'disabled':''}>${pairing?t('pairing.refresh'):t('pairing.generate')}</button><p class="muted">${esc(t('pairing.explanation'))}</p><h3>${esc(t('section.connectionDiagnostics'))}</h3><p>mDNS: ${esc(d.mdns?.state||'UNKNOWN')} · ${esc(d.mdns?.reason||'')}</p><p>Bluetooth: ${esc(d.ble?.state||'UNKNOWN')} · ${esc(d.ble?.reason||'')}</p><p>Gateway: ${esc(connection)}</p><details><summary>${esc(t('common.runDetails'))}</summary><div class="task-id">apiVersion 0 · schemaVersion 0</div></details><h3>${esc(t('pairing.choose'))}</h3><ol><li><strong>QR:</strong> ${esc(t('pairing.qrHelp'))}</li><li><strong>${esc(t('pairing.lan'))}:</strong> ${esc(t('pairing.lanHelp'))}</li><li><strong>${esc(t('pairing.ble'))}:</strong> ${esc(t('pairing.bleHelp'))}</li><li><strong>${esc(t('pairing.manual'))}:</strong> ${esc(t('pairing.manualHelp'))}</li></ol><p>${esc(t('pairing.plane'))}</p><p class="lan-warning">LAN DEVELOPMENT ONLY · NOT FOR PUBLIC INTERNET</p></section>`;
 }
 /* UI-101 step 5: the default reading path shows a readable label, and the raw
    internal vocabulary (event type, sequence, task id) lives in a folded
@@ -112,8 +163,9 @@ document.addEventListener('click',async e=>{const nav=e.target.closest('[data-pa
 // item the independent review checks. The route comes from the shared ACTION_WIRING table, and the
 // task id from the button, so the panel and this dispatcher cannot disagree about what is wired.
 if(schedAction){const token=schedAction.dataset.schedulerAction,taskRef=schedAction.dataset.schedulerTask,route=schedAction.dataset.schedulerRoute,providerRef=schedAction.dataset.schedulerProvider;schedAction.disabled=true;try{if(route==='cancel'){await api('tasks/'+encodeURIComponent(taskRef)+'/cancel',{});}else if(route==='create'){await api('tasks',{type:'CHECKPOINT_DEMO'});}else if(route==='providerChoice'){if(!providerRef)throw new Error('no provider was offered to choose from');await api('tasks/'+encodeURIComponent(taskRef)+'/provider-choice',{providerRef});}else{/* local acknowledgement: nothing to send */}await refresh();}catch(err){$('#error').textContent=err.message;schedAction.disabled=false;}}
+if(e.target.id==='copy-invite'){const box=$('#pairing-invite'),note=$('#copy-note');const done=ok=>{if(note)note.textContent=t(ok?'pairing.copied':'pairing.copyManual');};const fallback=()=>{try{box.focus();box.select();return document.execCommand('copy');}catch{return false;}};if(navigator.clipboard?.writeText){navigator.clipboard.writeText(box.value).then(()=>done(true)).catch(()=>done(fallback()));}else done(fallback());}
 if(e.target.id==='generate-pairing'){const epoch=++pairingEpoch;pairingBusy=true;pairing=null;render();try{const result=await api('pairing/session',{});if(epoch===pairingEpoch&&page==='Pairing'&&connection==='ONLINE'){pairing=result;pairingNotice='';}}catch(err){$('#error').textContent=err.message;}finally{pairingBusy=false;render();}}if(e.target.id==='cancel'){try{await api('tasks/'+selected+'/cancel',{});await refresh();}catch(err){$('#error').textContent=err.message;}}if(e.target.id==='disconnect'){clearPairing();token='';$('#token').value='';sessionStorage.removeItem('city-token');++generation;clearTimeout(timer);ws?.close();$('#pair').hidden=false;$('#content').hidden=true;go('Home');status('OFFLINE');}});
-$('#connect').onclick=()=>{token=$('#token').value.trim();sessionStorage.setItem('city-token',token);$('#token').value='';connect();};
+$('#connect').onclick=async()=>{const value=$('#token').value.trim();$('#token').value='';const invite=parseInvite(value);if(invite){try{const done=await exchangeInvite(invite);if(done?.navigating)return;if(!done?.credential)throw Error('the City returned no credential for that invite');token=done.credential;sessionStorage.setItem('city-token',token);$('#pair').hidden=true;$('#content').hidden=false;connect();}catch(err){$('#error').textContent=err.message;}return;}token=value;sessionStorage.setItem('city-token',token);connect();};
 $('#ask-form').addEventListener('submit',e=>{e.preventDefault();ask($('#ask-text').value);});
 $('#run').onclick=async()=>{try{$('#run').disabled=true;const target=$('#run-target')?.value||'';if(target){const created=await api('actions',{route:'CITY_TASK',target:'city.task',operation:'CHECKPOINT_DEMO',input:{targetDeviceRef:target},idempotencyKey:(crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random())});const id=created?.action?.backendRef?.taskId;if(!id)throw new Error(created?.action?.error?.message||'the City refused the targeted task');selectedNode=null;selected=id;}else{const task=await api('tasks',{type:'CHECKPOINT_DEMO'});selectedNode=null;selected=task.id;}await refresh();}catch(e){$('#error').textContent=e.message;}finally{$('#run').disabled=connection!=='ONLINE';}};
 window.addEventListener('offline',()=>{disconnected();ws?.close();});window.addEventListener('online',connect);
@@ -123,5 +175,14 @@ window.addEventListener('pagehide',()=>{clearPairing();render();});
 document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('selected',b.dataset.page===page));
 subscribe(()=>{applyTranslations();$('#connection').textContent=t('connection.'+connection.toLowerCase());render();});
 applyTranslations();
+// A client may have been opened with an INVITE in its fragment (the launcher, or a hand-off from another City).
+// Resolving it here means the page arrives already connected to the City the invite names, without the user
+// typing anything and without the secret ever reaching a server as part of a URL.
+if(bootInvite){
+ try{
+  const done=await exchangeInvite(bootInvite);
+  if(done?.credential){token=done.credential;try{sessionStorage.setItem('city-token',token);}catch{}}
+ }catch(err){$('#error').textContent=err.message;}
+}
 if(token)connect();else status('OFFLINE');
 if(token){$('#pair').hidden=true;$('#content').hidden=false;mountTerminal();}

@@ -1,0 +1,55 @@
+{
+  "instrument": "mech-mesh301-observe-window/1",
+  "surface": "Mech-Win-Web",
+  "city": "http://172.31.3.110:4391",
+  "cityId": "22e1216b-f124-4d4a-be4a-4a280558c027",
+  "surfaceIdentity": {
+    "ref": "web-mech-f8r3wwq7",
+    "label": "Mech-Win-Web"
+  },
+  "windowOpenedAt": "2026-10-03T03:35:44.844Z",
+  "windowClosedAt": "2026-10-03T03:58:48.930Z",
+  "windowSeconds": 1384,
+  "seqAtOpen": 515,
+  "seqAtClose": 857,
+  "generated": [
+    {
+      "label": "untargeted task (no strict target)",
+      "at": "2026-10-03T03:35:45.807Z",
+      "result": {
+        "taskId": "Q-a2b51b38-d399-4385-9861-70a6e550252a"
+      }
+    },
+    {
+      "label": "strict task targeted at Alien-Win",
+      "at": "2026-10-03T03:35:51.830Z",
+      "result": {
+        "taskId": "Q-f71f19fa-f640-4d35-900b-86135dab97fa",
+        "status": "QUEUED",
+        "error": null,
+        "targetStateAtCreation": null
+      }
+    },
+    {
+      "label": "take Mech-Win away, then bring it back",
+      "at": "2026-10-03T03:36:15.141Z",
+      "result": {
+        "offlineSeq": 530,
+        "onlineSeq": 534,
+        "awayTask": "Q-382b81e0-0ab7-4dc6-a4e4-ae4bbdb2576d",
+        "restored": true
+      }
+    }
+  ],
+  "nodeTransition": {
+    "offlineSeq": 530,
+    "onlineSeq": 534,
+    "self": "Mech-Win",
+    "restored": true
+  },
+  "eventFramesObserved": 343,
+  "clockOffsetEstimateMs": -1012,
+  "note": "one surface's receipt; gate 8 needs this row beside Alien Web and Android over an overlapping range",
+  "jsonl": "D:\\A-utopia\\.runtime\\worktrees\\mesh301-review/evidence/raw/mission-book/MESH-301/review-by-mech/mech-web-gate8-window.jsonl",
+  "finishedAt": "2026-10-03T03:58:48.930Z"
+}

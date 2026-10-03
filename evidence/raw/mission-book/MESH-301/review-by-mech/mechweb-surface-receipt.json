@@ -1,0 +1,89 @@
+{
+  "head": "4271cbf2d7036e2ce1735927a9d198cf3ff2785c",
+  "city": "http://172.31.3.110:4391",
+  "cityId": "22e1216b-f124-4d4a-be4a-4a280558c027",
+  "surface": {
+    "ok": true,
+    "before": {
+      "ref": "web-y8yvunie",
+      "label": "Mech-Win-Web"
+    },
+    "after": {
+      "ref": "web-y8yvunie",
+      "label": "Mech-Win-Web"
+    }
+  },
+  "controlSurfacesBefore": [
+    {
+      "clientRef": "android-PERM00",
+      "clientLabel": "PERM00",
+      "connectedAt": "2026-10-03T03:22:03.618Z"
+    }
+  ],
+  "controlSurfacesAfter": [
+    {
+      "clientRef": "android-PERM00",
+      "clientLabel": "PERM00",
+      "connectedAt": "2026-10-03T03:22:03.618Z"
+    },
+    {
+      "clientRef": "web-y8yvunie",
+      "clientLabel": "Mech-Win-Web",
+      "connectedAt": "2026-10-03T03:23:58.215Z"
+    }
+  ],
+  "taskId": "Q-5b220e26-9515-412a-ac6f-e9e33ff7bfaf",
+  "streamMessagesReceived": 9,
+  "convergences": [
+    {
+      "seq": 256,
+      "type": "COMMAND_ACCEPTED",
+      "serverTimestamp": "2026-10-03T03:24:00.313Z",
+      "observedAt": "2026-10-03T03:23:59.315Z",
+      "convergenceMs": -998
+    },
+    {
+      "seq": 257,
+      "type": "TASK_CREATED",
+      "serverTimestamp": "2026-10-03T03:24:00.313Z",
+      "observedAt": "2026-10-03T03:23:59.316Z",
+      "convergenceMs": -997
+    },
+    {
+      "seq": 258,
+      "type": "TASK_ASSIGNED",
+      "serverTimestamp": "2026-10-03T03:24:00.587Z",
+      "observedAt": "2026-10-03T03:23:59.589Z",
+      "convergenceMs": -998
+    },
+    {
+      "seq": 259,
+      "type": "TASK_STARTED",
+      "serverTimestamp": "2026-10-03T03:24:00.591Z",
+      "observedAt": "2026-10-03T03:23:59.595Z",
+      "convergenceMs": -996
+    },
+    {
+      "seq": 260,
+      "type": "TASK_CHECKPOINTED",
+      "serverTimestamp": "2026-10-03T03:24:00.600Z",
+      "observedAt": "2026-10-03T03:23:59.602Z",
+      "convergenceMs": -998
+    },
+    {
+      "seq": 261,
+      "type": "TASK_CHECKPOINTED",
+      "serverTimestamp": "2026-10-03T03:24:01.811Z",
+      "observedAt": "2026-10-03T03:24:00.813Z",
+      "convergenceMs": -998
+    },
+    {
+      "seq": 262,
+      "type": "TASK_COMPLETED",
+      "serverTimestamp": "2026-10-03T03:24:03.026Z",
+      "observedAt": "2026-10-03T03:24:02.028Z",
+      "convergenceMs": -998
+    }
+  ],
+  "finishedAt": "2026-10-03T03:24:04.783Z"
+}

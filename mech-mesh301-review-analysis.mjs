@@ -69,6 +69,20 @@ findings.gate1 = {
     mechWeb: covers('Mech-Win-Web', WINDOW2_OPEN, WINDOW2_CLOSE),
     android: covers('PERM00', WINDOW2_OPEN, WINDOW2_CLOSE),
   },
+  // THIS BLOCK IS A CORRECTION TO MY OWN METHOD, not an extra. The reconstruction above reads presence from
+  // CLIENT_CONNECTED/CLIENT_DISCONNECTED, and the City emits a CLIENT-LEVEL disconnect when ANY socket for a
+  // clientRef closes while the map is keyed by socket. So the event-based answer above is WRONG for any surface
+  // that has ever held two sockets - it reported android:false for the whole gate-8 window while the Android
+  // receipt observed until 04:27:30Z. Presence must be read from the City's own live list, de-duplicated by
+  // clientRef, which is what this block does. The event-based numbers are kept beside it deliberately: an
+  // instrument that silently changes its method is worse than one that shows both and says which it trusts.
+  presenceFromCityList: {
+    observedAt: new Date().toISOString(),
+    raw: (city.controlSurfaces ?? []),
+    deduplicatedByRef: [...new Map((city.controlSurfaces ?? []).map((s) => [s.clientRef, s])).values()],
+    duplicatesPresent: (city.controlSurfaces ?? []).length !== new Set((city.controlSurfaces ?? []).map((s) => s.clientRef)).size,
+  },
+  methodWarning: 'the event-based fields above are unreliable for surfaces that held more than one socket (defect D-R1). Use presenceFromCityList.',
 };
 
 // ---------------------------------------------------------------- GATE 2/3

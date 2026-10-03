@@ -3,32 +3,11 @@
   "head": "09a5b89ab3040873791957d482814f2aefb7271a",
   "cityUrl": "http://172.31.3.110:4391",
   "cityId": "22e1216b-f124-4d4a-be4a-4a280558c027",
-  "generatedAt": "2026-10-03T04:41:51.118Z",
-  "maxSeq": 1343,
+  "generatedAt": "2026-10-03T04:50:49.301Z",
+  "maxSeq": 1348,
   "findings": {
     "gate1": {
       "namedIntervals": [
-        {
-          "ref": "web-mech-39xei5vm",
-          "label": "Mech-Win-Web",
-          "from": "2026-10-03T03:28:17.068Z",
-          "to": "2026-10-03T03:28:38.138Z",
-          "end": "closed"
-        },
-        {
-          "ref": "web-mech-bpsf9r9j",
-          "label": "Mech-Win-Web",
-          "from": "2026-10-03T03:29:03.637Z",
-          "to": "2026-10-03T03:29:11.312Z",
-          "end": "closed"
-        },
-        {
-          "ref": "android-PERM00",
-          "label": "PERM00",
-          "from": "2026-10-03T03:29:11.463Z",
-          "to": "2026-10-03T03:29:13.213Z",
-          "end": "closed"
-        },
         {
           "ref": "probe-mech-named",
           "label": "Mech-Probe-Named",
@@ -119,9 +98,30 @@
           "from": "2026-10-03T04:41:03.089Z",
           "to": "2026-10-03T04:41:09.545Z",
           "end": "closed"
+        },
+        {
+          "ref": "probe-mech-dup-0l2hyy",
+          "label": "Mech-Dup-Probe",
+          "from": "2026-10-03T04:42:51.007Z",
+          "to": "2026-10-03T04:42:52.230Z",
+          "end": "superseded"
+        },
+        {
+          "ref": "probe-mech-dup-0l2hyy",
+          "label": "Mech-Dup-Probe",
+          "from": "2026-10-03T04:42:52.230Z",
+          "to": "2026-10-03T04:42:53.458Z",
+          "end": "closed"
+        },
+        {
+          "ref": "web-mech-khn38o53",
+          "label": "Mech-Win-Web",
+          "from": "2026-10-03T04:41:17.222Z",
+          "to": "2026-10-03T04:48:20.284Z",
+          "end": "closed"
         }
       ],
-      "anonymousConnectionCount": 15,
+      "anonymousConnectionCount": 14,
       "anonymousNote": "a stream client that declares no identity appears in controlSurfaces with clientRef/clientLabel null; it is a client, not an attributable endpoint",
       "window2": {
         "window": [
@@ -131,7 +131,26 @@
         "alienWeb": true,
         "mechWeb": false,
         "android": false
-      }
+      },
+      "presenceFromCityList": {
+        "observedAt": "2026-10-03T04:50:49.294Z",
+        "raw": [
+          {
+            "clientRef": "android-PERM00",
+            "clientLabel": "PERM00",
+            "connectedAt": "2026-10-03T03:32:33.531Z"
+          }
+        ],
+        "deduplicatedByRef": [
+          {
+            "clientRef": "android-PERM00",
+            "clientLabel": "PERM00",
+            "connectedAt": "2026-10-03T03:32:33.531Z"
+          }
+        ],
+        "duplicatesPresent": false
+      },
+      "methodWarning": "the event-based fields above are unreliable for surfaces that held more than one socket (defect D-R1). Use presenceFromCityList."
     },
     "gate2": [
       {
@@ -139,8 +158,8 @@
         "principal": "Alien-Win",
         "platform": "win32",
         "online": true,
-        "heartbeatAt": "2026-10-03T04:41:51.572Z",
-        "telemetryAt": "2026-10-03T04:41:50.711Z",
+        "heartbeatAt": "2026-10-03T04:50:49.786Z",
+        "telemetryAt": "2026-10-03T04:50:48.955Z",
         "capabilities": [
           "task.execute.safe",
           "filesystem.temp"
@@ -151,8 +170,8 @@
         "principal": "Mech-Win",
         "platform": "win32",
         "online": true,
-        "heartbeatAt": "2026-10-03T04:41:51.820Z",
-        "telemetryAt": "2026-10-03T04:41:48.588Z",
+        "heartbeatAt": "2026-10-03T04:50:49.823Z",
+        "telemetryAt": "2026-10-03T04:50:46.935Z",
         "capabilities": [
           "task.execute.safe",
           "filesystem.temp"
@@ -163,8 +182,7 @@
       "nodeCount": 2,
       "androidNamedNodes": 0,
       "controlSurfacesNamed": [
-        "PERM00",
-        "Mech-Win-Web"
+        "PERM00"
       ]
     },
     "strictTargets": [

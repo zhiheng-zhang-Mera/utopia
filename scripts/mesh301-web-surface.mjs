@@ -72,7 +72,16 @@ await page.addInitScript(({ label }) => {
     ws.addEventListener('message', ev => {
       try {
         const m = JSON.parse(ev.data);
-        if (m && m.event) window.__obs.push({ kind: 'event', seq: m.event.seq ?? null, type: m.event.type ?? null, taskId: m.event.taskId ?? null, serverAt: m.event.timestamp ?? null, observedAt: stamp() });
+        if (m && m.event) {
+          const seq = m.event.seq ?? null;
+          // R1 for the browser, same as the Android surface. Events emitted between the network dying and the
+          // socket's close firing are gone before any staleness signal exists, so a receipt cannot bound a gap
+          // it never saw begin - but the surface CAN see the discontinuity itself. Measured: this surface lost
+          // exactly one seq (505) in the gate-8 window and, without this, the merge could only call it MISSING.
+          if (seq != null && window.__lastSeq != null && seq > window.__lastSeq + 1) window.__obs.push({ kind: 'gap', gapFrom: window.__lastSeq + 1, gapTo: seq - 1, observedAt: stamp() });
+          if (seq != null) window.__lastSeq = seq;
+          window.__obs.push({ kind: 'event', seq, type: m.event.type ?? null, taskId: m.event.taskId ?? null, serverAt: m.event.timestamp ?? null, observedAt: stamp() });
+        }
         else if (m && m.type) window.__obs.push({ kind: 'control', messageType: m.type, observedAt: stamp() });
       } catch { /* a frame that is not JSON is not an event */ }
     });

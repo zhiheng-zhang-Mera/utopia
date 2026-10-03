@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "relationship": "control-plane-implementation",
+  "control_repo": "zhiheng-zhang-Mera/Digital-City",
+  "control_branch": "main",
+  "implementation_repo": "zhiheng-zhang-Mera/utopia",
+  "implementation_branch": "main",
+  "truth_model": {
+    "planning_and_workbook_truth": "Digital-City mission-book frontmatter + reports",
+    "runtime_and_code_truth": "Utopia main + exact-head GitHub Actions"
+  },
+  "sync": {
+    "implementation_to_control": "Digital-City scheduled pull every 5 minutes",
+    "control_to_implementation": "reciprocal PROJECT_LINKAGE.json contract check",
+    "generated_status_json": "mission-book/UTOPIA_LIVE_STATUS.json",
+    "generated_status_markdown": "mission-book/UTOPIA_LIVE_STATUS.md",
+    "cross_repo_secret_required": false
+  },
+  "rules": [
+    "Generated live status never overrides workbook frontmatter.",
+    "Chat/dashboard prose is not a claim lock.",
+    "A Utopia implementation claim must name an exact commit and its CI state.",
+    "Linkage commits must not be interpreted as product capability changes."
+  ]
+}

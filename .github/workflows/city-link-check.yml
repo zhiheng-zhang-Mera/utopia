@@ -1,0 +1,68 @@
+name: City linkage check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reciprocal-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Verify Digital-City reciprocal linkage contract
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import pathlib
+          import time
+          import urllib.request
+
+          local = json.loads(pathlib.Path("PROJECT_LINKAGE.json").read_text(encoding="utf-8"))
+          url = "https://raw.githubusercontent.com/zhiheng-zhang-Mera/Digital-City/main/PROJECT_LINKAGE.json"
+
+          last = None
+          for attempt in range(3):
+              try:
+                  req = urllib.request.Request(url, headers={"User-Agent": "Utopia-City-Linkage/1"})
+                  with urllib.request.urlopen(req, timeout=20) as response:
+                      remote = json.load(response)
+                  break
+              except Exception as exc:
+                  last = exc
+                  if attempt == 2:
+                      raise
+                  time.sleep(2 ** attempt)
+          else:
+              raise last
+
+          keys = (
+              "schema_version",
+              "relationship",
+              "control_repo",
+              "control_branch",
+              "implementation_repo",
+              "implementation_branch",
+          )
+          mismatches = {
+              key: {"local": local.get(key), "remote": remote.get(key)}
+              for key in keys
+              if local.get(key) != remote.get(key)
+          }
+          if mismatches:
+              raise SystemExit("Digital-City linkage mismatch: " + json.dumps(mismatches, ensure_ascii=False))
+
+          print("RECIPROCAL_LINK_OK")
+          print("control_repo =", local["control_repo"])
+          print("implementation_repo =", local["implementation_repo"])
+          PY

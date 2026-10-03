@@ -9,6 +9,8 @@ NOT THE FUTURE CITY CORE OWNERSHIP MODEL.
 
 本仓库是产品/参考实现边界，不代表未来 City Core 的永久所有权边界。
 
+> **Digital-City 联动：** [PROJECT_LINKAGE.json](./PROJECT_LINKAGE.json) 固定两仓库的控制面/实现面关系。Digital-City 自动镜像 Utopia `main` + CI；Utopia 的 `City linkage check` 在提交时校验 reciprocal contract，避免 README/看板漂移重新成为任务真相。
+
 | 中文 | English |
 |---|---|
 | [中文文档入口](docs/zh-CN/) | [English docs](docs/en/) |
@@ -28,6 +30,7 @@ NOT THE FUTURE CITY CORE OWNERSHIP MODEL.
 - **Capability Bridge V0.3 = ACCEPTED**：Web/Android 通过同一 City authority 使用五个真实服务。
 - **V0.3 Hardening = PASS**：有界调用历史、qualified identity、lifecycle-aware availability 与 typed errors 已验收。
 - **Room Pack V1 = READY_TO_ATTACH / ATTACHED_TO_MAIN**：十个本地个人工具已通过独立验收，但尚未并入主导航。
+- **MESH-301 = THREE_END_MESH_E2E_ACCEPTED**：Alien + Mech 两个真实 Windows worker 与 Android control surface 已在同一 canonical City 完成 strict target-device routing、跨机 Formal Review 与 merged-main CI。录制流程见 [三设备互联 Demo Runbook](docs/zh-CN/DEMO_THREE_END_MESH.md)。
 
 The next product goal is **not another module wave**. It is the [Universal Personal Terminal fast path](docs/en/UNIVERSAL_PERSONAL_TERMINAL_FAST_PATH.md): unify Tasks, Services and Rooms behind one user-facing action experience, then connect existing Boss/Hns runtimes instead of migrating every domain first.
 

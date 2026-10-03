@@ -47,6 +47,14 @@ class CityClient(context: Context, private val host: String, private val token: 
  @Volatile private var feed: JSONObject? = null
  private var snapshotLogged = false
  @Volatile private var pendingResync = false
+ // R2 FIX. A boolean was not enough: `refresh()` also runs every 2 seconds, so a refresh that had ALREADY
+ // started when the socket reopened could consume the flag and stamp the resync with a snapshot read from
+ // BEFORE the reconnection (measured: resync said maxSeq 392 while 394 already existed). A generation counter
+ // makes the stamp provable instead of merely likely - the snapshot is only allowed to witness a
+ // re-convergence if it was fetched inside the generation that opened.
+ @Volatile private var openGeneration = 0
+ @Volatile private var resyncedGeneration = -1
+ @Volatile private var lastObservedSeq = 0
  @Volatile private var wasDown = false
  @Volatile private var lastServerMaxSeq = 0
  private fun maxEventSeq(snapshot: JSONObject): Int { val arr = snapshot.optJSONArray("events") ?: return 0; var max = 0; for (i in 0 until arr.length()) max = maxOf(max, arr.optJSONObject(i)?.optInt("seq", 0) ?: 0); return max }
@@ -91,14 +99,18 @@ class CityClient(context: Context, private val host: String, private val token: 
   if (closed || host.isBlank() || token.isBlank()) return
   try {
    if (!socketOnline) publish("RECONNECTING", "Fetching the latest city snapshot…")
+   val generationAtFetch = openGeneration
    val fresh = request("city")
    check(expectedCity == null || fresh.optString("cityId") == expectedCity) { "City identity conflict; clear pairing and verify host" }
    snapshot = fresh
    lastServerMaxSeq = maxEventSeq(fresh)
-   // MESH-301: ONE resync per socket open, carrying the SERVER's own highest seq. "This surface re-converged
-   // after being away" is thereby evidenced by a server read rather than by a cache the surface happened to
-   // be holding - which is the difference between measuring convergence and asserting it.
-   if (pendingResync) { pendingResync = false; log.surface("resync", lastServerMaxSeq) }
+   // MESH-301 (R2): the snapshot may witness a re-convergence ONLY if it was fetched inside the generation
+   // that opened. `generationAtFetch` was captured before the request, so a refresh that began before the
+   // socket reopened cannot stamp the resync with a pre-reconnection view.
+   if (generationAtFetch == openGeneration && resyncedGeneration != openGeneration) {
+    resyncedGeneration = openGeneration
+    log.surface("resync", lastServerMaxSeq)
+   }
    // UXI-301: the scheduler feed is fetched NON-FATALLY. A gateway without the route leaves this null
    // and the surface reports "not being reported" rather than inventing a status. The failure mode this
    // must never have is presenting a healthy surface because the fetch silently failed.
@@ -111,8 +123,25 @@ class CityClient(context: Context, private val host: String, private val token: 
  private fun openStream() {
   val url = host.trimEnd('/').replaceFirst("http", "ws") + "/api/v0/events/stream?apiVersion=0&schemaVersion=0&clientRef=" + java.net.URLEncoder.encode(clientRef, "UTF-8") + "&clientLabel=" + java.net.URLEncoder.encode(clientLabel, "UTF-8")
   socket = http.newWebSocket(Request.Builder().url(url).header("Authorization", "Bearer $token").build(), object : WebSocketListener() {
-   override fun onOpen(webSocket: WebSocket, response: Response) { if (closed) { webSocket.cancel(); return }; socketOnline = true; if (wasDown) { wasDown = false; log.surface("reconnected") }; pendingResync = true; submit { refresh() } }
-   override fun onMessage(webSocket: WebSocket, text: String) { if (webSocket === socket) { runCatching { val e = JSONObject(text).optJSONObject("event"); if (e != null) log.surface("event", e.optInt("seq", -1), e.optString("type"), e.optString("timestamp")) }; submit { refresh() } } }
+   override fun onOpen(webSocket: WebSocket, response: Response) { if (closed) { webSocket.cancel(); return }; socketOnline = true; if (wasDown) { wasDown = false; log.surface("reconnected") }; openGeneration += 1; submit { refresh() } }
+   // R1 FIX - the surface declares its OWN gaps.
+   //
+   // Events emitted between the network dying and `onLost` firing are gone before any staleness signal exists,
+   // so a receipt cannot bound a gap it never saw begin (measured: 8 such seqs straddling the stale record).
+   // But the surface CAN see the discontinuity itself: if seq jumps, it knows exactly what it missed. Writing
+   // that down turns a silent hole into a declared one, which is the difference the workbook actually asks
+   // for - the prohibition is on presenting missing events as live consistency, not on losing them.
+   override fun onMessage(webSocket: WebSocket, text: String) { if (webSocket === socket) { runCatching {
+     val e = JSONObject(text).optJSONObject("event")
+     if (e != null) {
+       val seq = e.optInt("seq", -1)
+       if (seq > 0) {
+         if (lastObservedSeq > 0 && seq > lastObservedSeq + 1) log.surface("gap", -1, "", "", lastObservedSeq + 1, seq - 1)
+         lastObservedSeq = seq
+       }
+       log.surface("event", seq, e.optString("type"), e.optString("timestamp"))
+     }
+   }; submit { refresh() } } }
    override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) { if (webSocket === socket) { socketOnline = false; socket = null; wasDown = true; log.surface("stale"); publish("OFFLINE", "Connection interrupted. Retrying…") } }
    override fun onClosed(webSocket: WebSocket, code: Int, reason: String) { if (webSocket === socket) { socketOnline = false; socket = null; wasDown = true; log.surface("stale"); publish("OFFLINE", "Connection closed. Retrying…") } }
   })

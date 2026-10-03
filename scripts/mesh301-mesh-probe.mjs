@@ -100,7 +100,7 @@ async function observe() {
 
   while (!stopped && Date.now() < deadline) {
     await new Promise(resolve => {
-      const ws = new WebSocket(`${URL_BASE}/api/v0/events/stream?apiVersion=0&schemaVersion=0`, { headers: { Authorization: `Bearer ${TOKEN}` } });
+      const ws = new WebSocket(`${URL_BASE}/api/v0/events/stream?apiVersion=0&schemaVersion=0&clientRef=${encodeURIComponent('probe-' + surface.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}&clientLabel=${encodeURIComponent(surface)}`, { headers: { Authorization: `Bearer ${TOKEN}` } });
       const hangGuard = setTimeout(() => { try { ws.terminate(); } catch {} resolve(); }, Math.max(1000, deadline - Date.now()));
       let settled = false;
       const finish = () => { if (settled) return; settled = true; clearTimeout(hangGuard); resolve(); };
@@ -194,7 +194,10 @@ function readReceipt(file) {
   // are neither evidence of convergence nor evidence of a miss. They are reported as unmeasured, and the run's
   // verdict becomes INCOMPLETE rather than CONVERGED - an unmeasurable case is not a passing case.
   const lastObservedSeq = observed.size > 0 ? Math.max(...observed.keys()) : streamStartSeq;
-  return { file, surface, records, observed, serverAt, downIntervals, openDown, streamStartSeq, stopSeq, lastObservedSeq };
+  // Gaps the surface declared about ITSELF (R1). Used to tell "the surface lost this and says so" apart from
+  // "the surface lost this and says nothing", which are very different failures.
+  const gaps = records.filter(r => r.kind === 'gap' && Number.isFinite(r.gapFrom) && Number.isFinite(r.gapTo));
+  return { file, surface, records, observed, serverAt, downIntervals, openDown, streamStartSeq, stopSeq, lastObservedSeq, gaps };
 }
 
 function wasOfflineAt(receipt, atMs) {
@@ -261,6 +264,15 @@ async function merge() {
       if (seq <= r.streamStartSeq) { perSurface[r.surface] = { state: 'BEFORE_OBSERVATION', latencyMs: null }; continue; }
       if (seq > r.stopSeq) { perSurface[r.surface] = { state: 'AFTER_OBSERVATION', latencyMs: null }; continue; }
       if (wasOfflineAt(r, serverAt)) { perSurface[r.surface] = { state: 'OFFLINE_AT_EMIT', latencyMs: null }; continue; }
+      // R1: a gap the SURFACE declared about itself. Reported as a declared hole, never as a silent miss and
+      // never as convergence - the workbook's prohibition is on presenting missing events as live consistency,
+      // and a labelled hole is not that. It still cannot pass: a hole is a hole.
+      const gap = r.gaps.find(g => seq >= g.gapFrom && seq <= g.gapTo);
+      if (gap) {
+        perSurface[r.surface] = { state: 'GAP_DECLARED', latencyMs: null };
+        unmeasured.push({ seq, surface: r.surface, complaint: `inside a gap the surface declared for itself (${gap.gapFrom}..${gap.gapTo})` });
+        continue;
+      }
       if (seq > r.lastObservedSeq) {
         perSurface[r.surface] = { state: 'AT_SHUTDOWN', latencyMs: null };
         unmeasured.push({ seq, surface: r.surface, complaint: `emitted while this surface was shutting down; a bounded run cannot measure its own shutdown boundary` });

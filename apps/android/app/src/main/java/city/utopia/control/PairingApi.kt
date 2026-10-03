@@ -27,10 +27,13 @@ class PilotLog(private val context: Context) {
   * probe, by running it).
   */
  @Synchronized fun surfaceReset() { runCatching { context.openFileOutput("surface-observations.jsonl",Context.MODE_PRIVATE).close() }; surface("start") }
- @Synchronized fun surface(kind: String, seq: Int = -1, type: String = "", serverAt: String = "") {
+ @Synchronized fun surface(kind: String, seq: Int = -1, type: String = "", serverAt: String = "", from: Int = -1, to: Int = -1) {
   runCatching {
    val row = JSONObject().put("surface", android.os.Build.MODEL.ifBlank { "android-device" }).put("kind", kind).put("at", Instant.now().toString()).put("observedAt", System.currentTimeMillis())
    if (seq >= 0) { row.put("seq", seq); if (kind == "resync") row.put("maxSeq", seq); if (kind == "stop") row.put("serverMaxSeq", seq) }
+   // R1: a gap the surface declares about ITSELF. `merge` reports these as declared, never as silent misses -
+   // and never as convergence either, because a hole is a hole however honestly it is labelled.
+   if (from >= 0 && to >= from) { row.put("gapFrom", from); row.put("gapTo", to) }
    if (type.isNotEmpty()) row.put("type", type)
    if (serverAt.isNotEmpty()) row.put("serverAt", serverAt)
    context.openFileOutput("surface-observations.jsonl", Context.MODE_APPEND).bufferedWriter().use { it.appendLine(row.toString()) }

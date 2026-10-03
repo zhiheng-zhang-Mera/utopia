@@ -23,7 +23,7 @@ const ROOT = process.cwd();
 const DATA = `${ROOT}/.runtime-uxi391-dualhost-a`;
 const TOKEN = process.env.CITY_TOKEN || 'uxi391-dualhost-control';
 const NODE_TOKEN = process.env.CITY_NODE_TOKEN || 'uxi391-dualhost-node';
-const A = process.env.DUALHOST_NODE_A || 'dualhost-node-a';
+const A = process.env.DUALHOST_NODE_A || 'Alien-test';
 const WAIT_MS = Number(process.env.DUALHOST_WAIT_MS || 900000); // how long to wait for the review host
 
 const say = (m) => console.log(m);

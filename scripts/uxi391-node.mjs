@@ -9,8 +9,8 @@
 // Usage: node scripts/uxi391-node.mjs <nodeId> [displayName]
 import { startAgent } from '../agents/reference-node/agent.mjs';
 
-const id = process.argv[2];
-const displayName = process.argv[3] ?? id;
+const id = process.argv[2] ?? process.env.CITY_NODE_ID ?? 'Alien-test';
+const displayName = process.argv[3] ?? process.env.CITY_NODE_DISPLAY_NAME ?? id;
 if (!id) {
   console.error('usage: node scripts/uxi391-node.mjs <nodeId> [displayName]');
   process.exit(2);

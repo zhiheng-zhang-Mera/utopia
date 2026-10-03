@@ -1,16 +1,16 @@
 {
   "task": "UXI-391",
   "step": "6 (dual-host acceptance, HOST A side)",
-  "at": "2026-10-02T22:45:04.914Z",
+  "at": "2026-10-03T01:38:34.207Z",
   "bind": "172.31.3.110",
-  "port": 4392,
-  "url": "http://172.31.3.110:4392",
+  "port": 4391,
+  "url": "http://172.31.3.110:4391",
   "nodeA": "dualhost-node-a",
-  "targetTaskId": "Q-0d5c9a69-73f9-42d2-8a9c-39089b721a83",
+  "targetTaskId": "Q-43f3813a-c3f6-4e95-9dbd-67a6031f572c",
   "sawSecondDevice": true,
   "transfer": {
     "from": "dualhost-node-a",
-    "to": "dualhost-node-b",
+    "to": "mech-review-b",
     "epoch": 2
   },
   "completed": {
@@ -20,19 +20,19 @@
     }
   },
   "surface": {
-    "panelBefore": "WHY THINGS ARE WAITING In progress Q-0d5c9a69-73f9-42d2-8a9c-39089b721a83 Available Available now Use this Cancel Technical detail",
-    "tasksText": "TASK REGISTRY WAIT Q-0d5c9a69-73f9-42d2-8a9c-39089b721a83 COMPLETED",
+    "panelBefore": "WHY THINGS ARE WAITING In progress Q-43f3813a-c3f6-4e95-9dbd-67a6031f572c Available Available now Use this Cancel Technical detail",
+    "tasksText": "TASK REGISTRY WAIT Q-43f3813a-c3f6-4e95-9dbd-67a6031f572c COMPLETED",
     "reloaded": false
   },
   "failures": [],
   "log": [
-    "=== UXI-391 dual-host acceptance, HOST A on 172.31.3.110:4392 ===",
-    "  review host needs: URL=http://172.31.3.110:4392  CITY_TOKEN=uxi391-dualhost-control  CITY_NODE_TOKEN=uxi391-dualhost-node",
+    "=== UXI-391 dual-host acceptance, HOST A on 172.31.3.110:4391 ===",
+    "  review host needs: URL=http://172.31.3.110:4391  CITY_TOKEN=uxi391-dualhost-control  CITY_NODE_TOKEN=uxi391-dualhost-node",
     "  gateway healthy and bound to the LAN interface",
     "  node A registered and online",
-    "  target WAIT created: Q-0d5c9a69-73f9-42d2-8a9c-39089b721a83",
+    "  target WAIT created: Q-43f3813a-c3f6-4e95-9dbd-67a6031f572c",
     "  node A worker stopped; Gateway and surface still alive - the review host may now start node B",
-    "  review host's node appeared: dualhost-node-b",
-    "  transfer observed: dualhost-node-a -> dualhost-node-b"
+    "  review host's node appeared: mech-review-b,mech-review-c",
+    "  transfer observed: dualhost-node-a -> mech-review-b"
   ]
 }

@@ -73,10 +73,24 @@ export function createHandoffBridge({guard = createAssignmentGuard()} = {}) {
     return Object.freeze({outcome: 'TRANSFERRED', from, to, epoch: moved.epoch});
   }
 
+  /**
+   * Drop the guard's hold on a subject, so a released reservation really frees the work.
+   *
+   * WHY THIS EXISTS AND WHY IT WAS MISSING: clearing the task's `handoffTargetRef` releases the PERSISTED
+   * reservation, but the in-memory assignment guard still named the dead device as the holder, and
+   * `claimAllowed` therefore went on refusing every other device. My own scenario-3 test caught exactly that:
+   * the reservation cleared and the run stayed unclaimable. Only the recorded holder may release, which is the
+   * guard's own rule.
+   */
+  function releaseReservation({subjectRef, deviceRef}) {
+    return guard.release({subjectRef, deviceRef});
+  }
+
   return Object.freeze({
     consider,
     noteAssignment,
     claimAllowed,
+    releaseReservation,
     holder: subjectRef => guard.holder(subjectRef),
     epoch: subjectRef => guard.epoch(subjectRef),
     stats: () => guard.stats(),

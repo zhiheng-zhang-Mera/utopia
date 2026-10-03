@@ -80,6 +80,21 @@ async function waitFor(label, predicate, tries = 120, every = 500) {
     Number.isFinite(bRecord?.telemetry?.cpu?.usagePercent) || Number.isFinite(bRecord?.telemetry?.memory?.usedBytes),
     `cpu=${bRecord?.telemetry?.cpu?.usagePercent} mem=${bRecord?.telemetry?.memory?.usedBytes}`);
 
+  // PRECONDITION 1, learned on the real LAN: do NOT post the decline while the current holder is still judged
+  // healthy. The planner takes stage 1 (DIRECT) in that case and nothing moves - correctly - but the user's
+  // recorded intent is then consumed for nothing. The first dual-host attempt failed exactly here, and waiting
+  // for this is the difference between a run that measures the handoff and one that measures nothing.
+  await waitFor('the current holder to be judged unusable', async () => {
+    const c = await api('city');
+    const owner = (c.nodes ?? []).find((n) => n.id === originalOwner);
+    return !owner || owner.online !== true;
+  }, 60, 500);
+  note('  the current holder is no longer judged usable, so the decline can mean something');
+
+  // PRECONDITION 2, stated where the host that needs it will read it: THIS NODE MUST STAY UP until the task
+  // reaches a terminal state. A taking-over node that exits once the transfer is observed proves only half the
+  // handoff, and it also leaves the City holding work reserved for a device that is gone.
+
   // Drive the real user decline.
   const declined = await api(`tasks/${target.id}/switch-declined`, { method: 'POST', body: JSON.stringify({}) });
   assert('the decline was accepted', declined && !declined.error, JSON.stringify(declined).slice(0, 120));

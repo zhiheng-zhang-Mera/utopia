@@ -132,10 +132,64 @@ async function freshCity(label, dataDir) {
   const hist2 = JSON.stringify(completed2.history ?? []);
   assert('the record shows the handoff from the ORIGINAL owner', hist2.includes('neg-node-a->neg-node-b'), hist2.slice(0, 200));
 
+  /* ------------------------------------------- scenario 3: the reservation must not strand the run */
+  // Mech's SECOND finding: `handoffTargetRef` reserves the run for the chosen device and `claimAllowed`
+  // refuses every other one, so if that device dies the task is unclaimable by ANYONE and only another decline
+  // can move it. Repair B releases a reservation whose device stays offline beyond a bounded grace period.
+  // BETWEEN SCENARIOS THE PREVIOUS CITY MUST ACTUALLY BE GONE, not merely asked to stop: scenario 2's gateway
+  // and its returned stale holder were still alive, so scenario 3's gateway could not bind the port and its
+  // node registered against the PREVIOUS city - which is why the first run of this scenario timed out waiting
+  // for a task that had been created somewhere else entirely.
+  for (const c of children.splice(0)) { try { c.kill(); } catch { /* gone */ } }
+  for (let i = 0; i < 20; i++) { await sleep(500); try { await fetch(`${BASE}/api/v0/health`); } catch { break; } }
+  await sleep(1500);
+  await freshCity('SCENARIO 3: the reservation target dies', `${ROOT}/.runtime-uxi391-neg3`);
+  gw = start('services/dev-gateway/main.mjs', [], { CITY_DATA: `${ROOT}/.runtime-uxi391-neg3`, CITY_WORKSPACE: `${ROOT}/.runtime-uxi391-neg3/workspace` });
+  await waitFor('gateway health (3)', () => fetch(`${BASE}/api/v0/health`).then((r) => r.ok), 40, 500);
+  const a3 = start('scripts/uxi391-node.mjs', ['neg-node-a', 'Reservation A'], { CITY_DATA: `${ROOT}/.runtime-uxi391-neg3`, CITY_WORKSPACE: `${ROOT}/.runtime-uxi391-neg3/workspace` });
+  await waitFor('A online (3)', async () => ((await api('city')).nodes ?? []).some((n) => n.id === 'neg-node-a' && n.online));
+  const t3 = (await api('tasks', { method: 'POST', body: JSON.stringify({ type: 'WAIT' }) }))?.id;
+  await waitFor('RUNNING on A (3)', async () => { const t = await task(t3); return t.state === 'RUNNING' && t.assignedNodeId === 'neg-node-a'; });
+  a3.kill();
+  await waitFor('A offline (3)', async () => ((await api('city')).nodes ?? []).some((n) => n.id === 'neg-node-a' && !n.online));
+  const b3 = start('scripts/uxi391-node.mjs', ['neg-node-b', 'Reservation B'], { CITY_DATA: `${ROOT}/.runtime-uxi391-neg3`, CITY_WORKSPACE: `${ROOT}/.runtime-uxi391-neg3/workspace` });
+  await waitFor('B online (3)', async () => ((await api('city')).nodes ?? []).some((n) => n.id === 'neg-node-b' && n.online));
+  await sleep(1000);
+  await api(`tasks/${t3}/switch-declined`, { method: 'POST', body: JSON.stringify({}) });
+  const reserved3 = await waitFor('the transfer to B (3)', async () => { const t = await task(t3); return t.handoffTargetRef === 'neg-node-b' ? t : null; });
+  assert('the run is handed to B and RESERVED for it', reserved3.handoffTargetRef === 'neg-node-b', `reserved=${reserved3.handoffTargetRef}`);
+
+  // Kill the reservation TARGET, mid-run: this is exactly the state Mech's own experiment left behind.
+  b3.kill();
+  await waitFor('B offline (3)', async () => ((await api('city')).nodes ?? []).some((n) => n.id === 'neg-node-b' && !n.online));
+  const released = await waitFor('the dead reservation to be released', async () => {
+    const t = await task(t3);
+    return t.handoffTargetRef === null || t.handoffTargetRef === undefined ? t : null;
+  }, 60, 500).catch(() => null);
+  assert('a reservation whose device died is RELEASED rather than stranding the run', Boolean(released),
+    released ? `target=${released.handoffTargetRef ?? 'none'} state=${released.state}` : 'the reservation never cleared');
+  const ev3 = await events();
+  assert('the release is recorded as its own event', ev3.some((e) => e.type === 'TASK_HANDOFF_RESERVATION_RELEASED'),
+    ev3.map((e) => e.type).filter((x) => x.includes('HANDOFF')).join(','));
+
+  // And the run is claimable again: a THIRD device takes the SAME task to completion.
+  const c3 = start('scripts/uxi391-node.mjs', ['neg-node-c', 'Reservation C'], { CITY_DATA: `${ROOT}/.runtime-uxi391-neg3`, CITY_WORKSPACE: `${ROOT}/.runtime-uxi391-neg3/workspace` });
+  await waitFor('C online (3)', async () => ((await api('city')).nodes ?? []).some((n) => n.id === 'neg-node-c' && n.online));
+  const done3 = await waitFor('the released run to be taken by another device and finished', async () => {
+    const t = await task(t3);
+    return ['COMPLETED', 'FAILED', 'CANCELLED'].includes(t.state) ? t : null;
+  }, 120, 500);
+  assert('the stranded run is RECOVERED by another device and reaches terminal success',
+    done3.state === 'COMPLETED' && done3.id === t3, `state=${done3.state} assigned=${done3.assignedNodeId}`);
+  const all3 = (await api('tasks')).tasks ?? [];
+  assert('still exactly one task and one completion', all3.length === 1 && all3.filter((t) => t.state === 'COMPLETED').length === 1,
+    `tasks=${all3.length} completed=${all3.filter((t) => t.state === 'COMPLETED').length}`);
+  void c3;
   const receipt = {
     task: 'UXI-391', step: '6 (negative controls, product level)', at: new Date().toISOString(),
     scenarioNoAlternate: { taskId: t1, state: after1.state, reservedFor: after1.handoffTargetRef ?? null, presentationState: entry1?.dto?.state ?? null },
     scenarioStaleHolder: { taskId: t2, state: completed2.state, reservedFor: completed2.handoffTargetRef, history: completed2.history ?? [], taskCount: all2.length },
+    scenarioReservationReleased: { taskId: t3, state: done3.state, reservationCleared: Boolean(released), claimedBy: done3.assignedNodeId },
     failures, log,
   };
   mkdirSync(`${ROOT}/evidence/raw/mission-book/UXI-391`, { recursive: true });

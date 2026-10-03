@@ -18,8 +18,10 @@ if not exist "scripts\utopia-client-launcher.mjs" (
   pause
   exit /b 2
 )
-rem Node is not on the user or system PATH on this machine, so it is located here rather than assumed:
-rem PATH first, then the known runtime locations. Without this a double-click from Explorer fails at once.
+rem MEASURED, not assumed: node is on neither the user nor the system PATH on this machine (it lives in the
+rem DeepSeek-Harness runtime directory and is only on PATH inside a DSH session), so under the environment
+rem Explorer gives a double-clicked .cmd, "where node" exits 1 and a bare "node ..." fails at once - the City
+rem never started and the web client never opened. The runtime is therefore LOCATED here, never assumed.
 set "NODEEXE="
 for /f "delims=" %%N in ('where node 2^>nul') do if not defined NODEEXE set "NODEEXE=%%N"
 if not defined NODEEXE for /f "delims=" %%N in ('dir /b /a:d "D:\DS-Hns\runtime\node-*" 2^>nul') do if not defined NODEEXE if exist "D:\DS-Hns\runtime\%%N\node.exe" set "NODEEXE=D:\DS-Hns\runtime\%%N\node.exe"

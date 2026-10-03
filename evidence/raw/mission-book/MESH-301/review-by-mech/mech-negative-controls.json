@@ -1,0 +1,115 @@
+{
+  "instrument": "mech-mesh301-negative-controls/1",
+  "city": "http://172.31.3.110:4391",
+  "cityId": "22e1216b-f124-4d4a-be4a-4a280558c027",
+  "self": "Mech-Win",
+  "other": "Alien-Win",
+  "surfaceLabel": "Mech-Win-Web",
+  "checks": [
+    {
+      "name": "the control runs against a City with both real workers online",
+      "verdict": "PASS",
+      "evidence": "nodes=Alien-Win:true, Mech-Win:true"
+    },
+    {
+      "name": "an unknown but well-formed device is refused with a TYPED code and creates no task",
+      "verdict": "PASS",
+      "evidence": "http=200 status=REFUSED code=TARGET_DEVICE_UNKNOWN taskId=null"
+    },
+    {
+      "name": "a malformed device id is refused as MALFORMED, not silently treated as unknown",
+      "verdict": "PASS",
+      "evidence": "http=200 status=REFUSED code=TARGET_DEVICE_MALFORMED taskId=null"
+    },
+    {
+      "name": "a control surface's label is refused as a DEVICE, even though the City shows that label",
+      "verdict": "PASS",
+      "evidence": "target=Mech-Win-Web http=200 status=REFUSED code=TARGET_DEVICE_UNKNOWN taskId=null"
+    },
+    {
+      "name": "a retried identical instruction replays the SAME task and does not execute twice",
+      "verdict": "PASS",
+      "evidence": "first=Q-d582d96e-e502-4629-8801-3bd557699bd3 second=Q-d582d96e-e502-4629-8801-3bd557699bd3 sameActionId=true replayHttp=200"
+    },
+    {
+      "name": "exactly one task exists for the replayed instruction",
+      "verdict": "PASS",
+      "evidence": "tasks with id Q-d582d96e-e502-4629-8801-3bd557699bd3: 1"
+    },
+    {
+      "name": "one idempotency key cannot be reused for a DIFFERENT device",
+      "verdict": "PASS",
+      "evidence": "same key, target Mech-Win: http=400 code=IDEMPOTENCY_KEY_REUSED message=\"idempotencyKey mech-neg-duplicate-1791002416805 is already bound to CITY_TASK city.task:CHECKPOINT_DEMO; use a new key for a different request\" taskId=null"
+    },
+    {
+      "name": "the refused reuse created no task aimed at the wrong device",
+      "verdict": "PASS",
+      "evidence": "new tasks targeted at Mech-Win created by that attempt: none"
+    },
+    {
+      "name": "a strict task for Alien-Win is executed by Alien-Win and never by this host",
+      "verdict": "PASS",
+      "evidence": "taskId=Q-d582d96e-e502-4629-8801-3bd557699bd3 assignedNodeId=Alien-Win state=COMPLETED progress=100"
+    },
+    {
+      "name": "untargeted tasks are still scheduled and completed with no regression",
+      "verdict": "PASS",
+      "evidence": "created=3 completed=3 :: Q-cc38a17a-3068-4313-bd57-5df549672e65:COMPLETED/Alien-Win Q-951970c0-408e-49c6-a1b3-d6ab51a73c63:COMPLETED/Mech-Win Q-e07a6fab-4b13-4cc3-850b-7bf4c621b46f:COMPLETED/Alien-Win"
+    },
+    {
+      "name": "untargeted work is still taken by the two REAL workers only",
+      "verdict": "PASS",
+      "evidence": "assignees=Q-cc38a17a-3068-4313-bd57-5df549672e65:COMPLETED/Alien-Win Q-951970c0-408e-49c6-a1b3-d6ab51a73c63:COMPLETED/Mech-Win Q-e07a6fab-4b13-4cc3-850b-7bf4c621b46f:COMPLETED/Alien-Win"
+    }
+  ],
+  "findings": {
+    "unknown": {
+      "http": 200,
+      "status": "REFUSED",
+      "code": "TARGET_DEVICE_UNKNOWN",
+      "taskId": null
+    },
+    "malformed": {
+      "http": 200,
+      "status": "REFUSED",
+      "code": "TARGET_DEVICE_MALFORMED",
+      "taskId": null
+    },
+    "surfaceAsDevice": {
+      "http": 200,
+      "status": "REFUSED",
+      "code": "TARGET_DEVICE_UNKNOWN",
+      "taskId": null
+    },
+    "duplicate": {
+      "firstTask": "Q-d582d96e-e502-4629-8801-3bd557699bd3",
+      "secondTask": "Q-d582d96e-e502-4629-8801-3bd557699bd3",
+      "sameActionId": true,
+      "replayHttp": 200
+    },
+    "keyReuse": {
+      "http": 400,
+      "code": "IDEMPOTENCY_KEY_REUSED",
+      "taskId": null,
+      "rawError": "idempotencyKey mech-neg-duplicate-1791002416805 is already bound to CITY_TASK city.task:CHECKPOINT_DEMO; use a new key for a different request",
+      "newTasksTargetedAtSelf": []
+    },
+    "noFallback": {
+      "taskId": "Q-d582d96e-e502-4629-8801-3bd557699bd3",
+      "assignedNodeId": "Alien-Win",
+      "state": "COMPLETED"
+    },
+    "untargeted": {
+      "created": 3,
+      "completed": 3,
+      "assignees": [
+        "Q-cc38a17a-3068-4313-bd57-5df549672e65:COMPLETED/Alien-Win",
+        "Q-951970c0-408e-49c6-a1b3-d6ab51a73c63:COMPLETED/Mech-Win",
+        "Q-e07a6fab-4b13-4cc3-850b-7bf4c621b46f:COMPLETED/Alien-Win"
+      ]
+    }
+  },
+  "verdict": "PASS",
+  "note": "the raw node/claim attempt as the wrong node is deliberately absent; see the header for why",
+  "finishedAt": "2026-10-03T04:40:25.958Z"
+}

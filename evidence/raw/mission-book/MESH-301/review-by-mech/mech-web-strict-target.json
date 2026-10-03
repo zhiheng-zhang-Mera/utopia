@@ -1,0 +1,299 @@
+{
+  "instrument": "mech-mesh301-step52/1",
+  "head": "09a5b89ab3040873791957d482814f2aefb7271a",
+  "city": "http://172.31.3.110:4391",
+  "cityId": "22e1216b-f124-4d4a-be4a-4a280558c027",
+  "surfaceLabel": "Mech-Win-Web",
+  "self": "Mech-Win",
+  "target": "Alien-Win",
+  "surfaceIdentity": {
+    "ok": true,
+    "ref": "web-mech-3snad0jr",
+    "label": "Mech-Win-Web"
+  },
+  "selectorOptions": [
+    {
+      "value": "",
+      "text": "Any node"
+    },
+    {
+      "value": "Alien-Win",
+      "text": "Alien-Win"
+    },
+    {
+      "value": "Mech-Win",
+      "text": "Mech-Win"
+    }
+  ],
+  "chosenTarget": "Alien-Win",
+  "pressedAt": "2026-10-03T04:41:02.197Z",
+  "controlSurfacesBefore": [
+    {
+      "clientRef": "android-PERM00",
+      "clientLabel": "PERM00",
+      "connectedAt": "2026-10-03T03:32:33.531Z"
+    }
+  ],
+  "taskId": "Q-22aa3d23-e12d-4938-b137-f1b29c41dd5a",
+  "task": {
+    "state": "COMPLETED",
+    "assignedNodeId": "Alien-Win",
+    "targetDeviceRef": "Alien-Win",
+    "targetStateAtCreation": "ELIGIBLE",
+    "progress": 100,
+    "result": {
+      "step": "hashed",
+      "sha256": "0bfc66d0ed6190f92d262934d54ce1242e21484ba3a32c45cbc4b4a3c85f12de"
+    }
+  },
+  "action": {
+    "actionId": "A-8b29ac64-e5ef-410c-844d-f30e7847e387",
+    "route": "CITY_TASK",
+    "status": "SUCCEEDED",
+    "backendRef": {
+      "kind": "CITY_TASK",
+      "id": "city.task",
+      "taskId": "Q-22aa3d23-e12d-4938-b137-f1b29c41dd5a",
+      "operationId": "CHECKPOINT_DEMO",
+      "targetDeviceRef": "Alien-Win"
+    },
+    "provenance": {
+      "source": "utopia.dev-gateway",
+      "host": "Mera-Alianware",
+      "route": "CITY_TASK",
+      "roomId": null,
+      "capabilityId": null,
+      "taskId": "Q-22aa3d23-e12d-4938-b137-f1b29c41dd5a",
+      "invocationId": null,
+      "history": [
+        {
+          "at": "2026-10-03T04:41:03.276Z",
+          "status": "QUEUED",
+          "note": "routed to CITY_TASK city.task:CHECKPOINT_DEMO"
+        },
+        {
+          "at": "2026-10-03T04:41:03.279Z",
+          "status": "RUNNING",
+          "note": "executing"
+        },
+        {
+          "at": "2026-10-03T04:41:03.284Z",
+          "status": "QUEUED",
+          "note": "City task Q-22aa3d23-e12d-4938-b137-f1b29c41dd5a created as CHECKPOINT_DEMO, strictly targeted at Alien-Win (target state ELIGIBLE); it may be claimed by that device only."
+        },
+        {
+          "at": "2026-10-03T04:41:06.947Z",
+          "status": "SUCCEEDED",
+          "note": "observed City task state COMPLETED"
+        }
+      ],
+      "cityTaskState": "COMPLETED",
+      "targetDeviceRef": "Alien-Win",
+      "targetStateAtCreation": "ELIGIBLE",
+      "lateObservations": []
+    }
+  },
+  "taskEvents": [
+    {
+      "seq": 1310,
+      "type": "COMMAND_ACCEPTED",
+      "actor": "gateway",
+      "timestamp": "2026-10-03T04:41:03.281Z",
+      "payload": {}
+    },
+    {
+      "seq": 1311,
+      "type": "TASK_CREATED",
+      "actor": "gateway",
+      "timestamp": "2026-10-03T04:41:03.281Z",
+      "payload": {}
+    },
+    {
+      "seq": 1312,
+      "type": "TASK_ASSIGNED",
+      "actor": "Alien-Win",
+      "timestamp": "2026-10-03T04:41:03.962Z",
+      "payload": {
+        "state": "ASSIGNED",
+        "progress": 0,
+        "assignedNodeId": "Alien-Win"
+      }
+    },
+    {
+      "seq": 1313,
+      "type": "TASK_STARTED",
+      "actor": "Alien-Win",
+      "timestamp": "2026-10-03T04:41:03.970Z",
+      "payload": {
+        "state": "RUNNING",
+        "progress": 0,
+        "lastCheckpoint": null
+      }
+    },
+    {
+      "seq": 1314,
+      "type": "TASK_CHECKPOINTED",
+      "actor": "Alien-Win",
+      "timestamp": "2026-10-03T04:41:03.979Z",
+      "payload": {
+        "state": "RUNNING",
+        "progress": 30,
+        "lastCheckpoint": {
+          "step": "artifact-written",
+          "bytes": 65
+        }
+      }
+    },
+    {
+      "seq": 1315,
+      "type": "TASK_CHECKPOINTED",
+      "actor": "Alien-Win",
+      "timestamp": "2026-10-03T04:41:05.186Z",
+      "payload": {
+        "state": "RUNNING",
+        "progress": 75,
+        "lastCheckpoint": {
+          "step": "hashed",
+          "sha256": "0bfc66d0ed6190f92d262934d54ce1242e21484ba3a32c45cbc4b4a3c85f12de"
+        }
+      }
+    },
+    {
+      "seq": 1316,
+      "type": "TASK_COMPLETED",
+      "actor": "Alien-Win",
+      "timestamp": "2026-10-03T04:41:06.393Z",
+      "payload": {
+        "state": "COMPLETED",
+        "progress": 100,
+        "result": {
+          "bytes": 65,
+          "sha256": "0bfc66d0ed6190f92d262934d54ce1242e21484ba3a32c45cbc4b4a3c85f12de",
+          "cleaned": true
+        }
+      }
+    }
+  ],
+  "convergence": {
+    "clockOffsetMs": -1035,
+    "perSeq": [
+      {
+        "seq": 1310,
+        "type": "COMMAND_ACCEPTED",
+        "serverTimestamp": "2026-10-03T04:41:03.281Z",
+        "observedAt": "2026-10-03T04:41:02.247Z",
+        "rawDeltaMs": -1034,
+        "offsetFreeMs": 1
+      },
+      {
+        "seq": 1311,
+        "type": "TASK_CREATED",
+        "serverTimestamp": "2026-10-03T04:41:03.281Z",
+        "observedAt": "2026-10-03T04:41:02.248Z",
+        "rawDeltaMs": -1033,
+        "offsetFreeMs": 2
+      },
+      {
+        "seq": 1312,
+        "type": "TASK_ASSIGNED",
+        "serverTimestamp": "2026-10-03T04:41:03.962Z",
+        "observedAt": "2026-10-03T04:41:02.928Z",
+        "rawDeltaMs": -1034,
+        "offsetFreeMs": 1
+      },
+      {
+        "seq": 1313,
+        "type": "TASK_STARTED",
+        "serverTimestamp": "2026-10-03T04:41:03.970Z",
+        "observedAt": "2026-10-03T04:41:02.943Z",
+        "rawDeltaMs": -1027,
+        "offsetFreeMs": 8
+      },
+      {
+        "seq": 1314,
+        "type": "TASK_CHECKPOINTED",
+        "serverTimestamp": "2026-10-03T04:41:03.979Z",
+        "observedAt": "2026-10-03T04:41:02.947Z",
+        "rawDeltaMs": -1032,
+        "offsetFreeMs": 3
+      },
+      {
+        "seq": 1315,
+        "type": "TASK_CHECKPOINTED",
+        "serverTimestamp": "2026-10-03T04:41:05.186Z",
+        "observedAt": "2026-10-03T04:41:04.151Z",
+        "rawDeltaMs": -1035,
+        "offsetFreeMs": 0
+      },
+      {
+        "seq": 1316,
+        "type": "TASK_COMPLETED",
+        "serverTimestamp": "2026-10-03T04:41:06.393Z",
+        "observedAt": "2026-10-03T04:41:05.359Z",
+        "rawDeltaMs": -1034,
+        "offsetFreeMs": 1
+      }
+    ],
+    "upperBoundMs": 8,
+    "jitterMs": 8,
+    "missedSeqs": [],
+    "note": "only the offset-free column is a latency; the raw difference is dominated by the inter-host clock offset"
+  },
+  "negativeControlSurfaceAsDevice": {
+    "httpStatus": 200,
+    "code": "TARGET_DEVICE_UNKNOWN",
+    "status": "REFUSED",
+    "message": "no City node identity \"Mech-Win-Web\" is known to this City",
+    "taskId": null
+  },
+  "findings": [
+    {
+      "check": "the surface offers the target device",
+      "verdict": "PASS",
+      "detail": "(any), Alien-Win, Mech-Win"
+    },
+    {
+      "check": "the strict target is persisted on the canonical task",
+      "verdict": "PASS",
+      "detail": "task.targetDeviceRef=Alien-Win targetStateAtCreation=ELIGIBLE"
+    },
+    {
+      "check": "the user-level intent is visible in canonical Action truth",
+      "verdict": "PASS",
+      "detail": "actionId=A-8b29ac64-e5ef-410c-844d-f30e7847e387 route=CITY_TASK status=SUCCEEDED backendRef.targetDeviceRef=Alien-Win provenance.targetDeviceRef=Alien-Win"
+    },
+    {
+      "check": "ONLY the named device claimed it (Alien-Win)",
+      "verdict": "PASS",
+      "detail": "TASK_ASSIGNED assignedNodeId=Alien-Win; this surface's own worker is Mech-Win, which must NOT appear"
+    },
+    {
+      "check": "the run reached a real terminal state with a result",
+      "verdict": "PASS",
+      "detail": "state=COMPLETED progress=100 result={\"step\":\"hashed\",\"sha256\":\"0bfc66d0ed6190f92d262934d54ce1242e21484ba3a32c45cbc4b4a3c85f12de\"}"
+    },
+    {
+      "check": "the surface observed every canonical seq of its own instruction",
+      "verdict": "PASS",
+      "detail": "7 seq(s) observed"
+    },
+    {
+      "check": "bounded convergence against the 5s workbook window",
+      "verdict": "PASS",
+      "detail": "offset-free upper bound 8.0ms (offset estimate -1035ms)"
+    },
+    {
+      "check": "a control surface is refused as a target device (fail-honest, no task created)",
+      "verdict": "PASS",
+      "detail": "{\"httpStatus\":200,\"code\":\"TARGET_DEVICE_UNKNOWN\",\"status\":\"REFUSED\",\"message\":\"no City node identity \\\"Mech-Win-Web\\\" is known to this City\",\"taskId\":null}"
+    }
+  ],
+  "verdict": "PASS",
+  "notEstablished": [
+    "the OTHER two surfaces' receipts for this window: this receipt is Mech Web only, and a three-surface table needs all three, each produced by its own surface",
+    "that the mechanism is correct for devices this run did not use: an offline-target wait was not exercised here (both nodes were online), and Alien recorded that case separately",
+    "Formal Review: this run is endpoint-A evidence, not the review verdict on the head"
+  ],
+  "jsonl": "D:\\A-utopia\\.runtime\\worktrees\\mesh301-formal-review/evidence/raw/mission-book/MESH-301/review-by-mech/mech-web-strict-target.jsonl",
+  "finishedAt": "2026-10-03T04:41:08.457Z"
+}

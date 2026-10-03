@@ -1,0 +1,193 @@
+{
+  "instrument": "mech-mesh301-offline-target/1",
+  "city": "http://172.31.3.110:4391",
+  "target": "Mech-Win",
+  "other": "Alien-Win",
+  "controlFile": "D:/A-utopia/.runtime/mesh301-resident-control.json",
+  "window": {
+    "downRequestedAt": "2026-10-03T04:40:26.278Z",
+    "offlineObservedAt": "2026-10-03T04:40:35.569Z",
+    "upRequestedAt": "2026-10-03T04:40:50.873Z",
+    "onlineObservedAt": "2026-10-03T04:40:51.921Z",
+    "awayMs": 16352
+  },
+  "taskId": "Q-81c953ab-31c2-41e9-a825-7e2fc90bbe77",
+  "action": {
+    "actionId": "A-b8054c01-96a0-41ca-89bd-af219e396269",
+    "status": "QUEUED",
+    "backendRef": {
+      "kind": "CITY_TASK",
+      "id": "city.task",
+      "taskId": "Q-81c953ab-31c2-41e9-a825-7e2fc90bbe77",
+      "operationId": "CHECKPOINT_DEMO",
+      "targetDeviceRef": "Mech-Win"
+    },
+    "error": null
+  },
+  "task": {
+    "state": "COMPLETED",
+    "assignedNodeId": "Mech-Win",
+    "targetDeviceRef": "Mech-Win",
+    "targetStateAtCreation": "OFFLINE",
+    "progress": 100,
+    "result": {
+      "step": "hashed",
+      "sha256": "ce481f5feb283a1bdbeb457b21abf5d9a1e7f87321984f2332980a7d9cd91cf2"
+    }
+  },
+  "timeline": [
+    {
+      "seq": 1299,
+      "type": "COMMAND_ACCEPTED",
+      "taskId": "Q-81c953ab-31c2-41e9-a825-7e2fc90bbe77",
+      "payload": {},
+      "timestamp": "2026-10-03T04:40:36.645Z"
+    },
+    {
+      "seq": 1300,
+      "type": "TASK_CREATED",
+      "taskId": "Q-81c953ab-31c2-41e9-a825-7e2fc90bbe77",
+      "payload": {},
+      "timestamp": "2026-10-03T04:40:36.645Z"
+    },
+    {
+      "seq": 1301,
+      "type": "TASK_TARGET_WAITING",
+      "taskId": "Q-81c953ab-31c2-41e9-a825-7e2fc90bbe77",
+      "payload": {
+        "targetDeviceRef": "Mech-Win",
+        "targetState": "OFFLINE",
+        "reason": "TARGET_DEVICE_OFFLINE"
+      },
+      "timestamp": "2026-10-03T04:40:36.645Z"
+    },
+    {
+      "seq": 1303,
+      "type": "TASK_TARGET_READY",
+      "taskId": "Q-81c953ab-31c2-41e9-a825-7e2fc90bbe77",
+      "payload": {
+        "targetDeviceRef": "Mech-Win"
+      },
+      "timestamp": "2026-10-03T04:40:52.511Z"
+    },
+    {
+      "seq": 1304,
+      "type": "TASK_ASSIGNED",
+      "taskId": "Q-81c953ab-31c2-41e9-a825-7e2fc90bbe77",
+      "payload": {
+        "state": "ASSIGNED",
+        "progress": 0,
+        "assignedNodeId": "Mech-Win"
+      },
+      "timestamp": "2026-10-03T04:40:52.538Z"
+    },
+    {
+      "seq": 1305,
+      "type": "TASK_STARTED",
+      "taskId": "Q-81c953ab-31c2-41e9-a825-7e2fc90bbe77",
+      "payload": {
+        "state": "RUNNING",
+        "progress": 0,
+        "lastCheckpoint": null
+      },
+      "timestamp": "2026-10-03T04:40:52.545Z"
+    },
+    {
+      "seq": 1306,
+      "type": "TASK_CHECKPOINTED",
+      "taskId": "Q-81c953ab-31c2-41e9-a825-7e2fc90bbe77",
+      "payload": {
+        "state": "RUNNING",
+        "progress": 30,
+        "lastCheckpoint": {
+          "step": "artifact-written",
+          "bytes": 65
+        }
+      },
+      "timestamp": "2026-10-03T04:40:52.557Z"
+    },
+    {
+      "seq": 1307,
+      "type": "TASK_CHECKPOINTED",
+      "taskId": "Q-81c953ab-31c2-41e9-a825-7e2fc90bbe77",
+      "payload": {
+        "state": "RUNNING",
+        "progress": 75,
+        "lastCheckpoint": {
+          "step": "hashed",
+          "sha256": "ce481f5feb283a1bdbeb457b21abf5d9a1e7f87321984f2332980a7d9cd91cf2"
+        }
+      },
+      "timestamp": "2026-10-03T04:40:53.775Z"
+    },
+    {
+      "seq": 1308,
+      "type": "TASK_COMPLETED",
+      "taskId": "Q-81c953ab-31c2-41e9-a825-7e2fc90bbe77",
+      "payload": {
+        "state": "COMPLETED",
+        "progress": 100,
+        "result": {
+          "bytes": 65,
+          "sha256": "ce481f5feb283a1bdbeb457b21abf5d9a1e7f87321984f2332980a7d9cd91cf2",
+          "cleaned": true
+        }
+      },
+      "timestamp": "2026-10-03T04:40:54.989Z"
+    }
+  ],
+  "checks": [
+    {
+      "name": "Mech-Win is online before the control",
+      "verdict": "PASS",
+      "evidence": "online=true hb=2026-10-03T04:40:26.459Z"
+    },
+    {
+      "name": "the City marks Mech-Win offline after the worker is stopped",
+      "verdict": "PASS",
+      "evidence": "online=false after 9291ms"
+    },
+    {
+      "name": "a strict task for an AWAY device is created, not refused",
+      "verdict": "PASS",
+      "evidence": "httpStatus=200 actionStatus=QUEUED error=null taskId=Q-81c953ab-31c2-41e9-a825-7e2fc90bbe77"
+    },
+    {
+      "name": "the task carries the target and records the target state at creation",
+      "verdict": "PASS",
+      "evidence": "targetDeviceRef=Mech-Win targetStateAtCreation=OFFLINE assignedNodeId=null"
+    },
+    {
+      "name": "the online device Alien-Win does NOT take a task strictly targeted at the away device",
+      "verdict": "PASS",
+      "evidence": "assignedNodeId=null state=QUEUED after 15000ms with Alien-Win online=true"
+    },
+    {
+      "name": "canonical truth says WHY nothing moved (TASK_TARGET_WAITING with the target state)",
+      "verdict": "PASS",
+      "evidence": "seq 1301 targetState=OFFLINE reason=TARGET_DEVICE_OFFLINE"
+    },
+    {
+      "name": "Mech-Win returns to canonical truth as online",
+      "verdict": "PASS",
+      "evidence": "online=true after 1048ms"
+    },
+    {
+      "name": "ONLY the returning device claims and finishes it",
+      "verdict": "PASS",
+      "evidence": "assignedNodeId=Mech-Win state=COMPLETED progress=100 result={\"step\":\"hashed\",\"sha256\":\"ce481f5feb283a1bdbeb457b21abf5d9a1e7f87321984f2332980a7d9cd91cf2\"}"
+    },
+    {
+      "name": "TASK_TARGET_READY fires on the device return, before the claim",
+      "verdict": "PASS",
+      "evidence": "ready seq 1303; assigned seq 1304"
+    },
+    {
+      "name": "the Alien-Win node never claimed it anywhere in the timeline",
+      "verdict": "PASS",
+      "evidence": "assignment events: [{\"state\":\"ASSIGNED\",\"progress\":0,\"assignedNodeId\":\"Mech-Win\"}]"
+    }
+  ],
+  "verdict": "PASS",
+  "finishedAt": "2026-10-03T04:40:54.986Z"
+}

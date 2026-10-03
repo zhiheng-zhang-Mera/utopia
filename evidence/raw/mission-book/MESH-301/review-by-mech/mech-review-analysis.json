@@ -1,0 +1,672 @@
+{
+  "instrument": "mech-mesh301-review-analysis/1",
+  "head": "09a5b89ab3040873791957d482814f2aefb7271a",
+  "cityUrl": "http://172.31.3.110:4391",
+  "cityId": "22e1216b-f124-4d4a-be4a-4a280558c027",
+  "generatedAt": "2026-10-03T04:41:51.118Z",
+  "maxSeq": 1343,
+  "findings": {
+    "gate1": {
+      "namedIntervals": [
+        {
+          "ref": "web-mech-39xei5vm",
+          "label": "Mech-Win-Web",
+          "from": "2026-10-03T03:28:17.068Z",
+          "to": "2026-10-03T03:28:38.138Z",
+          "end": "closed"
+        },
+        {
+          "ref": "web-mech-bpsf9r9j",
+          "label": "Mech-Win-Web",
+          "from": "2026-10-03T03:29:03.637Z",
+          "to": "2026-10-03T03:29:11.312Z",
+          "end": "closed"
+        },
+        {
+          "ref": "android-PERM00",
+          "label": "PERM00",
+          "from": "2026-10-03T03:29:11.463Z",
+          "to": "2026-10-03T03:29:13.213Z",
+          "end": "closed"
+        },
+        {
+          "ref": "probe-mech-named",
+          "label": "Mech-Probe-Named",
+          "from": "2026-10-03T03:29:58.899Z",
+          "to": "2026-10-03T03:30:00.115Z",
+          "end": "closed"
+        },
+        {
+          "ref": "android-PERM00",
+          "label": "PERM00",
+          "from": "2026-10-03T03:32:02.179Z",
+          "to": "2026-10-03T03:32:33.531Z",
+          "end": "superseded"
+        },
+        {
+          "ref": "android-PERM00",
+          "label": "PERM00",
+          "from": "2026-10-03T03:32:33.531Z",
+          "to": "2026-10-03T03:32:35.488Z",
+          "end": "closed"
+        },
+        {
+          "ref": "probe-alien-host",
+          "label": "Alien-Host",
+          "from": "2026-10-03T03:32:12.457Z",
+          "to": "2026-10-03T03:33:02.455Z",
+          "end": "closed"
+        },
+        {
+          "ref": "web-p35glw68",
+          "label": "Alien Web",
+          "from": "2026-10-03T03:35:25.607Z",
+          "to": "2026-10-03T03:35:25.674Z",
+          "end": "closed"
+        },
+        {
+          "ref": "web-p35glw68",
+          "label": "Alien Web",
+          "from": "2026-10-03T03:35:28.189Z",
+          "to": "2026-10-03T03:55:00.243Z",
+          "end": "closed"
+        },
+        {
+          "ref": "probe-alien-host",
+          "label": "Alien-Host",
+          "from": "2026-10-03T03:35:43.689Z",
+          "to": "2026-10-03T03:55:43.683Z",
+          "end": "closed"
+        },
+        {
+          "ref": "web-mech-f8r3wwq7",
+          "label": "Mech-Win-Web",
+          "from": "2026-10-03T03:35:46.706Z",
+          "to": "2026-10-03T03:58:50.020Z",
+          "end": "closed"
+        },
+        {
+          "ref": "web-e622eirv",
+          "label": "Alien Web",
+          "from": "2026-10-03T03:59:59.657Z",
+          "to": "2026-10-03T03:59:59.734Z",
+          "end": "closed"
+        },
+        {
+          "ref": "web-e622eirv",
+          "label": "Alien Web",
+          "from": "2026-10-03T04:00:02.255Z",
+          "to": "2026-10-03T04:27:24.315Z",
+          "end": "closed"
+        },
+        {
+          "ref": "probe-alien-host",
+          "label": "Alien-Host",
+          "from": "2026-10-03T03:59:59.378Z",
+          "to": "2026-10-03T04:27:29.384Z",
+          "end": "closed"
+        },
+        {
+          "ref": "web-mech-z20yxrrj",
+          "label": "Mech-Win-Web",
+          "from": "2026-10-03T04:00:27.306Z",
+          "to": "2026-10-03T04:34:32.181Z",
+          "end": "closed"
+        },
+        {
+          "ref": "web-mech-3snad0jr",
+          "label": "Mech-Win-Web",
+          "from": "2026-10-03T04:41:03.089Z",
+          "to": "2026-10-03T04:41:09.545Z",
+          "end": "closed"
+        }
+      ],
+      "anonymousConnectionCount": 15,
+      "anonymousNote": "a stream client that declares no identity appears in controlSurfaces with clientRef/clientLabel null; it is a client, not an attributable endpoint",
+      "window2": {
+        "window": [
+          "2026-10-03T04:00:25.000Z",
+          "2026-10-03T04:26:00.000Z"
+        ],
+        "alienWeb": true,
+        "mechWeb": false,
+        "android": false
+      }
+    },
+    "gate2": [
+      {
+        "id": "Alien-Win",
+        "principal": "Alien-Win",
+        "platform": "win32",
+        "online": true,
+        "heartbeatAt": "2026-10-03T04:41:51.572Z",
+        "telemetryAt": "2026-10-03T04:41:50.711Z",
+        "capabilities": [
+          "task.execute.safe",
+          "filesystem.temp"
+        ]
+      },
+      {
+        "id": "Mech-Win",
+        "principal": "Mech-Win",
+        "platform": "win32",
+        "online": true,
+        "heartbeatAt": "2026-10-03T04:41:51.820Z",
+        "telemetryAt": "2026-10-03T04:41:48.588Z",
+        "capabilities": [
+          "task.execute.safe",
+          "filesystem.temp"
+        ]
+      }
+    ],
+    "gate3": {
+      "nodeCount": 2,
+      "androidNamedNodes": 0,
+      "controlSurfacesNamed": [
+        "PERM00",
+        "Mech-Win-Web"
+      ]
+    },
+    "strictTargets": [
+      {
+        "id": "Q-6958c120-262e-49f0-b967-d6572748bd73",
+        "createdAt": "2026-10-03T03:00:13.247Z",
+        "target": "Mech-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Mech-Win",
+        "targetStateAtCreation": "OFFLINE",
+        "seqFrom": 16,
+        "seqTo": 76,
+        "assignedEventSeq": 72,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "16:COMMAND_ACCEPTED",
+          "17:TASK_CREATED",
+          "18:TASK_TARGET_WAITING",
+          "19:TASK_QUEUED",
+          "20:TASK_SWITCH_DECLINED",
+          "21:TASK_HANDOFF_REFUSED",
+          "70:TASK_TARGET_READY",
+          "72:TASK_ASSIGNED",
+          "73:TASK_STARTED",
+          "74:TASK_CHECKPOINTED",
+          "75:TASK_CHECKPOINTED",
+          "76:TASK_COMPLETED"
+        ]
+      },
+      {
+        "id": "Q-f9a3d5ca-a44b-432c-81f3-89212adf8dbb",
+        "createdAt": "2026-10-03T03:00:28.505Z",
+        "target": "Mech-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Mech-Win",
+        "targetStateAtCreation": "OFFLINE",
+        "seqFrom": 22,
+        "seqTo": 81,
+        "assignedEventSeq": 77,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "22:COMMAND_ACCEPTED",
+          "23:TASK_CREATED",
+          "24:TASK_TARGET_WAITING",
+          "25:TASK_QUEUED",
+          "26:TASK_SWITCH_DECLINED",
+          "27:TASK_HANDOFF_REFUSED",
+          "71:TASK_TARGET_READY",
+          "77:TASK_ASSIGNED",
+          "78:TASK_STARTED",
+          "79:TASK_CHECKPOINTED",
+          "80:TASK_CHECKPOINTED",
+          "81:TASK_COMPLETED"
+        ]
+      },
+      {
+        "id": "Q-fa5c5669-11c2-48da-a258-55414c7fe4ef",
+        "createdAt": "2026-10-03T03:15:26.912Z",
+        "target": "Alien-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Alien-Win",
+        "targetStateAtCreation": "ELIGIBLE",
+        "seqFrom": 157,
+        "seqTo": 163,
+        "assignedEventSeq": 159,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "157:COMMAND_ACCEPTED",
+          "158:TASK_CREATED",
+          "159:TASK_ASSIGNED",
+          "160:TASK_STARTED",
+          "161:TASK_CHECKPOINTED",
+          "162:TASK_CHECKPOINTED",
+          "163:TASK_COMPLETED"
+        ]
+      },
+      {
+        "id": "Q-cfc3912a-73d9-45bb-8f7a-70b2ba346911",
+        "createdAt": "2026-10-03T03:15:59.663Z",
+        "target": "Mech-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Mech-Win",
+        "targetStateAtCreation": "ELIGIBLE",
+        "seqFrom": 164,
+        "seqTo": 170,
+        "assignedEventSeq": 166,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "164:COMMAND_ACCEPTED",
+          "165:TASK_CREATED",
+          "166:TASK_ASSIGNED",
+          "167:TASK_STARTED",
+          "168:TASK_CHECKPOINTED",
+          "169:TASK_CHECKPOINTED",
+          "170:TASK_COMPLETED"
+        ]
+      },
+      {
+        "id": "Q-c7a6c237-f6d7-435f-ab7b-6d8565252d62",
+        "createdAt": "2026-10-03T03:24:32.824Z",
+        "target": "Mech-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Mech-Win",
+        "targetStateAtCreation": "ELIGIBLE",
+        "seqFrom": 267,
+        "seqTo": 273,
+        "assignedEventSeq": 269,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "267:COMMAND_ACCEPTED",
+          "268:TASK_CREATED",
+          "269:TASK_ASSIGNED",
+          "270:TASK_STARTED",
+          "271:TASK_CHECKPOINTED",
+          "272:TASK_CHECKPOINTED",
+          "273:TASK_COMPLETED"
+        ]
+      },
+      {
+        "id": "Q-5d076006-d039-4a9b-a0d3-b62bbe9a2272",
+        "createdAt": "2026-10-03T03:28:17.545Z",
+        "target": "Alien-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Alien-Win",
+        "targetStateAtCreation": "ELIGIBLE",
+        "seqFrom": 326,
+        "seqTo": 332,
+        "assignedEventSeq": 328,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "326:COMMAND_ACCEPTED",
+          "327:TASK_CREATED",
+          "328:TASK_ASSIGNED",
+          "329:TASK_STARTED",
+          "330:TASK_CHECKPOINTED",
+          "331:TASK_CHECKPOINTED",
+          "332:TASK_COMPLETED"
+        ]
+      },
+      {
+        "id": "Q-0e068bea-b66c-4061-bf41-a39d0d55e478",
+        "createdAt": "2026-10-03T03:29:04.098Z",
+        "target": "Alien-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Alien-Win",
+        "targetStateAtCreation": "ELIGIBLE",
+        "seqFrom": 359,
+        "seqTo": 382,
+        "assignedEventSeq": 371,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "359:COMMAND_ACCEPTED",
+          "360:TASK_CREATED",
+          "371:TASK_ASSIGNED",
+          "372:TASK_STARTED",
+          "373:TASK_CHECKPOINTED",
+          "380:TASK_CHECKPOINTED",
+          "382:TASK_COMPLETED"
+        ]
+      },
+      {
+        "id": "Q-f49b261a-5879-4ea4-9fe5-416aaa171064",
+        "createdAt": "2026-10-03T03:33:53.737Z",
+        "target": "Mech-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Mech-Win",
+        "targetStateAtCreation": "OFFLINE",
+        "seqFrom": 494,
+        "seqTo": 503,
+        "assignedEventSeq": 499,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "494:COMMAND_ACCEPTED",
+          "495:TASK_CREATED",
+          "496:TASK_TARGET_WAITING",
+          "498:TASK_TARGET_READY",
+          "499:TASK_ASSIGNED",
+          "500:TASK_STARTED",
+          "501:TASK_CHECKPOINTED",
+          "502:TASK_CHECKPOINTED",
+          "503:TASK_COMPLETED"
+        ]
+      },
+      {
+        "id": "Q-f71f19fa-f640-4d35-900b-86135dab97fa",
+        "createdAt": "2026-10-03T03:35:52.829Z",
+        "target": "Alien-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Alien-Win",
+        "targetStateAtCreation": "ELIGIBLE",
+        "seqFrom": 523,
+        "seqTo": 529,
+        "assignedEventSeq": 525,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "523:COMMAND_ACCEPTED",
+          "524:TASK_CREATED",
+          "525:TASK_ASSIGNED",
+          "526:TASK_STARTED",
+          "527:TASK_CHECKPOINTED",
+          "528:TASK_CHECKPOINTED",
+          "529:TASK_COMPLETED"
+        ]
+      },
+      {
+        "id": "Q-382b81e0-0ab7-4dc6-a4e4-ae4bbdb2576d",
+        "createdAt": "2026-10-03T03:36:10.063Z",
+        "target": "Mech-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Mech-Win",
+        "targetStateAtCreation": "OFFLINE",
+        "seqFrom": 531,
+        "seqTo": 540,
+        "assignedEventSeq": 536,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "531:COMMAND_ACCEPTED",
+          "532:TASK_CREATED",
+          "533:TASK_TARGET_WAITING",
+          "535:TASK_TARGET_READY",
+          "536:TASK_ASSIGNED",
+          "537:TASK_STARTED",
+          "538:TASK_CHECKPOINTED",
+          "539:TASK_CHECKPOINTED",
+          "540:TASK_COMPLETED"
+        ]
+      },
+      {
+        "id": "Q-4094a32d-f9b4-4486-b407-c6232baa0a15",
+        "createdAt": "2026-10-03T03:42:21.180Z",
+        "target": "Alien-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Alien-Win",
+        "targetStateAtCreation": "ELIGIBLE",
+        "seqFrom": 553,
+        "seqTo": 561,
+        "assignedEventSeq": 557,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "553:COMMAND_ACCEPTED",
+          "554:TASK_CREATED",
+          "557:TASK_ASSIGNED",
+          "558:TASK_STARTED",
+          "559:TASK_CHECKPOINTED",
+          "560:TASK_CHECKPOINTED",
+          "561:TASK_COMPLETED"
+        ]
+      },
+      {
+        "id": "Q-9ca25e83-82c1-48a8-bfd0-5a661f9a85e9",
+        "createdAt": "2026-10-03T03:42:39.689Z",
+        "target": "Alien-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Alien-Win",
+        "targetStateAtCreation": "ELIGIBLE",
+        "seqFrom": 583,
+        "seqTo": 595,
+        "assignedEventSeq": 585,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "583:COMMAND_ACCEPTED",
+          "584:TASK_CREATED",
+          "585:TASK_ASSIGNED",
+          "586:TASK_STARTED",
+          "587:TASK_CHECKPOINTED",
+          "593:TASK_CHECKPOINTED",
+          "595:TASK_COMPLETED"
+        ]
+      },
+      {
+        "id": "Q-7ea37286-fc34-4204-a926-c57491ec1ba7",
+        "createdAt": "2026-10-03T03:42:59.662Z",
+        "target": "Alien-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Alien-Win",
+        "targetStateAtCreation": "ELIGIBLE",
+        "seqFrom": 597,
+        "seqTo": 609,
+        "assignedEventSeq": 599,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "597:COMMAND_ACCEPTED",
+          "598:TASK_CREATED",
+          "599:TASK_ASSIGNED",
+          "600:TASK_STARTED",
+          "601:TASK_CHECKPOINTED",
+          "607:TASK_CHECKPOINTED",
+          "609:TASK_COMPLETED"
+        ]
+      },
+      {
+        "id": "Q-5317011e-4ffa-4544-8c18-a06d24979d48",
+        "createdAt": "2026-10-03T04:00:33.437Z",
+        "target": "Alien-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Alien-Win",
+        "targetStateAtCreation": "ELIGIBLE",
+        "seqFrom": 871,
+        "seqTo": 877,
+        "assignedEventSeq": 873,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "871:COMMAND_ACCEPTED",
+          "872:TASK_CREATED",
+          "873:TASK_ASSIGNED",
+          "874:TASK_STARTED",
+          "875:TASK_CHECKPOINTED",
+          "876:TASK_CHECKPOINTED",
+          "877:TASK_COMPLETED"
+        ]
+      },
+      {
+        "id": "Q-e2614d7b-cc7c-4c5c-975b-df017064e216",
+        "createdAt": "2026-10-03T04:00:51.740Z",
+        "target": "Mech-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Mech-Win",
+        "targetStateAtCreation": "OFFLINE",
+        "seqFrom": 879,
+        "seqTo": 888,
+        "assignedEventSeq": 884,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "879:COMMAND_ACCEPTED",
+          "880:TASK_CREATED",
+          "881:TASK_TARGET_WAITING",
+          "883:TASK_TARGET_READY",
+          "884:TASK_ASSIGNED",
+          "885:TASK_STARTED",
+          "886:TASK_CHECKPOINTED",
+          "887:TASK_CHECKPOINTED",
+          "888:TASK_COMPLETED"
+        ]
+      },
+      {
+        "id": "Q-d582d96e-e502-4629-8801-3bd557699bd3",
+        "createdAt": "2026-10-03T04:40:17.980Z",
+        "target": "Alien-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Alien-Win",
+        "targetStateAtCreation": "ELIGIBLE",
+        "seqFrom": 1270,
+        "seqTo": 1276,
+        "assignedEventSeq": 1272,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "1270:COMMAND_ACCEPTED",
+          "1271:TASK_CREATED",
+          "1272:TASK_ASSIGNED",
+          "1273:TASK_STARTED",
+          "1274:TASK_CHECKPOINTED",
+          "1275:TASK_CHECKPOINTED",
+          "1276:TASK_COMPLETED"
+        ]
+      },
+      {
+        "id": "Q-81c953ab-31c2-41e9-a825-7e2fc90bbe77",
+        "createdAt": "2026-10-03T04:40:36.645Z",
+        "target": "Mech-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Mech-Win",
+        "targetStateAtCreation": "OFFLINE",
+        "seqFrom": 1299,
+        "seqTo": 1308,
+        "assignedEventSeq": 1304,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "1299:COMMAND_ACCEPTED",
+          "1300:TASK_CREATED",
+          "1301:TASK_TARGET_WAITING",
+          "1303:TASK_TARGET_READY",
+          "1304:TASK_ASSIGNED",
+          "1305:TASK_STARTED",
+          "1306:TASK_CHECKPOINTED",
+          "1307:TASK_CHECKPOINTED",
+          "1308:TASK_COMPLETED"
+        ]
+      },
+      {
+        "id": "Q-22aa3d23-e12d-4938-b137-f1b29c41dd5a",
+        "createdAt": "2026-10-03T04:41:03.281Z",
+        "target": "Alien-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Alien-Win",
+        "targetStateAtCreation": "ELIGIBLE",
+        "seqFrom": 1310,
+        "seqTo": 1316,
+        "assignedEventSeq": 1312,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "1310:COMMAND_ACCEPTED",
+          "1311:TASK_CREATED",
+          "1312:TASK_ASSIGNED",
+          "1313:TASK_STARTED",
+          "1314:TASK_CHECKPOINTED",
+          "1315:TASK_CHECKPOINTED",
+          "1316:TASK_COMPLETED"
+        ]
+      },
+      {
+        "id": "Q-31298d85-6ecd-4c14-8af1-5feefdb8f604",
+        "createdAt": "2026-10-03T04:41:23.341Z",
+        "target": "Alien-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Alien-Win",
+        "targetStateAtCreation": "ELIGIBLE",
+        "seqFrom": 1326,
+        "seqTo": 1332,
+        "assignedEventSeq": 1328,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "1326:COMMAND_ACCEPTED",
+          "1327:TASK_CREATED",
+          "1328:TASK_ASSIGNED",
+          "1329:TASK_STARTED",
+          "1330:TASK_CHECKPOINTED",
+          "1331:TASK_CHECKPOINTED",
+          "1332:TASK_COMPLETED"
+        ]
+      },
+      {
+        "id": "Q-44994a80-d08e-44c4-a890-238ccaf63f05",
+        "createdAt": "2026-10-03T04:41:40.753Z",
+        "target": "Mech-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Mech-Win",
+        "targetStateAtCreation": "OFFLINE",
+        "seqFrom": 1334,
+        "seqTo": 1343,
+        "assignedEventSeq": 1339,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "1334:COMMAND_ACCEPTED",
+          "1335:TASK_CREATED",
+          "1336:TASK_TARGET_WAITING",
+          "1338:TASK_TARGET_READY",
+          "1339:TASK_ASSIGNED",
+          "1340:TASK_STARTED",
+          "1341:TASK_CHECKPOINTED",
+          "1342:TASK_CHECKPOINTED",
+          "1343:TASK_COMPLETED"
+        ]
+      }
+    ],
+    "strictSummary": {
+      "count": 20,
+      "allAssignedToTheirTarget": true,
+      "allTerminalCompleted": true,
+      "aimedAtAlien": 11,
+      "aimedAtMech": 9,
+      "createdWhileTargetOffline": [
+        "Q-6958c120-262e-49f0-b967-d6572748bd73",
+        "Q-f9a3d5ca-a44b-432c-81f3-89212adf8dbb",
+        "Q-f49b261a-5879-4ea4-9fe5-416aaa171064",
+        "Q-382b81e0-0ab7-4dc6-a4e4-ae4bbdb2576d",
+        "Q-e2614d7b-cc7c-4c5c-975b-df017064e216",
+        "Q-81c953ab-31c2-41e9-a825-7e2fc90bbe77",
+        "Q-44994a80-d08e-44c4-a890-238ccaf63f05"
+      ]
+    },
+    "untargeted": {
+      "count": 152,
+      "completed": 150,
+      "failed": 2,
+      "assignees": [
+        "Mech-Win",
+        "Alien-Win"
+      ],
+      "anyAssignedToNonWorker": []
+    },
+    "attributionBound": {
+      "actionFields": [
+        "id",
+        "actionId",
+        "requestedIntent",
+        "route",
+        "backendRef",
+        "target",
+        "status",
+        "progress",
+        "resultRef",
+        "error",
+        "idempotencyKey",
+        "requestFingerprint",
+        "provenance",
+        "createdAt",
+        "updatedAt"
+      ],
+      "taskFields": [
+        "id",
+        "type",
+        "domain",
+        "state",
+        "createdAt",
+        "updatedAt",
+        "assignedNodeId",
+        "progress",
+        "lastCheckpoint",
+        "result",
+        "error"
+      ],
+      "statement": "neither the Action nor the City task carries a requester/clientRef/actor for the instruction that created it, so canonical truth cannot say WHICH surface issued a strict-target instruction; an Android-issued run and a script-issued run are indistinguishable except by the opaque idempotencyKey"
+    }
+  }
+}

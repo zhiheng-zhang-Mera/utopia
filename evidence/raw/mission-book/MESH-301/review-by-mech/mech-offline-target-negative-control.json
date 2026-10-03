@@ -5,20 +5,20 @@
   "other": "Alien-Win",
   "controlFile": "D:/A-utopia/.runtime/mesh301-resident-control.json",
   "window": {
-    "downRequestedAt": "2026-10-03T04:40:26.278Z",
-    "offlineObservedAt": "2026-10-03T04:40:35.569Z",
-    "upRequestedAt": "2026-10-03T04:40:50.873Z",
-    "onlineObservedAt": "2026-10-03T04:40:51.921Z",
-    "awayMs": 16352
+    "downRequestedAt": "2026-10-03T05:21:03.001Z",
+    "offlineObservedAt": "2026-10-03T05:21:13.271Z",
+    "upRequestedAt": "2026-10-03T05:21:28.503Z",
+    "onlineObservedAt": "2026-10-03T05:21:29.548Z",
+    "awayMs": 16277
   },
-  "taskId": "Q-81c953ab-31c2-41e9-a825-7e2fc90bbe77",
+  "taskId": "Q-7f692de2-5511-4fbc-bae1-145633583fa7",
   "action": {
-    "actionId": "A-b8054c01-96a0-41ca-89bd-af219e396269",
+    "actionId": "A-c612a33b-7790-4a73-bfd6-76de926f2fa0",
     "status": "QUEUED",
     "backendRef": {
       "kind": "CITY_TASK",
       "id": "city.task",
-      "taskId": "Q-81c953ab-31c2-41e9-a825-7e2fc90bbe77",
+      "taskId": "Q-7f692de2-5511-4fbc-bae1-145633583fa7",
       "operationId": "CHECKPOINT_DEMO",
       "targetDeviceRef": "Mech-Win"
     },
@@ -32,70 +32,70 @@
     "progress": 100,
     "result": {
       "step": "hashed",
-      "sha256": "ce481f5feb283a1bdbeb457b21abf5d9a1e7f87321984f2332980a7d9cd91cf2"
+      "sha256": "a4a25cdd64e717d06b2e4415fa6b00fd65cdfd94270b07c4b002f795d47b515e"
     }
   },
   "timeline": [
     {
-      "seq": 1299,
+      "seq": 1465,
       "type": "COMMAND_ACCEPTED",
-      "taskId": "Q-81c953ab-31c2-41e9-a825-7e2fc90bbe77",
+      "taskId": "Q-7f692de2-5511-4fbc-bae1-145633583fa7",
       "payload": {},
-      "timestamp": "2026-10-03T04:40:36.645Z"
+      "timestamp": "2026-10-03T05:21:14.370Z"
     },
     {
-      "seq": 1300,
+      "seq": 1466,
       "type": "TASK_CREATED",
-      "taskId": "Q-81c953ab-31c2-41e9-a825-7e2fc90bbe77",
+      "taskId": "Q-7f692de2-5511-4fbc-bae1-145633583fa7",
       "payload": {},
-      "timestamp": "2026-10-03T04:40:36.645Z"
+      "timestamp": "2026-10-03T05:21:14.370Z"
     },
     {
-      "seq": 1301,
+      "seq": 1467,
       "type": "TASK_TARGET_WAITING",
-      "taskId": "Q-81c953ab-31c2-41e9-a825-7e2fc90bbe77",
+      "taskId": "Q-7f692de2-5511-4fbc-bae1-145633583fa7",
       "payload": {
         "targetDeviceRef": "Mech-Win",
         "targetState": "OFFLINE",
         "reason": "TARGET_DEVICE_OFFLINE"
       },
-      "timestamp": "2026-10-03T04:40:36.645Z"
+      "timestamp": "2026-10-03T05:21:14.371Z"
     },
     {
-      "seq": 1303,
+      "seq": 1469,
       "type": "TASK_TARGET_READY",
-      "taskId": "Q-81c953ab-31c2-41e9-a825-7e2fc90bbe77",
+      "taskId": "Q-7f692de2-5511-4fbc-bae1-145633583fa7",
       "payload": {
         "targetDeviceRef": "Mech-Win"
       },
-      "timestamp": "2026-10-03T04:40:52.511Z"
+      "timestamp": "2026-10-03T05:21:30.163Z"
     },
     {
-      "seq": 1304,
+      "seq": 1470,
       "type": "TASK_ASSIGNED",
-      "taskId": "Q-81c953ab-31c2-41e9-a825-7e2fc90bbe77",
+      "taskId": "Q-7f692de2-5511-4fbc-bae1-145633583fa7",
       "payload": {
         "state": "ASSIGNED",
         "progress": 0,
         "assignedNodeId": "Mech-Win"
       },
-      "timestamp": "2026-10-03T04:40:52.538Z"
+      "timestamp": "2026-10-03T05:21:30.190Z"
     },
     {
-      "seq": 1305,
+      "seq": 1471,
       "type": "TASK_STARTED",
-      "taskId": "Q-81c953ab-31c2-41e9-a825-7e2fc90bbe77",
+      "taskId": "Q-7f692de2-5511-4fbc-bae1-145633583fa7",
       "payload": {
         "state": "RUNNING",
         "progress": 0,
         "lastCheckpoint": null
       },
-      "timestamp": "2026-10-03T04:40:52.545Z"
+      "timestamp": "2026-10-03T05:21:30.197Z"
     },
     {
-      "seq": 1306,
+      "seq": 1472,
       "type": "TASK_CHECKPOINTED",
-      "taskId": "Q-81c953ab-31c2-41e9-a825-7e2fc90bbe77",
+      "taskId": "Q-7f692de2-5511-4fbc-bae1-145633583fa7",
       "payload": {
         "state": "RUNNING",
         "progress": 30,
@@ -104,53 +104,53 @@
           "bytes": 65
         }
       },
-      "timestamp": "2026-10-03T04:40:52.557Z"
+      "timestamp": "2026-10-03T05:21:30.209Z"
     },
     {
-      "seq": 1307,
+      "seq": 1473,
       "type": "TASK_CHECKPOINTED",
-      "taskId": "Q-81c953ab-31c2-41e9-a825-7e2fc90bbe77",
+      "taskId": "Q-7f692de2-5511-4fbc-bae1-145633583fa7",
       "payload": {
         "state": "RUNNING",
         "progress": 75,
         "lastCheckpoint": {
           "step": "hashed",
-          "sha256": "ce481f5feb283a1bdbeb457b21abf5d9a1e7f87321984f2332980a7d9cd91cf2"
+          "sha256": "a4a25cdd64e717d06b2e4415fa6b00fd65cdfd94270b07c4b002f795d47b515e"
         }
       },
-      "timestamp": "2026-10-03T04:40:53.775Z"
+      "timestamp": "2026-10-03T05:21:31.424Z"
     },
     {
-      "seq": 1308,
+      "seq": 1474,
       "type": "TASK_COMPLETED",
-      "taskId": "Q-81c953ab-31c2-41e9-a825-7e2fc90bbe77",
+      "taskId": "Q-7f692de2-5511-4fbc-bae1-145633583fa7",
       "payload": {
         "state": "COMPLETED",
         "progress": 100,
         "result": {
           "bytes": 65,
-          "sha256": "ce481f5feb283a1bdbeb457b21abf5d9a1e7f87321984f2332980a7d9cd91cf2",
+          "sha256": "a4a25cdd64e717d06b2e4415fa6b00fd65cdfd94270b07c4b002f795d47b515e",
           "cleaned": true
         }
       },
-      "timestamp": "2026-10-03T04:40:54.989Z"
+      "timestamp": "2026-10-03T05:21:32.651Z"
     }
   ],
   "checks": [
     {
       "name": "Mech-Win is online before the control",
       "verdict": "PASS",
-      "evidence": "online=true hb=2026-10-03T04:40:26.459Z"
+      "evidence": "online=true hb=2026-10-03T05:21:03.345Z"
     },
     {
       "name": "the City marks Mech-Win offline after the worker is stopped",
       "verdict": "PASS",
-      "evidence": "online=false after 9291ms"
+      "evidence": "online=false after 10270ms"
     },
     {
       "name": "a strict task for an AWAY device is created, not refused",
       "verdict": "PASS",
-      "evidence": "httpStatus=200 actionStatus=QUEUED error=null taskId=Q-81c953ab-31c2-41e9-a825-7e2fc90bbe77"
+      "evidence": "httpStatus=200 actionStatus=QUEUED error=null taskId=Q-7f692de2-5511-4fbc-bae1-145633583fa7"
     },
     {
       "name": "the task carries the target and records the target state at creation",
@@ -165,22 +165,22 @@
     {
       "name": "canonical truth says WHY nothing moved (TASK_TARGET_WAITING with the target state)",
       "verdict": "PASS",
-      "evidence": "seq 1301 targetState=OFFLINE reason=TARGET_DEVICE_OFFLINE"
+      "evidence": "seq 1467 targetState=OFFLINE reason=TARGET_DEVICE_OFFLINE"
     },
     {
       "name": "Mech-Win returns to canonical truth as online",
       "verdict": "PASS",
-      "evidence": "online=true after 1048ms"
+      "evidence": "online=true after 1045ms"
     },
     {
       "name": "ONLY the returning device claims and finishes it",
       "verdict": "PASS",
-      "evidence": "assignedNodeId=Mech-Win state=COMPLETED progress=100 result={\"step\":\"hashed\",\"sha256\":\"ce481f5feb283a1bdbeb457b21abf5d9a1e7f87321984f2332980a7d9cd91cf2\"}"
+      "evidence": "assignedNodeId=Mech-Win state=COMPLETED progress=100 result={\"step\":\"hashed\",\"sha256\":\"a4a25cdd64e717d06b2e4415fa6b00fd65cdfd94270b07c4b002f795d47b515e\"}"
     },
     {
       "name": "TASK_TARGET_READY fires on the device return, before the claim",
       "verdict": "PASS",
-      "evidence": "ready seq 1303; assigned seq 1304"
+      "evidence": "ready seq 1469; assigned seq 1470"
     },
     {
       "name": "the Alien-Win node never claimed it anywhere in the timeline",
@@ -189,5 +189,5 @@
     }
   ],
   "verdict": "PASS",
-  "finishedAt": "2026-10-03T04:40:54.986Z"
+  "finishedAt": "2026-10-03T05:21:32.588Z"
 }

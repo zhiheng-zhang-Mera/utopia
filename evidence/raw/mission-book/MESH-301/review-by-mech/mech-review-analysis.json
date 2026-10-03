@@ -1,90 +1,13 @@
 {
   "instrument": "mech-mesh301-review-analysis/1",
-  "head": "09a5b89ab3040873791957d482814f2aefb7271a",
+  "head": "29f26910e411945134b16fd0a8f601b4dbdd7f45",
   "cityUrl": "http://172.31.3.110:4391",
   "cityId": "22e1216b-f124-4d4a-be4a-4a280558c027",
-  "generatedAt": "2026-10-03T04:50:49.301Z",
-  "maxSeq": 1348,
+  "generatedAt": "2026-10-03T05:21:41.913Z",
+  "maxSeq": 1483,
   "findings": {
     "gate1": {
       "namedIntervals": [
-        {
-          "ref": "probe-mech-named",
-          "label": "Mech-Probe-Named",
-          "from": "2026-10-03T03:29:58.899Z",
-          "to": "2026-10-03T03:30:00.115Z",
-          "end": "closed"
-        },
-        {
-          "ref": "android-PERM00",
-          "label": "PERM00",
-          "from": "2026-10-03T03:32:02.179Z",
-          "to": "2026-10-03T03:32:33.531Z",
-          "end": "superseded"
-        },
-        {
-          "ref": "android-PERM00",
-          "label": "PERM00",
-          "from": "2026-10-03T03:32:33.531Z",
-          "to": "2026-10-03T03:32:35.488Z",
-          "end": "closed"
-        },
-        {
-          "ref": "probe-alien-host",
-          "label": "Alien-Host",
-          "from": "2026-10-03T03:32:12.457Z",
-          "to": "2026-10-03T03:33:02.455Z",
-          "end": "closed"
-        },
-        {
-          "ref": "web-p35glw68",
-          "label": "Alien Web",
-          "from": "2026-10-03T03:35:25.607Z",
-          "to": "2026-10-03T03:35:25.674Z",
-          "end": "closed"
-        },
-        {
-          "ref": "web-p35glw68",
-          "label": "Alien Web",
-          "from": "2026-10-03T03:35:28.189Z",
-          "to": "2026-10-03T03:55:00.243Z",
-          "end": "closed"
-        },
-        {
-          "ref": "probe-alien-host",
-          "label": "Alien-Host",
-          "from": "2026-10-03T03:35:43.689Z",
-          "to": "2026-10-03T03:55:43.683Z",
-          "end": "closed"
-        },
-        {
-          "ref": "web-mech-f8r3wwq7",
-          "label": "Mech-Win-Web",
-          "from": "2026-10-03T03:35:46.706Z",
-          "to": "2026-10-03T03:58:50.020Z",
-          "end": "closed"
-        },
-        {
-          "ref": "web-e622eirv",
-          "label": "Alien Web",
-          "from": "2026-10-03T03:59:59.657Z",
-          "to": "2026-10-03T03:59:59.734Z",
-          "end": "closed"
-        },
-        {
-          "ref": "web-e622eirv",
-          "label": "Alien Web",
-          "from": "2026-10-03T04:00:02.255Z",
-          "to": "2026-10-03T04:27:24.315Z",
-          "end": "closed"
-        },
-        {
-          "ref": "probe-alien-host",
-          "label": "Alien-Host",
-          "from": "2026-10-03T03:59:59.378Z",
-          "to": "2026-10-03T04:27:29.384Z",
-          "end": "closed"
-        },
         {
           "ref": "web-mech-z20yxrrj",
           "label": "Mech-Win-Web",
@@ -119,9 +42,86 @@
           "from": "2026-10-03T04:41:17.222Z",
           "to": "2026-10-03T04:48:20.284Z",
           "end": "closed"
+        },
+        {
+          "ref": "probe-xdknv-v",
+          "label": "Mech-Scenario-Probe2-xdknv",
+          "from": "2026-10-03T05:02:10.474Z",
+          "to": "2026-10-03T05:02:10.482Z",
+          "end": "superseded"
+        },
+        {
+          "ref": "probe-xdknv-v",
+          "label": "Mech-Scenario-Probe1-xdknv",
+          "from": "2026-10-03T05:02:10.482Z",
+          "to": "2026-10-03T05:03:28.788Z",
+          "end": "closed"
+        },
+        {
+          "ref": "web-dywf2ytj",
+          "label": "Mech-Scenario-Web-xdknv",
+          "from": "2026-10-03T05:02:10.398Z",
+          "to": "2026-10-03T05:03:28.854Z",
+          "end": "closed"
+        },
+        {
+          "ref": "probe-xfl51-1",
+          "label": "Mech-Scenario-Probe1-xfl51",
+          "from": "2026-10-03T05:03:44.383Z",
+          "to": "2026-10-03T05:05:02.679Z",
+          "end": "closed"
+        },
+        {
+          "ref": "probe-xfl51-2",
+          "label": "Mech-Scenario-Probe2-xfl51",
+          "from": "2026-10-03T05:03:44.391Z",
+          "to": "2026-10-03T05:05:02.682Z",
+          "end": "closed"
+        },
+        {
+          "ref": "web-9fu68k1m",
+          "label": "Mech-Scenario-Web-xfl51",
+          "from": "2026-10-03T05:03:44.300Z",
+          "to": "2026-10-03T05:05:02.738Z",
+          "end": "closed"
+        },
+        {
+          "ref": "probe-xhtb8-1",
+          "label": "Mech-Scenario-Probe1-xhtb8",
+          "from": "2026-10-03T05:05:28.286Z",
+          "to": "2026-10-03T05:06:46.562Z",
+          "end": "closed"
+        },
+        {
+          "ref": "probe-xhtb8-2",
+          "label": "Mech-Scenario-Probe2-xhtb8",
+          "from": "2026-10-03T05:05:28.293Z",
+          "to": "2026-10-03T05:06:46.570Z",
+          "end": "closed"
+        },
+        {
+          "ref": "web-un84kxuq",
+          "label": "Mech-Scenario-Web-xhtb8",
+          "from": "2026-10-03T05:05:28.204Z",
+          "to": "2026-10-03T05:06:46.628Z",
+          "end": "closed"
+        },
+        {
+          "ref": "probe-mech-dup-nmk9hr",
+          "label": "Mech-Dup-Probe",
+          "from": "2026-10-03T05:19:58.317Z",
+          "to": "2026-10-03T05:20:02.830Z",
+          "end": "closed"
+        },
+        {
+          "ref": "web-mech-c54jwh7w",
+          "label": "Mech-Win-Web",
+          "from": "2026-10-03T05:21:35.961Z",
+          "to": "2026-10-03T05:21:42.142Z",
+          "end": "closed"
         }
       ],
-      "anonymousConnectionCount": 14,
+      "anonymousConnectionCount": 15,
       "anonymousNote": "a stream client that declares no identity appears in controlSurfaces with clientRef/clientLabel null; it is a client, not an attributable endpoint",
       "window2": {
         "window": [
@@ -133,19 +133,19 @@
         "android": false
       },
       "presenceFromCityList": {
-        "observedAt": "2026-10-03T04:50:49.294Z",
+        "observedAt": "2026-10-03T05:21:41.903Z",
         "raw": [
           {
             "clientRef": "android-PERM00",
             "clientLabel": "PERM00",
-            "connectedAt": "2026-10-03T03:32:33.531Z"
+            "connectedAt": "2026-10-03T05:18:55.498Z"
           }
         ],
         "deduplicatedByRef": [
           {
             "clientRef": "android-PERM00",
             "clientLabel": "PERM00",
-            "connectedAt": "2026-10-03T03:32:33.531Z"
+            "connectedAt": "2026-10-03T05:18:55.498Z"
           }
         ],
         "duplicatesPresent": false
@@ -158,8 +158,8 @@
         "principal": "Alien-Win",
         "platform": "win32",
         "online": true,
-        "heartbeatAt": "2026-10-03T04:50:49.786Z",
-        "telemetryAt": "2026-10-03T04:50:48.955Z",
+        "heartbeatAt": "2026-10-03T05:21:42.800Z",
+        "telemetryAt": "2026-10-03T05:21:41.078Z",
         "capabilities": [
           "task.execute.safe",
           "filesystem.temp"
@@ -170,8 +170,8 @@
         "principal": "Mech-Win",
         "platform": "win32",
         "online": true,
-        "heartbeatAt": "2026-10-03T04:50:49.823Z",
-        "telemetryAt": "2026-10-03T04:50:46.935Z",
+        "heartbeatAt": "2026-10-03T05:21:42.424Z",
+        "telemetryAt": "2026-10-03T05:21:41.071Z",
         "capabilities": [
           "task.execute.safe",
           "filesystem.temp"
@@ -625,14 +625,205 @@
           "1342:TASK_CHECKPOINTED",
           "1343:TASK_COMPLETED"
         ]
+      },
+      {
+        "id": "Q-8dbc7d7b-2b2d-4ded-95fc-5a8926e4a9ac",
+        "createdAt": "2026-10-03T05:02:12.053Z",
+        "target": "Alien-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Alien-Win",
+        "targetStateAtCreation": "ELIGIBLE",
+        "seqFrom": 1358,
+        "seqTo": 1371,
+        "assignedEventSeq": 1360,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "1358:COMMAND_ACCEPTED",
+          "1359:TASK_CREATED",
+          "1360:TASK_ASSIGNED",
+          "1361:TASK_STARTED",
+          "1362:TASK_CHECKPOINTED",
+          "1369:TASK_CHECKPOINTED",
+          "1371:TASK_COMPLETED"
+        ]
+      },
+      {
+        "id": "Q-64ec3020-e61c-4f0f-86c3-8f887581169d",
+        "createdAt": "2026-10-03T05:02:13.580Z",
+        "target": "Mech-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Mech-Win",
+        "targetStateAtCreation": "ELIGIBLE",
+        "seqFrom": 1364,
+        "seqTo": 1372,
+        "assignedEventSeq": 1366,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "1364:COMMAND_ACCEPTED",
+          "1365:TASK_CREATED",
+          "1366:TASK_ASSIGNED",
+          "1367:TASK_STARTED",
+          "1368:TASK_CHECKPOINTED",
+          "1370:TASK_CHECKPOINTED",
+          "1372:TASK_COMPLETED"
+        ]
+      },
+      {
+        "id": "Q-0f8cc6de-bd8c-46fa-b054-f3b60b79abcc",
+        "createdAt": "2026-10-03T05:03:45.956Z",
+        "target": "Alien-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Alien-Win",
+        "targetStateAtCreation": "ELIGIBLE",
+        "seqFrom": 1384,
+        "seqTo": 1398,
+        "assignedEventSeq": 1390,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "1384:COMMAND_ACCEPTED",
+          "1385:TASK_CREATED",
+          "1390:TASK_ASSIGNED",
+          "1392:TASK_STARTED",
+          "1394:TASK_CHECKPOINTED",
+          "1396:TASK_CHECKPOINTED",
+          "1398:TASK_COMPLETED"
+        ]
+      },
+      {
+        "id": "Q-ef10ab23-65db-47c3-8355-5573335cdae6",
+        "createdAt": "2026-10-03T05:03:47.490Z",
+        "target": "Mech-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Mech-Win",
+        "targetStateAtCreation": "ELIGIBLE",
+        "seqFrom": 1387,
+        "seqTo": 1399,
+        "assignedEventSeq": 1391,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "1387:COMMAND_ACCEPTED",
+          "1388:TASK_CREATED",
+          "1391:TASK_ASSIGNED",
+          "1393:TASK_STARTED",
+          "1395:TASK_CHECKPOINTED",
+          "1397:TASK_CHECKPOINTED",
+          "1399:TASK_COMPLETED"
+        ]
+      },
+      {
+        "id": "Q-d6519a47-8b53-4338-8272-9c9aec6acd07",
+        "createdAt": "2026-10-03T05:05:29.859Z",
+        "target": "Alien-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Alien-Win",
+        "targetStateAtCreation": "ELIGIBLE",
+        "seqFrom": 1411,
+        "seqTo": 1425,
+        "assignedEventSeq": 1417,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "1411:COMMAND_ACCEPTED",
+          "1412:TASK_CREATED",
+          "1417:TASK_ASSIGNED",
+          "1418:TASK_STARTED",
+          "1419:TASK_CHECKPOINTED",
+          "1423:TASK_CHECKPOINTED",
+          "1425:TASK_COMPLETED"
+        ]
+      },
+      {
+        "id": "Q-39e5e46f-27ad-456f-a96d-61bce25e85ca",
+        "createdAt": "2026-10-03T05:05:31.389Z",
+        "target": "Mech-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Mech-Win",
+        "targetStateAtCreation": "ELIGIBLE",
+        "seqFrom": 1415,
+        "seqTo": 1426,
+        "assignedEventSeq": 1420,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "1415:COMMAND_ACCEPTED",
+          "1416:TASK_CREATED",
+          "1420:TASK_ASSIGNED",
+          "1421:TASK_STARTED",
+          "1422:TASK_CHECKPOINTED",
+          "1424:TASK_CHECKPOINTED",
+          "1426:TASK_COMPLETED"
+        ]
+      },
+      {
+        "id": "Q-9ec51feb-4cdd-41c0-934f-b710d8dc7d39",
+        "createdAt": "2026-10-03T05:20:54.290Z",
+        "target": "Alien-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Alien-Win",
+        "targetStateAtCreation": "ELIGIBLE",
+        "seqFrom": 1436,
+        "seqTo": 1442,
+        "assignedEventSeq": 1438,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "1436:COMMAND_ACCEPTED",
+          "1437:TASK_CREATED",
+          "1438:TASK_ASSIGNED",
+          "1439:TASK_STARTED",
+          "1440:TASK_CHECKPOINTED",
+          "1441:TASK_CHECKPOINTED",
+          "1442:TASK_COMPLETED"
+        ]
+      },
+      {
+        "id": "Q-7f692de2-5511-4fbc-bae1-145633583fa7",
+        "createdAt": "2026-10-03T05:21:14.370Z",
+        "target": "Mech-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Mech-Win",
+        "targetStateAtCreation": "OFFLINE",
+        "seqFrom": 1465,
+        "seqTo": 1474,
+        "assignedEventSeq": 1470,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "1465:COMMAND_ACCEPTED",
+          "1466:TASK_CREATED",
+          "1467:TASK_TARGET_WAITING",
+          "1469:TASK_TARGET_READY",
+          "1470:TASK_ASSIGNED",
+          "1471:TASK_STARTED",
+          "1472:TASK_CHECKPOINTED",
+          "1473:TASK_CHECKPOINTED",
+          "1474:TASK_COMPLETED"
+        ]
+      },
+      {
+        "id": "Q-51064dfb-cac0-461d-b977-ca1007cec15d",
+        "createdAt": "2026-10-03T05:21:36.397Z",
+        "target": "Alien-Win",
+        "state": "COMPLETED",
+        "assignedNodeId": "Alien-Win",
+        "targetStateAtCreation": "ELIGIBLE",
+        "seqFrom": 1476,
+        "seqTo": 1482,
+        "assignedEventSeq": 1478,
+        "assignedToTheTarget": true,
+        "sequence": [
+          "1476:COMMAND_ACCEPTED",
+          "1477:TASK_CREATED",
+          "1478:TASK_ASSIGNED",
+          "1479:TASK_STARTED",
+          "1480:TASK_CHECKPOINTED",
+          "1481:TASK_CHECKPOINTED",
+          "1482:TASK_COMPLETED"
+        ]
       }
     ],
     "strictSummary": {
-      "count": 20,
+      "count": 29,
       "allAssignedToTheirTarget": true,
       "allTerminalCompleted": true,
-      "aimedAtAlien": 11,
-      "aimedAtMech": 9,
+      "aimedAtAlien": 16,
+      "aimedAtMech": 13,
       "createdWhileTargetOffline": [
         "Q-6958c120-262e-49f0-b967-d6572748bd73",
         "Q-f9a3d5ca-a44b-432c-81f3-89212adf8dbb",
@@ -640,12 +831,13 @@
         "Q-382b81e0-0ab7-4dc6-a4e4-ae4bbdb2576d",
         "Q-e2614d7b-cc7c-4c5c-975b-df017064e216",
         "Q-81c953ab-31c2-41e9-a825-7e2fc90bbe77",
-        "Q-44994a80-d08e-44c4-a890-238ccaf63f05"
+        "Q-44994a80-d08e-44c4-a890-238ccaf63f05",
+        "Q-7f692de2-5511-4fbc-bae1-145633583fa7"
       ]
     },
     "untargeted": {
-      "count": 152,
-      "completed": 150,
+      "count": 158,
+      "completed": 156,
       "failed": 2,
       "assignees": [
         "Mech-Win",

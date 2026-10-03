@@ -29,17 +29,17 @@
     {
       "name": "a retried identical instruction replays the SAME task and does not execute twice",
       "verdict": "PASS",
-      "evidence": "first=Q-d582d96e-e502-4629-8801-3bd557699bd3 second=Q-d582d96e-e502-4629-8801-3bd557699bd3 sameActionId=true replayHttp=200"
+      "evidence": "first=Q-9ec51feb-4cdd-41c0-934f-b710d8dc7d39 second=Q-9ec51feb-4cdd-41c0-934f-b710d8dc7d39 sameActionId=true replayHttp=200"
     },
     {
       "name": "exactly one task exists for the replayed instruction",
       "verdict": "PASS",
-      "evidence": "tasks with id Q-d582d96e-e502-4629-8801-3bd557699bd3: 1"
+      "evidence": "tasks with id Q-9ec51feb-4cdd-41c0-934f-b710d8dc7d39: 1"
     },
     {
       "name": "one idempotency key cannot be reused for a DIFFERENT device",
       "verdict": "PASS",
-      "evidence": "same key, target Mech-Win: http=400 code=IDEMPOTENCY_KEY_REUSED message=\"idempotencyKey mech-neg-duplicate-1791002416805 is already bound to CITY_TASK city.task:CHECKPOINT_DEMO; use a new key for a different request\" taskId=null"
+      "evidence": "same key, target Mech-Win: http=400 code=IDEMPOTENCY_KEY_REUSED message=\"idempotencyKey mech-neg-duplicate-1791004853091 is already bound to CITY_TASK city.task:CHECKPOINT_DEMO; use a new key for a different request\" taskId=null"
     },
     {
       "name": "the refused reuse created no task aimed at the wrong device",
@@ -49,17 +49,17 @@
     {
       "name": "a strict task for Alien-Win is executed by Alien-Win and never by this host",
       "verdict": "PASS",
-      "evidence": "taskId=Q-d582d96e-e502-4629-8801-3bd557699bd3 assignedNodeId=Alien-Win state=COMPLETED progress=100"
+      "evidence": "taskId=Q-9ec51feb-4cdd-41c0-934f-b710d8dc7d39 assignedNodeId=Alien-Win state=COMPLETED progress=100"
     },
     {
       "name": "untargeted tasks are still scheduled and completed with no regression",
       "verdict": "PASS",
-      "evidence": "created=3 completed=3 :: Q-cc38a17a-3068-4313-bd57-5df549672e65:COMPLETED/Alien-Win Q-951970c0-408e-49c6-a1b3-d6ab51a73c63:COMPLETED/Mech-Win Q-e07a6fab-4b13-4cc3-850b-7bf4c621b46f:COMPLETED/Alien-Win"
+      "evidence": "created=3 completed=3 :: Q-9b6db0e6-1da7-4881-9f2c-a99aa8fcc068:COMPLETED/Alien-Win Q-bce28795-3468-4106-bdf3-f7ae11980c05:COMPLETED/Mech-Win Q-7e61a84f-bd8d-4338-a54b-5e54366c4338:COMPLETED/Alien-Win"
     },
     {
       "name": "untargeted work is still taken by the two REAL workers only",
       "verdict": "PASS",
-      "evidence": "assignees=Q-cc38a17a-3068-4313-bd57-5df549672e65:COMPLETED/Alien-Win Q-951970c0-408e-49c6-a1b3-d6ab51a73c63:COMPLETED/Mech-Win Q-e07a6fab-4b13-4cc3-850b-7bf4c621b46f:COMPLETED/Alien-Win"
+      "evidence": "assignees=Q-9b6db0e6-1da7-4881-9f2c-a99aa8fcc068:COMPLETED/Alien-Win Q-bce28795-3468-4106-bdf3-f7ae11980c05:COMPLETED/Mech-Win Q-7e61a84f-bd8d-4338-a54b-5e54366c4338:COMPLETED/Alien-Win"
     }
   ],
   "findings": {
@@ -82,8 +82,8 @@
       "taskId": null
     },
     "duplicate": {
-      "firstTask": "Q-d582d96e-e502-4629-8801-3bd557699bd3",
-      "secondTask": "Q-d582d96e-e502-4629-8801-3bd557699bd3",
+      "firstTask": "Q-9ec51feb-4cdd-41c0-934f-b710d8dc7d39",
+      "secondTask": "Q-9ec51feb-4cdd-41c0-934f-b710d8dc7d39",
       "sameActionId": true,
       "replayHttp": 200
     },
@@ -91,11 +91,11 @@
       "http": 400,
       "code": "IDEMPOTENCY_KEY_REUSED",
       "taskId": null,
-      "rawError": "idempotencyKey mech-neg-duplicate-1791002416805 is already bound to CITY_TASK city.task:CHECKPOINT_DEMO; use a new key for a different request",
+      "rawError": "idempotencyKey mech-neg-duplicate-1791004853091 is already bound to CITY_TASK city.task:CHECKPOINT_DEMO; use a new key for a different request",
       "newTasksTargetedAtSelf": []
     },
     "noFallback": {
-      "taskId": "Q-d582d96e-e502-4629-8801-3bd557699bd3",
+      "taskId": "Q-9ec51feb-4cdd-41c0-934f-b710d8dc7d39",
       "assignedNodeId": "Alien-Win",
       "state": "COMPLETED"
     },
@@ -103,13 +103,13 @@
       "created": 3,
       "completed": 3,
       "assignees": [
-        "Q-cc38a17a-3068-4313-bd57-5df549672e65:COMPLETED/Alien-Win",
-        "Q-951970c0-408e-49c6-a1b3-d6ab51a73c63:COMPLETED/Mech-Win",
-        "Q-e07a6fab-4b13-4cc3-850b-7bf4c621b46f:COMPLETED/Alien-Win"
+        "Q-9b6db0e6-1da7-4881-9f2c-a99aa8fcc068:COMPLETED/Alien-Win",
+        "Q-bce28795-3468-4106-bdf3-f7ae11980c05:COMPLETED/Mech-Win",
+        "Q-7e61a84f-bd8d-4338-a54b-5e54366c4338:COMPLETED/Alien-Win"
       ]
     }
   },
   "verdict": "PASS",
   "note": "the raw node/claim attempt as the wrong node is deliberately absent; see the header for why",
-  "finishedAt": "2026-10-03T04:40:25.958Z"
+  "finishedAt": "2026-10-03T05:21:02.735Z"
 }

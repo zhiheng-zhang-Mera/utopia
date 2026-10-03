@@ -33,8 +33,12 @@ const SELF = flag('self', 'Mech-Win');
 const MINUTES = Number(flag('minutes', 16));
 const CONTROL = flag('control', 'D:/A-utopia/.runtime/mesh301-resident-control.json');
 const EVIDENCE = `${process.cwd()}/evidence/raw/mission-book/MESH-301/review-by-mech`;
-const OUT_JSONL = `${EVIDENCE}/mech-web-gate8-window.jsonl`;
-const OUT_JSON = `${EVIDENCE}/mech-web-gate8-window.json`;
+// A tag keeps each window's receipt in its OWN file. Without it, running a second window overwrote the first
+// one's receipt - which is the same defect class as appending two sessions to one receipt, and it would have
+// destroyed the very artifact Alien needs for window 1 while I was trying to be helpful about window 2.
+const TAG = flag('tag', '');
+const OUT_JSONL = `${EVIDENCE}/mech-web-gate8-window${TAG ? '-' + TAG : ''}.jsonl`;
+const OUT_JSON = `${EVIDENCE}/mech-web-gate8-window${TAG ? '-' + TAG : ''}.json`;
 if (!TOKEN) { console.error('CITY_TOKEN required'); process.exit(2); }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const say = (m) => console.log(`[${new Date().toISOString()}] ${m}`);

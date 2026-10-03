@@ -16,13 +16,21 @@
 // USAGE
 //   node scripts/utopia-client-launcher.mjs [--port 4391] [--host <lan-ip>] [--no-open]
 //                                            [--takeover] [--keep-token]
+//                                            [--enroll "<invite>" | --enroll-code <code> --enroll-host <url>]
+//                                            [--forget-device]
 //   --takeover    stop whatever is already listening on the port, but ONLY if it is a dev-gateway process
 //   --keep-token  reuse the token already in .runtime/local-token.json instead of generating a new one
+//   --enroll      JOIN ANOTHER CITY ONCE: exchange this invite, store the durable installation credential, and
+//                 from then on this machine reconnects there with nothing typed (JOIN-503)
+//   --forget-device  delete the stored installation credential on this machine
 import {spawn} from 'node:child_process';
 import {randomBytes} from 'node:crypto';
 import {existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs';
 import {networkInterfaces} from 'node:os';
 import {resolve} from 'node:path';
+// JOIN-503: the device layer, not the browser. This process holds the durable installation credential; the
+// browser it opens receives only a short-lived SESSION credential.
+import {describeDeviceFile, enrollWithCity, forgetDeviceFile, inviteForExchange, openDeviceSession, readDeviceFile, writeDeviceFile} from '../apps/client/device-enrollment.mjs';
 
 const argv = process.argv.slice(2);
 const flag = (name, fallback = null) => { const i = argv.indexOf(`--${name}`); return i === -1 ? fallback : (argv[i + 1] ?? true); };
@@ -31,6 +39,8 @@ const has = (name) => argv.includes(`--${name}`);
 const ROOT = resolve(import.meta.dirname, '..');
 const PORT = Number(flag('port', process.env.CITY_PORT || 4391));
 const TOKEN_FILE = resolve(ROOT, '.runtime/local-token.json');
+// JOIN-503: the durable installation credential held by THIS MACHINE (never by the browser).
+const DEVICE_FILE = resolve(ROOT, '.runtime/device-enrollment.json');
 const lan = Object.values(networkInterfaces()).flat().filter((i) => i && i.family === 'IPv4' && !i.internal).map((i) => i.address);
 const HOST = String(flag('host', process.env.CITY_HOST || lan[0] || '127.0.0.1'));
 const BASE = `http://${HOST}:${PORT}`;
@@ -76,7 +86,65 @@ say('  UTOPIA  -  launcher for this host');
 say('---------------------------------------------------------------');
 say(`  City endpoint : ${BASE}`);
 say(`  token file    : ${TOKEN_FILE}   (git-ignored, readable only on this machine)`);
+say(`  device file   : ${DEVICE_FILE}   (git-ignored; the durable installation credential, owner-only)`);
 say('===============================================================');
+
+// JOIN-503. TWO CREDENTIAL SHAPES, TWO LIFETIMES.
+//
+//   the TOKEN below is the City's own control credential; it is what this host uses to BOOTSTRAP its own City.
+//   The session named after it is what the BROWSER receives, and it expires.
+//
+// An ENROLLED installation (one that has joined a City with a pairing invite at least once) does not need the
+// token for routine use at all: it proves itself with the durable installation credential in DEVICE_FILE and the
+// City mints it a fresh session. That is the whole of "tokenless routine reconnect": no prompt, no paste, and
+// nothing durable in the browser.
+const enrolled = readDeviceFile(DEVICE_FILE);
+if (has('forget-device')) {
+  const had = Boolean(enrolled);
+  forgetDeviceFile(DEVICE_FILE);
+  say(had ? 'deleted this machine\'s stored installation credential. It will have to be paired again.' : 'there was no stored installation credential to delete.');
+  process.exit(0);
+}
+
+if (flag('enroll', null)) {
+  const invite = inviteForExchange(flag('enroll', null));
+  if (!invite) { say('--enroll needs a utopia://pair?... invite with a one-time secret.'); process.exit(2); }
+  const targetHost = invite.host ?? BASE;
+  say(`enrolling this installation with the City at ${targetHost} ...`);
+  try {
+    const {record, session} = await enrollWithCity({endpoint: targetHost, invite, displayName: flag('name', HOST)});
+    writeDeviceFile(DEVICE_FILE, record);
+    say(`enrolled. installation ${record.installationId}`);
+    say(`  device     ${record.deviceId}`);
+    say(`  city       ${record.cityId}`);
+    say(`  credential stored at ${DEVICE_FILE} (not printed, never put in a URL)`);
+    say(session ? '  a first session was issued; run the launcher without --enroll to reconnect with nothing typed.' : '  run the launcher again to open the client.');
+    process.exit(0);
+  } catch (err) {
+    say(`enrollment failed: ${err.message}`);
+    process.exit(5);
+  }
+}
+
+let sessionCredential = null;
+if (enrolled) {
+  // The reconnect attempt itself is the acceptance clause: the launcher types nothing, and the browser is
+  // handed a session rather than the installation credential.
+  try {
+    const opened = await openDeviceSession(enrolled, {endpoint: BASE});
+    sessionCredential = opened.credential;
+    say(`reconnected as an ENROLLED installation, with nothing typed:`);
+    say(`  device ${opened.installation?.displayName ?? enrolled.displayName ?? enrolled.deviceId}  (${enrolled.installationId})`);
+    say(`  session expires ${opened.session?.expiresAt ?? 'unknown'}  - the browser never sees the durable credential`);
+  } catch (err) {
+    // A revoked or retired installation must NOT be papered over by falling back to the control token: that
+    // would make "revoke" cosmetic. The launcher says what happened and stops, leaving the user the pairing path.
+    say(`this machine's stored enrollment was REFUSED by the City: ${err.code ?? 'ERROR'} - ${err.message}`);
+    say('  Nothing was bypassed. Re-pair this machine (Pairing -> Generate pairing session on the City, then');
+    say('  --enroll with the invite), or delete the stored credential with --forget-device.');
+    if (err.code !== 'CITY_UNREACHABLE') process.exit(6);
+  }
+}
 
 const already = await probe('__probe__');
 let token = null;
@@ -137,9 +205,17 @@ if (!token) {
   if (!up) { say('the City did not come up within 20s; see the log above. Nothing was opened.'); process.exit(4); }
 }
 
-const url = `${BASE}/#token=${encodeURIComponent(token)}`;
+// JOIN-503: an enrolled installation hands the browser a SESSION credential, not the City control token. The
+// fragment carries whichever credential applies; the page prefers the session, because a session can expire and
+// be revoked while a pasted token cannot.
+const url = sessionCredential
+  ? `${BASE}/#session=${encodeURIComponent(sessionCredential)}`
+  : `${BASE}/#token=${encodeURIComponent(token)}`;
 say('');
-say(`opening the web client: ${BASE}/#token=…   (the token travels in the URL fragment, which browsers never`);
+say(sessionCredential
+  ? `opening the web client with a SESSION credential: ${BASE}/#session=…   (expires; the durable installation`
+  : `opening the web client: ${BASE}/#token=…   (the token travels in the URL fragment, which browsers never`);
+if (sessionCredential) say('  credential stays in this machine\'s .runtime/device-enrollment.json and was never given to the browser)');
 say('  send to a server, and the page strips it from the address bar as soon as it has been read)');
 if (!has('no-open')) openBrowser(url);
 say('');

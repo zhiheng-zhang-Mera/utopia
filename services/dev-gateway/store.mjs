@@ -8,7 +8,15 @@ export class Store {
     this.db = new DatabaseSync(join(dir,'city.sqlite'));
     // `actions` is the product-level Action facade (T2 of the pre-assistant closeout). It
     // adapts the existing backends; it never replaces the tasks/nodes/invocations tables.
-    this.db.exec('PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS meta(version INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS tasks(id TEXT PRIMARY KEY, json TEXT NOT NULL); CREATE TABLE IF NOT EXISTS nodes(id TEXT PRIMARY KEY,json TEXT NOT NULL); CREATE TABLE IF NOT EXISTS events(seq INTEGER PRIMARY KEY AUTOINCREMENT,json TEXT NOT NULL); CREATE TABLE IF NOT EXISTS actions(id TEXT PRIMARY KEY, json TEXT NOT NULL);');
+    this.db.exec('PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS meta(version INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS tasks(id TEXT PRIMARY KEY, json TEXT NOT NULL); CREATE TABLE IF NOT EXISTS nodes(id TEXT PRIMARY KEY,json TEXT NOT NULL); CREATE TABLE IF NOT EXISTS events(seq INTEGER PRIMARY KEY AUTOINCREMENT,json TEXT NOT NULL); CREATE TABLE IF NOT EXISTS actions(id TEXT PRIMARY KEY, json TEXT NOT NULL);'
+      // JOIN-503: the enrollment registry the City already has semantics for (see
+      // city/00-foundation/02-city-node-network/device-identity). Three tables, one row per record,
+      // same shape as every other table here: a logical DEVICE, a concrete INSTALLATION of it, and the
+      // short-lived SESSIONS the browser may hold. The durable installation credential is never stored -
+      // only its fingerprint - so there is nothing in here that could be replayed.
+      + ' CREATE TABLE IF NOT EXISTS devices(id TEXT PRIMARY KEY, json TEXT NOT NULL);'
+      + ' CREATE TABLE IF NOT EXISTS installations(id TEXT PRIMARY KEY, json TEXT NOT NULL);'
+      + ' CREATE TABLE IF NOT EXISTS device_sessions(id TEXT PRIMARY KEY, json TEXT NOT NULL);');
     const meta=this.db.prepare('SELECT version FROM meta').get();
     if(meta && meta.version!==0) throw new Error('Unsupported stored schema version');
     if(!meta) this.db.prepare('INSERT INTO meta VALUES(0)').run();

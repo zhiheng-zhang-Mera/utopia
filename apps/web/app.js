@@ -9,8 +9,16 @@ import { t, applyTranslations, getLocale, setLocale, subscribe, formatTime, SUPP
 // lives in its own module so that "no click = no code", "ACTIVE never rotates" and "USED/EXPIRED then generate
 // again" are testable without a browser; this file only asks it questions.
 import { createPairingLifecycle, REASON_EXPIRED, REASON_USED, REASON_REVOKED } from './pairing-lifecycle.js';
+// JOIN-503: this surface may be opened with a SESSION credential instead of the City's control token. A session
+// belongs to one enrolled installation and expires, so the browser no longer has to hold anything permanent - the
+// durable installation credential stays with the machine (the launcher). The module also carries the Settings
+// device-identity reads and the revoke action, so the page never builds those requests itself.
+import { readSessionFromHash, rememberSession, forgetSession, storedSession, refreshSession, fetchEnrolled, revokeEnrolled, shortIdentity } from './enrollment.js';
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let token=sessionStorage.getItem('city-token')||'',city=null,page=location.pathname==='/pairing'?'Pairing':'Home',selected=null,ws,generation=0,timer,refreshing=false,pending=false,connection='OFFLINE',selectedNode=null,pairingBusy=false,pairingEpoch=0,terminal=null,externalPage=TERMINAL_PAGES.includes(page),homeRoomsData=null,homeRoomsError='';
+// JOIN-503: a session credential is preferred over a token when the fragment carries one, so a launcher-opened
+// client is an ENROLLED client by default and the token path stays the engineering fallback it is meant to be.
+const bootSession=readSessionFromHash(location.hash);
+let token=bootSession||storedSession()||sessionStorage.getItem('city-token')||'',city=null,page=location.pathname==='/pairing'?'Pairing':'Home',selected=null,ws,generation=0,timer,refreshing=false,pending=false,connection='OFFLINE',selectedNode=null,pairingBusy=false,pairingEpoch=0,terminal=null,externalPage=TERMINAL_PAGES.includes(page),homeRoomsData=null,homeRoomsError='',enrolledDevices=null,enrolledError='',enrolledNotice='';
 const finished=t=>['COMPLETED','FAILED','CANCELLED'].includes(t.state);
 // JOIN-501: ONE lifecycle object owns the pairing session. It restores the SAME still-valid session after a
 // reload and refuses to create a second one while one is ACTIVE. Nothing below may create pairing material
@@ -183,7 +191,51 @@ function pairingView(){
    run-details block instead of being printed on the surface. */
 const EVENT_LABELS={'CLIENT_CONNECTED':'event.clientConnected','CITY_STARTED':'event.cityStarted','task.completed':'event.taskCompleted','task.progress':'event.taskProgress','task.cancelled':'event.taskCancelled','node.heartbeat':'event.nodeHeartbeat'};
 const events=(list,raw=false)=>list.slice().reverse().map(e=>`<div class="event"><time>${esc(formatTime(e.timestamp))}</time><strong>${esc(raw?e.type:t(EVENT_LABELS[e.type]||'event.other'))}</strong><details><summary>${esc(t('common.runDetails'))}</summary><div class="task-id">${raw?'':' '+esc(e.type)+' · '}#${esc(e.seq)} · ${esc(e.taskId||'City')}</div></details></div>`).join('');
-function languageSection(){const current=getLocale();return `<h2>${esc(t('settings.interface'))}</h2><p>${esc(t('settings.language'))}</p><div class="lang-row" id="language">${SUPPORTED_LOCALES.map(l=>`<button class="lang-option${l===current?' selected':''}" data-locale="${esc(l)}" aria-pressed="${l===current}">${esc(localeLabel(l))}</button>`).join('')}</div><p class="muted">${esc(t('settings.languageHint'))}</p>`;}
+function languageSection(){const current=getLocale();return `<h2>${esc(t('settings.interface'))}</h2><p>${esc(t('settings.language'))}</p><div class="lang-row" id="language">${SUPPORTED_LOCALES.map(l=>`<button class="lang-option${l===current?' selected':''}" data-locale="${esc(l)}" aria-label="${esc(localeLabel(l))}" aria-pressed="${l===current}">${esc(localeLabel(l))}</button>`).join('')}</div><p class="muted">${esc(t('settings.languageHint'))}</p>`;}
+/* JOIN-503 — the device-identity surface.
+   Two states, and the page must not blur them:
+     * an ENROLLED client (opened with a session credential) sees WHICH installation it is, when it expires, and
+       who else is enrolled, with a revoke action. It is never shown a durable secret, because it does not have
+       one - the machine holds it and re-mints sessions on the user's behalf.
+     * a CONTROL-TOKEN client (the engineering fallback) is told plainly that it is the owner credential, so a
+       user can see that this is not the normal path rather than being left to infer it.
+   The list is fetched once per Settings visit and cached, so a render loop cannot turn it into polling. */
+function enrolledRows(){
+  if(enrolledError)return `<p class="muted">${esc(t('device.enrollmentError'))} ${esc(enrolledError)}</p>`;
+  if(!enrolledDevices)return `<p class="muted">${esc(t('terminal.loading'))}</p>`;
+  if(!enrolledDevices.length)return `<p class="muted">${esc(t('device.enrollmentEmpty'))}</p>`;
+  return enrolledDevices.map(d=>`<div class="row"><div><strong>${esc(d.displayName||t('device.unknown'))}</strong><div class="task-id">${esc(shortIdentity(d.installationId))}</div><small>${esc(t('device.enrolledAt'))} ${esc(formatTime(d.enrolledAt))} · ${esc(d.state)}</small></div><button data-revoke="${esc(d.installationId)}">${esc(t('device.revoke'))}</button></div>`).join('');
+}
+function deviceSection(){
+  const mine=city?.enrolledDevice;
+  const summary=mine
+    ? `<p class="muted">${esc(t('device.enrolledAs'))}</p><dl class="kv"><dt>${esc(t('device.displayName'))}</dt><dd>${esc(mine.displayName||t('device.unknown'))}</dd><dt>${esc(t('device.installation'))}</dt><dd class="task-id">${esc(shortIdentity(mine.installationId))}</dd><dt>${esc(t('device.state'))}</dt><dd>${esc(mine.state)}</dd></dl>`
+    : `<p class="muted">${esc(t('device.ownerToken'))}</p>`;
+  return `<h2>${esc(t('section.deviceIdentity'))}</h2>${summary}${enrolledNotice?`<p class="muted">${esc(t(enrolledNotice))}</p>`:''}<p class="muted">${esc(t('device.enrolledHint'))}</p><div id="enrolled-list">${enrolledRows()}</div>`;
+}
+function loadEnrolledDevices(){
+  if(enrolledDevices||enrolledError||!token){return;}
+  fetchEnrolled({credential:token}).then(({installations})=>{enrolledDevices=installations;}).catch(e=>{enrolledError=e.message;}).finally(()=>{const host=$('#enrolled-list');if(host)host.innerHTML=enrolledRows();});
+}
+/* JOIN-503: revoke is a real server-side fact, not a UI state. After it, this page keeps NO credential for that
+   installation (the session it was using is gone too, when it revoked itself), so the next thing the user sees is
+   the pairing path - not a client that quietly keeps working. */
+async function revokeDevice(installationId){
+  enrolledNotice='';
+  try{
+    const revoked=await revokeEnrolled({credential:token,installationId});
+    enrolledNotice='device.revoked';
+    const mine=city?.enrolledDevice;
+    if(mine&&mine.installationId===installationId){
+      // It revoked itself. Drop the local session and say so, rather than leaving a dead credential in place.
+      forgetSession();token='';sessionStorage.removeItem('city-token');++generation;clearTimeout(timer);ws?.close();
+      $('#pair').hidden=false;$('#content').hidden=true;go('Home');status('OFFLINE');
+      enrolledDevices=null;enrolledError='';
+      return;
+    }
+    enrolledDevices=null;enrolledError='';render();
+  }catch(err){enrolledNotice='';enrolledError=err.message;render();}
+}
 /* UI-101 step 3: Home leads with the assistant and with what is happening now
    rather than with statistic tiles. The slot is presentational only and exposes no
    control - a rendered control that does nothing is exactly the false-affordance
@@ -204,13 +256,14 @@ function render(){
  if(page==='Home')$('#view').innerHTML=assistantSlot()+`<div class="grid" style="margin-top:14px"><section class="panel"><h2>${esc(t('section.runtimeNodes'))}</h2>${nodeRows()}</section><section class="panel"><h2>${esc(t('section.recentActivity'))}</h2>${events(city.events.slice(-4))}</section></div><section class="panel" style="margin-top:12px" id="home-rooms"><h2>${esc(t('section.homeRooms'))}</h2><p class="muted">${esc(t('home.rooms.hint'))}</p><div id="home-rooms-body"><p class="muted">${esc(t('terminal.loading'))}</p></div></section><section class="panel" style="margin-top:12px"><h2>${esc(t('section.recentTasks'))}</h2>${taskRows(tasks.slice(-5))}</section>`;
  if(page==='Home')homeRooms();
  if(page==='Services')renderServices($('#view'),city,connection==='ONLINE',api);
+ if(page==='Settings')loadEnrolledDevices();
  // Terminal pages mount lazily: `terminal` is only created once a terminal page is shown,
  // which is why this must not depend on `terminal` already existing.
  if(TERMINAL_PAGES.includes(page)){if(!terminal)mountTerminal();if(terminal)terminal.render($('#view'),city,connection==='ONLINE',api,{page,go,api});}
  if(page==='Devices')$('#view').innerHTML=schedulerPanel(schedulerFeed,{isOnline:connection==='ONLINE',advanced:true})+`<section class="panel">${nodeRows()}</section>`;
  if(page==='Tasks')$('#view').innerHTML=`<section class="panel"><h2>${esc(t('section.taskRegistry'))}</h2>${taskRows(tasks)}</section>`;
  if(page==='Activity')$('#view').innerHTML=`<section class="panel"><h2>${esc(t('section.eventTimeline',{count:city.events.length}))}</h2><button data-goto="Actions">${esc(t('nav.actions'))}</button>${events(city.events)}</section>`;
- if(page==='Settings')$('#view').innerHTML=`<section class="panel">${languageSection()}<h2>${esc(t('section.connectionDiagnostics'))}</h2><p>${esc(t('settings.cityUrl'))}: ${esc(location.origin)}</p><details><summary>${esc(t('common.runDetails'))}</summary><div class="task-id">apiVersion = 0 · schemaVersion = 0</div></details><p>${esc(t('settings.tokenNote'))}</p><button id="disconnect">${esc(t('settings.changeToken'))}</button></section>`;
+ if(page==='Settings')$('#view').innerHTML=`<section class="panel">${deviceSection()}${languageSection()}<h2>${esc(t('section.connectionDiagnostics'))}</h2><p>${esc(t('settings.cityUrl'))}: ${esc(location.origin)}</p><details><summary>${esc(t('common.runDetails'))}</summary><div class="task-id">apiVersion = 0 · schemaVersion = 0</div></details><p class="muted">${esc(t('settings.tokenNote'))}</p><button id="disconnect">${esc(t('settings.changeToken'))}</button></section>`;
  if(page==='Pairing'){$('#view').innerHTML=pairingView();const ps=pairingState();if(ps.session&&$('#pairing-qr'))$('#pairing-qr').innerHTML=ps.session.qrSvg;}
  const detail=city.tasks.find(t=>t.id===selected);$('#detail').hidden=!detail;if(detail)$('#detail').innerHTML=`<h2>${esc(detail.type)}</h2><div class="task-id">${esc(detail.id)}</div><p>${badge(detail.state)} · ${esc(detail.assignedNodeId||t('status.waitingNode'))}</p><progress max="100" value="${detail.progress}"></progress><h3>${esc(t('section.checkpoint'))}</h3><pre>${esc(JSON.stringify(detail.lastCheckpoint,null,2))}</pre><h3>${esc(t('section.result'))}</h3><pre>${esc(JSON.stringify(detail.result||detail.error,null,2))}</pre>${!finished(detail)?`<button id="cancel">${esc(t('task.cancel'))}</button>`:''}<h3>${esc(t('section.taskEvents'))}</h3>${events(city.events.filter(e=>e.taskId===detail.id))}`;
  const device=city.nodes.find(n=>n.id===selectedNode);if(device){$('#detail').hidden=false;$('#detail').innerHTML=`<h2>${esc(device.displayName)}</h2><p>${nodeBadge(device)} · ${esc(device.metadata?.platform)} · ${esc(t('device.agent'))} ${esc(device.agentVersion||t('device.unknown'))}</p><p class="task-id">${esc(device.id)}</p><p>${esc(t('device.lastSeen'))} ${esc(age(device.lastHeartbeatAt))}</p>${metrics(device)}<h3>${esc(t('device.capabilities'))}</h3><p>${esc(device.capabilities.join(' / '))}</p><h3>${esc(t('device.currentTasks'))}</h3>${taskRows(tasks.filter(t=>t.assignedNodeId===device.id&&!finished(t)),t('device.noTasks'))}<h3>${esc(t('device.recentEvents'))}</h3>${events(city.events.filter(e=>e.payload?.nodeId===device.id||tasks.some(t=>t.id===e.taskId&&t.assignedNodeId===device.id)).slice(-12),true)||`<p class="muted">${esc(t('device.noEvents'))}</p>`}`;}
@@ -221,12 +274,16 @@ document.addEventListener('click',async e=>{const nav=e.target.closest('[data-pa
 // task id from the button, so the panel and this dispatcher cannot disagree about what is wired.
 if(schedAction){const token=schedAction.dataset.schedulerAction,taskRef=schedAction.dataset.schedulerTask,route=schedAction.dataset.schedulerRoute,providerRef=schedAction.dataset.schedulerProvider;schedAction.disabled=true;try{if(route==='cancel'){await api('tasks/'+encodeURIComponent(taskRef)+'/cancel',{});}else if(route==='create'){await api('tasks',{type:'CHECKPOINT_DEMO'});}else if(route==='providerChoice'){if(!providerRef)throw new Error('no provider was offered to choose from');await api('tasks/'+encodeURIComponent(taskRef)+'/provider-choice',{providerRef});}else{/* local acknowledgement: nothing to send */}await refresh();}catch(err){$('#error').textContent=err.message;schedAction.disabled=false;}}
 if(e.target.id==='copy-invite'){const box=$('#pairing-invite'),note=$('#copy-note');const done=ok=>{if(note)note.textContent=t(ok?'pairing.copied':'pairing.copyManual');};const fallback=()=>{try{box.focus();box.select();return document.execCommand('copy');}catch{return false;}};if(navigator.clipboard?.writeText){navigator.clipboard.writeText(box.value).then(()=>done(true)).catch(()=>done(fallback()));}else done(fallback());}
-if(e.target.id==='generate-pairing'){await generatePairing();}if(e.target.id==='cancel'){try{await api('tasks/'+selected+'/cancel',{});await refresh();}catch(err){$('#error').textContent=err.message;}}if(e.target.id==='disconnect'){clearPairing();token='';$('#token').value='';sessionStorage.removeItem('city-token');++generation;clearTimeout(timer);ws?.close();$('#pair').hidden=false;$('#content').hidden=true;go('Home');status('OFFLINE');}});
+if(e.target.id==='generate-pairing'){await generatePairing();}if(e.target.dataset?.revoke){await revokeDevice(e.target.dataset.revoke);}if(e.target.id==='cancel'){try{await api('tasks/'+selected+'/cancel',{});await refresh();}catch(err){$('#error').textContent=err.message;}}if(e.target.id==='disconnect'){clearPairing();token='';$('#token').value='';sessionStorage.removeItem('city-token');forgetSession();++generation;clearTimeout(timer);ws?.close();$('#pair').hidden=false;$('#content').hidden=true;go('Home');status('OFFLINE');}});
 $('#connect').onclick=async()=>{const value=$('#token').value.trim();$('#token').value='';const invite=parseInvite(value);if(invite){try{const done=await exchangeInvite(invite);if(done?.navigating)return;if(!done?.credential)throw Error('the City returned no credential for that invite');token=done.credential;sessionStorage.setItem('city-token',token);$('#pair').hidden=true;$('#content').hidden=false;connect();}catch(err){$('#error').textContent=err.message;}return;}token=value;sessionStorage.setItem('city-token',token);connect();};
 $('#ask-form').addEventListener('submit',e=>{e.preventDefault();ask($('#ask-text').value);});
 $('#run').onclick=async()=>{try{$('#run').disabled=true;const target=$('#run-target')?.value||'';if(target){const created=await api('actions',{route:'CITY_TASK',target:'city.task',operation:'CHECKPOINT_DEMO',input:{targetDeviceRef:target},idempotencyKey:(crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random())});const id=created?.action?.backendRef?.taskId;if(!id)throw new Error(created?.action?.error?.message||'the City refused the targeted task');selectedNode=null;selected=id;}else{const task=await api('tasks',{type:'CHECKPOINT_DEMO'});selectedNode=null;selected=task.id;}await refresh();}catch(e){$('#error').textContent=e.message;}finally{$('#run').disabled=connection!=='ONLINE';}};
 window.addEventListener('offline',()=>{disconnected();ws?.close();});window.addEventListener('online',connect);
 setInterval(()=>{if(token&&ws?.readyState===1)refresh().catch(e=>{disconnected(e);ws.close();});},4000);
+// JOIN-503: an enrolled client's session is re-minted from the session itself, well before it expires, so a
+// long-lived window never falls off the end of its credential. Only a session is refreshed here - this page has
+// no way to obtain a durable one, which is the property the whole task is for.
+setInterval(()=>{if(!token||!token.startsWith('sess:'))return;refreshSession({credential:token}).then(fresh=>{if(!fresh)return;token=rememberSession(fresh.credential);}).catch(err=>{if(err?.code==='SESSION_UNKNOWN'||err?.code==='INSTALLATION_RETIRED'||err?.code==='INSTALLATION_QUARANTINED'){forgetSession();token='';disconnected(new Error(t('device.sessionEnded')));}});},60*60*1000);
 setInterval(()=>{if(pairing.expireIfDue())render();else{const ps=pairingState();if(ps.session&&$('#pairing-countdown'))$('#pairing-countdown').textContent=t('pairing.countdown',{seconds:ps.remainingSeconds});}if(city&&(page==='Home'||page==='Devices'))render();},1000);
 // JOIN-501: leaving the page no longer destroys the code. The material is persisted instead, so a reload restores the SAME session while it is still valid - and a session that expired meanwhile comes back EXPIRED, never as a fresh code. Visibility is handled too: a tab hidden across the expiry moment reconciles the moment it is shown, rather than sitting on a dead code.
 window.addEventListener('pagehide',()=>pairing.persist());
@@ -245,6 +302,10 @@ if(bootInvite){
 }
 // The stored session is restored BEFORE the first render and reconciled against the City once the first snapshot arrives, so a code another device consumed while this page was away is not shown as ACTIVE.
 pairing.restore();
+// JOIN-503: a fragment session is remembered for the REST OF THIS TAB only, and the fragment is cleared from the
+// address bar immediately (the same treatment the token already gets) so a shoulder-surfer or a copied URL does
+// not carry a credential. Nothing here is durable storage - that is the launcher's file, on the machine.
+if(bootSession){rememberSession(bootSession);if(bootToken||bootInvite)history.replaceState(null,'',location.pathname+location.search);}
 if(token)connect();else status('OFFLINE');
 if(token){$('#pair').hidden=true;$('#content').hidden=false;mountTerminal();}
 if(pairing.ownerSessionId()!==null)reconcileRestoredPairing().catch(()=>{});

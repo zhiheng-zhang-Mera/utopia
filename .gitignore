@@ -9,3 +9,8 @@ local.properties
 *.iml
 *.log
 .scratch-*/
+# Written by the node agent into its working directory, which is the repo root when the launcher or a worker is
+# started from here. It is this machine's identity, not source.
+.city-node-identity.json
+# Per-host City state written by earlier runs from the repo root (same class as .runtime/).
+.runtime-*/

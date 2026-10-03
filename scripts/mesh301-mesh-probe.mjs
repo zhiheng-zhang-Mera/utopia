@@ -206,7 +206,19 @@ function wasOfflineAt(receipt, atMs) {
 }
 
 async function merge() {
-  const files = flagAll('file').length ? flagAll('file') : argv.slice(2).filter(a => !a.startsWith('--') && a !== 'merge' && !/^\d+$/.test(a) && a !== (flag('out') ?? ''));
+  // MECH'S DEFECT 1, fixed. The positional-file list used to be "any argv that does not start with --", which
+  // swallowed the VALUE of the preceding flag: `merge --skew Mech-Win-Web=-1001 --out x.json mech.jsonl` fed
+  // `Mech-Win-Web=-1001` to readFileSync as if it were a receipt. A walker that skips each known flag's value
+  // is the only shape that cannot do that.
+  const VALUED = new Set(['url', 'token', 'nodeToken', 'out', 'window', 'skew', 'file', 'surface', 'maxMs', 'target', 'other', 'label', 'observeMs']);
+  const positional = [];
+  for (let i = 0; i < argv.length; i += 1) {
+    const a = argv[i];
+    if (a === 'merge') continue;
+    if (a.startsWith('--')) { if (VALUED.has(a.slice(2))) i += 1; continue; }
+    positional.push(a);
+  }
+  const files = flagAll('file').length ? flagAll('file') : positional;
   const windowMs = Number(flag('window', 5000));
   const out = flag('out', 'mesh301-convergence.json');
   // Per-surface clock offsets, declared rather than assumed: `--skew PERM00=592` means that surface's clock
@@ -279,6 +291,19 @@ async function merge() {
         continue;
       }
       const seen = r.observed.get(seq);
+      // MECH'S DEFECT 2, fixed - and this was the dangerous one. `--skew` defaulted to 0, so a table built
+      // WITHOUT declaring an offset still printed CONVERGED while a surface's clock offset sat in the latency
+      // column wearing the shape of a latency. Mech measured a surface whose raw numbers scored as converged
+      // at a ~1 s offset; on a 5 s window that is a false pass with a number attached, which is the worst kind
+      // because it looks like evidence.
+      //
+      // The fix refuses to read an undeclared clock rather than assuming one. `--skew <surface>=0` is how an
+      // operator states that assumption explicitly, so the run can never be silent about it.
+      if (!(r.surface in skews)) {
+        perSurface[r.surface] = { state: 'CLOCK_UNDECLARED', latencyMs: null };
+        unmeasured.push({ seq, surface: r.surface, complaint: 'no --skew was declared for this surface, so its clock offset is unknown and its latencies cannot be read as convergence; declare --skew ' + r.surface + '=0 to state the assumption explicitly' });
+        continue;
+      }
       if (seen === undefined) {
         perSurface[r.surface] = { state: 'MISSING', latencyMs: null };
         failures.push({ seq, surface: r.surface, complaint: `online surface never observed seq ${seq}` });

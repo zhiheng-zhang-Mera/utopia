@@ -1,0 +1,33 @@
+{
+  "task": "UXI-391",
+  "step": "6 (negative controls, product level)",
+  "at": "2026-10-03T01:58:59.744Z",
+  "scenarioNoAlternate": {
+    "taskId": "Q-725eff1e-eca0-4794-9c2e-cf267a22d182",
+    "state": "RUNNING",
+    "reservedFor": null,
+    "presentationState": "DEGRADED"
+  },
+  "scenarioStaleHolder": {
+    "taskId": "Q-9a6e9ea5-cb53-4b33-a958-5bb37cd5910c",
+    "state": "COMPLETED",
+    "reservedFor": "neg-node-b",
+    "history": [
+      "handoff:neg-node-a->neg-node-b@epoch2"
+    ],
+    "taskCount": 1
+  },
+  "scenarioReservationReleased": {
+    "taskId": "Q-2a2f9e12-7a23-4e66-b0eb-3ec66c79abc5",
+    "state": "COMPLETED",
+    "reservationCleared": true,
+    "claimedBy": "neg-node-c"
+  },
+  "failures": [],
+  "log": [
+    "--- SCENARIO 1: no usable alternate (fresh city at D:\\utopia-uxi391/.runtime-uxi391-neg1) ---",
+    "--- SCENARIO 2: the stale holder comes back (fresh city at D:\\utopia-uxi391/.runtime-uxi391-neg2) ---",
+    "  the stale holder is back online and will try to work again",
+    "--- SCENARIO 3: the reservation target dies (fresh city at D:\\utopia-uxi391/.runtime-uxi391-neg3) ---"
+  ]
+}

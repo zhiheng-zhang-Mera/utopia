@@ -1,0 +1,32 @@
+{
+  "task": "UXI-391",
+  "step": "6 (dual-host acceptance, HOST B side)",
+  "at": "2026-10-02T22:45:00.510Z",
+  "joinedUrl": "http://172.31.3.110:4392",
+  "nodeB": "dualhost-node-b",
+  "targetTaskId": "Q-0d5c9a69-73f9-42d2-8a9c-39089b721a83",
+  "originalOwner": "dualhost-node-a",
+  "transfer": {
+    "from": "dualhost-node-a",
+    "to": "dualhost-node-b",
+    "epoch": 2
+  },
+  "completed": {
+    "state": "COMPLETED",
+    "result": {
+      "waitedMs": 6000
+    },
+    "history": [
+      "handoff:dualhost-node-a->dualhost-node-b@epoch2"
+    ]
+  },
+  "duplicateControl": {
+    "epochBefore": 2,
+    "epochAfter": 2
+  },
+  "failures": [],
+  "log": [
+    "=== UXI-391 dual-host acceptance, HOST B joining http://172.31.3.110:4392 ===",
+    "  target=Q-0d5c9a69-73f9-42d2-8a9c-39089b721a83 owner=dualhost-node-a state=RUNNING"
+  ]
+}

@@ -19,7 +19,8 @@ import { createActions } from './actions.mjs';
 import { buildTargets, handleAsk } from './intents.mjs';
 import { serveWeb } from './static.mjs';
 // UXI-301: the scheduler presentation feed producer. Consumes the frozen RS-290 contract read-only.
-import { buildPresentationFeed } from './presentation.mjs';
+import { buildPresentationFeed, routeInputsFor, routePlanFor } from './presentation.mjs';
+import { createHandoffBridge } from './handoff.mjs';
 // City Core (MB-001 cluster C). The "can this node accept this work?" decision is
 // owned by the migrated fleet-routing module instead of being re-derived inline
 // here. Utopia's own policy travels as data (REQUIRED_TASK_CAPABILITIES and
@@ -66,6 +67,62 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   const auth=(req,node=false)=>{const raw=req.headers.authorization||'';if(!equals(raw,'Bearer '+(node?nodeToken:token)))fail(401,'Invalid pairing token');};
   const version=req=>{if(req.headers['x-city-api-version']!=='0'||req.headers['x-city-schema-version']!=='0')fail(409,'Protocol mismatch: apiVersion=0 and schemaVersion=0 required');};
   const bridge=createBridge(store,emit,{artifactRoot:resolve(dir,'theme-packages')});
+  // UXI-391: the ownership-transfer bridge. planRoute decides and never acts; this consumes its decision and
+  // executes the move under the City's single-execution guard, so REMOTE_HANDOFF is a state with an execution
+  // behind it rather than a label.
+  const handoff=createHandoffBridge();
+  // UXI-391 REPAIR A/B (Mech's review finding, reproduced independently before this was written).
+  //
+  // THE DEFECT: the plan was consumed ONLY inside the switch-declined route, so the transfer was attempted at
+  // the single instant the user declined. If no alternate was eligible at that instant the user's RECORDED
+  // intent was dropped in silence - the run stayed on a dead device for ever, nothing failed, and nothing
+  // retried. Measured, not argued: with the decline posted while no second device existed and an eligible
+  // alternate brought online afterwards, the surface reached REMOTE_HANDOFF and the run still did not move;
+  // posting the decline a SECOND time moved it at once, which is what proved the intent was never lost, only
+  // never re-evaluated.
+  //
+  // REPAIR A makes the recorded intent durable: the same plan is re-considered on the Gateway's existing
+  // one-second sweep, so a decline that had nowhere to go is honoured as soon as it can be. The planner stays
+  // pure and never acts - this is the caller deciding to consume its decision - and repeated execution is
+  // prevented by the bridge's own guards (the assignment guard's epoch, and its ALREADY_TRANSFERRED branch).
+  //
+  // REPAIR B stops a reservation from stranding a run: `handoffTargetRef` reserves the task for the chosen
+  // device and `claimAllowed` refuses every other one, so if the chosen device then dies the task is
+  // unclaimable by anyone. A reservation whose device stays offline beyond a bounded grace period is released,
+  // which puts the run back in front of the whole fleet instead of in front of nobody.
+  const RESERVATION_GRACE_MS=15000;
+  const applyHandoffMove=(task,move)=>change(task,'QUEUED',{assignedNodeId:null,progress:0,lastCheckpoint:null,handoffFromRef:move.from,handoffTargetRef:move.to,handoffReservedAt:now(),handoffTargetOfflineSince:null,handoffEpoch:move.epoch,attempts:(task.attempts??0)+1,history:[...(task.history??[]),`handoff:${move.from}->${move.to}@epoch${move.epoch}`]},'TASK_HANDOFF_TRANSFERRED');
+  const considerHandoff=task=>{
+    const inputs=routeInputsFor({task,nodes:store.list('nodes'),tasks:store.list('tasks')});
+    return handoff.consider({task,decided:routePlanFor({task,...inputs})});
+  };
+  const honourDeclinedHandoffs=()=>{
+    for(const task of store.list('tasks')){
+      if(terminal.includes(task.state))continue;
+      // Only a run the user actually declined a switch on: everything else has no handoff intent to honour,
+      // and re-planning the whole pool every second would be work nobody asked for.
+      if(task.switchDeclined!==true)continue;
+      if(typeof task.handoffTargetRef==='string'&&task.handoffTargetRef.length>0){
+        const target=store.list('nodes').find(n=>n.id===task.handoffTargetRef);
+        if(target&&target.online===true){
+          if(task.handoffTargetOfflineSince)change(task,task.state,{handoffTargetOfflineSince:null});
+          continue; // the reservation is live, so there is nothing to re-plan
+        }
+        if(!task.handoffTargetOfflineSince){change(task,task.state,{handoffTargetOfflineSince:now()});continue;}
+        if(Date.now()-Date.parse(task.handoffTargetOfflineSince)>RESERVATION_GRACE_MS){
+          // Release the guard's hold BEFORE clearing the persisted reservation: clearing only the field left
+          // the dead device named as the holder in memory, and every other device went on being refused.
+          handoff.releaseReservation({subjectRef:task.id,deviceRef:task.handoffTargetRef});
+          change(task,'QUEUED',{assignedNodeId:null,progress:0,lastCheckpoint:null,handoffTargetRef:null,handoffReservedAt:null,handoffTargetOfflineSince:null},'TASK_HANDOFF_RESERVATION_RELEASED');
+        }
+        continue;
+      }
+      const move=considerHandoff(task);
+      if(move.outcome==='TRANSFERRED')applyHandoffMove(task,move);
+      // A refusal here is transient by nature; emitting it every second would be noise, and the endpoint path
+      // still reports refusals when a user action produces one.
+    }
+  };
   // Product closeout (T1–T3). The Room Hub is reached over loopback only, and the Action
   // facade is the single user-facing record over Rooms, capabilities and City tasks.
   const rooms=createRoomPack({baseUrl:roomHubUrl,disabled:roomsDisabled,fetchImpl:roomFetch});
@@ -172,6 +229,22 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
           if(terminal.includes(t.state))fail(409,'Task already finished');
           out=change(t,t.state,{switchDeclined:true,userDeclinedSwitchAt:now()});
           emit('TASK_SWITCH_DECLINED',t.id,{},'user');
+          // UXI-391: THIS is where the plan is consumed. The user's decline is the only condition under which
+          // RS-202 reaches ALTERNATE_DEVICE, so the orchestration plans over live City state and executes the
+          // transfer the planner decided - the planner itself stays pure and never acts. If the stage is
+          // DIRECT, SWITCH_OFFERED or QUEUED nothing moves, and that is recorded rather than papered over.
+          {
+            const move=considerHandoff(out);
+            if(move.outcome==='TRANSFERRED'){
+              // progress:0 is deliberate - the new holder starts the task from the beginning, and the protocol
+              // requires monotonic progress, so carrying the dead holder's progress across would be rejected by
+              // the next report. handoffTargetRef is what survives a gateway restart and keeps the task
+              // reserved for the device it moved to, so a recovered A cannot re-claim it.
+              out=applyHandoffMove(out,move);
+            } else if(move.outcome==='REFUSED'){
+              emit('TASK_HANDOFF_REFUSED',out.id,{reason:move.reason,from:move.from??null,to:move.to??null},'gateway');
+            }
+          }
       } else if(req.method==='POST' && path==='/api/v0/node/register'){
         const b=await body(req);if(!/^[a-zA-Z0-9-]{1,80}$/.test(b.id||'')||typeof b.displayName!=='string'||!Array.isArray(b.capabilities)||!b.capabilities.every(c=>typeof c==='string'))fail(400,'Invalid node registration');
         const prior=store.get('nodes',b.id);
@@ -183,7 +256,12 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         const b=await body(req);const n=required('nodes',b.id);
         const ready=acceptsWork(claimNodeFor(n),{requiredCapabilities:REQUIRED_TASK_CAPABILITIES});
         const busy=store.list('tasks').some(t=>t.assignedNodeId===n.id&&!terminal.includes(t.state));
-        const t=ready&&!busy?store.list('tasks').find(t=>t.state==='QUEUED'):null;
+        // UXI-391: a QUEUED task may be handed out only to a device the handoff bridge allows. A task that
+        // was transferred to B stays RESERVED for B, and a device the guard shows as its current holder is the
+        // only one that may take it - so a recovered A cannot re-claim work that has already moved to B.
+        const claimable=t=>t.state==='QUEUED'&&handoff.claimAllowed({subjectRef:t.id,deviceRef:n.id,reservedFor:typeof t.handoffTargetRef==='string'&&t.handoffTargetRef.length>0?t.handoffTargetRef:null});
+        const t=ready&&!busy?store.list('tasks').find(claimable):null;
+        if(t)handoff.noteAssignment({subjectRef:t.id,deviceRef:n.id});
         out={task:t?change(t,'ASSIGNED',{assignedNodeId:n.id}):null};
       } else if(req.method==='POST' && path==='/api/v0/node/report'){
         const b=await body(req);const t=required('tasks',b.taskId);if(t.assignedNodeId!==b.id)fail(403,'Task belongs to another node');
@@ -208,7 +286,11 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       wss.handleUpgrade(req,socket,head,ws=>{emit('CLIENT_CONNECTED');ws.send(JSON.stringify(envelope({type:'REFRESH'})));ws.on('error',()=>{});ws.on('close',()=>{if(!closed)emit('CLIENT_DISCONNECTED');});});
     }catch(e){socket.write('HTTP/1.1 '+(e.status||400)+' Rejected\r\nConnection: close\r\n\r\n');socket.destroy();}
   });
-  const timer=setInterval(()=>{for(const n of store.list('nodes'))if(n.online&&Date.now()-Date.parse(n.lastHeartbeatAt)>heartbeatTimeout){store.put('nodes',{...n,online:false});emit('NODE_OFFLINE',null,{nodeId:n.id});}},1000);
+  const timer=setInterval(()=>{
+    for(const n of store.list('nodes'))if(n.online&&Date.now()-Date.parse(n.lastHeartbeatAt)>heartbeatTimeout){store.put('nodes',{...n,online:false});emit('NODE_OFFLINE',null,{nodeId:n.id});}
+    // UXI-391 REPAIR A/B: honour a decline that had nowhere to go, and release a reservation whose device died.
+    try{honourDeclinedHandoffs();}catch(e){console.error('handoff sweep failed',e);}
+  },1000);
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,host,resolve);});
   pairing.endpoint=`http://${host}:${server.address().port}`;
   if(discoveryEnabled)discovery=await startDiscovery({descriptor:pairing.descriptor(),onStatus:s=>{discoveryState=s;}});

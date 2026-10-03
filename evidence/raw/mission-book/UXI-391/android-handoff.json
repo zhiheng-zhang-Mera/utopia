@@ -1,0 +1,42 @@
+{
+    "task":  "UXI-391",
+    "step":  "3 item 13 / 6 (Android surface across a handoff)",
+    "at":  "2026-10-02T23:05:12Z",
+    "device":  "List of devices attached BICIPVNB5HS85H9T\tdevice",
+    "gatewayPort":  4394,
+    "targetTaskId":  "Q-a8b7a3ac-cbc4-4521-a24e-ecc2d049c020",
+    "screen":  "1080x2400",
+    "appRestartedByScript":  false,
+    "handoffStateSeenOnDevice":  false,
+    "terminal":  "COMPLETED",
+    "handoffFrom":  "uxi391-android-a",
+    "handoffTo":  "uxi391-android-b",
+    "result":  {
+                   "waitedMs":  6000
+               },
+    "dumps":  {
+                  "start":  "UTOPIA | ONLINE | Devices | Your devices. One shared view. | WHY THINGS ARE WAITING | Nothing is waiting to run. | Android node A | ONLINE | Platform: win32 · Agent 0.2.0 | CPU: 14.6% | Memory: 23.2 GB / 31.8 GB | Last seen: 2s ago | Last snapshot: 上午9:04:27 | Home | Ask | Rooms | Devices | Activity | 更多",
+                  "panelInFlight":  "UTOPIA | ONLINE | Devices | Your devices. One shared view. | WHY THINGS ARE WAITING | Running in a reduced state | Q-a8b7a3ac-cbc4-4521-a24e-ecc2d049c020 | The current service is responding slowly. Use another available one? | Some of what this depends on is not fully known right now. | Not available · This device isn\u0027t taking new work | Cancel | Choose another service | SCHEDULING DETAIL | 展开 | Android node A | OFFLINE · Cached | Platform: win32 · Agent 0.2.0 | CPU: 13.8% | Memory: 23.2 GB / 31.8 GB | Last seen: 19s ago | Last snapshot: 上午9:04:47 | Home | Ask | Rooms | Devices | Activity | 更多",
+                  "duringHandoff":  [
+                                        "UTOPIA | ONLINE | Devices | Your devices. One shared view. | WHY THINGS ARE WAITING | Nothing is waiting to run. | Android node A | OFFLINE · Cached | Platform: win32 · Agent 0.2.0 | CPU: 13.8% | Memory: 23.2 GB / 31.8 GB | Last seen: 30s ago | Android node B | ONLINE | Platform: win32 · Agent 0.2.0 | CPU: 11.2% | Memory: 23.2 GB / 31.8 GB | Last seen: 0s ago | Last snapshot: 上午9:04:59 | Home | Ask | Rooms | Devices | Activity | 更多"
+                                    ],
+                  "homeAfter":  "UTOPIA | ONLINE | Digital City | Your devices. One shared view. | RUNTIME NODES | Android node A | OFFLINE | Android node B | ONLINE | RUNNING | 0 | COMPLETED | 1 | Run Test Task | RECENT TASKS | WAIT | COMPLETED | Q-a8b7a3ac-cbc4-4521-a24e-ecc2d049c020 | Last snapshot: 上午9:05:10 | Home | Ask | Rooms | Devices | Activity | 更多"
+              },
+    "failures":  [
+
+                 ],
+    "log":  [
+                "=== UXI-391 Android handoff drive: port 4394, fresh city D:\\utopia-uxi391\\.runtime-uxi391-android ===",
+                "  gateway healthy, node A online",
+                "  [PASS] the app is pointed at THIS run and reports its own connection - UTOPIA | ONLINE | Devices | Your devices. One shared view. | WHY THINGS ARE WAITING | Nothing is waiting to run. | Android node A | ONLINE | Platform:",
+                "  target Q-a8b7a3ac-cbc4-4521-a24e-ecc2d049c020 is RUNNING on node A - stopping A\u0027s worker now, before the surface is read",
+                "  [PASS] the run is still NON-TERMINAL with its owner gone (the long honest window) - state=RUNNING assigned=uxi391-android-a",
+                "  [PASS] the app shows that run in flight on its scheduler panel - UTOPIA | ONLINE | Devices | Your devices. One shared view. | WHY THINGS ARE WAITING | Running in a reduced state | Q-a8b7a3ac-cbc4-4521-a24e-ecc2d049c020 | The current service is responding ",
+                "  [PASS] the panel explains the state in user language, not raw vocabulary - UTOPIA | ONLINE | Devices | Your devices. One shared view. | WHY THINGS ARE WAITING | Running in a reduced state | Q-a8b7a3ac-cbc4-4521-a24e-ecc2d049c",
+                "  [PASS] the run reached terminal success while the app watched - state=COMPLETED",
+                "  [PASS] the handoff really moved the run off node A - from=uxi391-android-a to=uxi391-android-b",
+                "  [PASS] the completion came from real execution - {\"waitedMs\":6000}",
+                "  [PASS] the finished run is visible on the app it was never moved away from - UTOPIA | ONLINE | Digital City | Your devices. One shared view. | RUNTIME NODES | Android node A | OFFLINE | Android node B | ONLINE | RUNNING | 0 | COMPLETED | 1 | Run Test Task | RECENT TASKS | WAIT",
+                "  [PASS] no raw scheduler token leaked into any rendered surface"
+            ]
+}

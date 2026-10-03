@@ -8,7 +8,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  PRESENTATION_FEED_VERSION, buildPresentationFeed, candidateFromNode, eligibilityFor, loadFromTelemetry,
+  PRESENTATION_FEED_VERSION, buildPresentationFeed, candidateFromNode, eligibilityFor, loadFromTelemetry, routePlanFor,
   projectTaskStatus, termsInUse,
 } from '../services/dev-gateway/presentation.mjs';
 import {TERMS, TERM_CLASS} from '../contracts/rs-presentation-contract-v1/presentation.mjs';
@@ -48,11 +48,38 @@ test('UXI-301 feed: disk CAPACITY is not reported as io LOAD', () => {
 /* --------------------------------------------------------------- node -> candidate */
 
 test('UXI-301 feed: the node mapping mirrors the gateway liveness truth', () => {
-  assert.deepEqual(candidateFromNode({id: 'n', online: true}), {deviceRef: 'n', device: {state: 'READY', presence: 'ONLINE'}, load: null});
+  // UXI-391 extends this exact shape with `enablement`, and the extension is the fix rather than a detail:
+  // RS-202 refuses anything that is not an EXPLICIT ENABLED, so a mapping that omitted the field made every
+  // device unplaceable on the route path while the presentation term still read SELECTABLE. The shape is
+  // asserted in full on purpose - that is what makes an omission here a test failure instead of a silent
+  // production bug.
+  assert.deepEqual(candidateFromNode({id: 'n', online: true}), {deviceRef: 'n', device: {state: 'READY', presence: 'ONLINE'}, enablement: 'ENABLED', load: null});
   assert.deepEqual(candidateFromNode({id: 'n', online: false}).device, {state: 'OFFLINE', presence: 'OFFLINE'});
   // A node that is not explicitly online is OFFLINE, the same fail-closed rule the Core applies.
   assert.equal(candidateFromNode({id: 'n'}).device.state, 'OFFLINE');
   assert.equal(candidateFromNode({id: 'n', online: 'yes'}).device.state, 'OFFLINE');
+});
+
+test('UXI-391: the candidate carries an EXPLICIT enablement, and an explicit disable is honoured', () => {
+  // The default exists because this City keeps no per-node disable state - not because consent is assumed.
+  assert.equal(candidateFromNode({id: 'n', online: true}).enablement, 'ENABLED');
+  // If the City ever gains a disable flag, the mapping must READ it rather than keep the default, and RS-202
+  // must then refuse the device. This is the assertion that fails the day the default starts swallowing it.
+  assert.equal(candidateFromNode({id: 'n', online: true, enablement: 'DISABLED'}).enablement, 'DISABLED');
+  const refused = eligibilityFor(candidateFromNode({id: 'n', online: true, enablement: 'DISABLED'}));
+  assert.equal(refused.eligible, false, 'an explicitly disabled device must not be eligible');
+  assert.equal(refused.reason, 'USER_DISABLED');
+  // And the route path must reach the SAME verdict as the term path, because the defect was exactly that the
+  // two disagreed about one candidate.
+  const routed = routePlanFor({
+    // switchDeclined is required for the planner to reach stage 3 at all: without the user's decline it
+    // stops at SWITCH_OFFERED, which is the offer rather than the handoff. My first version of this test
+    // asserted QUEUED without it and failed - correctly, and for the right reason.
+    task: {id: 't', state: 'RUNNING', assignedNodeId: 'a', switchDeclined: true},
+    candidates: [candidateFromNode({id: 'a', online: false}), candidateFromNode({id: 'b', online: true, enablement: 'DISABLED'})],
+  });
+  assert.equal(routed.stage, 'QUEUED', 'with the only alternate disabled, the planner must queue rather than hand off');
+  assert.equal(routed.chosenDeviceRef, null);
 });
 
 /* --------------------------------------------------------------------- eligibility */

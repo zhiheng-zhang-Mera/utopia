@@ -113,7 +113,9 @@ async function identifyCity(endpoint, { fetchImpl = globalThis.fetch, timeoutMs 
     });
     if (!response.ok) return null;
     const body = await response.json();
-    return typeof body?.cityId === 'string' && body.cityId ? { cityId: body.cityId, displayName: typeof body.displayName === 'string' ? body.displayName : null, acceptsRequests: body.acceptsRequests !== false } : null;
+    // The carrier facts travel with the identification, because this is the ONLY moment a remote surface can learn
+    // what the other machine is: after this pass the client holds an endpoint and a name, and nothing else.
+    return typeof body?.cityId === 'string' && body.cityId ? { cityId: body.cityId, displayName: typeof body.displayName === 'string' ? body.displayName : null, acceptsRequests: body.acceptsRequests !== false, carrierFacts: body.carrierFacts ?? null } : null;
   } catch {
     return null;
   }
@@ -172,7 +174,7 @@ export async function browseNearby({
         if (!view.joinEndpoint) return null;
         const identity = await identifyCity(view.joinEndpoint, { fetchImpl });
         if (!identity || identity.acceptsRequests === false) return null;
-        return { ...view, cityId: identity.cityId, displayName: identity.displayName ?? view.displayName };
+        return { ...view, cityId: identity.cityId, displayName: identity.displayName ?? view.displayName, carrierFacts: identity.carrierFacts ?? null };
       }));
       offered = identified.filter(Boolean);
     }
@@ -203,7 +205,32 @@ export async function browseNearby({
  * "unavailable" truthfully, and a City whose mDNS publisher failed must not announce that it is
  * published. A constant would have made this endpoint a polite lie.
  */
-export function joinCapability(descriptor, discoveryState = null) {
+/**
+ * What THIS host can honestly say about itself as a carrier.
+ *
+ * Split out — and taking its inputs as arguments — so it can be tested with fixed numbers instead of the machine
+ * it happens to run on, and so the one place that touches `node:os` is visible rather than scattered.
+ *
+ * `attachment` and `metered` are NOT derivable from node's standard library, so they are passed in (a caller that
+ * knows, from configuration, may fill them) and default to null. Null means "unknown", never "wifi": the scoring
+ * side must not be handed a guess dressed as a measurement.
+ */
+export function hostCarrierFacts({ cores, totalMemoryBytes, freeMemoryBytes, loadAverage1m = null, attachment = null, metered = null, platform = process.platform, now = () => Date.now() } = {}) {
+  return {
+    cores: Number.isFinite(cores) ? cores : null,
+    memoryTotalBytes: Number.isFinite(totalMemoryBytes) ? totalMemoryBytes : null,
+    memoryFreeBytes: Number.isFinite(freeMemoryBytes) ? freeMemoryBytes : null,
+    // loadAverage is always 0 on Windows, so a 0 is reported as-is: it is what the platform says, and the
+    // scoring side treats 0 as "no evidence of load", not as proof of an idle machine.
+    loadAverage1m: Number.isFinite(loadAverage1m) ? loadAverage1m : null,
+    attachment: typeof attachment === 'string' ? attachment : null,
+    metered: typeof metered === 'boolean' ? metered : null,
+    platform: typeof platform === 'string' ? platform : null,
+    measuredAt: new Date(now()).toISOString(),
+  };
+}
+
+export function joinCapability(descriptor, discoveryState = null, carrierFacts = null) {
   const d = descriptor ?? {};
   const mdns = discoveryState?.mdns?.state ?? 'UNKNOWN';
   const ble = discoveryState?.ble?.state ?? 'UNKNOWN';
@@ -216,5 +243,23 @@ export function joinCapability(descriptor, discoveryState = null) {
     acceptsRequests: true,
     // Stated so the client can offer the right fallbacks rather than guess.
     discovery: { mdns, ble, mdnsReason: discoveryState?.mdns?.reason ?? null, bleReason: discoveryState?.ble?.reason ?? null },
+    // WHAT KIND OF CARRIER THIS HOST WOULD BE, published so a REMOTE client (one that cannot read this
+    // machine's filesystem and has never spoken to it) can weigh it against its own machine and the other PCs it
+    // can see. Without this the only thing a remote surface could score is the network path, and "which PC should
+    // host" would degenerate into "whichever answered first".
+    //
+    // EVERY FIELD IS OPTIONAL ON PURPOSE, and a field this host cannot measure is published as null rather than
+    // guessed: node has no portable way to say whether the link is wired or wireless, or whether it is metered, so
+    // those are null here and the scoring side treats null as "unknown attachment" instead of assuming wifi.
+    carrierFacts: carrierFacts === null ? null : Object.freeze({
+      cores: Number.isFinite(carrierFacts?.cores) ? carrierFacts.cores : null,
+      memoryTotalBytes: Number.isFinite(carrierFacts?.memoryTotalBytes) ? carrierFacts.memoryTotalBytes : null,
+      memoryFreeBytes: Number.isFinite(carrierFacts?.memoryFreeBytes) ? carrierFacts.memoryFreeBytes : null,
+      loadAverage1m: Number.isFinite(carrierFacts?.loadAverage1m) ? carrierFacts.loadAverage1m : null,
+      attachment: typeof carrierFacts?.attachment === 'string' ? carrierFacts.attachment : null,
+      metered: typeof carrierFacts?.metered === 'boolean' ? carrierFacts.metered : null,
+      platform: typeof carrierFacts?.platform === 'string' ? carrierFacts.platform : null,
+      measuredAt: typeof carrierFacts?.measuredAt === 'string' ? carrierFacts.measuredAt : null,
+    }),
   });
 }

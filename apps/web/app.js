@@ -95,6 +95,10 @@ import {parseInvite} from './invite.js';
 // JOIN-502: the nearby-City adapter and the ask-to-join lifecycle. The adapter is a pure module, so the
 // dedup/freshness rules can be tested without a browser; this file owns only state and rendering.
 import {nearbyCities, probeNearby} from './discovery.js';
+// The connection surface: ONE list of every PC this client can reach (this machine included, and any number of
+// others), each with the quickest way onto it, plus which one should carry the City for all of them. Pure
+// presentation logic, so what it shows is testable without a browser; this file supplies facts and dispatches.
+import {buildConnectList, renderConnectList} from './connect-surface.js';
 // 销毁本地令牌: the bootstrap token belongs to THIS City. Once this client moves to another City it is dead
 // weight, so it is removed here rather than left behind in session storage for a later accidental reuse.
 function destroyLocalToken(){try{sessionStorage.removeItem('city-token');}catch{}token='';}
@@ -150,6 +154,46 @@ function syncRunTargets(){
 async function api(path,body){const r=await fetch('/api/v0/'+path,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json','X-City-Api-Version':'0','X-City-Schema-Version':'0'},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(path.startsWith('capabilities/')?25000:5000)});const x=await r.json();if(!r.ok)throw Error(x.error);if(x.apiVersion!==0||x.schemaVersion!==0)throw Error('Protocol mismatch: this client requires version 0');return x;}
 function clearPairing(message=''){pairing.clear(message);}
 // The explicit generator. This is the ONLY function in the page that may create pairing material, and it is reached only from the click handler above. It refuses to run while a session is ACTIVE, so a doubled click or a stale button cannot rotate the code.
+/* THE PC LIST. Facts in, rows out - and the facts are deliberately only the ones this client actually has:
+   the City this page is served by (`city`), whatever discovery last found (`nearby`), and the PCs this browser has
+   joined before (localStorage, a REFERENCE list and not a credential). Nothing here decides trust: a row that
+   says "join this PC" goes through the existing JOIN-502 request/approve flow, and the invite channel underneath
+   is untouched. */
+function rememberedPcs(){try{const raw=localStorage.getItem('utopia.knownPcs');const list=raw?JSON.parse(raw):[];return Array.isArray(list)?list.filter(r=>r&&typeof r==='object'):[];}catch{return [];}}
+function rememberPc(row){try{const list=rememberedPcs().filter(r=>r.cityRef!==row.cityRef);list.unshift({cityRef:row.cityRef??null,displayName:row.displayName??null,address:row.address??null,port:row.port??null,lastJoinedAt:new Date().toISOString()});localStorage.setItem('utopia.knownPcs',JSON.stringify(list.slice(0,12)));}catch{/* a browser that refuses storage still works for this view */}}
+function connectFacts(){
+ // This machine's own City: the endpoint the page was served from, with whatever the City says about itself.
+ const self={cityRef:city?.cityId??null,displayName:t('connect.thisMachine'),address:location.hostname||null,port:location.port?Number(location.port):null,transport:'loopback',connected:connection==='ONLINE',attachedNodes:(city?.nodes??[]).length,
+  // WHAT THE BROWSER CAN HONESTLY MEASURE ABOUT THIS MACHINE: core count (widely available) and nothing else.
+  // Memory is deliberately NOT taken from `navigator.deviceMemory`, which is a coarse, privacy-rounded estimate -
+  // publishing an estimate into a score that decides which machine hosts everybody would be exactly the kind of
+  // invented fact this feature must not contain. The row therefore shows "cores only" and is marked as thin
+  // evidence, which is the truth about what a browser can see.
+  carrierFacts:Number.isFinite(navigator.hardwareConcurrency)?{cores:navigator.hardwareConcurrency}:null};
+ const discovered=(nearby??[]).map(row=>({cityRef:row.cityRef??null,displayName:row.displayName??null,address:row.address??null,port:row.port??null,transport:row.transport??'lan',carrierFacts:row.carrierFacts??null,grantsTrust:false}));
+ const remembered=rememberedPcs();
+ const list=buildConnectList({self,nearby:discovered,remembered,translate:(key,params)=>t(key,params)});
+ // NOTE: the list is deliberately FROZEN (the module returns immutable snapshots so a render cannot mutate the
+ // facts it was given). The first version of this function assigned a field onto it here and crashed the whole
+ // page with "Cannot assign to read only property" - a page-level failure that no unit test of the module could
+ // see. Anything this file wants to add must be added BEFORE the call, not after.
+ return list;
+}
+let connectSignature='';
+function renderConnectSurface(){
+ const host=$('#connect-body');if(!host)return;
+ const list=connectFacts();
+ // Re-render only when the facts change: the buttons must not be replaced under the pointer between mousedown and click.
+ const signature=JSON.stringify([list.rows.map(r=>[r.cityRef,r.scope,r.score,r.recommended,r.actions.length]),nearbyBusy,nearbyError,connection]);
+ if(host.dataset.rendered===signature)return;
+ host.dataset.rendered=signature;
+ host.innerHTML=(nearbyBusy?`<p class="muted">${esc(t('connect.searching'))}</p>`:'')+renderConnectList(list,{translate:(key,params)=>t(key,params)});
+}
+/* Probe once when the connection screen is first shown, so the list is populated without the user having to ask.
+   Bounded and idempotent: `nearbyBrowse` itself refuses to overlap, and a failure is reported as "unavailable"
+   rather than as an empty world. */
+let autoProbed=false;
+function autoProbeOnce(){if(autoProbed||connection==='ONLINE')return;autoProbed=true;nearbyBrowse();}
 async function generatePairing(){
  // The lifecycle refuses while ACTIVE; the busy flag covers the in-flight window so a double click cannot start two sessions either. The existing code is NEVER blanked before the new one exists: if the request fails, the user keeps what they had.
  if(!pairingState().generate.available||pairingBusy||connection!=='ONLINE')return;
@@ -177,6 +221,28 @@ async function joinApi(path,body){const r=await fetch('/api/v0/join/'+path,{meth
 // The browse is authenticated (it is served by the City that owns this page) while the ask is not: the
 // City being asked is the one the browse found, which this page has no credential for.
 async function browseApi(path){const r=await fetch('/api/v0/'+path,{method:'GET',headers:{Authorization:'Bearer '+token,'X-City-Api-Version':'0','X-City-Schema-Version':'0'},signal:AbortSignal.timeout(8000)});const x=await r.json().catch(()=>null);if(!r.ok)throw Error(x?.error||('browse failed: '+r.status));return x;}
+/** ONE browse, used by the button in the older section and by the PC list, so the two cannot drift apart. */
+async function nearbyBrowse(){if(nearbyBusy)return;nearbyBusy=true;nearbyError='';render();try{const result=await browseApi('join/nearby');nearby=nearbyCities(result?.nearby??[]);}catch(err){nearbyError=joinErrorKey(err);nearby=null;}finally{nearbyBusy=false;render();}}
+/**
+ * INVITE a PC to come here: the existing explicit pairing generation, reused rather than reimplemented.
+ *
+ * This is the mirror image of `askToJoin`, and it exists because the Owner's requirement is that the connection
+ * screen offers BOTH directions from the same list: join THEM, or bring THEM here. It creates a normal pairing
+ * session (so the code, the QR and the shareable link all appear in the entry channel below), records the peer as
+ * a known PC so it stays on the list next time, and returns whether it worked.
+ */
+async function invitePeer(row){
+ if(!row)return false;
+ try{
+  await generatePairing();
+  const ps=pairingState();
+  if(!ps.session)return false;
+  rememberPc(row);
+  // Point the user at the material that the entry channel already renders rather than duplicating it here.
+  const code=$('#pairing-code');if(code)code.scrollIntoView({behavior:'smooth',block:'nearest'});
+  return true;
+ }catch{return false;}
+}
 /**
  * JOIN-502: ASK a nearby City to let this installation join.
  *
@@ -415,6 +481,10 @@ function render(){
  // under the pointer between mousedown and click.
  const host=$('#nearby-host');
  if(host){const signature=JSON.stringify([nearbyBusy,joinBusy,joinError,joinAsk&&joinAsk.state,nearby&&nearby.length,nearbyError!=='']);if(host.dataset.rendered!==signature){host.dataset.rendered=signature;host.innerHTML=nearbySection();}}
+ // The PC list sits ABOVE the entry controls and never replaces them: invite / code / QR / manual is the Owner's
+ // port-page entry and stays exactly where it was. Same signature trick, for the same reason - a re-render must
+ // not swap the buttons out from under the pointer mid-click.
+ renderConnectSurface();
  $('#ask-form').hidden=$('#content').hidden;
  if(!city){$('#heading').textContent=t('heading.'+page.toLowerCase());if(terminal)terminal.render($('#view'));return;}
  $('#heading').textContent=t('heading.'+page.toLowerCase());$('#updated').textContent=t('status.lastSnapshot',{time:formatTime(city.updatedAt)});
@@ -444,7 +514,16 @@ document.addEventListener('click',async e=>{const nav=e.target.closest('[data-pa
 // item the independent review checks. The route comes from the shared ACTION_WIRING table, and the
 // task id from the button, so the panel and this dispatcher cannot disagree about what is wired.
 if(schedAction){const token=schedAction.dataset.schedulerAction,taskRef=schedAction.dataset.schedulerTask,route=schedAction.dataset.schedulerRoute,providerRef=schedAction.dataset.schedulerProvider;schedAction.disabled=true;try{if(route==='cancel'){await api('tasks/'+encodeURIComponent(taskRef)+'/cancel',{});}else if(route==='create'){await api('tasks',{type:'CHECKPOINT_DEMO'});}else if(route==='providerChoice'){if(!providerRef)throw new Error('no provider was offered to choose from');await api('tasks/'+encodeURIComponent(taskRef)+'/provider-choice',{providerRef});}else{/* local acknowledgement: nothing to send */}await refresh();}catch(err){$('#error').textContent=err.message;schedAction.disabled=false;}}
-if(e.target.id==='nearby-browse'){nearbyBusy=true;nearbyError='';render();try{const result=await browseApi('join/nearby');nearby=nearbyCities(result?.nearby??[]);}catch(err){nearbyError=joinErrorKey(err);nearby=null;}finally{nearbyBusy=false;render();}}
+if(e.target.id==='nearby-browse'){nearbyBrowse();}
+// THE PC LIST ACTIONS. One reusable browse, so the button inside the old section and the one on the list run the
+// same code path; then the three things a row can do. `join` goes through the EXISTING JOIN-502 ask flow and
+// `invite` through the EXISTING pairing session - this surface adds no new trust path of its own.
+if(e.target.id==='connect-rescan'){autoProbed=true;nearbyBrowse();}
+if(e.target.dataset?.connectAction){const kind=e.target.dataset.connectAction,ref=e.target.dataset.connectRef||null;
+ if(kind==='useSelf'){const stored=(()=>{try{return sessionStorage.getItem('city-token')||'';}catch{return '';}})();if(stored){token=stored;$('#pair').hidden=true;$('#content').hidden=false;connect();}else{$('#error').textContent=t('connect.action.useSelf');}}
+ else if(kind==='join'&&ref){askToJoin(ref,ref);}
+ else if(kind==='invite'){const row=connectFacts().rows.find(r=>r.cityRef===ref)||null;const ok=await invitePeer(row);$('#error').textContent=ok?'':t('connect.inviteFailed');}
+}
 // JOIN-502: the browse above reads the LOCAL City's LAN view; this ask goes to the City the browse
 // found, which is a different origin - the reason it carries a claim secret instead of a credential.
 if(e.target.dataset?.joinRequest){askToJoin(e.target.dataset.joinRequest,e.target.dataset.joinRef||null);}// An owner decision returns to the backend, then the UI re-reads canonical state. It never mutates the
@@ -503,5 +582,8 @@ if(bootJoin){
  }catch(err){console.error('join ask could not be delivered',err&&err.message);joinAsk=null;joinError=joinErrorKey(err);render();}
 }
 if(token)connect();else status('OFFLINE');
+// A disconnected client looks for PCs on its own once, so the list is populated before the user asks. Bounded and
+// idempotent (see autoProbeOnce); it never blocks the entry channel underneath, which works exactly as before.
+autoProbeOnce();
 if(token){$('#pair').hidden=true;$('#content').hidden=false;mountTerminal();}
 if(pairing.ownerSessionId()!==null)reconcileRestoredPairing().catch(()=>{});

@@ -21,7 +21,11 @@ import { startDiscovery } from './discovery.mjs';
 // credential only after an already trusted device approves - it is not a second trust store, and
 // discovery grants nothing on its own.
 import { createJoinRequests, shortRef } from './join.mjs';
-import { browseNearby, joinCapability } from './nearby.mjs';
+import { browseNearby, joinCapability, hostCarrierFacts } from './nearby.mjs';
+// `node:os` is imported for ONE purpose: publishing what this host can honestly say about itself as a City carrier
+// (cores and memory), so a REMOTE surface can weigh this machine against its own and against other PCs it can see.
+// Nothing here reads identity or user data.
+import { cpus as osCpus, freemem as osFreemem, totalmem as osTotalmem } from 'node:os';
 import { envelope, terminal, validateCommand } from '../../contracts/city-control-v0/protocol.mjs';
 // Product closeout (T1–T3): the Room Pack, the canonical Action facade and the
 // deterministic Ask / Do router. The Room Hub is reached over loopback only; nothing here
@@ -342,7 +346,17 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // after a join route had already produced `out` and overwrite it with `undefined`, so every join
       // route answered 404 while doing its work correctly. The defect was caught by the first
       // end-to-end probe of this path, not by inspection.
-      if(req.method==='GET' && path==='/api/v0/join/info')out=joinCapability(pairing.descriptor(),discoveryState);
+      // CARRIER FACTS: what kind of carrier THIS host would be, published so a remote client can score it against
+      // its own machine and the other PCs it can see - without them, "which PC should host" could only be decided
+      // by network path, i.e. by whoever answered first. Measured per request rather than cached, because free
+      // memory is exactly the number that changes and a stale value would make a busy machine look idle.
+      // attachment/metered are left null on purpose: node cannot tell us whether the link is wired or metered, and
+      // a guess published to other machines would be indistinguishable from a measurement.
+      if(req.method==='GET' && path==='/api/v0/join/info')out=joinCapability(pairing.descriptor(),discoveryState,hostCarrierFacts({
+        cores: typeof osCpus === 'function' ? osCpus().length : null,
+        totalMemoryBytes: osTotalmem(),
+        freeMemoryBytes: osFreemem(),
+      }));
       else if(req.method==='POST' && path==='/api/v0/join/request')out=join.request(await body(req));
       else if(req.method==='POST' && path==='/api/v0/join/status')out=join.status(await body(req));
       else if(req.method==='POST' && path==='/api/v0/join/exchange')out=join.exchange(await body(req));
@@ -356,7 +370,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         // `cityRef` is the FULL City identity read from the City's own capability endpoint, not the short
         // mDNS prefix: it is what the join fragment pins and what the receiving City checks itself
         // against, and a prefix would make that check fail on a legitimate hand-off.
-        out={nearby:found.candidates.map(c=>({cityRef:c.cityId??c.cityRef,displayName:c.displayName,address:c.address,port:c.port,transport:c.transport,lastSeenAt:c.lastSeenAt,stale:c.stale,grantsTrust:false})),bounded:found.bounded===true,discovered:found.discovered??0,unavailable:found.unavailable===true};
+        out={nearby:found.candidates.map(c=>({cityRef:c.cityId??c.cityRef,displayName:c.displayName,address:c.address,port:c.port,transport:c.transport,lastSeenAt:c.lastSeenAt,stale:c.stale,grantsTrust:false,carrierFacts:c.carrierFacts??null})),bounded:found.bounded===true,discovered:found.discovered??0,unavailable:found.unavailable===true};
       }
       else if(req.method==='GET' && path==='/api/v0/pairing/info')out=pairing.info();
       else if(req.method==='POST' && path==='/api/v0/pairing/session'){await body(req);out=await pairing.create();}

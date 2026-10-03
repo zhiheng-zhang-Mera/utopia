@@ -5,23 +5,27 @@
 // from who clicked first. These tests pin that, and they also pin the refusals: no invented telemetry.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_WEIGHTS, rankPrimaryCity, scoreCapacity, scoreNetwork, scoreRole } from '../apps/web/primary-city.js';
+import { DEFAULT_WEIGHTS, chooseGroupCarrier, rankPrimaryCity, scoreAttachment, scoreCapacity, scoreNetwork, scoreRole } from '../apps/web/primary-city.js';
 
 const city = (over = {}) => ({ cityRef: 'city-a', displayName: 'A', host: '192.168.1.10', port: 4391, transport: 'lan', ...over });
 const telemetry = (over = {}) => ({ cpu: { usagePercent: 10 }, memory: { usedBytes: 2e9, totalBytes: 8e9 }, disk: { freeBytes: 40e9, totalBytes: 100e9 }, cores: 8, ...over });
 
-test('network: loopback beats LAN beats an unmeasured path, and latency only ever removes score', () => {
+test('network: local beats LAN beats remote beats unknown, and latency only ever removes score', () => {
   const loop = scoreNetwork({ host: '127.0.0.1', transport: 'lan' });
   const lan = scoreNetwork({ host: '192.168.1.10', transport: 'lan' });
+  const remote = scoreNetwork({ host: '203.0.113.9', transport: 'unknown', scope: 'remote' });
   const ble = scoreNetwork({ host: '192.168.1.10', transport: 'bluetooth' });
   const unknown = scoreNetwork({});
-  assert.equal(loop.kind, 'loopback');
+  assert.equal(loop.kind, 'local');
   assert.equal(loop.loopback, true);
   assert.ok(loop.score > lan.score, 'this machine is the strongest network position from here');
-  assert.ok(lan.score > ble.score && ble.score > unknown.score);
+  assert.ok(lan.score > remote.score, 'a multicast-discovered neighbour beats an address that needed configuring');
+  assert.ok(remote.score > ble.score && ble.score > unknown.score);
   const slow = scoreNetwork({ host: '192.168.1.10', transport: 'lan', rttMs: 300 });
   assert.ok(slow.score < lan.score, 'a measured slow path scores below an unmeasured fast one');
   assert.equal(lan.measured, false, 'an unmeasured path says so rather than pretending to be 0ms');
+  assert.equal(remote.inferred, false, 'a caller-supplied scope is used as given, not re-inferred');
+  assert.equal(scoreNetwork({ transport: 'lan' }).inferred, true);
 });
 
 test('capacity: missing telemetry is EXCLUDED, never defaulted to a middle value', () => {
@@ -91,7 +95,62 @@ test('recommendation: a single loopback City is recommended with the honest reas
 });
 
 test('weights are exported and the balance is visible rather than guessed', () => {
-  assert.equal(typeof DEFAULT_WEIGHTS.network, 'number');
-  const sum = DEFAULT_WEIGHTS.network + DEFAULT_WEIGHTS.capacity + DEFAULT_WEIGHTS.role;
-  assert.ok(Math.abs(sum - 1) < 1e-9, 'the default weights are a partition of 1');
+  for (const key of ['network', 'capacity', 'attachment', 'role']) assert.equal(typeof DEFAULT_WEIGHTS[key], 'number', `${key} weight is declared`);
+  const sum = DEFAULT_WEIGHTS.network + DEFAULT_WEIGHTS.capacity + DEFAULT_WEIGHTS.attachment + DEFAULT_WEIGHTS.role;
+  assert.ok(Math.abs(sum - 1) < 1e-9, `the default weights are a partition of 1 (got ${sum})`);
+});
+
+test('attachment: wired beats wireless for a CARRIER, and a metered link is halved', () => {
+  const wired = scoreAttachment({ attachment: 'ethernet' });
+  const wifi = scoreAttachment({ attachment: 'wifi' });
+  const cell = scoreAttachment({ attachment: 'cellular' });
+  const unknown = scoreAttachment({});
+  assert.ok(wired.score > wifi.score, 'the machine serving everyone else should not be the one whose link can drop');
+  assert.ok(wifi.score > cell.score);
+  assert.ok(cell.score > unknown.score === false || unknown.score > cell.score, 'an unknown link is not treated as a good one');
+  assert.ok(scoreAttachment({ attachment: 'wifi', metered: true }).score < wifi.score, 'a metered link costs the owner money, so it is halved');
+  assert.equal(wifi.metered, false);
+});
+
+test('group carrier: a City nobody else can reach is NOT the carrier, however powerful the machine', () => {
+  // Two PCs on one home network (peer-a) and one on a mobile hotspot (peer-b). `beast` is the strongest machine but
+  // sits on the hotspot, so the home-network peer has no path to it.
+  const beast = city({ cityRef: 'beast', host: '10.0.0.5', transport: 'lan', scope: 'lan', telemetry: telemetry({ cpu: { usagePercent: 1 }, cores: 32, memory: { usedBytes: 1e9, totalBytes: 64e9 }, disk: { freeBytes: 900e9, totalBytes: 1e12 } }) });
+  const home = city({ cityRef: 'home', host: '192.168.1.10', transport: 'lan', scope: 'lan', telemetry: telemetry({ cpu: { usagePercent: 40 }, cores: 4 }) });
+  const peers = [
+    { peerRef: 'peer-a', candidateRefs: ['home'] },
+    { peerRef: 'peer-b', candidateRefs: ['beast'] },
+  ];
+  const out = chooseGroupCarrier({ peers, candidates: [beast, home] });
+  assert.equal(out.unreachablePeers.length, 1, 'no City is reachable by BOTH peers in this topology');
+  assert.match(out.reason, /NO candidate is reachable by every peer/);
+  assert.ok(out.carrier, 'a carrier is still named, so the group is not left without a proposal');
+  assert.equal(out.reachableBy.length, 1, 'and the report says who it does reach');
+});
+
+test('group carrier: when one City is reachable by every peer it wins, even against a higher-scoring partial one', () => {
+  const universal = city({ cityRef: 'universal', host: '192.168.1.10', transport: 'lan', scope: 'lan', telemetry: telemetry({ cpu: { usagePercent: 30 }, cores: 4 }) });
+  const strongPartial = city({ cityRef: 'strong-partial', host: '192.168.1.11', transport: 'lan', scope: 'lan', telemetry: telemetry({ cpu: { usagePercent: 2 }, cores: 32, memory: { usedBytes: 1e9, totalBytes: 64e9 }, disk: { freeBytes: 900e9, totalBytes: 1e12 } }) });
+  const peers = [
+    { peerRef: 'peer-a', candidateRefs: ['universal', 'strong-partial'] },
+    { peerRef: 'peer-b', candidateRefs: ['universal'] },
+  ];
+  const out = chooseGroupCarrier({ peers, candidates: [universal, strongPartial] });
+  assert.equal(out.carrier.cityRef, 'universal');
+  assert.deepEqual(out.reachableBy.sort(), ['peer-a', 'peer-b']);
+  assert.deepEqual(out.unreachablePeers, []);
+  assert.match(out.reason, /every peer/);
+});
+
+test('group carrier: with no peer reachability reported, it says the ranking alone decided rather than implying a check', () => {
+  const out = chooseGroupCarrier({ peers: [], candidates: [city({ cityRef: 'only', scope: 'lan', telemetry: telemetry() })] });
+  assert.equal(out.carrier.cityRef, 'only');
+  assert.match(out.reason, /no peer reachability was reported/);
+});
+
+test('group carrier: an empty topology answers honestly instead of throwing', () => {
+  const out = chooseGroupCarrier({});
+  assert.equal(out.carrier, null);
+  assert.deepEqual(out.ranked, []);
+  assert.match(out.reason, /no candidate/i);
 });

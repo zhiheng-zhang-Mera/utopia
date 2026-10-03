@@ -321,14 +321,10 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // two routes that skip it, and they do so because they predate the header and their callers are
       // already deployed.
       const nodeRoute=path.startsWith('/api/v0/node/');
-      const publicPairing=path==='/api/v0/pairing/info'||path==='/api/v0/pairing/exchange';
-      // JOIN-503: `POST /api/v0/device/session` is an AUTHENTICATION endpoint, so it cannot itself require a
-      // successful authentication - it is where an installation credential, or an existing session credential
-      // being refreshed, is presented. Its own verification is strict (the enrollment ladder, or a session lookup)
-      // and it is the only route in this exemption.
-      const selfAuthenticating=req.method==='POST'&&path==='/api/v0/device/session';
-      if(!publicPairing&&!selfAuthenticating)auth(req,nodeRoute);
-      version(req);
+      // INTEGRATION: JOIN-502's OWN auth preamble used to stand here and has been removed. The text-level union
+      // kept both, so this earlier one ran FIRST and authenticated before `publicJoin` existed, which made every
+      // join route answer 401 while the code behind it was correct (`ask 0 answered 401` in the JOIN-502 suite).
+      // The union preamble below is the one that names all three exemption kinds, so it is the only one kept.
       const publicJoin=path==='/api/v0/join/info'||path==='/api/v0/join/request'||path==='/api/v0/join/status'||path==='/api/v0/join/exchange';
       const legacyPublicPairing=path==='/api/v0/pairing/info'||path==='/api/v0/pairing/exchange';
       if(!publicJoin&&!legacyPublicPairing)auth(req,nodeRoute);

@@ -7,6 +7,20 @@ import {renderTerminal,TERMINAL_PAGES} from './terminal.js';
 import { t, applyTranslations, getLocale, setLocale, subscribe, formatTime, SUPPORTED_LOCALES, localeLabel } from './i18n/index.js';
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let token=sessionStorage.getItem('city-token')||'',city=null,page=location.pathname==='/pairing'?'Pairing':'Home',selected=null,ws,generation=0,timer,refreshing=false,pending=false,connection='OFFLINE',selectedNode=null,pairing=null,pairingBusy=false,pairingEpoch=0,pairingNotice='',terminal=null,externalPage=TERMINAL_PAGES.includes(page),homeRoomsData=null,homeRoomsError='';
+// JOIN-502 ONBOARDING STATE. `nearby` is what the last browse found; `joinAsk` is the ask this surface
+// has outstanding, if any. They are separate because discovery is repeatable and an ask is a single
+// bounded episode: a fresh browse must never silently replace or re-create an ask that a human on the
+// other machine is being asked to decide.
+let nearby=null,nearbyBusy=false,nearbyError='',joinAsk=null,joinBusy=false,joinError='',joinPoll=null,joinAskEpoch=0;
+/** Metres of trust: this is the whole reason the claim exists. Only the browser that created the ask
+ *  holds this secret, so a second machine on the same LAN cannot adopt the ask by reading the City. It
+ *  lives in sessionStorage, never localStorage: it is a tab-scoped episode, not a device credential. */
+const CLAIM_KEY='utopia.join.claim';
+function joinClaim(){let claim=null;try{claim=sessionStorage.getItem(CLAIM_KEY);}catch{}if(!claim){claim=(crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random().toString(36).slice(2))+Math.random().toString(36).slice(2);try{sessionStorage.setItem(CLAIM_KEY,claim);}catch{}}return claim;}
+/** A per-installation hint so the City can recognise a retrying client instead of stacking duplicate
+ *  approval cards. It is a REFERENCE, not an identity: the City stores no key against it and the
+ *  approver sees it only as context. Durable identity arrives with device enrollment (JOIN-503). */
+function installationHint(){let hint=null;try{hint=localStorage.getItem('utopia.installation');}catch{}if(!hint){hint='install-'+Math.random().toString(36).slice(2,12);try{localStorage.setItem('utopia.installation',hint);}catch{}}return hint;}
 const finished=t=>['COMPLETED','FAILED','CANCELLED'].includes(t.state);
 // MESH-301: this control surface declares ITSELF on the event-stream handshake.
 //
@@ -32,6 +46,9 @@ window.utopiaWebSurface={ref:webClientRef,label:webClientLabel,rename:name=>{try
 // not written into the City's logs. It is stripped from the address bar as soon as it has been read.
 // The invite payload is parsed by a pure module so it can be tested without a browser; see apps/web/invite.js.
 import {parseInvite} from './invite.js';
+// JOIN-502: the nearby-City adapter and the ask-to-join lifecycle. The adapter is a pure module, so the
+// dedup/freshness rules can be tested without a browser; this file owns only state and rendering.
+import {nearbyCities, probeNearby} from './discovery.js';
 // 销毁本地令牌: the bootstrap token belongs to THIS City. Once this client moves to another City it is dead
 // weight, so it is removed here rather than left behind in session storage for a later accidental reuse.
 function destroyLocalToken(){try{sessionStorage.removeItem('city-token');}catch{}token='';}
@@ -85,8 +102,148 @@ function syncRunTargets(){
  select.value=nodes.some(n=>n.id===current)?current:'';
 }
 async function api(path,body){const r=await fetch('/api/v0/'+path,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json','X-City-Api-Version':'0','X-City-Schema-Version':'0'},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(path.startsWith('capabilities/')?25000:5000)});const x=await r.json();if(!r.ok)throw Error(x.error);if(x.apiVersion!==0||x.schemaVersion!==0)throw Error('Protocol mismatch: this client requires version 0');return x;}
+// JOIN-502: the joining surface holds no City credential yet - that is what it is asking for - so these
+// three calls authenticate with the CLAIM it generated instead. The envelope carries apiVersion 0 like
+// every other call, and an error message is passed through rather than flattened, because "not approved
+// yet" and "rejected" need different words on screen.
+async function joinApi(path,body){const r=await fetch('/api/v0/join/'+path,{method:body?'POST':'GET',headers:{'Content-Type':'application/json','X-City-Api-Version':'0','X-City-Schema-Version':'0'},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(8000)});const x=await r.json().catch(()=>null);if(x&&x.apiVersion!==0)throw Error('Protocol mismatch: this client requires version 0');if(!r.ok){const e=Error(x?.error||('join request failed: '+r.status));e.status=r.status;throw e;}return x;}
+// The browse is authenticated (it is served by the City that owns this page) while the ask is not: the
+// City being asked is the one the browse found, which this page has no credential for.
+async function browseApi(path){const r=await fetch('/api/v0/'+path,{method:'GET',headers:{Authorization:'Bearer '+token,'X-City-Api-Version':'0','X-City-Schema-Version':'0'},signal:AbortSignal.timeout(8000)});const x=await r.json().catch(()=>null);if(!r.ok)throw Error(x?.error||('browse failed: '+r.status));return x;}
+/**
+ * JOIN-502: ASK a nearby City to let this installation join.
+ *
+ * WHY THIS IS A NAVIGATION AND NOT A POST. `join/request` is a route on the City being asked, and that
+ * City is a different origin from the page that discovered it. The gateway serves no CORS headers (the
+ * pairing exchange has the same property, see exchangeInvite), so a cross-origin POST would be refused
+ * by the browser - and "fix" for that would mean opening the City's join routes to any web page, which
+ * is a worse trade than carrying the ask in a fragment. So the browse happens here, and the ASK is
+ * carried to the target origin in its own fragment, exactly like the `#pair=` invite already does.
+ * Browsers never send a fragment to a server, so the claim secret is not written into any City log,
+ * and the target page strips it from the address bar as soon as it has read it.
+ *
+ * The ask is `{hint, claim}` and nothing else that matters: `displayName` is re-derived at the target
+ * from the page's own surface label, so the value on the approval card is the one the joining surface
+ * actually calls itself, not one this page could have forged for it.
+ */
+function askToJoin(endpoint, cityRef){
+ const target=String(endpoint||'').replace(/\/$/,'');
+ if(!/^https?:\/\/[^\s]+$/.test(target)){joinError='join.errorUnreachable';render();return;}
+ const claim=joinClaim();
+ const fragment=new URLSearchParams({v:'1',hint:installationHint(),claim});
+ if(cityRef)fragment.set('city',String(cityRef).slice(0,80));
+ // SAME ORIGIN: `location.assign` with only a fragment added is a SAME-DOCUMENT navigation, so the page
+ // would not reload, the boot path would never run, and the ask would silently never be recorded - which
+ // is exactly how this failed the first time it was exercised. Asking the page we are already on is also
+ // the case where nothing needs carrying anywhere, so the ask is delivered directly.
+ if(target===location.origin.replace(/\/$/,'')){resumeJoin({hint:fragment.get('hint'),claim,cityRef:cityRef||null});return;}
+ // CROSS ORIGIN: destroy this City's session credential before leaving, the same rule the invite switch
+ // follows - a credential for the City we are leaving is dead weight at the new one.
+ destroyLocalToken();
+ location.assign(target+'/#join='+encodeURIComponent(fragment.toString()));
+}
+/** JOIN-502: arriving with an ask to deliver. The browse handed the ask to this origin in its fragment,
+ *  so this function is what turns "a nearby PC picked this City" into a recorded request. It is
+ *  idempotent by construction: the City recognises the installation hint and answers with the row it
+ *  already has rather than creating a second approval card. */
+async function resumeJoin({hint, claim, cityRef}){
+ const pending={hint,claim,cityRef};
+ try{
+  /** The pinned identity is CHECKED, never trusted. A link that names a City different from the one that
+   *  received it is a mis-addressed ask, and delivering it here would ask the wrong owner to approve
+   *  another City's join. */
+  if(cityRef&&city&&cityRef!==city.cityId){joinError='join.errorRejected';render();return;}
+  const ask=await joinApi('request',{displayName:webClientLabel(),platform:navigator.platform||'browser',installationHint:typeof pending.hint==='string'?pending.hint:installationHint(),origin:location.origin,claim:pending.claim});
+  if(!ask?.id)throw Error('that City created no join request');
+  joinAsk={requestId:ask.id,state:ask.state,claim:pending.claim,joinEndpoint:location.origin,displayName:webClientLabel(),hint:pending.hint??null};
+  render();
+  waitForDecision(joinAsk);
+ }catch(err){
+  joinAsk=null;joinError=joinErrorKey(err);render();
+ }
+}
+function joinErrorKey(error){
+ if(error?.status===403)return 'join.errorRejected';
+ if(error?.status===429)return 'join.errorBusy';
+ if(error?.status===404)return 'join.errorUnreachable';
+ return 'join.errorUnreachable';
+}
+/** A refused ask still has a STATE, and the state is what the surface shows. Reporting every failure as
+ *  EXPIRED is how a rejection first reached the user as "no longer valid" - true of the request, useless
+ *  to the person reading it. The status decides which terminal state is true. */
+function joinTerminalState(error){
+ if(error?.status===403)return 'REJECTED';
+ return 'EXPIRED';
+}
+/** Poll until the owner decides. Bounded, cancellable, and it NEVER creates a second ask: approval
+ *  leads to exactly one credential exchange, and every terminal state stops the poll for good. All
+ *  calls are SAME-ORIGIN, because this runs on the City being joined (see askToJoin). */
+function waitForDecision(ask){
+ clearInterval(joinPoll);const epoch=++joinAskEpoch;const deadline=Date.now()+10*60*1000;
+ joinPoll=setInterval(async()=>{
+  if(epoch!==joinAskEpoch||!joinAsk||joinAsk.requestId!==ask.requestId){clearInterval(joinPoll);return;}
+  if(Date.now()>deadline){clearInterval(joinPoll);joinAsk={...joinAsk,state:'EXPIRED'};render();return;}
+  try{
+   const state=await joinApi('status',{requestId:ask.requestId,claim:ask.claim});
+   if(state.state!==joinAsk.state){joinAsk={...joinAsk,state:state.state};render();}
+   if(state.state==='APPROVED'){
+    clearInterval(joinPoll);
+    const collected=await joinApi('exchange',{requestId:ask.requestId,claim:ask.claim});
+    if(!collected?.credential)throw Error('that City approved the request but returned no credential');
+    // The City's credential becomes this tab's session credential exactly as a pasted token would. It is
+    // session-scoped on purpose: durable device identity is JOIN-503's work, not a browser's.
+    token=collected.credential;try{sessionStorage.setItem('city-token',token);}catch{}
+    joinAsk={...joinAsk,state:'CONSUMED'};
+    $('#pair').hidden=true;$('#content').hidden=false;connect();
+   }
+  }catch(err){
+   clearInterval(joinPoll);
+   // A refused claim is the requester's own ask being answered; anything else is the City going away.
+   joinAsk={...joinAsk,state:joinTerminalState(err)};
+   joinError=joinErrorKey(err);
+   render();
+  }
+ },2000);
+}
 function clearPairing(message=''){pairing=null;pairingEpoch++;pairingNotice=message;}
 function go(next){clearPairing();page=next;selected=null;selectedNode=null;externalPage=TERMINAL_PAGES.includes(next);if(terminal&&externalPage)terminal.onNav();document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('selected',b.dataset.page===page));if(!externalPage)homeRoomsData=null;render();window.scrollTo({top:0});}
+/* JOIN-502: the nearby-City onboarding surface. Three honest states, and the fallbacks are ALWAYS on
+   screen: what was found (or that nothing was found, or that discovery is unavailable on this build),
+   the ask-to-join control, and the existing QR / code / link / manual entries. A discovery failure
+   must never look like an empty network, and a discovered City must never look like a credential -
+   the row says outright that nothing is trusted yet. */
+function nearbyRows(){
+ if(nearbyBusy)return `<p class="muted">${esc(t('join.searching'))}</p>`;
+ if(nearbyError)return `<p class="muted">${esc(t('join.unavailable'))} · ${esc(t(nearbyError))}</p>`;
+ if(!nearby)return `<p class="muted">${esc(t('join.notSearched'))}</p>`;
+ if(!nearby.length)return `<p class="muted">${esc(t('join.none'))}</p>`;
+ return `<ul class="nearby-list">`+nearby.map(c=>`<li class="nearby-row"><div><strong>${esc(c.displayName)}</strong><p class="muted">${esc(t('join.transport',{transport:t('join.transport.'+c.transport)}))} · <span class="task-id">${esc(c.endpoint||c.address||'')}</span></p><p class="muted">${esc(t('join.notTrusted'))}</p></div><button class="primary" data-join-request="${esc(c.endpoint||'')}" data-join-ref="${esc(c.cityRef||'')}" ${joinBusy||!c.endpoint?'disabled':''}>${esc(t('join.request'))}</button></li>`).join('')+`</ul>`;
+}
+function joinAskView(){
+ if(!joinAsk)return joinError?`<p class="muted" role="alert">${esc(t(joinError))}</p>`:'';
+ const endpoint=joinAsk.endpoint?`<span class="task-id">${esc(joinAsk.endpoint)}</span>`:'';
+ if(joinAsk.state==='PENDING')return `<p class="muted">${esc(t('join.waiting'))} ${endpoint}</p>`;
+ if(joinAsk.state==='APPROVED')return `<p class="muted">${esc(t('join.approved'))} ${endpoint}</p>`;
+ if(joinAsk.state==='REJECTED')return `<p class="muted" role="alert">${esc(t('join.rejected'))} ${endpoint}</p>`;
+ return `<p class="muted" role="alert">${esc(t('join.gone'))} ${endpoint}</p>`;
+}
+function nearbySection(){
+ return `<h3>${esc(t('join.title'))}</h3><p class="muted">${esc(t('join.hint'))}</p>${joinAskView()}<button id="nearby-browse" ${nearbyBusy||joinBusy?'disabled':''}>${esc(t('join.browse'))}</button>${nearbyRows()}<p class="muted">${esc(t('join.bleUnavailable'))}</p>`;
+}
+/** The owner's side of the same flow: asks waiting for a decision on an already trusted surface. Each
+ *  card carries only what the workbook allows - the requested name, platform, a short non-secret
+ *  reference and the local context - and no MAC is asked for or shown as authority. */
+function ownerJoinSection(){
+ const pending=city.joinRequests??[];
+ if(!pending.length)return `<h3>${esc(t('join.requests.title'))}</h3><p class="muted">${esc(t('join.requests.none'))}</p>`;
+ return `<h3>${esc(t('join.requests.title'))}</h3>`+pending.map(r=>joinRequestCard(r)).join('');
+}
+function joinRequestCard(r){
+ const decided=r.state==='APPROVED';
+ const actions=decided?'':`<button class="primary" data-join-approve="${esc(r.id)}">${esc(t('join.requests.approve'))}</button><button data-join-reject="${esc(r.id)}">${esc(t('join.requests.reject'))}</button>`;
+ const detail=t('join.requests.detail',{ref:r.installationHint||t('device.unknown'),origin:r.origin||t('join.requests.local')});
+ return `<article class="join-request" data-join-row="${esc(r.id)}"><div class="row"><div><strong>${esc(r.displayName)}</strong><p class="muted">${esc(r.platform||t('device.unknown'))} · <span class="task-id">${esc(r.shortRef)}</span></p><p class="muted">${esc(detail)}</p></div>${badge(decided?'ONLINE':'UNKNOWN',decided?t('join.requests.approved'):t('join.requests.waiting'))}</div>${actions}</article>`;
+}
 function mountTerminal(){if(!TERMINAL_PAGES.includes(page)||!token)return;terminal=renderTerminal($('#view'),city,connection==='ONLINE',api,{page,go,api});}
 function ask(input){const value=String(input??'').trim();if(!value||!token)return;if(page!=='Ask/Do')go('Ask/Do');if(!terminal)mountTerminal();terminal?.submit(value);}
 function homeRoomRows(data){
@@ -140,6 +297,13 @@ function assistantSlot(){
   return `<section class="operator"><div class="op-frame"><span class="op-side"></span><span class="op-tag">${esc(t('assistant.role'))}</span><div class="op-art">${ASSISTANT_ART}</div><span class="op-slot">SLOT 01</span></div><div class="op-body"><p class="op-role">${esc(t('assistant.role'))} · ASSISTANT</p><p class="op-name">${esc(t('assistant.unassigned'))}</p><p class="op-sub">${esc(t('assistant.note'))}</p><dl class="kv"><dt>${esc(t('assistant.boundDevice'))}</dt><dd>${esc(online[0]?.displayName||t('assistant.pending'))}</dd><dt>${esc(t('assistant.appearance'))}</dt><dd>${esc(t('assistant.placeholderValue'))}</dd><dt>${esc(t('assistant.voice'))}</dt><dd>${esc(t('assistant.disabled'))}</dd><dt>${esc(t('assistant.duty'))}</dt><dd>${esc(t('assistant.pending'))}</dd></dl></div></section>`;
 }
 function render(){
+ // JOIN-502: the onboarding block belongs to the DISCONNECTED panel, and it is injected here rather
+ // than written into index.html so the shell document keeps its single responsibility and the two
+ // surfaces cannot drift apart. It renders before a token exists, which is the state it is for. The
+ // signature keeps a re-render from rebuilding the block mid-click: the buttons must not be replaced
+ // under the pointer between mousedown and click.
+ const host=$('#nearby-host');
+ if(host){const signature=JSON.stringify([nearbyBusy,joinBusy,joinError,joinAsk&&joinAsk.state,nearby&&nearby.length,nearbyError!=='']);if(host.dataset.rendered!==signature){host.dataset.rendered=signature;host.innerHTML=nearbySection();}}
  $('#ask-form').hidden=$('#content').hidden;
  if(!city){$('#heading').textContent=t('heading.'+page.toLowerCase());if(terminal)terminal.render($('#view'));return;}
  $('#heading').textContent=t('heading.'+page.toLowerCase());$('#updated').textContent=t('status.lastSnapshot',{time:formatTime(city.updatedAt)});
@@ -154,7 +318,7 @@ function render(){
  if(page==='Tasks')$('#view').innerHTML=`<section class="panel"><h2>${esc(t('section.taskRegistry'))}</h2>${taskRows(tasks)}</section>`;
  if(page==='Activity')$('#view').innerHTML=`<section class="panel"><h2>${esc(t('section.eventTimeline',{count:city.events.length}))}</h2><button data-goto="Actions">${esc(t('nav.actions'))}</button>${events(city.events)}</section>`;
  if(page==='Settings')$('#view').innerHTML=`<section class="panel">${languageSection()}<h2>${esc(t('section.connectionDiagnostics'))}</h2><p>${esc(t('settings.cityUrl'))}: ${esc(location.origin)}</p><details><summary>${esc(t('common.runDetails'))}</summary><div class="task-id">apiVersion = 0 · schemaVersion = 0</div></details><p>${esc(t('settings.tokenNote'))}</p><button id="disconnect">${esc(t('settings.changeToken'))}</button></section>`;
- if(page==='Pairing'){$('#view').innerHTML=pairingView();if(pairing&&$('#pairing-qr'))$('#pairing-qr').innerHTML=pairing.qrSvg;}
+ if(page==='Pairing'){$('#view').innerHTML=pairingView()+ownerJoinSection();if(pairing&&$('#pairing-qr'))$('#pairing-qr').innerHTML=pairing.qrSvg;}
  const detail=city.tasks.find(t=>t.id===selected);$('#detail').hidden=!detail;if(detail)$('#detail').innerHTML=`<h2>${esc(detail.type)}</h2><div class="task-id">${esc(detail.id)}</div><p>${badge(detail.state)} · ${esc(detail.assignedNodeId||t('status.waitingNode'))}</p><progress max="100" value="${detail.progress}"></progress><h3>${esc(t('section.checkpoint'))}</h3><pre>${esc(JSON.stringify(detail.lastCheckpoint,null,2))}</pre><h3>${esc(t('section.result'))}</h3><pre>${esc(JSON.stringify(detail.result||detail.error,null,2))}</pre>${!finished(detail)?`<button id="cancel">${esc(t('task.cancel'))}</button>`:''}<h3>${esc(t('section.taskEvents'))}</h3>${events(city.events.filter(e=>e.taskId===detail.id))}`;
  const device=city.nodes.find(n=>n.id===selectedNode);if(device){$('#detail').hidden=false;$('#detail').innerHTML=`<h2>${esc(device.displayName)}</h2><p>${nodeBadge(device)} · ${esc(device.metadata?.platform)} · ${esc(t('device.agent'))} ${esc(device.agentVersion||t('device.unknown'))}</p><p class="task-id">${esc(device.id)}</p><p>${esc(t('device.lastSeen'))} ${esc(age(device.lastHeartbeatAt))}</p>${metrics(device)}<h3>${esc(t('device.capabilities'))}</h3><p>${esc(device.capabilities.join(' / '))}</p><h3>${esc(t('device.currentTasks'))}</h3>${taskRows(tasks.filter(t=>t.assignedNodeId===device.id&&!finished(t)),t('device.noTasks'))}<h3>${esc(t('device.recentEvents'))}</h3>${events(city.events.filter(e=>e.payload?.nodeId===device.id||tasks.some(t=>t.id===e.taskId&&t.assignedNodeId===device.id)).slice(-12),true)||`<p class="muted">${esc(t('device.noEvents'))}</p>`}`;}
 }
@@ -163,6 +327,12 @@ document.addEventListener('click',async e=>{const nav=e.target.closest('[data-pa
 // item the independent review checks. The route comes from the shared ACTION_WIRING table, and the
 // task id from the button, so the panel and this dispatcher cannot disagree about what is wired.
 if(schedAction){const token=schedAction.dataset.schedulerAction,taskRef=schedAction.dataset.schedulerTask,route=schedAction.dataset.schedulerRoute,providerRef=schedAction.dataset.schedulerProvider;schedAction.disabled=true;try{if(route==='cancel'){await api('tasks/'+encodeURIComponent(taskRef)+'/cancel',{});}else if(route==='create'){await api('tasks',{type:'CHECKPOINT_DEMO'});}else if(route==='providerChoice'){if(!providerRef)throw new Error('no provider was offered to choose from');await api('tasks/'+encodeURIComponent(taskRef)+'/provider-choice',{providerRef});}else{/* local acknowledgement: nothing to send */}await refresh();}catch(err){$('#error').textContent=err.message;schedAction.disabled=false;}}
+if(e.target.id==='nearby-browse'){nearbyBusy=true;nearbyError='';render();try{const result=await browseApi('join/nearby');nearby=nearbyCities(result?.nearby??[]);}catch(err){nearbyError=joinErrorKey(err);nearby=null;}finally{nearbyBusy=false;render();}}
+// JOIN-502: the browse above reads the LOCAL City's LAN view; this ask goes to the City the browse
+// found, which is a different origin - the reason it carries a claim secret instead of a credential.
+if(e.target.dataset?.joinRequest){askToJoin(e.target.dataset.joinRequest,e.target.dataset.joinRef||null);}// An owner decision returns to the backend, then the UI re-reads canonical state. It never mutates the
+// local row: an approval the City did not record must not look approved on screen.
+if(e.target.dataset?.joinApprove||e.target.dataset?.joinReject){const id=e.target.dataset.joinApprove||e.target.dataset.joinReject;const action=e.target.dataset.joinApprove?'approve':'reject';e.target.disabled=true;try{await api('join/requests/'+encodeURIComponent(id)+'/'+action,{});await refresh();}catch(err){$('#error').textContent=err.message;e.target.disabled=false;}}
 if(e.target.id==='copy-invite'){const box=$('#pairing-invite'),note=$('#copy-note');const done=ok=>{if(note)note.textContent=t(ok?'pairing.copied':'pairing.copyManual');};const fallback=()=>{try{box.focus();box.select();return document.execCommand('copy');}catch{return false;}};if(navigator.clipboard?.writeText){navigator.clipboard.writeText(box.value).then(()=>done(true)).catch(()=>done(fallback()));}else done(fallback());}
 if(e.target.id==='generate-pairing'){const epoch=++pairingEpoch;pairingBusy=true;pairing=null;render();try{const result=await api('pairing/session',{});if(epoch===pairingEpoch&&page==='Pairing'&&connection==='ONLINE'){pairing=result;pairingNotice='';}}catch(err){$('#error').textContent=err.message;}finally{pairingBusy=false;render();}}if(e.target.id==='cancel'){try{await api('tasks/'+selected+'/cancel',{});await refresh();}catch(err){$('#error').textContent=err.message;}}if(e.target.id==='disconnect'){clearPairing();token='';$('#token').value='';sessionStorage.removeItem('city-token');++generation;clearTimeout(timer);ws?.close();$('#pair').hidden=false;$('#content').hidden=true;go('Home');status('OFFLINE');}});
 $('#connect').onclick=async()=>{const value=$('#token').value.trim();$('#token').value='';const invite=parseInvite(value);if(invite){try{const done=await exchangeInvite(invite);if(done?.navigating)return;if(!done?.credential)throw Error('the City returned no credential for that invite');token=done.credential;sessionStorage.setItem('city-token',token);$('#pair').hidden=true;$('#content').hidden=false;connect();}catch(err){$('#error').textContent=err.message;}return;}token=value;sessionStorage.setItem('city-token',token);connect();};
@@ -183,6 +353,25 @@ if(bootInvite){
   const done=await exchangeInvite(bootInvite);
   if(done?.credential){token=done.credential;try{sessionStorage.setItem('city-token',token);}catch{}}
  }catch(err){$('#error').textContent=err.message;}
+}
+// JOIN-502: an ASK handed over in the fragment by a page that discovered this City. The destination is
+// read before anything else, because a mis-addressed ask must be refused rather than delivered to the
+// wrong owner - a link naming another City is not evidence that this City should approve it.
+const bootJoinParams=new URLSearchParams(location.hash.replace(/^#/,''));
+const bootJoin=bootJoinParams.get('join');
+if(bootJoin)history.replaceState(null,'',location.pathname+location.search);
+if(bootJoin){
+ try{
+  const parsed=new URLSearchParams(bootJoin);
+  const claim=parsed.get('claim');
+  const cityRef=parsed.get('city');
+  const hint=parsed.get('hint');
+  if(typeof claim!=='string'||claim.length<16||claim.length>200)throw Object.assign(Error('this join link carries no usable claim'),{status:400});
+  const here=(await joinApi('info'))?.cityId??null;
+  if(!here)throw Object.assign(Error('this City did not state its identity'),{status:404});
+  if(cityRef&&cityRef!==here)throw Object.assign(Error('this join link names a different City'),{status:409});
+  await resumeJoin({hint,claim,cityRef:here});
+ }catch(err){console.error('join ask could not be delivered',err&&err.message);joinAsk=null;joinError=joinErrorKey(err);render();}
 }
 if(token)connect();else status('OFFLINE');
 if(token){$('#pair').hidden=true;$('#content').hidden=false;mountTerminal();}

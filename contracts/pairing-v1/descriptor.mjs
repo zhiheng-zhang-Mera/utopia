@@ -19,7 +19,10 @@ export function parseQr(raw,at=Date.now()){
  return validateDescriptor(d,at);
 }
 export function mergeDiscovered(items,descriptor){validateDescriptor(descriptor);const prior=items.find(d=>d.cityId===descriptor.cityId);if(prior&&endpointUrl(prior)!==endpointUrl(descriptor))throw new Error('Conflicting endpoints for the same City identity');return [...items.filter(d=>d.cityId!==descriptor.cityId),descriptor];}
-export function mdnsTxt(d){return {v:'1',city:d.cityId,api:'0',schema:'0',session:d.pairingSessionId||''};}
+// JOIN-502: `join` tells a browsing client, from the advertisement alone, that this City accepts the
+// approve-then-join protocol. It is a capability flag, never a secret and never an identity: a City
+// that omits it is simply not a join target, which keeps "unavailable" honest instead of guessed.
+export function mdnsTxt(d){return {v:'1',city:d.cityId,api:'0',schema:'0',session:d.pairingSessionId||'',join:'1'};}
 export function validateTelemetry(t){
  const num=(v,max=Number.MAX_SAFE_INTEGER)=>v===null||(typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=max);
  if(!t||!Number.isFinite(Date.parse(t.observedAt))||!num(t.uptimeSeconds)||!t.cpu||!(t.cpu.usagePercent===null||num(t.cpu.usagePercent,100)))throw new Error('Invalid telemetry timestamp, uptime or CPU');

@@ -38,5 +38,5 @@ test('descriptor validation rejects invalid input and conflicts, discovery TXT e
  for(const patch of [{descriptorVersion:2},{endpoint:{...d.endpoint,host:''}},{endpoint:{...d.endpoint,port:65536}},{expiresAt:'2000-01-01T00:00:00Z'},{endpoint:{...d.endpoint,scheme:'file'}}])assert.throws(()=>validateDescriptor({...d,...patch}));
  assert.throws(()=>parseQr('not a URI'));assert.throws(()=>parseQr('https://pair?v=1'));
  const list=mergeDiscovered([],d);assert.equal(mergeDiscovered(list,d).length,1);assert.throws(()=>mergeDiscovered(list,{...d,endpoint:{...d.endpoint,host:'192.168.1.3'}}));
- const txt=mdnsTxt({...d,secret:'sensitive',credential:'private'});assert.deepEqual(Object.keys(txt).sort(),['api','city','schema','session','v']);assert(!JSON.stringify(txt).includes('sensitive'));
+ const txt=mdnsTxt({...d,secret:'sensitive',credential:'private'});assert.deepEqual(Object.keys(txt).sort(),['api','city','join','schema','session','v']);assert(!JSON.stringify(txt).includes('sensitive'));
 });

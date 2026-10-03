@@ -10,6 +10,11 @@ import { Store } from './store.mjs';
 import { Pairing } from './pairing.mjs';
 import { validateTelemetry } from '../../contracts/pairing-v1/descriptor.mjs';
 import { startDiscovery } from './discovery.mjs';
+// JOIN-502: the approval seam for a nearby PC. It records an ASK and releases the existing City
+// credential only after an already trusted device approves - it is not a second trust store, and
+// discovery grants nothing on its own.
+import { createJoinRequests, shortRef } from './join.mjs';
+import { browseNearby, joinCapability } from './nearby.mjs';
 import { envelope, terminal, validateCommand } from '../../contracts/city-control-v0/protocol.mjs';
 // Product closeout (T1–T3): the Room Pack, the canonical Action facade and the
 // deterministic Ask / Do router. The Room Hub is reached over loopback only; nothing here
@@ -43,7 +48,7 @@ export const REQUIRED_TASK_CAPABILITIES=['task.execute.safe','filesystem.temp'];
 // The Core's node shape, filled from the gateway's own liveness truth. A node that is
 // not online is OFFLINE, and the Core refuses an OFFLINE node whatever it lists.
 const claimNodeFor=n=>({nodeId:n.id,state:n.online?'READY':'OFFLINE',capabilities:n.capabilities,lastHeartbeatAt:Date.parse(n.lastHeartbeatAt)||0,seq:0});
-export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',token,nodeToken,heartbeatTimeout=8000,pairingClock=Date.now,pairingTtlMs=300000,discoveryEnabled=false,roomHubUrl=process.env.CITY_ROOMS_URL,roomsDisabled=process.env.CITY_ROOMS_DISABLED==='1',hostId=process.env.CITY_HOST_ID,roomFetch}) {
+export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',token,nodeToken,heartbeatTimeout=8000,pairingClock=Date.now,pairingTtlMs=300000,discoveryEnabled=false,nearbyTimeoutMs=2000,roomHubUrl=process.env.CITY_ROOMS_URL,roomsDisabled=process.env.CITY_ROOMS_DISABLED==='1',hostId=process.env.CITY_HOST_ID,roomFetch}) {
   if(!token||!nodeToken||token===nodeToken) throw new Error('Separate control and node tokens are required');
   if(host==='0.0.0.0'||host==='::') throw new Error('Configure an explicit loopback or LAN interface');
   const store=new Store(dir); const wss=new WebSocketServer({noServer:true}); let closed=false;
@@ -87,8 +92,19 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   };
   let discovery=null,discoveryState={mdns:{state:'DISABLED'},ble:{state:'DISABLED'}};
   const pairing=new Pairing({cityId:store.cityId,endpoint:`http://${host}:${port}`,credential:token,clock:pairingClock,ttlMs:pairingTtlMs,onChange:d=>discovery?.update(d)});
+  // JOIN-502. A join decision has to be visible to the other surfaces as a CANONICAL event rather than
+  // only as a snapshot field, so the store reports every transition and this forwards it. The store is
+  // created after `emit` exists, because a transition that is recorded without its event would leave
+  // the surfaces disagreeing about a request a human is being asked to decide.
+  let join=null;
   const telemetry=b=>{if(b.telemetry===undefined)return {};if(b.telemetry===null)return {telemetry:null};try{validateTelemetry(b.telemetry);return {telemetry:b.telemetry};}catch(e){fail(400,e.message);}};
   const emit=(type,id,payload,actor)=>{const e=store.event(type,id,payload,actor); for(const c of wss.clients) if(c.readyState===1)c.send(JSON.stringify(envelope({event:e})));return e;};
+  join=createJoinRequests({file:resolve(dir,'join-requests.json'),clock:pairingClock,credential:token,onChange:(kind,view)=>{
+    const type={created:'JOIN_REQUEST_CREATED',approved:'JOIN_REQUEST_APPROVED',rejected:'JOIN_REQUEST_REJECTED',consumed:'JOIN_REQUEST_CONSUMED',updated:'JOIN_REQUEST_UPDATED'}[kind]||'JOIN_REQUEST_UPDATED';
+    // The payload is the bounded public row: no claim digest, no secret, nothing that becomes a
+    // credential. `grantsTrust:false` rides along so no consumer can read the event as trust.
+    emit(type,view.id,{requestId:view.id,shortRef:view.shortRef,displayName:view.displayName,platform:view.platform,state:view.state,grantsTrust:false},'city');
+  }});
   const change=(task,state,patch={},event='TASK_'+state)=>store.atomic(()=>{Object.assign(task,patch,{state,updatedAt:now()});store.put('tasks',task);emit(event,task.id,{state,progress:task.progress,...patch},task.assignedNodeId||'gateway');return task;});
   // City Core (MB-006). Whether work interrupted by a restart may resume is decided by the
   // migrated checkpoint-gate module, not by an inline state test. Utopia's policy travels as
@@ -218,7 +234,11 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   const askTargets=async()=>{const roomState=await rooms.probe();return buildTargets({roomState,capabilities:bridge.registry(),cityAvailability:cityAvailability(),roomsAvailable:roomState.available});};
   const body=async (req,limit=16384)=>{let size=0;const chunks=[];for await(const c of req){size+=c.length;if(size>limit){if(limit===MAX_REQUEST_BYTES)refuse('INPUT_TOO_LARGE',413);fail(413,'Request too large');}chunks.push(c);}try{return JSON.parse(Buffer.concat(chunks).toString('utf8')||'{}');}catch{if(limit===MAX_REQUEST_BYTES)refuse('INVALID_JSON');fail(400,'Invalid JSON');}};
   const required=(table,id)=>store.get(table,id)||fail(404,'Not found');
-  const snapshot=()=>envelope({status:'ONLINE',updatedAt:now(),cityId:store.cityId,displayName:'Utopia · Alien',descriptor:pairing.descriptor(),discovery:discoveryState,nodes:store.list('nodes'),controlSurfaces:liveSurfaces(),tasks:store.list('tasks'),events:store.events(),capabilities:bridge.registry(),invocations:bridge.list()});
+  // JOIN-502: `joinRequests` carries only LIVE ask rows (PENDING / APPROVED) as bounded public views,
+  // so an already connected trusted surface can show "someone nearby wants to join" without polling a
+  // second endpoint. It deliberately contains no claim digest and no credential, and each row declares
+  // grantsTrust:false, so the surface cannot read the list as a device list.
+  const snapshot=()=>envelope({status:'ONLINE',updatedAt:now(),cityId:store.cityId,displayName:'Utopia · Alien',descriptor:pairing.descriptor(),discovery:discoveryState,nodes:store.list('nodes'),controlSurfaces:liveSurfaces(),tasks:store.list('tasks'),events:store.events(),capabilities:bridge.registry(),invocations:bridge.list(),joinRequests:join.snapshot()});
   const server=http.createServer(async(req,res)=>{
     try {
       const path=new URL(req.url,'http://city').pathname;
@@ -243,11 +263,44 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         res.end(JSON.stringify(envelope({status:degraded?'degraded':'healthy',components})));
         return;
       }
+      // A joining PC holds no City credential yet, which is the entire point of asking to join. These
+      // four routes are therefore reachable without one, and every one of them is either public
+      // information (what City is this), a request that grants nothing, or an operation gated by the
+      // requester's own claim secret. EVERY decision route is authenticated and stays out of this list.
+      //
+      // The VERSION check still applies to them. The first version gated it on `!publicPairing`, so a
+      // public join route got no version check at all - which is the opposite of what the protocol
+      // wants - and the browser's own /api/v0/join/info call then failed 409 because it sent no version
+      // headers. The check now describes the actual rule: pairing/info and pairing/exchange are the only
+      // two routes that skip it, and they do so because they predate the header and their callers are
+      // already deployed.
       const nodeRoute=path.startsWith('/api/v0/node/');
-      const publicPairing=path==='/api/v0/pairing/info'||path==='/api/v0/pairing/exchange';
-      if(!publicPairing)auth(req,nodeRoute);version(req);
+      const publicJoin=path==='/api/v0/join/info'||path==='/api/v0/join/request'||path==='/api/v0/join/status'||path==='/api/v0/join/exchange';
+      const legacyPublicPairing=path==='/api/v0/pairing/info'||path==='/api/v0/pairing/exchange';
+      if(!publicJoin&&!legacyPublicPairing)auth(req,nodeRoute);
+      if(!legacyPublicPairing)version(req);
       let out;
-      if(req.method==='GET' && path==='/api/v0/pairing/info')out=pairing.info();
+      // JOIN-502 answers first, in the SAME chain as everything below: a second `if` chain would run
+      // after a join route had already produced `out` and overwrite it with `undefined`, so every join
+      // route answered 404 while doing its work correctly. The defect was caught by the first
+      // end-to-end probe of this path, not by inspection.
+      if(req.method==='GET' && path==='/api/v0/join/info')out=joinCapability(pairing.descriptor(),discoveryState);
+      else if(req.method==='POST' && path==='/api/v0/join/request')out=join.request(await body(req));
+      else if(req.method==='POST' && path==='/api/v0/join/status')out=join.status(await body(req));
+      else if(req.method==='POST' && path==='/api/v0/join/exchange')out=join.exchange(await body(req));
+      // JOIN-502: the BROWSE. A browser cannot listen to multicast DNS, so the surface asks the City
+      // that serves this page, which browses `_utopia-city._tcp` on its own LAN and answers with rows.
+      // The wire shape is flat and bounded ON PURPOSE: the RF-003 candidate is an internal contract
+      // object, and shipping it to a browser surface would both leak its internals and invite the
+      // surface to re-derive trust rules it has no business deriving.
+      else if(req.method==='GET' && path==='/api/v0/join/nearby'){
+        const found=await browseNearby({interface:host,nearbyTimeoutMs});
+        // `cityRef` is the FULL City identity read from the City's own capability endpoint, not the short
+        // mDNS prefix: it is what the join fragment pins and what the receiving City checks itself
+        // against, and a prefix would make that check fail on a legitimate hand-off.
+        out={nearby:found.candidates.map(c=>({cityRef:c.cityId??c.cityRef,displayName:c.displayName,address:c.address,port:c.port,transport:c.transport,lastSeenAt:c.lastSeenAt,stale:c.stale,grantsTrust:false})),bounded:found.bounded===true,discovered:found.discovered??0,unavailable:found.unavailable===true};
+      }
+      else if(req.method==='GET' && path==='/api/v0/pairing/info')out=pairing.info();
       else if(req.method==='POST' && path==='/api/v0/pairing/session'){await body(req);out=await pairing.create();}
       else if(req.method==='POST' && path==='/api/v0/pairing/exchange')out=pairing.exchange(await body(req));
       else if(req.method==='GET' && path==='/api/v0/capabilities')out={capabilities:bridge.registry()};
@@ -274,6 +327,12 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       else if(req.method==='GET' && path==='/api/v0/nodes')out={nodes:store.list('nodes')};
       else if(req.method==='GET' && path==='/api/v0/tasks')out={tasks:store.list('tasks')};
       else if(req.method==='GET' && path==='/api/v0/events')out={events:store.events()};
+      // JOIN-502 owner decisions. These are AUTHENTICATED: deciding who joins is exactly the authority
+      // a control credential carries, and an unauthenticated decision route would let any machine that
+      // can reach the LAN approve itself.
+      else if(req.method==='GET' && path==='/api/v0/join/requests')out=join.list();
+      else if(req.method==='POST' && /^\/api\/v0\/join\/requests\/[^/]+\/approve$/.test(path))out=join.approve({requestId:decodeURIComponent(path.split('/').at(-2))});
+      else if(req.method==='POST' && /^\/api\/v0\/join\/requests\/[^/]+\/reject$/.test(path))out=join.reject({requestId:decodeURIComponent(path.split('/').at(-2))});
       else if(req.method==='GET' && /^\/api\/v0\/tasks\/[^/]+$/.test(path))out=required('tasks',path.split('/').at(-1));
       else if(req.method==='POST' && path==='/api/v0/tasks'){
         const b=await body(req);validateCommand(b);
@@ -409,7 +468,11 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
     try{honourDeclinedHandoffs();}catch(e){console.error('handoff sweep failed',e);}
   },1000);
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,host,resolve);});
+  // `pairing` was published on the LAN before the OS chose the port (port 0 in tests), so the join
+  // capability endpoint and the discovery record both have to be re-read from the live endpoint after
+  // listen. JOIN-502 only reads `pairing.descriptor()` at request time, so there is nothing to re-publish
+  // here - recorded so the next reader does not mistake the assignment below for a join fix.
   pairing.endpoint=`http://${host}:${server.address().port}`;
   if(discoveryEnabled)discovery=await startDiscovery({descriptor:pairing.descriptor(),onStatus:s=>{discoveryState=s;}});
-  return {url:pairing.endpoint,store,close:async()=>{if(closed)return;closed=true;bridge.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();}};
+  return {url:pairing.endpoint,store,join,close:async()=>{if(closed)return;closed=true;bridge.close();join.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();}};
 }

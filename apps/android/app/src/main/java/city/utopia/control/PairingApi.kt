@@ -14,6 +14,31 @@ class PilotLog(private val context: Context) {
  var trialId = UUID.randomUUID().toString(); private var mode = "saved"; private var actions=0; private var retries=0
  @Synchronized fun start(value: String) { trialId=UUID.randomUUID().toString(); mode=value; actions=0; retries=0; event("start") }
  @Synchronized fun event(name: String) { if(name=="action") actions++; if(name=="retry") retries++; val row=JSONObject().put("trialId",trialId).put("mode",mode).put("event",name).put("timestamp",Instant.now().toString()).put("userActions",actions).put("retryCount",retries); val file=java.io.File(context.filesDir,"pairing-events.jsonl"); if(file.length()>2_000_000) { val previous=java.io.File(context.filesDir,"pairing-events.previous.jsonl"); file.copyTo(previous,overwrite=true); file.writeText("") }; context.openFileOutput("pairing-events.jsonl",Context.MODE_APPEND).bufferedWriter().use { it.appendLine(row.toString()) } }
+ /**
+  * MESH-301 step 5 — THIS surface's own observation receipt.
+  *
+  * Written in the same JSONL vocabulary as `scripts/mesh301-mesh-probe.mjs`, so `merge` can read an Android
+  * receipt beside a desktop one and produce ONE convergence table. The reason it is recorded ON THE DEVICE is
+  * the whole point of step 5: the number has to be what Android observed, at the moment Android observed it.
+  * A timestamp produced anywhere else would be a claim about Android rather than a measurement by Android.
+  *
+  * One session is one receipt: `surfaceReset()` truncates, because a file holding two sessions' boundaries
+  * interleaved is unreadable rather than merely untidy (that defect was already found once, in the desktop
+  * probe, by running it).
+  */
+ @Synchronized fun surfaceReset() { runCatching { context.openFileOutput("surface-observations.jsonl",Context.MODE_PRIVATE).close() }; surface("start") }
+ @Synchronized fun surface(kind: String, seq: Int = -1, type: String = "", serverAt: String = "", from: Int = -1, to: Int = -1) {
+  runCatching {
+   val row = JSONObject().put("surface", android.os.Build.MODEL.ifBlank { "android-device" }).put("kind", kind).put("at", Instant.now().toString()).put("observedAt", System.currentTimeMillis())
+   if (seq >= 0) { row.put("seq", seq); if (kind == "resync") row.put("maxSeq", seq); if (kind == "stop") row.put("serverMaxSeq", seq) }
+   // R1: a gap the surface declares about ITSELF. `merge` reports these as declared, never as silent misses -
+   // and never as convergence either, because a hole is a hole however honestly it is labelled.
+   if (from >= 0 && to >= from) { row.put("gapFrom", from); row.put("gapTo", to) }
+   if (type.isNotEmpty()) row.put("type", type)
+   if (serverAt.isNotEmpty()) row.put("serverAt", serverAt)
+   context.openFileOutput("surface-observations.jsonl", Context.MODE_APPEND).bufferedWriter().use { it.appendLine(row.toString()) }
+  }
+ }
 }
 class PairingApi(private val log: PilotLog) {
  private val http=OkHttpClient.Builder().callTimeout(6,java.util.concurrent.TimeUnit.SECONDS).build()

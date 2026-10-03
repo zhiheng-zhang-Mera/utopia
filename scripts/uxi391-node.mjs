@@ -1,29 +1,39 @@
-// UXI-391 — launch ONE reference node with an explicit id.
+// MESH-301 — launch ONE reference node with the Owner's naming rule applied.
 //
-// `agents/reference-node/main.mjs` passes no `id`, so `startAgent` falls back to its default and TWO copies
-// register as ONE device. Mech hit this during its UXI-390 review ("the two nodes had to be started with
-// distinct ids to have two devices at all"), and UXI-391's single-machine dual-node E2E needs two devices to
-// exist at all. This launcher is the smallest thing that makes that possible without touching the node's own
-// entry point.
+// The rule ("this machine joins as Alien-Win; the display name may be customised; the physical machine never
+// changes") and its precedence live in `scripts/mesh-node-identity.mjs`, which is unit-tested; this file only
+// supplies the machine's identity store and starts the agent. Mech measured that the mechanism previously
+// existed only in a record, so the mechanism is now code on this task's branch.
 //
-// Usage: node scripts/uxi391-node.mjs <nodeId> [displayName]
+// Usage: node scripts/uxi391-node.mjs [displayName] [--id <identity>]
+import { readFileSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { startAgent } from '../agents/reference-node/agent.mjs';
+import { resolveNodeIdentity } from './mesh-node-identity.mjs';
 
-const id = process.argv[2] ?? process.env.CITY_NODE_ID ?? 'Alien-test';
-const displayName = process.argv[3] ?? process.env.CITY_NODE_DISPLAY_NAME ?? id;
-if (!id) {
-  console.error('usage: node scripts/uxi391-node.mjs <nodeId> [displayName]');
-  process.exit(2);
-}
+const identityFile = process.env.CITY_NODE_IDENTITY_FILE || resolve(process.cwd(), '.city-node-identity.json');
+
+const resolved = resolveNodeIdentity({
+  argv: process.argv.slice(2),
+  env: process.env,
+  readIdentity: () => JSON.parse(readFileSync(identityFile, 'utf8'))?.id ?? null,
+  writeIdentity: (id) => writeFileSync(
+    identityFile,
+    `${JSON.stringify({ id, firstSeenAt: new Date().toISOString(), note: 'stable physical identity; the display name may change without changing this' }, null, 2)}\n`,
+    'utf8',
+  ),
+});
+
+console.log(`City node identity=${resolved.identity} displayName=${resolved.displayName}${resolved.renamed ? ' (renamed: the identity is unchanged)' : ''}`);
 
 const agent = await startAgent({
   url: process.env.CITY_URL || 'http://127.0.0.1:4310',
   token: process.env.CITY_NODE_TOKEN,
   workspace: process.env.CITY_WORKSPACE || '.runtime/workspace',
-  id,
-  displayName,
+  id: resolved.identity,
+  displayName: resolved.displayName,
 });
-console.log(`City Node Reference Agent started as ${id}`);
+console.log(`City Node Reference Agent started as ${resolved.displayName} (identity ${resolved.identity})`);
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.on(signal, async () => { await agent.stop(); process.exit(0); });
 }

@@ -21,6 +21,9 @@ import { readFile, stat } from 'node:fs/promises';
 import { basename, resolve } from 'node:path';
 import { MAX_FILE_BYTES } from '../../contracts/capability-bridge-v1/protocol.mjs';
 import { TRUST_ORDER } from '../../city/09-planning-knowledge/01-knowledge-service/knowledge-core/retrieval/knowledge-core.mjs';
+// MESH-301 Step 3: the strict target-device intent. Read here so an OFFLINE/BOUND target produces a typed
+// Action refusal in the user's own vocabulary instead of a bare City error.
+import { readTargetIntent } from './targeting.mjs';
 
 /** The exhaustive status vocabulary. No other value may be written. */
 export const ACTION_STATUSES = [
@@ -370,7 +373,9 @@ const TASK_PROGRESS = { QUEUED: 5, ASSIGNED: 10, COMPLETED: 100 };
  * Create the Action store/facade.
  *
  * `cityTasks` is the City Control adapter supplied by the gateway:
- *   { create(type) -> task, get(id) -> task|null, terminal: string[], availability() -> {available, reason} }
+ *   { create(type, {targetDeviceRef}) -> task, get(id) -> task|null, nodes() -> node[],
+ *     targetVerdict(targetDeviceRef) -> {state, nodeId, node, reason, claimable},
+ *     terminal: string[], availability() -> {available, reason} }
  */
 export function createActions({ store, rooms, bridge, cityTasks, host = 'utopia-host', now = () => new Date().toISOString() }) {
   const context = { rooms, readLocalFile: (value) => readLocalFile(value) };
@@ -535,22 +540,61 @@ export function createActions({ store, rooms, bridge, cityTasks, host = 'utopia-
     if (!CITY_TASK_TYPES.includes(type)) {
       return persist(withHistory({ ...action, error: { code: 'UNSUPPORTED_TASK_TYPE', message: `unsupported City task type ${type}` } }, 'REFUSED', 'unsupported City task type'));
     }
-    const availability = cityTasks.availability();
-    if (!availability.available) {
-      return persist(withHistory({ ...action, error: { code: 'NODE_UNAVAILABLE', message: availability.reason }, progress: 0 }, 'UNAVAILABLE', availability.reason));
+    // MESH-301 Step 3. The strict target travels in `input`, exactly as every other route's parameters do, so
+    // the EXISTING idempotency fingerprint - which already hashes `input` - covers it. Replaying a key with the
+    // same target replays the same Action (no second execution); reusing a key with a DIFFERENT target is
+    // refused by `IDEMPOTENCY_KEY_REUSED`. The duplicate-submit boundary is therefore inherited from the
+    // contract rather than reinvented beside it, and no wire field is added to a frozen route.
+    const intent = readTargetIntent(request?.input?.targetDeviceRef);
+    if (intent.ok === false) {
+      const failure = { code: intent.code, message: intent.message };
+      return persist(withHistory({ ...action, error: failure, progress: 0 }, 'REFUSED', failure.message));
     }
-    const task = cityTasks.create(type);
+    let verdict = null;
+    if (intent.present) {
+      // The target verdict is asked for BEFORE the fleet availability gate: "no such device" and "no device
+      // can take work right now" are different truths and the more precise one has to win the refusal.
+      verdict = cityTasks.targetVerdict(intent.value);
+      if (verdict.state === 'UNKNOWN') {
+        const failure = { code: 'TARGET_DEVICE_UNKNOWN', message: `no City node identity "${intent.value}" is known to this City` };
+        return persist(withHistory({ ...action, error: failure, progress: 0 }, 'REFUSED', failure.message));
+      }
+      // A target that is OFFLINE or INELIGIBLE is NOT a refusal and NOT a reassignment: the task is created and
+      // WAITS for the device the user named. The fleet-wide availability gate is deliberately NOT applied here,
+      // because for a strict task the fleet is not what decides - the named device is. Skipping creation would
+      // make "queue this for Mech while Mech is away" impossible, and rerouting it would be the silent fallback
+      // the workbook forbids.
+    } else {
+      const availability = cityTasks.availability();
+      if (!availability.available) {
+        return persist(withHistory({ ...action, error: { code: 'NODE_UNAVAILABLE', message: availability.reason }, progress: 0 }, 'UNAVAILABLE', availability.reason));
+      }
+    }
+    let task;
+    try {
+      task = cityTasks.create(type, { targetDeviceRef: intent.present ? intent.value : null });
+    } catch (error) {
+      const code = error.code ?? 'CITY_TASK_REFUSED';
+      const failure = { code, message: error.message };
+      return persist(withHistory({ ...action, error: failure, progress: 0 }, 'REFUSED', failure.message));
+    }
+    const targeted = typeof task.targetDeviceRef === 'string' && task.targetDeviceRef.length > 0;
+    const note = targeted
+      ? `City task ${task.id} created as ${type}, strictly targeted at ${task.targetDeviceRef} (target state ${task.targetStateAtCreation}); it may be claimed by that device only.`
+      : `City task ${task.id} created as ${type}.`;
     return persist({
       ...action,
       status: TASK_STATUS_MAP[task.state] ?? 'QUEUED',
       progress: TASK_PROGRESS[task.state] ?? 5,
-      backendRef: { ...action.backendRef, taskId: task.id },
+      backendRef: { ...action.backendRef, taskId: task.id, targetDeviceRef: targeted ? task.targetDeviceRef : null },
       updatedAt: now(),
       provenance: {
         ...action.provenance,
         taskId: task.id,
         cityTaskState: task.state,
-        history: [...action.provenance.history, { at: now(), status: TASK_STATUS_MAP[task.state] ?? 'QUEUED', note: `City task ${task.id} created as ${type}.` }],
+        targetDeviceRef: targeted ? task.targetDeviceRef : null,
+        targetStateAtCreation: targeted ? task.targetStateAtCreation : null,
+        history: [...action.provenance.history, { at: now(), status: TASK_STATUS_MAP[task.state] ?? 'QUEUED', note }],
       },
     });
   }

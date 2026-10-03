@@ -5,9 +5,47 @@ import {schedulerPanel} from './scheduler.js';
 let schedulerFeed=null;
 import {renderTerminal,TERMINAL_PAGES} from './terminal.js';
 import { t, applyTranslations, getLocale, setLocale, subscribe, formatTime, SUPPORTED_LOCALES, localeLabel } from './i18n/index.js';
+// JOIN-501: the temporary pairing code is a SESSION with a lifecycle, not a render artifact. The state machine
+// lives in its own module so that "no click = no code", "ACTIVE never rotates" and "USED/EXPIRED then generate
+// again" are testable without a browser; this file only asks it questions.
+import { createPairingLifecycle, REASON_EXPIRED, REASON_USED, REASON_REVOKED } from './pairing-lifecycle.js';
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let token=sessionStorage.getItem('city-token')||'',city=null,page=location.pathname==='/pairing'?'Pairing':'Home',selected=null,ws,generation=0,timer,refreshing=false,pending=false,connection='OFFLINE',selectedNode=null,pairing=null,pairingBusy=false,pairingEpoch=0,pairingNotice='',terminal=null,externalPage=TERMINAL_PAGES.includes(page),homeRoomsData=null,homeRoomsError='';
+let token=sessionStorage.getItem('city-token')||'',city=null,page=location.pathname==='/pairing'?'Pairing':'Home',selected=null,ws,generation=0,timer,refreshing=false,pending=false,connection='OFFLINE',selectedNode=null,pairingBusy=false,pairingEpoch=0,terminal=null,externalPage=TERMINAL_PAGES.includes(page),homeRoomsData=null,homeRoomsError='';
 const finished=t=>['COMPLETED','FAILED','CANCELLED'].includes(t.state);
+// JOIN-501: ONE lifecycle object owns the pairing session. It restores the SAME still-valid session after a
+// reload and refuses to create a second one while one is ACTIVE. Nothing below may create pairing material
+// except the explicit click handler.
+const pairing=createPairingLifecycle();
+// A reason the session stopped being active, expressed as the message key the page shows. The lifecycle module
+// names the reason; the copy stays here with the other literals so the i18n key-coverage check sees it.
+const pairingReasonMessage=reason=>reason===REASON_EXPIRED?'pairing.expired':reason===REASON_USED?'pairing.used':reason===REASON_REVOKED?'pairing.revoked':'';
+// A snapshot for the current page. This is a pure read: rendering, refreshing and reconnecting call it freely
+// and cannot change the session by doing so.
+const pairingState=()=>pairing.snapshot();
+// What the CITY says its one active session is. `pairing/info` is public (no credential) and is the canonical
+// truth about whether a session is still live - which the city snapshot alone cannot say, because right after a
+// reload the page is still OFFLINE and its descriptor is genuinely empty until the first fetch lands. Reading
+// this endpoint creates nothing.
+async function canonicalPairingSession(){
+ try{
+  const r=await fetch('/api/v0/pairing/info',{headers:{'X-City-Api-Version':'0','X-City-Schema-Version':'0'},signal:AbortSignal.timeout(4000)});
+  const x=await r.json();
+  if(!r.ok||!x)return {known:false};
+  return {known:true,sessionId:x.descriptor?.pairingSessionId??null};
+ }catch{return {known:false};}
+}
+// Reconcile a session restored from sessionStorage against the City. A reload must bring back the SAME session
+// while it is valid, and must end as USED when another device consumed it while this page was away - but it
+// must not read "the City is not carrying an active session" as "your code was used" while the session is
+// still live. Only a definite answer from the City may end a restored session.
+async function reconcileRestoredPairing(){
+ if(pairing.ownerSessionId()===null)return;
+ const canonical=await canonicalPairingSession();
+ if(!canonical.known)return;
+ if(canonical.sessionId===pairing.ownerSessionId())return;
+ pairing.clearOnSessionChanged(canonical.sessionId);
+ render();
+}
 // MESH-301: this control surface declares ITSELF on the event-stream handshake.
 //
 // The REF is generated once per browser profile and persisted, never derived from the label - the same rule
@@ -85,8 +123,27 @@ function syncRunTargets(){
  select.value=nodes.some(n=>n.id===current)?current:'';
 }
 async function api(path,body){const r=await fetch('/api/v0/'+path,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json','X-City-Api-Version':'0','X-City-Schema-Version':'0'},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(path.startsWith('capabilities/')?25000:5000)});const x=await r.json();if(!r.ok)throw Error(x.error);if(x.apiVersion!==0||x.schemaVersion!==0)throw Error('Protocol mismatch: this client requires version 0');return x;}
-function clearPairing(message=''){pairing=null;pairingEpoch++;pairingNotice=message;}
-function go(next){clearPairing();page=next;selected=null;selectedNode=null;externalPage=TERMINAL_PAGES.includes(next);if(terminal&&externalPage)terminal.onNav();document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('selected',b.dataset.page===page));if(!externalPage)homeRoomsData=null;render();window.scrollTo({top:0});}
+function clearPairing(message=''){pairing.clear(message);}
+// The explicit generator. This is the ONLY function in the page that may create pairing material, and it is reached only from the click handler above. It refuses to run while a session is ACTIVE, so a doubled click or a stale button cannot rotate the code.
+async function generatePairing(){
+ // The lifecycle refuses while ACTIVE; the busy flag covers the in-flight window so a double click cannot start two sessions either. The existing code is NEVER blanked before the new one exists: if the request fails, the user keeps what they had.
+ if(!pairingState().generate.available||pairingBusy||connection!=='ONLINE')return;
+ const epoch=++pairingEpoch;pairingBusy=true;render();
+ let error='';
+ try{
+  const result=await api('pairing/session',{});
+  if(epoch===pairingEpoch)pairing.create(result);
+ }catch(err){error=err.message;}
+ finally{
+  pairingBusy=false;
+  if(error)$('#error').textContent=error;
+  render();
+ }
+}
+// JOIN-501: navigation is NOT a reason to destroy a temporary pairing code. The old implementation cleared on
+// every `go()`, which is exactly the "code disappears early" behaviour the Owner rule forbids. The session now
+// outlives page navigation and is only ended by consumption, expiry, or an explicit action.
+function go(next){page=next;selected=null;selectedNode=null;externalPage=TERMINAL_PAGES.includes(next);if(terminal&&externalPage)terminal.onNav();document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('selected',b.dataset.page===page));if(!externalPage)homeRoomsData=null;render();window.scrollTo({top:0});}
 function mountTerminal(){if(!TERMINAL_PAGES.includes(page)||!token)return;terminal=renderTerminal($('#view'),city,connection==='ONLINE',api,{page,go,api});}
 function ask(input){const value=String(input??'').trim();if(!value||!token)return;if(page!=='Ask/Do')go('Ask/Do');if(!terminal)mountTerminal();terminal?.submit(value);}
 function homeRoomRows(data){
@@ -103,8 +160,8 @@ function homeRooms(){
  if(homeRoomsData||homeRoomsError||!token)return renderHomeRooms();
  api('rooms').then(payload=>{homeRoomsData=payload?.rooms??null;if(!homeRoomsData)homeRoomsError=t('terminal.rooms.malformed');}).catch(e=>{homeRoomsError=e.message;}).finally(renderHomeRooms);
 }
-function status(s){if(s!=='ONLINE')clearPairing('pairing.reconnect');connection=s;$('#connection').textContent=t('connection.'+s.toLowerCase());$('#connection').className=s==='ONLINE'?'online':'';$('#run').disabled=s!=='ONLINE';render();}
-async function refresh(){if(refreshing){pending=true;return;}if(externalPage&&city)return;refreshing=true;try{const gen=generation;const snapshot=await api('city');if(gen!==generation)return;city=snapshot;syncRunTargets();try{schedulerFeed=await api('presentation');}catch{schedulerFeed=null;}if(pairing&&city.descriptor?.pairingSessionId!==pairing.pairingSessionId)clearPairing('pairing.unavailable');$('#pair').hidden=true;$('#content').hidden=false;$('#error').textContent='';render();}finally{refreshing=false;if(pending){pending=false;refresh().catch(disconnected);}}}
+function status(s){connection=s;$('#connection').textContent=t('connection.'+s.toLowerCase());$('#connection').className=s==='ONLINE'?'online':'';$('#run').disabled=s!=='ONLINE';render();}
+async function refresh(){if(refreshing){pending=true;return;}if(externalPage&&city)return;refreshing=true;try{const gen=generation;const snapshot=await api('city');if(gen!==generation)return;city=snapshot;syncRunTargets();try{schedulerFeed=await api('presentation');}catch{schedulerFeed=null;}if(pairing.ownerSessionId()!==null&&city.descriptor?.pairingSessionId!==pairing.ownerSessionId()){const active=pairing.ownerSessionId();canonicalPairingSession().then(c=>{if(!c.known)return;if(c.sessionId===active)return;pairing.clearOnSessionChanged(c.sessionId);render();});}$('#pair').hidden=true;$('#content').hidden=false;$('#error').textContent='';render();}finally{refreshing=false;if(pending){pending=false;refresh().catch(disconnected);}}}
 function disconnected(e){status('OFFLINE');if(e?.message)$('#error').textContent=e.message;}
 async function connect(){const gen=++generation;clearTimeout(timer);ws?.close();status('RECONNECTING');try{await refresh();if(gen!==generation)return;ws=new WebSocket(location.origin.replace(/^http/,'ws')+'/api/v0/events/stream?apiVersion=0&schemaVersion=0&clientRef='+encodeURIComponent(webClientRef())+'&clientLabel='+encodeURIComponent(webClientLabel()),['city-v0','city-token.'+btoa(token).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_')]);ws.onopen=()=>{if(gen===generation)status('ONLINE');};ws.onmessage=()=>refresh().catch(disconnected);ws.onerror=()=>disconnected();ws.onclose=()=>{if(gen===generation){disconnected();timer=setTimeout(connect,1800);}};}catch(e){if(gen===generation){disconnected(e);timer=setTimeout(connect,2500);}}}
 const badge=(stateClass, displayLabel=stateClass)=>`<span class="badge ${esc(stateClass)}">${esc(displayLabel)}</span>`;
@@ -118,8 +175,8 @@ const metrics=n=>{const sample=n.telemetry||{},valid=fresh(n);return `<div class
 const nodeRows=()=>city.nodes.map(n=>`<article class="device-card"><div class="row"><div class="node-info"><span class="node-icon" aria-hidden="true"></span><div><button class="task-open" data-node="${esc(n.id)}">${esc(n.displayName)}</button><p class="muted">${esc(n.metadata?.platform)} · ${esc(t('device.agent'))} ${esc(n.agentVersion||t('device.unknown'))}</p><small>${connection==='ONLINE'?'':t('device.cachedPrefix')}${esc(t('device.lastSeen'))} ${esc(age(n.lastHeartbeatAt))}</small></div></div>${nodeBadge(n)}</div>${metrics(n)}</article>`).join('')||`<p class="muted">${esc(t('empty.waitingRuntimeNode'))}</p>`;
 const cityUrl=()=>{const e=city.descriptor?.endpoint;return e?e.scheme+'://'+e.host+':'+e.port:location.origin;};
 function pairingView(){
- const d=city.discovery||{},remaining=pairing?Math.max(0,Math.ceil((Date.parse(pairing.expiresAt)-Date.now())/1000)):0;
- return `<section class="panel"><h2>${esc(t('pairing.title'))} ${esc(city.displayName||t('pairing.yourCity'))}</h2><p>${esc(t('settings.cityUrl'))}: ${esc(cityUrl())}</p><p class="task-id">${esc(t('pairing.cityId'))}: ${esc(city.cityId||t('device.unknown'))}</p><p>${esc(t('pairing.session'))}: ${esc(pairing?.pairingSessionId||city.descriptor?.pairingSessionId||t('pairing.none'))}</p><p class="muted">${esc(pairingNotice?t(pairingNotice):'')}</p>${pairing?`<div class="pairing-material"><div id="pairing-qr" role="img" aria-label="${esc(t('pairing.qr'))}"></div><div><p>${esc(t('pairing.code'))}</p><strong id="pairing-code">${esc(pairing.shortCode)}</strong><p id="pairing-countdown">${esc(t('pairing.countdown',{seconds:remaining}))}</p><p>${esc(t('pairing.single'))}</p></div></div><div class="pairing-share"><h3>${esc(t('pairing.share'))}</h3><p class="muted">${esc(t('pairing.shareHint'))}</p><textarea id="pairing-invite" readonly rows="3" spellcheck="false">${esc(pairing.qrPayload)}</textarea><button id="copy-invite">${esc(t('pairing.copy'))}</button><p class="muted" id="copy-note"></p></div>`:''}<button id="generate-pairing" ${connection!=='ONLINE'||pairingBusy?'disabled':''}>${pairing?t('pairing.refresh'):t('pairing.generate')}</button><p class="muted">${esc(t('pairing.explanation'))}</p><h3>${esc(t('section.connectionDiagnostics'))}</h3><p>mDNS: ${esc(d.mdns?.state||'UNKNOWN')} · ${esc(d.mdns?.reason||'')}</p><p>Bluetooth: ${esc(d.ble?.state||'UNKNOWN')} · ${esc(d.ble?.reason||'')}</p><p>Gateway: ${esc(connection)}</p><details><summary>${esc(t('common.runDetails'))}</summary><div class="task-id">apiVersion 0 · schemaVersion 0</div></details><h3>${esc(t('pairing.choose'))}</h3><ol><li><strong>QR:</strong> ${esc(t('pairing.qrHelp'))}</li><li><strong>${esc(t('pairing.lan'))}:</strong> ${esc(t('pairing.lanHelp'))}</li><li><strong>${esc(t('pairing.ble'))}:</strong> ${esc(t('pairing.bleHelp'))}</li><li><strong>${esc(t('pairing.manual'))}:</strong> ${esc(t('pairing.manualHelp'))}</li></ol><p>${esc(t('pairing.plane'))}</p><p class="lan-warning">LAN DEVELOPMENT ONLY · NOT FOR PUBLIC INTERNET</p></section>`;
+ const d=city.discovery||{},ps=pairingState(),remaining=ps.remainingSeconds||0;
+ return `<section class="panel"><h2>${esc(t('pairing.title'))} ${esc(city.displayName||t('pairing.yourCity'))}</h2><p>${esc(t('settings.cityUrl'))}: ${esc(cityUrl())}</p><p class="task-id">${esc(t('pairing.cityId'))}: ${esc(city.cityId||t('device.unknown'))}</p><p>${esc(t('pairing.session'))}: ${esc(ps.session?.pairingSessionId||city.descriptor?.pairingSessionId||t('pairing.none'))}</p><p class="muted">${esc(pairingReasonMessage(ps.notice)?t(pairingReasonMessage(ps.notice)):'')}</p>${ps.session?`<div class="pairing-material"><div id="pairing-qr" role="img" aria-label="${esc(t('pairing.qr'))}"></div><div><p>${esc(t('pairing.code'))}</p><strong id="pairing-code">${esc(ps.session.shortCode)}</strong><p id="pairing-countdown">${esc(t('pairing.countdown',{seconds:remaining}))}</p><p>${esc(t('pairing.single'))}</p></div></div><div class="pairing-share"><h3>${esc(t('pairing.share'))}</h3><p class="muted">${esc(t('pairing.shareHint'))}</p><textarea id="pairing-invite" readonly rows="3" spellcheck="false">${esc(ps.session.qrPayload)}</textarea><button id="copy-invite">${esc(t('pairing.copy'))}</button><p class="muted" id="copy-note"></p></div>`:''}<button id="generate-pairing" ${connection!=='ONLINE'||pairingBusy||!ps.generate.available?'disabled':''}>${ps.generate.available?t(ps.generate.label):t('pairing.active')}</button><p class="muted">${esc(t('pairing.explanation'))}</p><h3>${esc(t('section.connectionDiagnostics'))}</h3><p>mDNS: ${esc(d.mdns?.state||'UNKNOWN')} · ${esc(d.mdns?.reason||'')}</p><p>Bluetooth: ${esc(d.ble?.state||'UNKNOWN')} · ${esc(d.ble?.reason||'')}</p><p>Gateway: ${esc(connection)}</p><details><summary>${esc(t('common.runDetails'))}</summary><div class="task-id">apiVersion 0 · schemaVersion 0</div></details><h3>${esc(t('pairing.choose'))}</h3><ol><li><strong>QR:</strong> ${esc(t('pairing.qrHelp'))}</li><li><strong>${esc(t('pairing.lan'))}:</strong> ${esc(t('pairing.lanHelp'))}</li><li><strong>${esc(t('pairing.ble'))}:</strong> ${esc(t('pairing.bleHelp'))}</li><li><strong>${esc(t('pairing.manual'))}:</strong> ${esc(t('pairing.manualHelp'))}</li></ol><p>${esc(t('pairing.plane'))}</p><p class="lan-warning">LAN DEVELOPMENT ONLY · NOT FOR PUBLIC INTERNET</p></section>`;
 }
 /* UI-101 step 5: the default reading path shows a readable label, and the raw
    internal vocabulary (event type, sequence, task id) lives in a folded
@@ -154,7 +211,7 @@ function render(){
  if(page==='Tasks')$('#view').innerHTML=`<section class="panel"><h2>${esc(t('section.taskRegistry'))}</h2>${taskRows(tasks)}</section>`;
  if(page==='Activity')$('#view').innerHTML=`<section class="panel"><h2>${esc(t('section.eventTimeline',{count:city.events.length}))}</h2><button data-goto="Actions">${esc(t('nav.actions'))}</button>${events(city.events)}</section>`;
  if(page==='Settings')$('#view').innerHTML=`<section class="panel">${languageSection()}<h2>${esc(t('section.connectionDiagnostics'))}</h2><p>${esc(t('settings.cityUrl'))}: ${esc(location.origin)}</p><details><summary>${esc(t('common.runDetails'))}</summary><div class="task-id">apiVersion = 0 · schemaVersion = 0</div></details><p>${esc(t('settings.tokenNote'))}</p><button id="disconnect">${esc(t('settings.changeToken'))}</button></section>`;
- if(page==='Pairing'){$('#view').innerHTML=pairingView();if(pairing&&$('#pairing-qr'))$('#pairing-qr').innerHTML=pairing.qrSvg;}
+ if(page==='Pairing'){$('#view').innerHTML=pairingView();const ps=pairingState();if(ps.session&&$('#pairing-qr'))$('#pairing-qr').innerHTML=ps.session.qrSvg;}
  const detail=city.tasks.find(t=>t.id===selected);$('#detail').hidden=!detail;if(detail)$('#detail').innerHTML=`<h2>${esc(detail.type)}</h2><div class="task-id">${esc(detail.id)}</div><p>${badge(detail.state)} · ${esc(detail.assignedNodeId||t('status.waitingNode'))}</p><progress max="100" value="${detail.progress}"></progress><h3>${esc(t('section.checkpoint'))}</h3><pre>${esc(JSON.stringify(detail.lastCheckpoint,null,2))}</pre><h3>${esc(t('section.result'))}</h3><pre>${esc(JSON.stringify(detail.result||detail.error,null,2))}</pre>${!finished(detail)?`<button id="cancel">${esc(t('task.cancel'))}</button>`:''}<h3>${esc(t('section.taskEvents'))}</h3>${events(city.events.filter(e=>e.taskId===detail.id))}`;
  const device=city.nodes.find(n=>n.id===selectedNode);if(device){$('#detail').hidden=false;$('#detail').innerHTML=`<h2>${esc(device.displayName)}</h2><p>${nodeBadge(device)} · ${esc(device.metadata?.platform)} · ${esc(t('device.agent'))} ${esc(device.agentVersion||t('device.unknown'))}</p><p class="task-id">${esc(device.id)}</p><p>${esc(t('device.lastSeen'))} ${esc(age(device.lastHeartbeatAt))}</p>${metrics(device)}<h3>${esc(t('device.capabilities'))}</h3><p>${esc(device.capabilities.join(' / '))}</p><h3>${esc(t('device.currentTasks'))}</h3>${taskRows(tasks.filter(t=>t.assignedNodeId===device.id&&!finished(t)),t('device.noTasks'))}<h3>${esc(t('device.recentEvents'))}</h3>${events(city.events.filter(e=>e.payload?.nodeId===device.id||tasks.some(t=>t.id===e.taskId&&t.assignedNodeId===device.id)).slice(-12),true)||`<p class="muted">${esc(t('device.noEvents'))}</p>`}`;}
 }
@@ -164,14 +221,16 @@ document.addEventListener('click',async e=>{const nav=e.target.closest('[data-pa
 // task id from the button, so the panel and this dispatcher cannot disagree about what is wired.
 if(schedAction){const token=schedAction.dataset.schedulerAction,taskRef=schedAction.dataset.schedulerTask,route=schedAction.dataset.schedulerRoute,providerRef=schedAction.dataset.schedulerProvider;schedAction.disabled=true;try{if(route==='cancel'){await api('tasks/'+encodeURIComponent(taskRef)+'/cancel',{});}else if(route==='create'){await api('tasks',{type:'CHECKPOINT_DEMO'});}else if(route==='providerChoice'){if(!providerRef)throw new Error('no provider was offered to choose from');await api('tasks/'+encodeURIComponent(taskRef)+'/provider-choice',{providerRef});}else{/* local acknowledgement: nothing to send */}await refresh();}catch(err){$('#error').textContent=err.message;schedAction.disabled=false;}}
 if(e.target.id==='copy-invite'){const box=$('#pairing-invite'),note=$('#copy-note');const done=ok=>{if(note)note.textContent=t(ok?'pairing.copied':'pairing.copyManual');};const fallback=()=>{try{box.focus();box.select();return document.execCommand('copy');}catch{return false;}};if(navigator.clipboard?.writeText){navigator.clipboard.writeText(box.value).then(()=>done(true)).catch(()=>done(fallback()));}else done(fallback());}
-if(e.target.id==='generate-pairing'){const epoch=++pairingEpoch;pairingBusy=true;pairing=null;render();try{const result=await api('pairing/session',{});if(epoch===pairingEpoch&&page==='Pairing'&&connection==='ONLINE'){pairing=result;pairingNotice='';}}catch(err){$('#error').textContent=err.message;}finally{pairingBusy=false;render();}}if(e.target.id==='cancel'){try{await api('tasks/'+selected+'/cancel',{});await refresh();}catch(err){$('#error').textContent=err.message;}}if(e.target.id==='disconnect'){clearPairing();token='';$('#token').value='';sessionStorage.removeItem('city-token');++generation;clearTimeout(timer);ws?.close();$('#pair').hidden=false;$('#content').hidden=true;go('Home');status('OFFLINE');}});
+if(e.target.id==='generate-pairing'){await generatePairing();}if(e.target.id==='cancel'){try{await api('tasks/'+selected+'/cancel',{});await refresh();}catch(err){$('#error').textContent=err.message;}}if(e.target.id==='disconnect'){clearPairing();token='';$('#token').value='';sessionStorage.removeItem('city-token');++generation;clearTimeout(timer);ws?.close();$('#pair').hidden=false;$('#content').hidden=true;go('Home');status('OFFLINE');}});
 $('#connect').onclick=async()=>{const value=$('#token').value.trim();$('#token').value='';const invite=parseInvite(value);if(invite){try{const done=await exchangeInvite(invite);if(done?.navigating)return;if(!done?.credential)throw Error('the City returned no credential for that invite');token=done.credential;sessionStorage.setItem('city-token',token);$('#pair').hidden=true;$('#content').hidden=false;connect();}catch(err){$('#error').textContent=err.message;}return;}token=value;sessionStorage.setItem('city-token',token);connect();};
 $('#ask-form').addEventListener('submit',e=>{e.preventDefault();ask($('#ask-text').value);});
 $('#run').onclick=async()=>{try{$('#run').disabled=true;const target=$('#run-target')?.value||'';if(target){const created=await api('actions',{route:'CITY_TASK',target:'city.task',operation:'CHECKPOINT_DEMO',input:{targetDeviceRef:target},idempotencyKey:(crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random())});const id=created?.action?.backendRef?.taskId;if(!id)throw new Error(created?.action?.error?.message||'the City refused the targeted task');selectedNode=null;selected=id;}else{const task=await api('tasks',{type:'CHECKPOINT_DEMO'});selectedNode=null;selected=task.id;}await refresh();}catch(e){$('#error').textContent=e.message;}finally{$('#run').disabled=connection!=='ONLINE';}};
 window.addEventListener('offline',()=>{disconnected();ws?.close();});window.addEventListener('online',connect);
 setInterval(()=>{if(token&&ws?.readyState===1)refresh().catch(e=>{disconnected(e);ws.close();});},4000);
-setInterval(()=>{if(pairing&&Date.now()>=Date.parse(pairing.expiresAt)){clearPairing('pairing.expired');render();}else if(pairing&&$('#pairing-countdown'))$('#pairing-countdown').textContent=t('pairing.countdown',{seconds:Math.max(0,Math.ceil((Date.parse(pairing.expiresAt)-Date.now())/1000))});if(city&&(page==='Home'||page==='Devices'))render();},1000);
-window.addEventListener('pagehide',()=>{clearPairing();render();});
+setInterval(()=>{if(pairing.expireIfDue())render();else{const ps=pairingState();if(ps.session&&$('#pairing-countdown'))$('#pairing-countdown').textContent=t('pairing.countdown',{seconds:ps.remainingSeconds});}if(city&&(page==='Home'||page==='Devices'))render();},1000);
+// JOIN-501: leaving the page no longer destroys the code. The material is persisted instead, so a reload restores the SAME session while it is still valid - and a session that expired meanwhile comes back EXPIRED, never as a fresh code. Visibility is handled too: a tab hidden across the expiry moment reconciles the moment it is shown, rather than sitting on a dead code.
+window.addEventListener('pagehide',()=>pairing.persist());
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState!=='visible')return;if(pairing.expireIfDue())render();});
 document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('selected',b.dataset.page===page));
 subscribe(()=>{applyTranslations();$('#connection').textContent=t('connection.'+connection.toLowerCase());render();});
 applyTranslations();
@@ -184,5 +243,8 @@ if(bootInvite){
   if(done?.credential){token=done.credential;try{sessionStorage.setItem('city-token',token);}catch{}}
  }catch(err){$('#error').textContent=err.message;}
 }
+// The stored session is restored BEFORE the first render and reconciled against the City once the first snapshot arrives, so a code another device consumed while this page was away is not shown as ACTIVE.
+pairing.restore();
 if(token)connect();else status('OFFLINE');
 if(token){$('#pair').hidden=true;$('#content').hidden=false;mountTerminal();}
+if(pairing.ownerSessionId()!==null)reconcileRestoredPairing().catch(()=>{});

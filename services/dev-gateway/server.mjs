@@ -276,7 +276,11 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   const askTargets=async()=>{const roomState=await rooms.probe();return buildTargets({roomState,capabilities:bridge.registry(),cityAvailability:cityAvailability(),roomsAvailable:roomState.available});};
   const body=async (req,limit=16384)=>{let size=0;const chunks=[];for await(const c of req){size+=c.length;if(size>limit){if(limit===MAX_REQUEST_BYTES)refuse('INPUT_TOO_LARGE',413);fail(413,'Request too large');}chunks.push(c);}try{return JSON.parse(Buffer.concat(chunks).toString('utf8')||'{}');}catch{if(limit===MAX_REQUEST_BYTES)refuse('INVALID_JSON');fail(400,'Invalid JSON');}};
   const required=(table,id)=>store.get(table,id)||fail(404,'Not found');
-  const snapshot=(req)=>envelope({status:'ONLINE',updatedAt:now(),cityId:store.cityId,displayName:'Utopia · Alien',descriptor:pairing.descriptor(),discovery:discoveryState,nodes:store.list('nodes'),controlSurfaces:liveSurfaces(),tasks:store.list('tasks'),events:store.events(),capabilities:bridge.registry(),invocations:bridge.list(),
+  // INTEGRATION (JOIN-502 + JOIN-503): ONE snapshot carries both additions. The earlier de-duplication regex in
+  // this branch's resolver matched the UNION line instead of JOIN-502's stale one (both begin with the same text
+  // and the union ends with `joinRequests:join.snapshot()`), so it removed `joinRequests` and every JOIN-502 test
+  // failed on the listing being undefined. Restored here, with `enrolledDevice` kept from JOIN-503.
+  const snapshot=(req)=>envelope({status:'ONLINE',updatedAt:now(),cityId:store.cityId,displayName:'Utopia · Alien',descriptor:pairing.descriptor(),discovery:discoveryState,nodes:store.list('nodes'),controlSurfaces:liveSurfaces(),tasks:store.list('tasks'),events:store.events(),capabilities:bridge.registry(),invocations:bridge.list(),joinRequests:join.snapshot(),
     // JOIN-503: the surface that is asking is told which INSTALLATION it is. A control-token client gets null
     // (it is the owner, not an enrolled installation), which is exactly what the Settings page needs in order to
     // show an enrollment summary for an enrolled client and the engineering fallback for a control-token one.
@@ -327,7 +331,11 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // The union preamble below is the one that names all three exemption kinds, so it is the only one kept.
       const publicJoin=path==='/api/v0/join/info'||path==='/api/v0/join/request'||path==='/api/v0/join/status'||path==='/api/v0/join/exchange';
       const legacyPublicPairing=path==='/api/v0/pairing/info'||path==='/api/v0/pairing/exchange';
-      if(!publicJoin&&!legacyPublicPairing)auth(req,nodeRoute);
+      // INTEGRATION: `selfAuthenticating` belongs to THIS preamble, not to the one that was removed above - keeping
+      // it in the removed block left the union preamble unaware of it, so /device/session answered 401 and every
+      // JOIN-503 enrollment test failed with the same "Invalid pairing token" as an unauthenticated request.
+      const selfAuthenticating=req.method==='POST'&&path==='/api/v0/device/session';
+      if(!publicJoin&&!legacyPublicPairing&&!selfAuthenticating)auth(req,nodeRoute);
       if(!legacyPublicPairing)version(req);
       let out;
       // JOIN-502 answers first, in the SAME chain as everything below: a second `if` chain would run

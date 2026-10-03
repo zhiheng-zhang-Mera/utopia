@@ -55,6 +55,31 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // from the state of its own socket. A surface that declares nothing is still recorded, with nulls: an
   // anonymous client is a fact too, and omitting the event would make it invisible to the other surfaces.
   const controlSurfaces=new Map();
+  // D-R1 (Mech's review finding, reproduced before this was written). `controlSurfaces` is keyed by SOCKET,
+  // but the EVENT is a fact about the CLIENT - and the first version emitted a ref-level CLIENT_DISCONNECTED
+  // whenever ANY socket for that ref closed. One surface can hold several sockets (a reconnect overlap, a
+  // second tab), so the late close of a superseded socket announced that the client had LEFT while it was
+  // still there. It happened in production: `seq 473 CLIENT_DISCONNECTED android-PERM00` with no
+  // CLIENT_CONNECTED afterwards, so anyone reconstructing "which surfaces are online" from canonical events
+  // concluded the Android surface left at 03:32:35 and never returned - a false negative emitted by the City
+  // itself, against the workbook's requirement that every device can see what the others are doing.
+  //
+  // The rule that fixes it, and the reason it is a count rather than a flag: a ref is PRESENT while it has at
+  // least one live socket. So CONNECTED is emitted when the count rises from zero and DISCONNECTED when it
+  // falls to zero - never on an individual socket's fate.
+  const surfaceCounts=new Map();
+  const surfaceLabels=new Map();
+  const refKey=ref=>ref??'\u0000anonymous';
+  const liveSurfaces=()=>{
+    // One row per CLIENT, not per socket: the earliest live socket's connectedAt, because that is when the
+    // surface actually arrived. Two rows for one ref was Mech's first symptom.
+    const byRef=new Map();
+    for(const s of controlSurfaces.values()){
+      const k=refKey(s.clientRef);const prior=byRef.get(k);
+      if(!prior||Date.parse(s.connectedAt)<Date.parse(prior.connectedAt))byRef.set(k,s);
+    }
+    return [...byRef.values()];
+  };
   const readClientIdentity=params=>{
     const ref=params.get('clientRef');const label=params.get('clientLabel');
     if(ref!==null&&ref!==''&&!/^[a-zA-Z0-9-]{1,80}$/.test(ref))fail(400,'clientRef must match [a-zA-Z0-9-]{1,80}');
@@ -193,7 +218,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   const askTargets=async()=>{const roomState=await rooms.probe();return buildTargets({roomState,capabilities:bridge.registry(),cityAvailability:cityAvailability(),roomsAvailable:roomState.available});};
   const body=async (req,limit=16384)=>{let size=0;const chunks=[];for await(const c of req){size+=c.length;if(size>limit){if(limit===MAX_REQUEST_BYTES)refuse('INPUT_TOO_LARGE',413);fail(413,'Request too large');}chunks.push(c);}try{return JSON.parse(Buffer.concat(chunks).toString('utf8')||'{}');}catch{if(limit===MAX_REQUEST_BYTES)refuse('INVALID_JSON');fail(400,'Invalid JSON');}};
   const required=(table,id)=>store.get(table,id)||fail(404,'Not found');
-  const snapshot=()=>envelope({status:'ONLINE',updatedAt:now(),cityId:store.cityId,displayName:'Utopia · Alien',descriptor:pairing.descriptor(),discovery:discoveryState,nodes:store.list('nodes'),controlSurfaces:[...controlSurfaces.values()],tasks:store.list('tasks'),events:store.events(),capabilities:bridge.registry(),invocations:bridge.list()});
+  const snapshot=()=>envelope({status:'ONLINE',updatedAt:now(),cityId:store.cityId,displayName:'Utopia · Alien',descriptor:pairing.descriptor(),discovery:discoveryState,nodes:store.list('nodes'),controlSurfaces:liveSurfaces(),tasks:store.list('tasks'),events:store.events(),capabilities:bridge.registry(),invocations:bridge.list()});
   const server=http.createServer(async(req,res)=>{
     try {
       const path=new URL(req.url,'http://city').pathname;
@@ -358,11 +383,23 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       auth(req);if(u.searchParams.get('apiVersion')!=='0'||u.searchParams.get('schemaVersion')!=='0')fail(409,'Protocol mismatch');
       const identity=readClientIdentity(u.searchParams);
       wss.handleUpgrade(req,socket,head,ws=>{
+        const key=refKey(identity.clientRef);
+        const liveBefore=surfaceCounts.get(key)??0;
         controlSurfaces.set(ws,{...identity,connectedAt:now()});
-        emit('CLIENT_CONNECTED',null,{clientRef:identity.clientRef,clientLabel:identity.clientLabel});
+        surfaceCounts.set(key,liveBefore+1);
+        if(liveBefore===0){surfaceLabels.set(key,identity.clientLabel);emit('CLIENT_CONNECTED',null,{clientRef:identity.clientRef,clientLabel:identity.clientLabel});}
         ws.send(JSON.stringify(envelope({type:'REFRESH'})));
         ws.on('error',()=>{});
-        ws.on('close',()=>{const gone=controlSurfaces.get(ws);controlSurfaces.delete(ws);if(!closed)emit('CLIENT_DISCONNECTED',null,{clientRef:gone?.clientRef??null,clientLabel:gone?.clientLabel??null});});
+        ws.on('close',()=>{
+          const gone=controlSurfaces.get(ws);controlSurfaces.delete(ws);
+          if(!gone)return;
+          const k=refKey(gone.clientRef);
+          const liveAfter=Math.max(0,(surfaceCounts.get(k)??1)-1);
+          if(liveAfter>0){surfaceCounts.set(k,liveAfter);return;}   // another socket still holds this ref: the client has NOT left
+          surfaceCounts.delete(k);
+          const label=surfaceLabels.get(k)??gone.clientLabel;surfaceLabels.delete(k);
+          if(!closed)emit('CLIENT_DISCONNECTED',null,{clientRef:gone.clientRef,clientLabel:label??null});
+        });
       });
     }catch(e){socket.write('HTTP/1.1 '+(e.status||400)+' Rejected\r\nConnection: close\r\n\r\n');socket.destroy();}
   });

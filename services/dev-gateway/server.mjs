@@ -4,10 +4,17 @@ import {hostname} from 'node:os';
 import {createBridge} from '../capability-bridge/bridge.mjs';
 import {MAX_REQUEST_BYTES,refuse} from '../../contracts/capability-bridge-v1/protocol.mjs';
 import { readFile } from 'node:fs/promises';
-import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { randomUUID, randomBytes as randomBytesBytes, timingSafeEqual } from 'node:crypto';
 import { WebSocketServer } from 'ws';
 import { Store } from './store.mjs';
 import { Pairing } from './pairing.mjs';
+// JOIN-503: device enrollment and tokenless routine reconnect. The registrar is a seam over the City's own
+// RF-001 identity lifecycle (see services/dev-gateway/enrollment.mjs) - it mints installation credentials, issues
+// short-lived SESSION credentials for the browser, and answers "may this installation act?".
+import { createEnrollmentRegistrar, EnrollmentError, DEFAULT_SESSION_TTL_MS } from './enrollment.mjs';
+// The identity lifecycle's own error type. A refusal from RF-001's rules (`rebind_proof_required`, `clone_detected`,
+// `already_bound`, …) is a typed client error, not a gateway fault, so it must not surface as a 500.
+import { DeviceIdentityError } from '../../city/00-foundation/02-city-node-network/device-identity/index.mjs';
 import { validateTelemetry } from '../../contracts/pairing-v1/descriptor.mjs';
 import { startDiscovery } from './discovery.mjs';
 import { envelope, terminal, validateCommand } from '../../contracts/city-control-v0/protocol.mjs';
@@ -43,7 +50,7 @@ export const REQUIRED_TASK_CAPABILITIES=['task.execute.safe','filesystem.temp'];
 // The Core's node shape, filled from the gateway's own liveness truth. A node that is
 // not online is OFFLINE, and the Core refuses an OFFLINE node whatever it lists.
 const claimNodeFor=n=>({nodeId:n.id,state:n.online?'READY':'OFFLINE',capabilities:n.capabilities,lastHeartbeatAt:Date.parse(n.lastHeartbeatAt)||0,seq:0});
-export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',token,nodeToken,heartbeatTimeout=8000,pairingClock=Date.now,pairingTtlMs=300000,discoveryEnabled=false,roomHubUrl=process.env.CITY_ROOMS_URL,roomsDisabled=process.env.CITY_ROOMS_DISABLED==='1',hostId=process.env.CITY_HOST_ID,roomFetch}) {
+export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',token,nodeToken,heartbeatTimeout=8000,pairingClock=Date.now,pairingTtlMs=300000,discoveryEnabled=false,roomHubUrl=process.env.CITY_ROOMS_URL,roomsDisabled=process.env.CITY_ROOMS_DISABLED==='1',hostId=process.env.CITY_HOST_ID,roomFetch,deviceClock=Date.now}) {
   if(!token||!nodeToken||token===nodeToken) throw new Error('Separate control and node tokens are required');
   if(host==='0.0.0.0'||host==='::') throw new Error('Configure an explicit loopback or LAN interface');
   const store=new Store(dir); const wss=new WebSocketServer({noServer:true}); let closed=false;
@@ -87,6 +94,25 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   };
   let discovery=null,discoveryState={mdns:{state:'DISABLED'},ble:{state:'DISABLED'}};
   const pairing=new Pairing({cityId:store.cityId,endpoint:`http://${host}:${port}`,credential:token,clock:pairingClock,ttlMs:pairingTtlMs,onChange:d=>discovery?.update(d)});
+  const SESSION_PREFIX='sess:';
+  // The credential the BROWSER receives. The bare session id is not a credential on its own - the prefix is what
+  // makes the auth path route it to the enrollment registry - so this is the one place the two are joined.
+  const sessionCredential=sessionId=>SESSION_PREFIX+sessionId;
+  // A `sess:`-prefixed bearer is routed to the enrollment registry. The check is a startsWith on purpose: the
+  // distinction between "a session credential" and "the control token" must not depend on how the caller's value
+  // happens to be shaped beyond that prefix.
+  const SESSION_BEARER='Bearer '+SESSION_PREFIX;
+  // JOIN-503. Sessions are what the BROWSER holds; the durable installation credential stays with the device.
+  // Entropy and the clock are injected so acceptance is decidable in tests rather than dependent on a real
+  // clock - the same discipline the identity module itself follows.
+  const enrollment=createEnrollmentRegistrar({
+    put:(table,record)=>store.put(table,record),
+    list:table=>store.list(table),
+    get:(table,id)=>store.get(table,id),
+    now:()=>deviceClock(),
+    randomBytes:n=>randomBytesBytes(n),
+    emit:(type,payload)=>emit(type,null,payload??{},'gateway'),
+  });
   const telemetry=b=>{if(b.telemetry===undefined)return {};if(b.telemetry===null)return {telemetry:null};try{validateTelemetry(b.telemetry);return {telemetry:b.telemetry};}catch(e){fail(400,e.message);}};
   const emit=(type,id,payload,actor)=>{const e=store.event(type,id,payload,actor); for(const c of wss.clients) if(c.readyState===1)c.send(JSON.stringify(envelope({event:e})));return e;};
   const change=(task,state,patch={},event='TASK_'+state)=>store.atomic(()=>{Object.assign(task,patch,{state,updatedAt:now()});store.put('tasks',task);emit(event,task.id,{state,progress:task.progress,...patch},task.assignedNodeId||'gateway');return task;});
@@ -105,7 +131,18 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   }
   for(const n of store.list('nodes'))store.put('nodes',{...n,online:false});
   emit('CITY_STARTED',null,{schemaVersion:0});
-  const auth=(req,node=false)=>{const raw=req.headers.authorization||'';if(!equals(raw,'Bearer '+(node?nodeToken:token)))fail(401,'Invalid pairing token');};
+  const auth=(req,node=false)=>{
+    const raw=req.headers.authorization||'';
+    // JOIN-503: a browser may present a SESSION credential instead of the City's control token. The session is
+    // resolved against the enrollment registry on EVERY request (never cached), so revoking an installation
+    // stops the very next call - including the WebSocket handshake a reconnect would use.
+    if(!node&&raw.startsWith(SESSION_BEARER)){
+      const presented=raw.slice(SESSION_BEARER.length);
+      req.citySession=enrollment.checkSession(presented);
+      return;
+    }
+    if(!equals(raw,'Bearer '+(node?nodeToken:token)))fail(401,'Invalid pairing token');
+  };
   const version=req=>{if(req.headers['x-city-api-version']!=='0'||req.headers['x-city-schema-version']!=='0')fail(409,'Protocol mismatch: apiVersion=0 and schemaVersion=0 required');};
   const bridge=createBridge(store,emit,{artifactRoot:resolve(dir,'theme-packages')});
   // UXI-391: the ownership-transfer bridge. planRoute decides and never acts; this consumes its decision and
@@ -218,7 +255,11 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   const askTargets=async()=>{const roomState=await rooms.probe();return buildTargets({roomState,capabilities:bridge.registry(),cityAvailability:cityAvailability(),roomsAvailable:roomState.available});};
   const body=async (req,limit=16384)=>{let size=0;const chunks=[];for await(const c of req){size+=c.length;if(size>limit){if(limit===MAX_REQUEST_BYTES)refuse('INPUT_TOO_LARGE',413);fail(413,'Request too large');}chunks.push(c);}try{return JSON.parse(Buffer.concat(chunks).toString('utf8')||'{}');}catch{if(limit===MAX_REQUEST_BYTES)refuse('INVALID_JSON');fail(400,'Invalid JSON');}};
   const required=(table,id)=>store.get(table,id)||fail(404,'Not found');
-  const snapshot=()=>envelope({status:'ONLINE',updatedAt:now(),cityId:store.cityId,displayName:'Utopia · Alien',descriptor:pairing.descriptor(),discovery:discoveryState,nodes:store.list('nodes'),controlSurfaces:liveSurfaces(),tasks:store.list('tasks'),events:store.events(),capabilities:bridge.registry(),invocations:bridge.list()});
+  const snapshot=(req)=>envelope({status:'ONLINE',updatedAt:now(),cityId:store.cityId,displayName:'Utopia · Alien',descriptor:pairing.descriptor(),discovery:discoveryState,nodes:store.list('nodes'),controlSurfaces:liveSurfaces(),tasks:store.list('tasks'),events:store.events(),capabilities:bridge.registry(),invocations:bridge.list(),
+    // JOIN-503: the surface that is asking is told which INSTALLATION it is. A control-token client gets null
+    // (it is the owner, not an enrolled installation), which is exactly what the Settings page needs in order to
+    // show an enrollment summary for an enrolled client and the engineering fallback for a control-token one.
+    enrolledDevice:req?.citySession?enrollment.describe(req.citySession.session.installationId):null});
   const server=http.createServer(async(req,res)=>{
     try {
       const path=new URL(req.url,'http://city').pathname;
@@ -245,17 +286,117 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       }
       const nodeRoute=path.startsWith('/api/v0/node/');
       const publicPairing=path==='/api/v0/pairing/info'||path==='/api/v0/pairing/exchange';
-      if(!publicPairing)auth(req,nodeRoute);version(req);
+      // JOIN-503: `POST /api/v0/device/session` is an AUTHENTICATION endpoint, so it cannot itself require a
+      // successful authentication - it is where an installation credential, or an existing session credential
+      // being refreshed, is presented. Its own verification is strict (the enrollment ladder, or a session lookup)
+      // and it is the only route in this exemption.
+      const selfAuthenticating=req.method==='POST'&&path==='/api/v0/device/session';
+      if(!publicPairing&&!selfAuthenticating)auth(req,nodeRoute);
+      version(req);
       let out;
       if(req.method==='GET' && path==='/api/v0/pairing/info')out=pairing.info();
       else if(req.method==='POST' && path==='/api/v0/pairing/session'){await body(req);out=await pairing.create();}
-      else if(req.method==='POST' && path==='/api/v0/pairing/exchange')out=pairing.exchange(await body(req));
+      else if(req.method==='POST' && path==='/api/v0/pairing/exchange'){
+        const b=await body(req);
+        const exchanged=pairing.exchange(b);
+        // JOIN-503: a joining installation that declared itself during the exchange is ENROLLED in the same
+        // breath, because the pairing exchange IS the owner's proof that this installation may join. The
+        // response keeps the existing `credential` field untouched (an old client must not break), and adds an
+        // enrollment block carrying the DURABLE installation credential plus a first SESSION. Only the enrolling
+        // device ever sees the durable secret; the City keeps nothing but its fingerprint.
+        if(b.installation&&typeof b.installation==='object'){
+          const enrolled=enrollment.enroll({
+            deviceId:b.installation.deviceId??null,
+            displayName:b.installation.displayName||b.installation.hostname||'Utopia client',
+            platform:b.installation.platform??null,
+            instanceId:b.installation.instanceId??null,
+          });
+          const opened=enrollment.openSession({
+            installationId:enrolled.installation.installationId,
+            instanceId:enrolled.installation.instanceId,
+            credentialId:enrolled.credential.credentialId,
+            credentialSecret:enrolled.credential.credentialSecret,
+          });
+          out={...exchanged,apiVersion:0,schemaVersion:0,enrollment:{
+            installationId:enrolled.installation.installationId,
+            instanceId:enrolled.installation.instanceId,
+            deviceId:enrolled.installation.deviceId,
+            displayName:enrolled.device.displayName,
+            credentialId:enrolled.credential.credentialId,
+            credentialSecret:enrolled.credential.credentialSecret,
+            session:{credential:sessionCredential(opened.session.sessionId),expiresAt:opened.session.expiresAt},
+          }};
+        } else out=exchanged;
+      }
+      // JOIN-503. The enrollment surface. `enroll` needs the CONTROL token because it mints authority; the
+      // browser reaches it only through the pairing page the owner already authorised. Nothing here is reachable
+      // by a session credential, so a joined device cannot enroll a second device for itself.
+      else if(req.method==='POST' && path==='/api/v0/device/enroll'){
+        const b=await body(req);
+        if(req.citySession)refuse('SESSION_CANNOT_ENROLL',403,'an enrolled session cannot mint another installation');
+        out=enrollment.enroll({deviceId:b.deviceId??null,displayName:b.displayName,platform:b.platform??null,unbound:b.unbound===true});
+      }
+      // The reconnect path. Called with installation credentials it MINTS a session; called with an existing
+      // session credential it refreshes (the web surface's routine restart case). No user input in either shape.
+      else if(req.method==='POST' && path==='/api/v0/device/session'){
+        const b=await body(req);
+        // The credential decides which of two things is being asked:
+        //   * an ENROLLED SESSION presenting its own session id -> refresh that session (nothing durable involved);
+        //   * installation credentials -> prove identity and mint a session. There is no user input in either
+        //     shape, which is what "tokenless routine reconnect" means in practice.
+        const opened=(!req.citySession&&b.installationId)
+          ? enrollment.openSession({installationId:b.installationId,instanceId:b.instanceId,credentialId:b.credentialId,credentialSecret:b.credentialSecret})
+          : enrollment.checkSession(req.citySession?req.citySession.session.sessionId:String(b.sessionId??'').replace(SESSION_PREFIX,''));
+        out={apiVersion:0,schemaVersion:0,credential:sessionCredential(opened.session.sessionId),session:{sessionId:opened.session.sessionId,expiresAt:opened.session.expiresAt,issuedAt:opened.session.issuedAt},installation:enrollment.describe(opened.installation.installationId),cityId:store.cityId};
+      }
+      // Mech's formal review D-2 (accepted). The roster is the OWNER's view of the City. Before this, a `sess:`
+      // credential was answered with every installation and device record in the City - while the very same
+      // session was refused the authority to enroll or rebind. Those two facts cannot both be right: a session
+      // belongs to ONE installation (workbook section 3), so it sees itself and nothing else, and the Settings
+      // surface still works for the owner because the owner holds the control token.
+      //
+      // THIS IS D-2 TAKEN ONE STEP FURTHER THAN THE REVIEW'S MINIMUM: `cloneFindings` is a CITY-WIDE population
+      // scan, and it names other installations' ids and credential fingerprints. Scoping only the `installations`
+      // array would still have handed a session a map of every installation whose credential is duplicated, so a
+      // session gets an empty scan and the scope is stated in the payload rather than left to be inferred.
+      else if(req.method==='GET' && path==='/api/v0/device/installations'){
+        const mine=req.citySession?req.citySession.session.installationId:null;
+        out={apiVersion:0,schemaVersion:0,cityId:store.cityId,
+          installations:mine?enrollment.list().filter(entry=>entry.installationId===mine):enrollment.list(),
+          cloneFindings:mine?[]:enrollment.cloneFindings(),
+          scope:mine?'OWN_INSTALLATION':'CITY'};
+      }
+      // A reinstall is BOUND again only by an explicit rebind carrying proof (RF-001's rule). Until then the
+      // installation holds an identity with no logical device and can do nothing, which is the state a fresh
+      // install is supposed to be in.
+      else if(req.method==='POST' && /^\/api\/v0\/device\/installations\/[^/]+\/rebind$/.test(path)){
+        const b=await body(req);const installationId=decodeURIComponent(path.split('/').at(-2));
+        if(req.citySession)refuse('SESSION_CANNOT_REBIND',403,'an enrolled session cannot rebind installations');
+        out={apiVersion:0,schemaVersion:0,installation:enrollment.rebind({installationId,deviceId:b.deviceId,proof:b.proof})};
+      }
+      // Mech's formal review D-1 (accepted, required repair). THE DEFECT I SHIPPED: this route required only
+      // `auth()`, and `auth()` accepts a `sess:` credential - so any enrolled installation could revoke ANY OTHER
+      // installation, including the client the owner was using, with nothing but the short-lived session
+      // credential a browser keeps in sessionStorage. That is privilege escalation across installations. It also
+      // contradicted my own boundary: the sibling routes already refuse a session with SESSION_CANNOT_ENROLL /
+      // SESSION_CANNOT_REBIND, and the comment I wrote on the enrollment route states the intent in as many words.
+      // Enforcing it on two of three routes is not a boundary, it is a gap.
+      //
+      // THE RULE, stated once so the next route cannot miss it: a session credential may act on ITS OWN
+      // installation and on nothing else. Leaving the City is legitimate and affects nobody, so a self-revoke is
+      // allowed; revoking another installation is the owner's act and needs the control token.
+      else if(req.method==='POST' && /^\/api\/v0\/device\/installations\/[^/]+\/revoke$/.test(path)){
+        const b=await body(req);const installationId=decodeURIComponent(path.split('/').at(-2));
+        const mine=req.citySession?req.citySession.session.installationId:null;
+        if(mine&&mine!==installationId)refuse('SESSION_CANNOT_REVOKE_OTHER',403,'an enrolled session may only revoke its own installation');
+        out={apiVersion:0,schemaVersion:0,revoked:enrollment.revoke({installationId,reason:b.reason??'revoked_by_owner'}),scope:mine?'OWN_INSTALLATION':'CITY'};
+      }
       else if(req.method==='GET' && path==='/api/v0/capabilities')out={capabilities:bridge.registry()};
       else if(req.method==='GET' && path==='/api/v0/capability-invocations')out={invocations:bridge.list(new URL(req.url,'http://city').searchParams.get('limit')??undefined)};
       else if(req.method==='GET' && /^\/api\/v0\/capability-invocations\/[^/]+$/.test(path))out=bridge.get(decodeURIComponent(path.split('/').at(-1)))||refuse('INVOCATION_NOT_FOUND',404);
       else if(req.method==='GET' && /^\/api\/v0\/capabilities\/[^/]+$/.test(path))out=bridge.registry().find(c=>c.capabilityId===decodeURIComponent(path.split('/').at(-1)))||refuse('CAPABILITY_NOT_FOUND',404);
       else if(req.method==='POST' && /^\/api\/v0\/capabilities\/[^/]+\/invoke$/.test(path))out=await bridge.invoke(decodeURIComponent(path.split('/').at(-2)),await body(req,MAX_REQUEST_BYTES));
-      else if(req.method==='GET' && path==='/api/v0/city')out=snapshot();
+      else if(req.method==='GET' && path==='/api/v0/city')out=snapshot(req);
       // UXI-301: the scheduler presentation feed. READ-ONLY, and it decides nothing - it reports the
       // RS-202 eligibility the City's own modules already produced, mapped through the frozen RS-290
       // contract so the UI can show user language instead of scheduler vocabulary. Finished tasks are
@@ -372,7 +513,14 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         }
       }else fail(404,'Not found');
       res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(envelope(out)));
-    }catch(e){res.writeHead(e.status||500,{'Content-Type':'application/json'});res.end(JSON.stringify(envelope({error:e.status?e.message:'Gateway error',...(e.code?{errorCode:e.code}:{})})));if(!e.status)console.error(e);}
+    }catch(e){
+      // JOIN-503: an enrollment refusal is a typed fact (which installation, which ladder rung), so its code
+      // travels with the response instead of being flattened into prose. No secret is ever part of either shape.
+      if(e instanceof EnrollmentError){res.writeHead(e.status||403,{'Content-Type':'application/json'});res.end(JSON.stringify(envelope({error:e.code,errorCode:e.code,detail:e.detail})));return;}
+      // A refusal from the identity lifecycle itself (RF-001's rules) carries the same kind of typed code. The
+      // refused facts are all client errors: a missing rebind proof, a clone, an already-bound installation.
+      if(e instanceof DeviceIdentityError){res.writeHead(403,{'Content-Type':'application/json'});res.end(JSON.stringify(envelope({error:e.code,errorCode:e.code,detail:e.detail})));return;}
+      res.writeHead(e.status||500,{'Content-Type':'application/json'});res.end(JSON.stringify(envelope({error:e.status?e.message:'Gateway error',...(e.code?{errorCode:e.code}:{})})));if(!e.status)console.error(e);}
   });
   server.on('upgrade',(req,socket,head)=>{
     try {

@@ -18,6 +18,21 @@ function webClientRef(){let ref=null;try{ref=localStorage.getItem('utopia.client
 function webClientLabel(){let label=null;try{label=localStorage.getItem('utopia.clientLabel');}catch{}if(label)return label;return 'Web · '+(navigator.platform||'browser');}
 // Exposed so the surface can be named from the console during a run: localStorage.setItem('utopia.clientLabel','Alien Web')
 window.utopiaWebSurface={ref:webClientRef,label:webClientLabel,rename:name=>{try{localStorage.setItem('utopia.clientLabel',String(name));}catch{}return String(name);}};
+// MESH-301: the strict-target choices are built from the City's OWN node list, so a target this surface
+// offers is one the City currently knows about. Nothing here is hardcoded, and "Any node" stays reachable:
+// a surface that can only issue TARGETED work makes the untargeted regression check impossible to perform
+// from that surface, and that check is completion-gate 7.
+let runTargetSignature='';
+function syncRunTargets(){
+ const select=$('#run-target');if(!select)return;
+ const nodes=Array.isArray(city?.nodes)?city.nodes:[];
+ const signature=nodes.map(n=>n.id).join(',');
+ if(signature===runTargetSignature)return;   // rebuild only when the fleet changes, so a live render loop cannot steal the user's choice
+ runTargetSignature=signature;
+ const current=select.value;
+ select.innerHTML='<option value="">Any node</option>'+nodes.map(n=>`<option value="${esc(n.id)}">${esc(n.displayName||n.id)}</option>`).join('');
+ select.value=nodes.some(n=>n.id===current)?current:'';
+}
 async function api(path,body){const r=await fetch('/api/v0/'+path,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json','X-City-Api-Version':'0','X-City-Schema-Version':'0'},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(path.startsWith('capabilities/')?25000:5000)});const x=await r.json();if(!r.ok)throw Error(x.error);if(x.apiVersion!==0||x.schemaVersion!==0)throw Error('Protocol mismatch: this client requires version 0');return x;}
 function clearPairing(message=''){pairing=null;pairingEpoch++;pairingNotice=message;}
 function go(next){clearPairing();page=next;selected=null;selectedNode=null;externalPage=TERMINAL_PAGES.includes(next);if(terminal&&externalPage)terminal.onNav();document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('selected',b.dataset.page===page));if(!externalPage)homeRoomsData=null;render();window.scrollTo({top:0});}
@@ -38,7 +53,7 @@ function homeRooms(){
  api('rooms').then(payload=>{homeRoomsData=payload?.rooms??null;if(!homeRoomsData)homeRoomsError=t('terminal.rooms.malformed');}).catch(e=>{homeRoomsError=e.message;}).finally(renderHomeRooms);
 }
 function status(s){if(s!=='ONLINE')clearPairing('pairing.reconnect');connection=s;$('#connection').textContent=t('connection.'+s.toLowerCase());$('#connection').className=s==='ONLINE'?'online':'';$('#run').disabled=s!=='ONLINE';render();}
-async function refresh(){if(refreshing){pending=true;return;}if(externalPage&&city)return;refreshing=true;try{const gen=generation;const snapshot=await api('city');if(gen!==generation)return;city=snapshot;try{schedulerFeed=await api('presentation');}catch{schedulerFeed=null;}if(pairing&&city.descriptor?.pairingSessionId!==pairing.pairingSessionId)clearPairing('pairing.unavailable');$('#pair').hidden=true;$('#content').hidden=false;$('#error').textContent='';render();}finally{refreshing=false;if(pending){pending=false;refresh().catch(disconnected);}}}
+async function refresh(){if(refreshing){pending=true;return;}if(externalPage&&city)return;refreshing=true;try{const gen=generation;const snapshot=await api('city');if(gen!==generation)return;city=snapshot;syncRunTargets();try{schedulerFeed=await api('presentation');}catch{schedulerFeed=null;}if(pairing&&city.descriptor?.pairingSessionId!==pairing.pairingSessionId)clearPairing('pairing.unavailable');$('#pair').hidden=true;$('#content').hidden=false;$('#error').textContent='';render();}finally{refreshing=false;if(pending){pending=false;refresh().catch(disconnected);}}}
 function disconnected(e){status('OFFLINE');if(e?.message)$('#error').textContent=e.message;}
 async function connect(){const gen=++generation;clearTimeout(timer);ws?.close();status('RECONNECTING');try{await refresh();if(gen!==generation)return;ws=new WebSocket(location.origin.replace(/^http/,'ws')+'/api/v0/events/stream?apiVersion=0&schemaVersion=0&clientRef='+encodeURIComponent(webClientRef())+'&clientLabel='+encodeURIComponent(webClientLabel()),['city-v0','city-token.'+btoa(token).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_')]);ws.onopen=()=>{if(gen===generation)status('ONLINE');};ws.onmessage=()=>refresh().catch(disconnected);ws.onerror=()=>disconnected();ws.onclose=()=>{if(gen===generation){disconnected();timer=setTimeout(connect,1800);}};}catch(e){if(gen===generation){disconnected(e);timer=setTimeout(connect,2500);}}}
 const badge=(stateClass, displayLabel=stateClass)=>`<span class="badge ${esc(stateClass)}">${esc(displayLabel)}</span>`;
@@ -100,7 +115,7 @@ if(schedAction){const token=schedAction.dataset.schedulerAction,taskRef=schedAct
 if(e.target.id==='generate-pairing'){const epoch=++pairingEpoch;pairingBusy=true;pairing=null;render();try{const result=await api('pairing/session',{});if(epoch===pairingEpoch&&page==='Pairing'&&connection==='ONLINE'){pairing=result;pairingNotice='';}}catch(err){$('#error').textContent=err.message;}finally{pairingBusy=false;render();}}if(e.target.id==='cancel'){try{await api('tasks/'+selected+'/cancel',{});await refresh();}catch(err){$('#error').textContent=err.message;}}if(e.target.id==='disconnect'){clearPairing();token='';$('#token').value='';sessionStorage.removeItem('city-token');++generation;clearTimeout(timer);ws?.close();$('#pair').hidden=false;$('#content').hidden=true;go('Home');status('OFFLINE');}});
 $('#connect').onclick=()=>{token=$('#token').value.trim();sessionStorage.setItem('city-token',token);$('#token').value='';connect();};
 $('#ask-form').addEventListener('submit',e=>{e.preventDefault();ask($('#ask-text').value);});
-$('#run').onclick=async()=>{try{$('#run').disabled=true;const task=await api('tasks',{type:'CHECKPOINT_DEMO'});selectedNode=null;selected=task.id;await refresh();}catch(e){$('#error').textContent=e.message;}finally{$('#run').disabled=connection!=='ONLINE';}};
+$('#run').onclick=async()=>{try{$('#run').disabled=true;const target=$('#run-target')?.value||'';if(target){const created=await api('actions',{route:'CITY_TASK',target:'city.task',operation:'CHECKPOINT_DEMO',input:{targetDeviceRef:target},idempotencyKey:(crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random())});const id=created?.action?.backendRef?.taskId;if(!id)throw new Error(created?.action?.error?.message||'the City refused the targeted task');selectedNode=null;selected=id;}else{const task=await api('tasks',{type:'CHECKPOINT_DEMO'});selectedNode=null;selected=task.id;}await refresh();}catch(e){$('#error').textContent=e.message;}finally{$('#run').disabled=connection!=='ONLINE';}};
 window.addEventListener('offline',()=>{disconnected();ws?.close();});window.addEventListener('online',connect);
 setInterval(()=>{if(token&&ws?.readyState===1)refresh().catch(e=>{disconnected(e);ws.close();});},4000);
 setInterval(()=>{if(pairing&&Date.now()>=Date.parse(pairing.expiresAt)){clearPairing('pairing.expired');render();}else if(pairing&&$('#pairing-countdown'))$('#pairing-countdown').textContent=t('pairing.countdown',{seconds:Math.max(0,Math.ceil((Date.parse(pairing.expiresAt)-Date.now())/1000))});if(city&&(page==='Home'||page==='Devices'))render();},1000);

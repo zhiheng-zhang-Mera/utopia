@@ -68,6 +68,25 @@ class CityClient(context: Context, private val host: String, private val token: 
   }
  }
  private fun submit(action: () -> Unit) { if (!closed) runCatching { executor.execute { if (!closed) action() } } }
+ /**
+  * MESH-301 — the ONE place this surface gives a socket up, so the receipt can never miss a drop.
+  *
+  * WHY THIS EXISTS. `refresh()`'s failure path and the network callback both did
+  * `socketOnline = false; socket?.cancel(); socket = null` — they nulled the field FIRST, and the
+  * `webSocket === socket` guard in `onFailure` then compared against null and discarded the callback that
+  * would have recorded the drop. Measured consequence: a real run lost `seq 233` while the receipt recorded
+  * NO `stale` and NO `reconnected`, i.e. the surface was silently stale. That is precisely what the workbook
+  * forbids - cached or missing events presented as live consistency - and it is worse than being honestly
+  * offline, because nothing downstream can tell the two apart.
+  *
+  * The rule this restores: a socket is either held, or it was surrendered through here and the surrender is
+  * in the receipt. There is no third state.
+  */
+ private fun dropSocket(message: String) {
+  val gone = socket
+  if (gone != null) { socket = null; socketOnline = false; wasDown = true; log.surface("stale"); runCatching { gone.cancel() } }
+  publish("OFFLINE", message)
+ }
  private fun refresh() {
   if (closed || host.isBlank() || token.isBlank()) return
   try {
@@ -87,7 +106,7 @@ class CityClient(context: Context, private val host: String, private val token: 
    if(!snapshotLogged) { log.event("authenticated"); log.event("snapshotLoaded"); snapshotLogged=true }
    if (socket == null) openStream()
    publish(if (socketOnline) "ONLINE" else "RECONNECTING")
-  } catch (e: Exception) { socketOnline = false; socket?.cancel(); socket = null; publish("OFFLINE", e.message ?: "Gateway unavailable") }
+  } catch (e: Exception) { dropSocket(e.message ?: "Gateway unavailable") }
  }
  private fun openStream() {
   val url = host.trimEnd('/').replaceFirst("http", "ws") + "/api/v0/events/stream?apiVersion=0&schemaVersion=0&clientRef=" + java.net.URLEncoder.encode(clientRef, "UTF-8") + "&clientLabel=" + java.net.URLEncoder.encode(clientLabel, "UTF-8")
@@ -99,7 +118,7 @@ class CityClient(context: Context, private val host: String, private val token: 
   })
  }
  private val callback = object : ConnectivityManager.NetworkCallback() {
-  override fun onLost(network: Network) { socketOnline = false; socket?.cancel(); socket = null; publish("OFFLINE", "Network lost. Showing cached data.") }
+  override fun onLost(network: Network) { dropSocket("Network lost. Showing cached data.") }
   override fun onAvailable(network: Network) { submit { refresh() } }
  }
  fun start() { log.surfaceReset(); connectivity.registerDefaultNetworkCallback(callback); executor.scheduleWithFixedDelay({ refresh() }, 0, 2, TimeUnit.SECONDS) }

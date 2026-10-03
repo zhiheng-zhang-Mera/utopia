@@ -349,7 +349,18 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
           : enrollment.checkSession(req.citySession?req.citySession.session.sessionId:String(b.sessionId??'').replace(SESSION_PREFIX,''));
         out={apiVersion:0,schemaVersion:0,credential:sessionCredential(opened.session.sessionId),session:{sessionId:opened.session.sessionId,expiresAt:opened.session.expiresAt,issuedAt:opened.session.issuedAt},installation:enrollment.describe(opened.installation.installationId),cityId:store.cityId};
       }
-      else if(req.method==='GET' && path==='/api/v0/device/installations')out={apiVersion:0,schemaVersion:0,cityId:store.cityId,installations:enrollment.list(),cloneFindings:enrollment.cloneFindings()};
+      else if(req.method==='GET' && path==='/api/v0/device/installations'){
+        // REVIEW D-2 (Mech): the roster is OWNER-readable. Before this guard, any enrolled installation holding
+        // only its own `sess:` credential could read every installation and device record in the City - while the
+        // sibling routes explicitly refuse a session with SESSION_CANNOT_ENROLL / SESSION_CANNOT_REBIND. A session
+        // is scoped to ONE installation, so it may see itself (which the Settings surface needs, and which the
+        // snapshot already reports as `enrolledDevice`) and nothing else.
+        const mine=req.citySession?req.citySession.session.installationId:null;
+        out={apiVersion:0,schemaVersion:0,cityId:store.cityId,
+          installations:mine?enrollment.list().filter(entry=>entry.installationId===mine):enrollment.list(),
+          cloneFindings:enrollment.cloneFindings(),
+          scope:mine?'OWN_INSTALLATION':'CITY'};
+      }
       // A reinstall is BOUND again only by an explicit rebind carrying proof (RF-001's rule). Until then the
       // installation holds an identity with no logical device and can do nothing, which is the state a fresh
       // install is supposed to be in.
@@ -360,7 +371,20 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       }
       else if(req.method==='POST' && /^\/api\/v0\/device\/installations\/[^/]+\/revoke$/.test(path)){
         const b=await body(req);const installationId=decodeURIComponent(path.split('/').at(-2));
-        out={apiVersion:0,schemaVersion:0,revoked:enrollment.revoke({installationId,reason:b.reason??'revoked_by_owner'})};
+        // REVIEW D-1 (Mech's required repair). THE DEFECT: this route was reachable with a `sess:` credential, so
+        // any enrolled installation could revoke ANY OTHER installation - including the one the owner was using -
+        // using nothing but the short-lived session credential the browser holds. That is privilege escalation
+        // across installations, and it is inconsistent with the two sibling routes, which already refuse a session
+        // with SESSION_CANNOT_ENROLL / SESSION_CANNOT_REBIND. The author's own comment on the enrollment route
+        // states the intended boundary ("Nothing here is reachable by a session credential, so a joined device
+        // cannot enroll a second device for itself"); revoke is where that intent was not enforced.
+        // MINIMUM REPAIR, no broader than the defect: a session may revoke ITSELF (a device leaving the City is
+        // legitimate and cannot affect anyone else), and only the City's control token may revoke another
+        // installation. The owner's Settings surface therefore still works exactly as before, because it holds the
+        // control token.
+        const mine=req.citySession?req.citySession.session.installationId:null;
+        if(mine&&mine!==installationId)refuse('SESSION_CANNOT_REVOKE_OTHER',403,'an enrolled session may only revoke its own installation');
+        out={apiVersion:0,schemaVersion:0,revoked:enrollment.revoke({installationId,reason:b.reason??'revoked_by_owner'}),scope:mine?'OWN_INSTALLATION':'CITY'};
       }
       else if(req.method==='GET' && path==='/api/v0/capabilities')out={capabilities:bridge.registry()};
       else if(req.method==='GET' && path==='/api/v0/capability-invocations')out={invocations:bridge.list(new URL(req.url,'http://city').searchParams.get('limit')??undefined)};

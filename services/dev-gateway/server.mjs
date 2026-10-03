@@ -349,7 +349,23 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
           : enrollment.checkSession(req.citySession?req.citySession.session.sessionId:String(b.sessionId??'').replace(SESSION_PREFIX,''));
         out={apiVersion:0,schemaVersion:0,credential:sessionCredential(opened.session.sessionId),session:{sessionId:opened.session.sessionId,expiresAt:opened.session.expiresAt,issuedAt:opened.session.issuedAt},installation:enrollment.describe(opened.installation.installationId),cityId:store.cityId};
       }
-      else if(req.method==='GET' && path==='/api/v0/device/installations')out={apiVersion:0,schemaVersion:0,cityId:store.cityId,installations:enrollment.list(),cloneFindings:enrollment.cloneFindings()};
+      // Mech's formal review D-2 (accepted). The roster is the OWNER's view of the City. Before this, a `sess:`
+      // credential was answered with every installation and device record in the City - while the very same
+      // session was refused the authority to enroll or rebind. Those two facts cannot both be right: a session
+      // belongs to ONE installation (workbook section 3), so it sees itself and nothing else, and the Settings
+      // surface still works for the owner because the owner holds the control token.
+      //
+      // THIS IS D-2 TAKEN ONE STEP FURTHER THAN THE REVIEW'S MINIMUM: `cloneFindings` is a CITY-WIDE population
+      // scan, and it names other installations' ids and credential fingerprints. Scoping only the `installations`
+      // array would still have handed a session a map of every installation whose credential is duplicated, so a
+      // session gets an empty scan and the scope is stated in the payload rather than left to be inferred.
+      else if(req.method==='GET' && path==='/api/v0/device/installations'){
+        const mine=req.citySession?req.citySession.session.installationId:null;
+        out={apiVersion:0,schemaVersion:0,cityId:store.cityId,
+          installations:mine?enrollment.list().filter(entry=>entry.installationId===mine):enrollment.list(),
+          cloneFindings:mine?[]:enrollment.cloneFindings(),
+          scope:mine?'OWN_INSTALLATION':'CITY'};
+      }
       // A reinstall is BOUND again only by an explicit rebind carrying proof (RF-001's rule). Until then the
       // installation holds an identity with no logical device and can do nothing, which is the state a fresh
       // install is supposed to be in.
@@ -358,9 +374,22 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         if(req.citySession)refuse('SESSION_CANNOT_REBIND',403,'an enrolled session cannot rebind installations');
         out={apiVersion:0,schemaVersion:0,installation:enrollment.rebind({installationId,deviceId:b.deviceId,proof:b.proof})};
       }
+      // Mech's formal review D-1 (accepted, required repair). THE DEFECT I SHIPPED: this route required only
+      // `auth()`, and `auth()` accepts a `sess:` credential - so any enrolled installation could revoke ANY OTHER
+      // installation, including the client the owner was using, with nothing but the short-lived session
+      // credential a browser keeps in sessionStorage. That is privilege escalation across installations. It also
+      // contradicted my own boundary: the sibling routes already refuse a session with SESSION_CANNOT_ENROLL /
+      // SESSION_CANNOT_REBIND, and the comment I wrote on the enrollment route states the intent in as many words.
+      // Enforcing it on two of three routes is not a boundary, it is a gap.
+      //
+      // THE RULE, stated once so the next route cannot miss it: a session credential may act on ITS OWN
+      // installation and on nothing else. Leaving the City is legitimate and affects nobody, so a self-revoke is
+      // allowed; revoking another installation is the owner's act and needs the control token.
       else if(req.method==='POST' && /^\/api\/v0\/device\/installations\/[^/]+\/revoke$/.test(path)){
         const b=await body(req);const installationId=decodeURIComponent(path.split('/').at(-2));
-        out={apiVersion:0,schemaVersion:0,revoked:enrollment.revoke({installationId,reason:b.reason??'revoked_by_owner'})};
+        const mine=req.citySession?req.citySession.session.installationId:null;
+        if(mine&&mine!==installationId)refuse('SESSION_CANNOT_REVOKE_OTHER',403,'an enrolled session may only revoke its own installation');
+        out={apiVersion:0,schemaVersion:0,revoked:enrollment.revoke({installationId,reason:b.reason??'revoked_by_owner'}),scope:mine?'OWN_INSTALLATION':'CITY'};
       }
       else if(req.method==='GET' && path==='/api/v0/capabilities')out={capabilities:bridge.registry()};
       else if(req.method==='GET' && path==='/api/v0/capability-invocations')out={invocations:bridge.list(new URL(req.url,'http://city').searchParams.get('limit')??undefined)};

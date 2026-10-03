@@ -127,7 +127,10 @@ class CityClient(context: Context, private val host: String, private val token: 
    // R1 FIX - the surface declares its OWN gaps.
    //
    // Events emitted between the network dying and `onLost` firing are gone before any staleness signal exists,
-   // so a receipt cannot bound a gap it never saw begin (measured: 8 such seqs straddling the stale record).
+   // so a receipt cannot bound a gap it never saw begin. Two numbers from that run, kept apart because Mech's
+   // review caught them conflated in an earlier version of this comment: the surface's own declaration for the
+   // hole was 436..470, i.e. 35 events, and 8 of the affected seqs fell OUTSIDE the declared offline interval
+   // (the pre-`stale` part) and had therefore appeared as silent MISSING before this fix.
    // But the surface CAN see the discontinuity itself: if seq jumps, it knows exactly what it missed. Writing
    // that down turns a silent hole into a declared one, which is the difference the workbook actually asks
    // for - the prohibition is on presenting missing events as live consistency, not on losing them.

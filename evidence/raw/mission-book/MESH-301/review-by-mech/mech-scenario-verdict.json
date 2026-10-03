@@ -1,0 +1,139 @@
+{
+  "instrument": "mech-mesh301-three-surface-scenario/1",
+  "cityId": "22e1216b-f124-4d4a-be4a-4a280558c027",
+  "openedAtSeq": 1405,
+  "closedAtSeq": 1426,
+  "surfaces": [
+    "Mech-Scenario-Web-xhtb8",
+    "Mech-Scenario-Probe1-xhtb8",
+    "Mech-Scenario-Probe2-xhtb8"
+  ],
+  "files": [
+    "D:\\A-utopia\\.runtime\\worktrees\\mesh301-formal-review/evidence/raw/mission-book/MESH-301/review-by-mech/mech-scenario-Mech-Scenario-Web-xhtb8.jsonl",
+    "D:\\A-utopia\\.runtime\\worktrees\\mesh301-formal-review/evidence/raw/mission-book/MESH-301/review-by-mech/mech-scenario-Mech-Scenario-Probe1-xhtb8.jsonl",
+    "D:\\A-utopia\\.runtime\\worktrees\\mesh301-formal-review/evidence/raw/mission-book/MESH-301/review-by-mech/mech-scenario-Mech-Scenario-Probe2-xhtb8.jsonl"
+  ],
+  "generated": [
+    {
+      "label": "untargeted task",
+      "at": "2026-10-03T05:05:27.301Z",
+      "result": "Q-a5542cfc-f56a-4f73-8209-2ed2f8e4d7ff"
+    },
+    {
+      "label": "strict task -> Alien-Win",
+      "at": "2026-10-03T05:05:28.819Z",
+      "result": {
+        "taskId": "Q-d6519a47-8b53-4338-8272-9c9aec6acd07",
+        "status": "QUEUED"
+      }
+    },
+    {
+      "label": "strict task -> Mech-Win",
+      "at": "2026-10-03T05:05:30.348Z",
+      "result": {
+        "taskId": "Q-39e5e46f-27ad-456f-a96d-61bce25e85ca",
+        "status": "QUEUED"
+      }
+    }
+  ],
+  "listedAtStart": [
+    {
+      "ref": "android-PERM00",
+      "label": "PERM00"
+    },
+    {
+      "ref": "web-un84kxuq",
+      "label": "Mech-Scenario-Web-xhtb8"
+    },
+    {
+      "ref": "probe-xhtb8-1",
+      "label": "Mech-Scenario-Probe1-xhtb8"
+    },
+    {
+      "ref": "probe-xhtb8-2",
+      "label": "Mech-Scenario-Probe2-xhtb8"
+    }
+  ],
+  "mineListedOfThree": 3,
+  "analysis": [
+    {
+      "surface": "Mech-Scenario-Web-xhtb8",
+      "kind": "browser",
+      "eventsObserved": 24,
+      "distinctSeqs": 24,
+      "seqRange": [
+        1403,
+        1426
+      ],
+      "clockOffsetMs": -1046,
+      "latencyMs": {
+        "min": 0,
+        "median": 1,
+        "p95": 11,
+        "max": 65
+      },
+      "breaches": 0,
+      "overWindow": false
+    },
+    {
+      "surface": "Mech-Scenario-Probe1-xhtb8",
+      "kind": "probe",
+      "eventsObserved": 23,
+      "distinctSeqs": 23,
+      "seqRange": [
+        1404,
+        1426
+      ],
+      "clockOffsetMs": -1046,
+      "latencyMs": {
+        "min": 0,
+        "median": 0,
+        "p95": 3,
+        "max": 6
+      },
+      "breaches": 0,
+      "overWindow": false
+    },
+    {
+      "surface": "Mech-Scenario-Probe2-xhtb8",
+      "kind": "probe",
+      "eventsObserved": 22,
+      "distinctSeqs": 22,
+      "seqRange": [
+        1405,
+        1426
+      ],
+      "clockOffsetMs": -1046,
+      "latencyMs": {
+        "min": 0,
+        "median": 0,
+        "p95": 3,
+        "max": 3
+      },
+      "breaches": 0,
+      "overWindow": false
+    }
+  ],
+  "commonRange": [
+    1405,
+    1426
+  ],
+  "commonSeqs": 22,
+  "perSurfaceMisses": [
+    {
+      "surface": "Mech-Scenario-Web-xhtb8",
+      "missingInCommonRange": []
+    },
+    {
+      "surface": "Mech-Scenario-Probe1-xhtb8",
+      "missingInCommonRange": []
+    },
+    {
+      "surface": "Mech-Scenario-Probe2-xhtb8",
+      "missingInCommonRange": []
+    }
+  ],
+  "verdict": "CONVERGED",
+  "computedBy": "the reviewer's own arithmetic in this file, NOT the shared merge",
+  "finishedAt": "2026-10-03T05:06:45.535Z"
+}

@@ -206,6 +206,13 @@ async function merge() {
   const files = flagAll('file').length ? flagAll('file') : argv.slice(2).filter(a => !a.startsWith('--') && a !== 'merge' && !/^\d+$/.test(a) && a !== (flag('out') ?? ''));
   const windowMs = Number(flag('window', 5000));
   const out = flag('out', 'mesh301-convergence.json');
+  // Per-surface clock offsets, declared rather than assumed: `--skew PERM00=592` means that surface's clock
+  // reads 592 ms AHEAD of the server's. This exists because the first two-surface run measured Android at
+  // ~606 ms for every single event while the other surface measured 0-1 ms - a constant offset is a clock,
+  // not a latency, and reporting it as convergence latency would have been a 600 ms lie in the shape of a
+  // measurement. Both the raw and the corrected figure are kept, because the correction itself carries the
+  // uncertainty of however the offset was measured.
+  const skews = Object.fromEntries(flagAll('skew').map(s => { const i = s.lastIndexOf('='); return i === -1 ? [s, 0] : [s.slice(0, i), Number(s.slice(i + 1))]; }));
   if (files.length === 0) throw new Error('merge requires at least one receipt file');
   const receipts = files.map(readReceipt);
   if (receipts.length === 0) throw new Error('no receipts');
@@ -264,10 +271,12 @@ async function merge() {
         perSurface[r.surface] = { state: 'MISSING', latencyMs: null };
         failures.push({ seq, surface: r.surface, complaint: `online surface never observed seq ${seq}` });
       } else {
-        const latency = seen - serverAt;
+        const raw = seen - serverAt;
+        const skew = skews[r.surface] ?? 0;
+        const latency = raw - skew;
         const ok = latency <= windowMs;
-        perSurface[r.surface] = { state: ok ? 'CONVERGED' : 'LATE', latencyMs: latency };
-        if (!ok) failures.push({ seq, surface: r.surface, complaint: `observed seq ${seq} after ${latency}ms, window is ${windowMs}ms` });
+        perSurface[r.surface] = { state: ok ? 'CONVERGED' : 'LATE', latencyMs: latency, rawLatencyMs: raw, declaredClockSkewMs: skew };
+        if (!ok) failures.push({ seq, surface: r.surface, complaint: `observed seq ${seq} after ${latency}ms${skew ? ` (raw ${raw}ms, declared clock skew ${skew}ms)` : ''}, window is ${windowMs}ms` });
       }
     }
     rows.push({ seq, serverAt: new Date(serverAt).toISOString(), type: flag('type') ?? null, surfaces: perSurface });
@@ -297,6 +306,7 @@ async function merge() {
     instrument: 'mesh301-mesh-probe/merge',
     generatedAt: now(),
     window_ms: windowMs,
+    declared_clock_skews_ms: skews,
     timeline_source: timelineSource,
     surfaces: receipts.map(r => ({ surface: r.surface, file: r.file, eventsObserved: r.observed.size, wentOffline: r.downIntervals.length > 0 || r.openDown !== null })),
     timeline: rows,

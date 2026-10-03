@@ -46,6 +46,10 @@ class CityClient(context: Context, private val host: String, private val token: 
   */
  @Volatile private var feed: JSONObject? = null
  private var snapshotLogged = false
+ @Volatile private var pendingResync = false
+ @Volatile private var wasDown = false
+ @Volatile private var lastServerMaxSeq = 0
+ private fun maxEventSeq(snapshot: JSONObject): Int { val arr = snapshot.optJSONArray("events") ?: return 0; var max = 0; for (i in 0 until arr.length()) max = maxOf(max, arr.optJSONObject(i)?.optInt("seq", 0) ?: 0); return max }
  private var lastPublishedConnection = ""
  private fun publish(connection: String, message: String = "") { val value = CityState(connection, snapshot, message, feed); handler.post { if (!closed) { if (connection != lastPublishedConnection) { android.util.Log.i("UtopiaConnection", connection); log.event("connection_" + connection); if(connection == "ONLINE") log.event("websocketOnline"); lastPublishedConnection = connection }; changed(value) } } }
  private fun request(path: String, body: JSONObject? = null): JSONObject {
@@ -71,6 +75,11 @@ class CityClient(context: Context, private val host: String, private val token: 
    val fresh = request("city")
    check(expectedCity == null || fresh.optString("cityId") == expectedCity) { "City identity conflict; clear pairing and verify host" }
    snapshot = fresh
+   lastServerMaxSeq = maxEventSeq(fresh)
+   // MESH-301: ONE resync per socket open, carrying the SERVER's own highest seq. "This surface re-converged
+   // after being away" is thereby evidenced by a server read rather than by a cache the surface happened to
+   // be holding - which is the difference between measuring convergence and asserting it.
+   if (pendingResync) { pendingResync = false; log.surface("resync", lastServerMaxSeq) }
    // UXI-301: the scheduler feed is fetched NON-FATALLY. A gateway without the route leaves this null
    // and the surface reports "not being reported" rather than inventing a status. The failure mode this
    // must never have is presenting a healthy surface because the fetch silently failed.
@@ -83,17 +92,17 @@ class CityClient(context: Context, private val host: String, private val token: 
  private fun openStream() {
   val url = host.trimEnd('/').replaceFirst("http", "ws") + "/api/v0/events/stream?apiVersion=0&schemaVersion=0&clientRef=" + java.net.URLEncoder.encode(clientRef, "UTF-8") + "&clientLabel=" + java.net.URLEncoder.encode(clientLabel, "UTF-8")
   socket = http.newWebSocket(Request.Builder().url(url).header("Authorization", "Bearer $token").build(), object : WebSocketListener() {
-   override fun onOpen(webSocket: WebSocket, response: Response) { if (closed) { webSocket.cancel(); return }; socketOnline = true; submit { refresh() } }
-   override fun onMessage(webSocket: WebSocket, text: String) { if (webSocket === socket) submit { refresh() } }
-   override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) { if (webSocket === socket) { socketOnline = false; socket = null; publish("OFFLINE", "Connection interrupted. Retrying…") } }
-   override fun onClosed(webSocket: WebSocket, code: Int, reason: String) { if (webSocket === socket) { socketOnline = false; socket = null; publish("OFFLINE", "Connection closed. Retrying…") } }
+   override fun onOpen(webSocket: WebSocket, response: Response) { if (closed) { webSocket.cancel(); return }; socketOnline = true; if (wasDown) { wasDown = false; log.surface("reconnected") }; pendingResync = true; submit { refresh() } }
+   override fun onMessage(webSocket: WebSocket, text: String) { if (webSocket === socket) { runCatching { val e = JSONObject(text).optJSONObject("event"); if (e != null) log.surface("event", e.optInt("seq", -1), e.optString("type"), e.optString("timestamp")) }; submit { refresh() } } }
+   override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) { if (webSocket === socket) { socketOnline = false; socket = null; wasDown = true; log.surface("stale"); publish("OFFLINE", "Connection interrupted. Retrying…") } }
+   override fun onClosed(webSocket: WebSocket, code: Int, reason: String) { if (webSocket === socket) { socketOnline = false; socket = null; wasDown = true; log.surface("stale"); publish("OFFLINE", "Connection closed. Retrying…") } }
   })
  }
  private val callback = object : ConnectivityManager.NetworkCallback() {
   override fun onLost(network: Network) { socketOnline = false; socket?.cancel(); socket = null; publish("OFFLINE", "Network lost. Showing cached data.") }
   override fun onAvailable(network: Network) { submit { refresh() } }
  }
- fun start() { connectivity.registerDefaultNetworkCallback(callback); executor.scheduleWithFixedDelay({ refresh() }, 0, 2, TimeUnit.SECONDS) }
+ fun start() { log.surfaceReset(); connectivity.registerDefaultNetworkCallback(callback); executor.scheduleWithFixedDelay({ refresh() }, 0, 2, TimeUnit.SECONDS) }
  fun createTask(done: (String) -> Unit) { submit { try { val task = request("tasks", JSONObject().put("type", "CHECKPOINT_DEMO")); handler.post { if (!closed) done(task.getString("id")) }; refresh() } catch (e: Exception) { publish(if (socketOnline) "ONLINE" else "OFFLINE", e.message ?: "Task creation failed") } } }
  /**
   * MESH-301 step 4 — a strict target-device safe task, issued from this control surface.
@@ -157,5 +166,5 @@ class CityClient(context: Context, private val host: String, private val token: 
   if (providerRef.isBlank()) { publish(if (socketOnline) "ONLINE" else "OFFLINE", "No service named for the choice"); return }
   submit { try { request("tasks/$id/provider-choice", JSONObject().put("providerRef", providerRef)); refresh() } catch (e: Exception) { publish(if (socketOnline) "ONLINE" else "OFFLINE", e.message ?: "Choice failed") } }
  }
- fun close() { closed = true; runCatching { connectivity.unregisterNetworkCallback(callback) }; socket?.cancel(); executor.shutdownNow(); http.dispatcher.cancelAll(); http.connectionPool.evictAll() }
+ fun close() { log.surface("stop", lastServerMaxSeq); closed = true; runCatching { connectivity.unregisterNetworkCallback(callback) }; socket?.cancel(); executor.shutdownNow(); http.dispatcher.cancelAll(); http.connectionPool.evictAll() }
 }

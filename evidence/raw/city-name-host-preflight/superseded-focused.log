@@ -1,0 +1,36 @@
+✔ custom City name is canonical across snapshot, pairing, discovery descriptor and restart (139.7141ms)
+✖ Settings changes the visible City name and keeps editing stable across snapshots (31283.8262ms)
+✔ startup preflight recognizes old absolute Windows paths and refuses duplicate Cities (7.2705ms)
+✔ JOIN-502 surface: a nearby City is offered without being trusted, and joining waits for an approval (5402.5727ms)
+✔ JOIN-502 surface: a refused browse still offers the fallbacks, and a rejected ask leaves the device untrusted (5464.6658ms)
+✔ short code preserves identity pinning, reports lockout, and never sends a code to the wrong City (227.1793ms)
+✔ code handoff carries only a selected City, six digits and the existing transport in a fragment (0.5941ms)
+✔ locale contract: supported tokens, fallback and first-run detection (1.5556ms)
+✔ both language packs cover every message key with matching placeholders (1.8871ms)
+✔ every fixed Web UI string is present in the language packs (0.4903ms)
+✔ protocol tokens and City Control state names are never translated (6.0097ms)
+✔ web assets only use message keys that exist in the packs (1.8937ms)
+✔ badge state and display label stay separate in every locale (1.3727ms)
+✔ applyTranslations and setLocale update the document without touching storage contracts (0.3649ms)
+✔ translation fills placeholders and time formatting follows the locale (19.0783ms)
+✔ Web Settings language switch, persistence and protocol stability (real browser) (2319.6152ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 15
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 32846.8589
+
+✖ failing tests:
+
+test at tests\city-name.test.mjs:25:1
+✖ Settings changes the visible City name and keeps editing stable across snapshots (31283.8262ms)
+  locator.fill: Timeout 30000ms exceeded.
+  Call log:
+  [2m  - waiting for locator('#city-name')[22m
+  
+      at TestContext.<anonymous> (D:\Utopia-City-Naming-Host\tests\city-name.test.mjs:32:52) {
+    name: 'TimeoutError'
+  }

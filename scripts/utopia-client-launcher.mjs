@@ -56,9 +56,10 @@ async function main() {
   try {record=await readHostCity();} catch(error) {
     if(!['ECONNREFUSED'].includes(error.cause?.code)) throw error;
   }
+  say('Checking this host for an already running City, including older installations…');
+  const existing=await findRunningCities();
+  if(record&&existing.some(city=>city.gatewayPid!==record.gatewayPid))throw new Error('Another Gateway is already running alongside the reserved City. No new City started: '+existing.map(city=>city.endpoint).join('; '));
   if(!record) {
-    say('Checking this host for an already running City, including older installations…');
-    const existing=await findRunningCities();
     if(existing.length>1)throw new Error('Multiple Cities are already running on this host; no new City started: '+existing.map(city=>city.displayName+' '+city.endpoint+' ['+city.cityId+']').join('; '));
     if(existing.length===1)record=existing[0];
   }

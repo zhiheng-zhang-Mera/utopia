@@ -37,9 +37,20 @@
     "services/dev-gateway/pairing.mjs": "1d502fbc77e21e77c19d1ea28cee15da291d58d31ab6c67136ac9827f7120e15",
     "services/dev-gateway/main.mjs": "674c0c466b90ad1b0442c8ce9bdfd8dc4b6869c215e34f4aebe7211fc9b0ad1b",
     "services/dev-gateway/host-preflight.mjs": "43b7ce2b9e9b24a1c8d34eea8d0ace9ea8b6097a9b65edc2c42164df4cdf66a9",
-    "scripts/utopia-client-launcher.mjs": "4aa659effd13da18d08b9ddc0b6faf971c6eed9a36279eafd3f5d26066c9a5aa",
+    "scripts/utopia-client-launcher.mjs": "e2696c6856de47cc9cfe5b4d783ab2d083d983fbc999e42a23b751db8f10a8ec",
     "tests/city-name.test.mjs": "c04714eb9bf39ca081c11870f80844f5a5c0537f8bfb9dcd2f7805124d340493",
     "tests/host-preflight.test.mjs": "9fc43b7816c08b845ac6d0b5a5da1fd772163dc2c09b2e51f3046a504897dc93",
     "tests/join502-ui.test.mjs": "77750ab8a91888c22d5e2c83dfaa5e50d2560bec7b6baaf27605ed52ab4a0df0"
-  }
+  },
+  "webTaskRetry": {
+    "status": "PASS",
+    "tests": 1,
+    "pass": 1,
+    "fail": 0,
+    "command": "node --test --test-timeout=180000 tests/web.test.mjs",
+    "durationMs": 109180.871
+  },
+  "finalLauncherCheck": "PASS - checks legacy listeners even when a reserved City is already online; requested different port reuses the live City",
+  "liveInstallation": "live-installation.json",
+  "ci": "NOT_RUN_AT_LOCAL_FREEZE"
 }

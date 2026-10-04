@@ -157,10 +157,9 @@ import org.json.JSONObject
 
 @Composable private fun TargetChoice(candidate: TargetOption, disabled: Boolean, choose: () -> Unit) {
  UtPanel {
-  Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-   Text(candidate.label, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-   StatusChip(candidate.stateLabel)
-  }
+   Text(candidate.label, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.fillMaxWidth())
+   StatusChip(if(!candidate.available) "UNAVAILABLE" else if(candidate.sideEffect) "SIDE EFFECT" else "SAFE")
+   if(!candidate.available && !candidate.unavailableReason.isNullOrBlank()) Text(candidate.unavailableReason, style = MaterialTheme.typography.bodySmall, modifier = Modifier.fillMaxWidth())
   if (candidate.description.isNotBlank()) Text(candidate.description, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
   if (candidate.sideEffect) UtFeedback("这个目标会产生真实的外部副作用。", kind = "warn")
   if (candidate.mutating) UtFeedback("会写入本地产品数据。", kind = "warn")

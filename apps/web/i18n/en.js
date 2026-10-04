@@ -426,4 +426,15 @@ export const messages = {
 };
 
 Object.assign(messages,{"members.thisDevice":"This device","members.role.PRIMARY":"City host","members.role.MEMBER":"Member host","members.role.CONTROL_ONLY":"Web control only","members.role.COMPUTE_NODE":"Computing device","members.sharing":"Sharing computing resources","members.notSharing":"Resource sharing paused","members.noAgent":"No computing agent connected","members.messages":"Device messages","members.message":"Message","members.send":"Send","members.received":"Received","members.pending":"Waiting for receipt","members.stopSharing":"Stop sharing this device","members.startSharing":"Share this device"});
-export default { meta, messages };
+Object.assign(messages, {
+"recovery.conflict":"Device identity conflict",
+"recovery.conflictHint":"Credentials appear to be shared between installations. Verify the named installations before removing any device. Nothing is removed automatically.",
+"recovery.ownerGuidance":"Recovery requires the City owner. Open this City in the owner’s Web Settings to approve a reinstall; this member session can only inspect or remove itself.",
+"recovery.required":"This installation needs recovery before it can reconnect.",
+"recovery.choose":"Original device",
+"recovery.choosePlaceholder":"Choose the original device",
+"recovery.confirm":"I am the City owner and confirm this installation belongs to the selected device.",
+"recovery.rebind":"Restore device binding",
+"recovery.done":"Device binding restored. Reconnect the reinstalled application.",
+});
+export default {meta,messages};

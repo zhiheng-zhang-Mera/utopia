@@ -1,3 +1,4 @@
+import {renderDeviceRecovery} from './device-recovery.js';
 import {renderServices} from './services.js';
 import {schedulerPanel} from './scheduler.js';
 // UXI-301: the scheduler presentation feed, refreshed alongside the snapshot. When it is missing the
@@ -13,14 +14,16 @@ import { createPairingLifecycle, REASON_EXPIRED, REASON_USED, REASON_REVOKED } f
 // belongs to one enrolled installation and expires, so the browser no longer has to hold anything permanent - the
 // durable installation credential stays with the machine (the launcher). The module also carries the Settings
 // device-identity reads and the revoke action, so the page never builds those requests itself.
-import { readSessionFromHash, rememberSession, forgetSession, storedSession, refreshSession, fetchEnrolled, revokeEnrolled, shortIdentity } from './enrollment.js';
+import { readSessionFromHash, rememberSession, forgetSession, storedSession, refreshSession, fetchEnrolled, revokeEnrolled, rebindEnrolled, shortIdentity } from './enrollment.js';
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 // JOIN-503: a session credential is preferred over a token when the fragment carries one, so a launcher-opened
 // client is an ENROLLED client by default and the token path stays the engineering fallback it is meant to be.
 const bootSession=readSessionFromHash(location.hash);
 const bootDevice=new URLSearchParams(location.hash.slice(1)).get('device');if(bootDevice)try{localStorage.setItem('utopia.hostRef',bootDevice);}catch{}
+let enrolledLoading=false,enrolledEpoch=0;
+let enrolledCloneFindings=[],enrolledScope=null,recoveryDrafts=new Map(),recoveryBusy=new Set();
 let selectedMember=null,memberMessages=[],memberDrafts=new Map(),hostJoinPolling=null;
-let token=bootSession||storedSession()||sessionStorage.getItem('city-token')||'',city=null,page=location.pathname==='/pairing'?'Pairing':'Home',selected=null,ws,generation=0,timer,refreshing=false,pending=false,connection='OFFLINE',selectedNode=null,pairingBusy=false,pairingEpoch=0,terminal=null,externalPage=TERMINAL_PAGES.includes(page),homeRoomsData=null,homeRoomsError='',enrolledDevices=null,enrolledError='',enrolledNotice='';
+let token=bootSession||storedSession()||sessionStorage.getItem('city-token')||'',city=null,page=new URLSearchParams(location.hash.slice(1)).get('page')==='Settings'?'Settings':location.pathname==='/pairing'?'Pairing':'Home',selected=null,ws,generation=0,timer,refreshing=false,pending=false,connection='OFFLINE',selectedNode=null,pairingBusy=false,pairingEpoch=0,terminal=null,externalPage=TERMINAL_PAGES.includes(page),homeRoomsData=null,homeRoomsError='',enrolledDevices=null,enrolledError='',enrolledNotice='';
 // JOIN-502 ONBOARDING STATE. `nearby` is what the last browse found; `joinAsk` is the ask this surface
 // has outstanding, if any. They are separate because discovery is repeatable and an ask is a single
 // bounded episode: a fresh browse must never silently replace or re-create an ask that a human on the
@@ -609,7 +612,7 @@ function syncPairEntry(){
 function status(s){connection=s;$('#connection').textContent=t('connection.'+s.toLowerCase());$('#connection').className=s==='ONLINE'?'online':'';$('#run').disabled=s!=='ONLINE';render();}
 async function refresh(){if(refreshing){pending=true;return;}if(externalPage&&city)return;refreshing=true;try{const gen=generation;const snapshot=await api('city');if(gen!==generation)return;city=snapshot;try{memberMessages=(await api('members/messages')).messages||[];for(const message of memberMessages)if(message.targetDeviceId===city.currentMemberRef&&message.state==='PENDING'){await api('members/messages/'+message.id+'/receipt',{});message.state='RECEIVED';}}catch{memberMessages=[];}syncRunTargets();try{schedulerFeed=await api('presentation');}catch{schedulerFeed=null;}if(pairing.ownerSessionId()!==null&&city.descriptor?.pairingSessionId!==pairing.ownerSessionId()){const active=pairing.ownerSessionId();canonicalPairingSession().then(c=>{if(!c.known)return;if(c.sessionId===active)return;pairing.clearOnSessionChanged(c.sessionId);render();});}$('#pair').hidden=true;$('#content').hidden=false;$('#error').textContent='';render();}finally{refreshing=false;if(pending){pending=false;refresh().catch(disconnected);}}}
 function disconnected(e){status('OFFLINE');if(e?.message)$('#error').textContent=e.message;}
-async function connect(){const gen=++generation;clearTimeout(timer);ws?.close();status('RECONNECTING');try{await refresh();if(gen!==generation)return;ws=new WebSocket(location.origin.replace(/^http/,'ws')+'/api/v0/events/stream?apiVersion=0&schemaVersion=0&clientRef='+encodeURIComponent(webClientRef())+'&clientLabel='+encodeURIComponent(webClientLabel()),['city-v0','city-token.'+btoa(token).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_')]);ws.onopen=()=>{if(gen===generation)status('ONLINE');};ws.onmessage=()=>refresh().catch(disconnected);ws.onerror=()=>disconnected();ws.onclose=()=>{if(gen===generation){disconnected();timer=setTimeout(connect,1800);}};}catch(e){if(gen===generation){disconnected(e);timer=setTimeout(connect,2500);}}}
+async function connect(){enrolledDevices=null;enrolledError='';enrolledScope=null;enrolledCloneFindings=[];enrolledLoading=false;++enrolledEpoch;const gen=++generation;clearTimeout(timer);ws?.close();status('RECONNECTING');try{await refresh();if(gen!==generation)return;ws=new WebSocket(location.origin.replace(/^http/,'ws')+'/api/v0/events/stream?apiVersion=0&schemaVersion=0&clientRef='+encodeURIComponent(webClientRef())+'&clientLabel='+encodeURIComponent(webClientLabel()),['city-v0','city-token.'+btoa(token).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_')]);ws.onopen=()=>{if(gen===generation)status('ONLINE');};ws.onmessage=()=>refresh().catch(disconnected);ws.onerror=()=>disconnected();ws.onclose=()=>{if(gen===generation){disconnected();timer=setTimeout(connect,1800);}};}catch(e){if(gen===generation){disconnected(e);timer=setTimeout(connect,2500);}}}
 const badge=(stateClass, displayLabel=stateClass)=>`<span class="badge ${esc(stateClass)}">${esc(displayLabel)}</span>`;
 const taskRows=(tasks,emptyMessage=t('empty.noTasks'))=>tasks.length?tasks.slice().reverse().map(t=>`<div class="row"><button class="task-open" data-task="${esc(t.id)}">${esc(t.type)}<div class="task-id">${esc(t.id)}</div></button>${badge(t.state)}</div>`).join(''):`<p class="muted">${esc(emptyMessage)}</p>`;
 const age=value=>{const ms=Date.now()-Date.parse(value);return Number.isFinite(ms)?t('device.ago',{seconds:Math.max(0,Math.floor(ms/1000))}):t('device.unknown');};
@@ -674,7 +677,7 @@ function enrolledRows(){
   if(enrolledError)return `<p class="muted">${esc(t('device.enrollmentError'))} ${esc(enrolledError)}</p>`;
   if(!enrolledDevices)return `<p class="muted">${esc(t('terminal.loading'))}</p>`;
   if(!enrolledDevices.length)return `<p class="muted">${esc(t('device.enrollmentEmpty'))}</p>`;
-  return enrolledDevices.map(d=>`<div class="row"><div><strong>${esc(d.displayName||t('device.unknown'))}</strong><div class="task-id">${esc(shortIdentity(d.installationId))}</div><small>${esc(t('device.enrolledAt'))} ${esc(formatTime(d.enrolledAt))} · ${esc(d.state)}</small></div><button data-revoke="${esc(d.installationId)}">${esc(t('device.revoke'))}</button></div>`).join('');
+  return renderDeviceRecovery({installations:enrolledDevices,cloneFindings:enrolledCloneFindings,owner:enrolledScope==='CITY'&&!token.startsWith('sess:'),logicalDevices:city?.members||[],drafts:recoveryDrafts,t,formatTime});
 }
 function deviceSection(){
   const mine=city?.enrolledDevice;
@@ -684,8 +687,9 @@ function deviceSection(){
   return `<h2>${esc(t('section.deviceIdentity'))}</h2>${summary}${enrolledNotice?`<p class="muted">${esc(t(enrolledNotice))}</p>`:''}<p class="muted">${esc(t('device.enrolledHint'))}</p><div id="enrolled-list">${enrolledRows()}</div>`;
 }
 function loadEnrolledDevices(){
-  if(enrolledDevices||enrolledError||!token){return;}
-  fetchEnrolled({credential:token}).then(({installations})=>{enrolledDevices=installations;}).catch(e=>{enrolledError=e.message;}).finally(()=>{const host=$('#enrolled-list');if(host)host.innerHTML=enrolledRows();});
+ if(enrolledDevices||enrolledError||enrolledLoading||!token)return;
+ enrolledLoading=true;const epoch=enrolledEpoch,credential=token;
+ fetchEnrolled({credential}).then(({installations,cloneFindings,scope})=>{if(epoch!==enrolledEpoch||credential!==token)return;enrolledDevices=installations;enrolledCloneFindings=cloneFindings;enrolledScope=scope;}).catch(error=>{if(epoch===enrolledEpoch&&credential===token)enrolledError=error.message;}).finally(()=>{if(epoch!==enrolledEpoch||credential!==token)return;enrolledLoading=false;const host=$('#enrolled-list');if(host)host.innerHTML=enrolledRows();});
 }
 /* JOIN-503: revoke is a real server-side fact, not a UI state. After it, this page keeps NO credential for that
    installation (the session it was using is gone too, when it revoked itself), so the next thing the user sees is
@@ -719,6 +723,7 @@ function assistantSlot(){
   return `<section class="operator"><div class="op-frame"><span class="op-side"></span><span class="op-tag">${esc(t('assistant.role'))}</span><div class="op-art">${ASSISTANT_ART}</div><span class="op-slot">SLOT 01</span></div><div class="op-body"><p class="op-role">${esc(t('assistant.role'))} · ASSISTANT</p><p class="op-name">${esc(t('assistant.unassigned'))}</p><p class="op-sub">${esc(t('assistant.note'))}</p><dl class="kv"><dt>${esc(t('assistant.boundDevice'))}</dt><dd>${esc(online[0]?.displayName||t('assistant.pending'))}</dd><dt>${esc(t('assistant.appearance'))}</dt><dd>${esc(t('assistant.placeholderValue'))}</dd><dt>${esc(t('assistant.voice'))}</dt><dd>${esc(t('assistant.disabled'))}</dd><dt>${esc(t('assistant.duty'))}</dt><dd>${esc(t('assistant.pending'))}</dd></dl></div></section>`;
 }
 function render(){
+ const recoveryFocus=document.activeElement?.closest('form[data-rebind]');const recoveryField=recoveryFocus?{id:recoveryFocus.dataset.rebind,name:document.activeElement.name}:null;
  const previousNameForm=$('#city-name-form');
  const nameSelection=document.activeElement?.id==='city-name'?{start:document.activeElement.selectionStart,end:document.activeElement.selectionEnd}:null;
  const focused=document.activeElement;
@@ -755,6 +760,7 @@ function render(){
  if(page==='Tasks')$('#view').innerHTML=`<section class="panel"><h2>${esc(t('section.taskRegistry'))}</h2>${taskRows(tasks)}</section>`;
  if(page==='Activity')$('#view').innerHTML=`<section class="panel"><h2>${esc(t('section.eventTimeline',{count:city.events.length}))}</h2><button data-goto="Actions">${esc(t('nav.actions'))}</button>${events(city.events)}</section>`;
  if(page==='Settings')$('#view').innerHTML=`<section class="panel">${cityNameSection()}${deviceSection()}${languageSection()}<h2>${esc(t('section.connectionDiagnostics'))}</h2><p>${esc(t('settings.cityUrl'))}: ${esc(location.origin)}</p><details><summary>${esc(t('common.runDetails'))}</summary><div class="task-id">apiVersion = 0 · schemaVersion = 0</div></details><p class="muted">${esc(t('settings.tokenNote'))}</p><button id="disconnect">${esc(t('settings.changeToken'))}</button></section>`;
+ if(recoveryField&&page==='Settings')document.querySelector('form[data-rebind="'+recoveryField.id+'"]')?.elements[recoveryField.name]?.focus({preventScroll:true});
  if(previousNameForm&&nameSelection&&page==='Settings'){$('#city-name-form')?.replaceWith(previousNameForm);const input=$('#city-name');input.focus({preventScroll:true});input.setSelectionRange(nameSelection.start,nameSelection.end);}
  if(page==='Pairing'){
   $('#view').innerHTML=pairingView()+ownerJoinSection();
@@ -902,3 +908,6 @@ document.addEventListener('submit',async event=>{
 
 document.addEventListener('input',event=>{if(event.target.id==='member-message-text'){const ref=$('#member-detail')?.dataset.memberDetail;if(ref)memberDrafts.set(ref,event.target.value);}});
 document.addEventListener('submit',async event=>{if(event.target.id!=='member-message-form')return;event.preventDefault();const targetDeviceId=$('#member-detail').dataset.memberDetail;try{await api('members/messages',{targetDeviceId,text:$('#member-message-text').value});memberDrafts.delete(targetDeviceId);await refresh();}catch(error){$('#error').textContent=error.message;}});
+
+document.addEventListener("change",event=>{const form=event.target.closest("form[data-rebind]");if(form)recoveryDrafts.set(form.dataset.rebind,{deviceId:form.elements.deviceId.value,proof:form.elements.proof.checked});});
+document.addEventListener("submit",async event=>{const form=event.target.closest("form[data-rebind]");if(!form)return;event.preventDefault();const id=form.dataset.rebind;if(recoveryBusy.has(id))return;recoveryBusy.add(id);form.querySelector("button").disabled=true;try{await rebindEnrolled({credential:token,installationId:id,deviceId:form.elements.deviceId.value,confirmed:form.elements.proof.checked});recoveryDrafts.delete(id);enrolledDevices=null;enrolledError="";enrolledNotice="recovery.done";render();}catch(error){enrolledNotice="";$("#error").textContent=(error.code||"RECOVERY_REFUSED")+": "+error.message;form.querySelector("button").disabled=false;}finally{recoveryBusy.delete(id);}});

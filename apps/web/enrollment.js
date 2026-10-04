@@ -80,7 +80,7 @@ export async function fetchEnrolled({ credential, fetchImpl = fetch, timeoutMs =
   const response = await fetchImpl('/api/v0/device/installations', { headers: headers(credential), signal: AbortSignal.timeout(timeoutMs) });
   const body = await response.json().catch(() => null);
   if (!response.ok) throw new Error(body?.error ?? `could not read the enrolled devices (${response.status})`);
-  return { installations: body.installations ?? [], cloneFindings: body.cloneFindings ?? [] };
+  return { installations: body.installations ?? [], cloneFindings: body.cloneFindings ?? [], scope: body.scope ?? null };
 }
 
 /** Revoke one installation. Called by the Settings surface; a self-revoke is scoped by the server. */
@@ -102,3 +102,6 @@ export function shortIdentity(value, head = 8, tail = 4) {
   if (text.length <= head + tail + 1) return text;
   return `${text.slice(0, head)}…${text.slice(-tail)}`;
 }
+
+/** Explicit owner confirmation carries the existing canonical proof; no durable secret involved. */
+export async function rebindEnrolled({credential,installationId,deviceId,confirmed=false,fetchImpl=fetch,timeoutMs=8000}={}){if(!confirmed||!deviceId)throw Object.assign(new Error("Choose a device and explicitly confirm recovery"),{code:"RECOVERY_CONFIRMATION_REQUIRED"});const response=await fetchImpl(`/api/v0/device/installations/${encodeURIComponent(installationId)}/rebind`,{method:"POST",headers:headers(credential),body:JSON.stringify({deviceId,proof:{kind:"owner_approved_reinstall"}}),signal:AbortSignal.timeout(timeoutMs)});const body=await response.json().catch(()=>null);if(!response.ok)throw Object.assign(new Error(body?.detail??body?.error??`Recovery refused (${response.status})`),{code:body?.errorCode??body?.error??"RECOVERY_REFUSED"});return body.installation;}

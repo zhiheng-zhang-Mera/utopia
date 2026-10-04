@@ -1,0 +1,25 @@
+{
+  "baselineSha": "40e18db4a6cf5bba1490181a473bc62e681edb8a",
+  "role": "Alien-codex",
+  "status": "COMPONENT_PASS",
+  "command": "node --test tests/cex701-recovery-ui.test.mjs tests/join503-session-scope.test.mjs tests/join503-review-privilege.test.mjs tests/join503-enrollment.test.mjs",
+  "tests": 16,
+  "pass": 16,
+  "fail": 0,
+  "scenarios": [
+    "canonical clone warning without fingerprint display",
+    "explicit owner rebind selection and proof",
+    "draft stable across refresh",
+    "no automatic identity deletion",
+    "session-only self scope and revoke",
+    "owner-to-member cache invalidation",
+    "wrong proof and cross rebind/revoke403"
+  ],
+  "failuresRetained": [
+    "missing recovery UI",
+    "locale syntax integration error",
+    "stale owner roster across credential switch"
+  ],
+  "android": "NOT_RUN",
+  "formalOppositeHostReview": "NOT_RUN"
+}

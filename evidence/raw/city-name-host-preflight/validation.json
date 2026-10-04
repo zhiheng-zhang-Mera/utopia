@@ -12,10 +12,11 @@
     "scope": "Run began before final connection-list dispatch and editing-only form preservation repairs; final focused tests cover these repairs"
   },
   "focused": {
-    "tests": 17,
-    "pass": 17,
+    "tests": 18,
+    "pass": 18,
     "fail": 0,
-    "status": "PASS"
+    "status": "PASS",
+    "log": "ci-repair-focused.log"
   },
   "legacyReuse": {
     "status": "PASS",
@@ -26,7 +27,7 @@
   },
   "physicalTwoDeviceWifi": "NOT_RUN",
   "physicalTwoDeviceBLE": "NOT_RUN",
-  "review": "Three guard findings repaired; follow-up review found no P1/P2 findings; minor inactive-form preservation issue repaired",
+  "review": "Three guard findings repaired; follow-up review found no P1/P2 findings; minor inactive-form preservation issue repaired; timeout repair independent review found no blocking issues",
   "sourceSha256": {
     "apps/web/app.js": "85c9f3dda2f25926c2e4a276756c7fb55875d258c2741266d4d4c74cd7cf7743",
     "apps/web/index.html": "12a94af262e37107cd43c561a0414fbdb48b0fe381c41fbeccbbb3972175eae4",
@@ -36,11 +37,12 @@
     "services/dev-gateway/server.mjs": "4cb4e0c759ad6979f8f23fcb3f8a8484970b34fb9bb5386e39e4b0d7027586eb",
     "services/dev-gateway/pairing.mjs": "1d502fbc77e21e77c19d1ea28cee15da291d58d31ab6c67136ac9827f7120e15",
     "services/dev-gateway/main.mjs": "674c0c466b90ad1b0442c8ce9bdfd8dc4b6869c215e34f4aebe7211fc9b0ad1b",
-    "services/dev-gateway/host-preflight.mjs": "43b7ce2b9e9b24a1c8d34eea8d0ace9ea8b6097a9b65edc2c42164df4cdf66a9",
-    "scripts/utopia-client-launcher.mjs": "e2696c6856de47cc9cfe5b4d783ab2d083d983fbc999e42a23b751db8f10a8ec",
+    "services/dev-gateway/host-preflight.mjs": "7ac011396810045823522454870b1dbe6c8d1027a65f7f21bf4a798f15b53172",
+    "scripts/utopia-client-launcher.mjs": "430ff4724fcc297c54425f3620efe127e9a40bcddf02c00ef2a584764d83a668",
     "tests/city-name.test.mjs": "c04714eb9bf39ca081c11870f80844f5a5c0537f8bfb9dcd2f7805124d340493",
-    "tests/host-preflight.test.mjs": "9fc43b7816c08b845ac6d0b5a5da1fd772163dc2c09b2e51f3046a504897dc93",
-    "tests/join502-ui.test.mjs": "77750ab8a91888c22d5e2c83dfaa5e50d2560bec7b6baaf27605ed52ab4a0df0"
+    "tests/host-preflight.test.mjs": "e338291667e6fa6578a392bf7731c324c0c44664f76ba110f36fe53d09316e34",
+    "tests/join502-ui.test.mjs": "77750ab8a91888c22d5e2c83dfaa5e50d2560bec7b6baaf27605ed52ab4a0df0",
+    "tests/host-city-launcher.test.mjs": "d170ffa4b0db66fc562f5aad25dac2de9857831a710d287f09fa7f3d8efa28ce"
   },
   "webTaskRetry": {
     "status": "PASS",
@@ -52,7 +54,18 @@
   },
   "finalLauncherCheck": "PASS - checks legacy listeners even when a reserved City is already online; requested different port reuses the live City",
   "liveInstallation": "live-installation.json",
-  "ci": "NOT_RUN_AT_LOCAL_FREEZE",
+  "ci": {
+    "firstRun": {
+      "id": 37194568349,
+      "sha": "d7c50b724473f60aae9b86d44621e344ad8bd43f",
+      "status": "FAIL",
+      "android": "PASS",
+      "gateway": "FAIL",
+      "cause": "Windows process inventory exceeded 8-second deadline"
+    },
+    "repair": "Inventory budget 30 seconds; readiness 45 seconds; failures still prevent new City startup",
+    "rerun": "PENDING"
+  },
   "logNormalization": {
     "artifact": "superseded-focused.log",
     "change": "Trailing whitespace removed for Git whitespace checks; original log retained locally",

@@ -10,13 +10,13 @@ import {writeDeviceFile} from '../apps/client/device-enrollment.mjs';
 const run = promisify(execFile);
 const root = resolve(import.meta.dirname,'..');
 
-test('two installation launchers share one City across ports and recover the same identity after a crash', {timeout:60000}, async () => {
+test('two installation launchers share one City across ports and recover the same identity after a crash', {timeout:180000}, async () => {
   try {await readHostCity(); throw new Error('Host integration requires a free coordination port; refusing to disturb an active City');}
   catch(error) {if(error.cause?.code!=='ECONNREFUSED') throw error;}
   const dir=await mkdtemp(resolve('.scratch-host-launch-'));
   const env={...process.env,UTOPIA_HOST_STATE_DIR:resolve(dir,'host'),UTOPIA_CLIENT_STATE_DIR:resolve(dir,'client'),CITY_DISCOVERY_DISABLED:'1',CITY_MANAGE_SERVICES:'1',CITY_ROOMS_DISABLED:'0',ROOMS_PORT:'0',CITY_TELEMETRY_DISABLED:'1'};
   let owned;
-  const launch=async (install,port) => JSON.parse((await run(process.execPath,[resolve(dir,install,'scripts/utopia-client-launcher.mjs'),'--host','127.0.0.1','--port',String(port),'--no-open','--json'],{env,timeout:30000})).stdout);
+  const launch=async (install,port) => JSON.parse((await run(process.execPath,[resolve(dir,install,'scripts/utopia-client-launcher.mjs'),'--host','127.0.0.1','--port',String(port),'--no-open','--json'],{env,timeout:90000})).stdout);
   const stop=async () => {
     if(!owned) return;
     assert.ok(owned.dataDir.startsWith(dir), 'never stop a City outside the test fixture');
@@ -44,9 +44,9 @@ test('two installation launchers share one City across ports and recover the sam
     const dataDir=owned.dataDir;
     if(process.platform==='win32') {
       writeDeviceFile(resolve(dir,'client/device-enrollment.json'),{endpoint:'http://127.0.0.1:1',cityId:'remote-enrolled-city',installationId:'i',instanceId:'n',credentialId:'c',credentialSecret:'s',deviceId:'d'});
-      await run('powershell',['-NoProfile','-File',resolve(dir,'a/scripts/start-city.ps1'),'-Port','4997','-NoRooms','-DisableDiscovery','-DisableTelemetry'],{env,timeout:30000});
+      await run('powershell',['-NoProfile','-File',resolve(dir,'a/scripts/start-city.ps1'),'-Port','4997','-NoRooms','-DisableDiscovery','-DisableTelemetry'],{env,timeout:60000});
       assert.equal((await readHostCity()).gatewayPid,owned.gatewayPid,'host startup bypasses remote enrollment and reuses the existing process');
-      await run('powershell',['-NoProfile','-File',resolve(dir,'b/scripts/restart-gateway.ps1')],{env,timeout:30000});
+      await run('powershell',['-NoProfile','-File',resolve(dir,'b/scripts/restart-gateway.ps1')],{env,timeout:90000});
       owned=await readHostCity();
       assert.equal(owned.cityId,cityId);
       assert.equal(owned.startup.ROOMS_PORT,'0','restart preserves the original Rooms port setting');

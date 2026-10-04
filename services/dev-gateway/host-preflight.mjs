@@ -3,13 +3,14 @@ import {promisify} from 'node:util';
 import {existsSync} from 'node:fs';
 import {resolve} from 'node:path';
 const run=promisify(execFile);
-export async function findRunningCities({processes,listeners,fetchImpl=fetch,excludePid=process.pid}={}) {
+export async function findRunningCities({processes,listeners,fetchImpl=fetch,excludePid=process.pid,runImpl=run}={}) {
  if(processes===undefined) {
   if(process.platform!=='win32')return [];
-  const answers=await Promise.all([
-   run('powershell',['-NoProfile','-Command',`@(Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Select-Object ProcessId,CommandLine) | ConvertTo-Json -Compress`],{windowsHide:true,timeout:8000}),
-   run('netstat',['-ano','-p','tcp'],{windowsHide:true,timeout:5000})
-  ]);
+  let answers;
+  try {answers=await Promise.all([
+   runImpl('powershell',['-NoLogo','-NoProfile','-NonInteractive','-Command',`@(Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Select-Object ProcessId,CommandLine) | ConvertTo-Json -Compress`],{windowsHide:true,timeout:30000}),
+   runImpl('netstat',['-ano','-p','tcp'],{windowsHide:true,timeout:10000})
+  ]);}catch(error){throw Object.assign(new Error('Could not confirm existing host Gateways; no City may be started: '+error.message),{code:error.killed?'HOST_SCAN_TIMEOUT':'HOST_SCAN_FAILED',cause:error});}
   const parsed=JSON.parse(answers[0].stdout||'[]');processes=Array.isArray(parsed)?parsed:[parsed];listeners=answers[1].stdout;
  }
  const cities=new Map();

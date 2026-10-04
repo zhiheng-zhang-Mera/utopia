@@ -74,11 +74,11 @@ async function main() {
     child.unref(); closeSync(log);
     child.on('error',error=>console.error('Gateway launch failed: '+error.message));
   }
-  for(let i=0;i<80 && record?.state!=='ONLINE';i++) {
+  for(let i=0;i<180 && record?.state!=='ONLINE';i++) {
     await new Promise(yes=>setTimeout(yes,250));
     try {record=await readHostCity();} catch(error) {if(error.cause?.code!=='ECONNREFUSED') throw error;}
   }
-  if(record?.state!=='ONLINE') throw new Error('City did not become ready within 20 seconds; inspect .runtime/gateway-launch.log');
+  if(record?.state!=='ONLINE') throw new Error('City did not become ready within 45 seconds; inspect .runtime/gateway-launch.log');
   if(!record.configFile){open(record.endpoint);report({endpoint:record.endpoint,cityId:record.cityId,gatewayPid:record.gatewayPid,dataDir:record.dataDir,requiresPairing:true});return;}
   const config=JSON.parse(readFileSync(record.configFile,'utf8'));
   const response=await fetch(record.endpoint+'/api/v0/city',{headers:{Authorization:'Bearer '+config.token,'X-City-Api-Version':'0','X-City-Schema-Version':'0'},signal:AbortSignal.timeout(5000)});

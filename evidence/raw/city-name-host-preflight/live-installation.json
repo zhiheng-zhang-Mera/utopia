@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "date": "2026-10-04",
+  "installedRoot": "D:/utopia",
+  "originalCityIdRetained": true,
+  "originalPortRetained": true,
+  "cityId": "e1d87b2a-0ec5-457e-822b-91d81e40dc67",
+  "displayName": "Utopia · Mera-Alianware",
+  "gatewayPid": 26068,
+  "activeHostGateways": 1,
+  "requestsAcrossInstallations": 2,
+  "requestedOtherPort": 4998,
+  "reusedSamePid": true,
+  "servicesManaged": true,
+  "databaseBackedUp": true
+}

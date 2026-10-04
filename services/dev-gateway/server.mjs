@@ -25,7 +25,7 @@ import { createJoinRequests, shortRef } from './join.mjs';
 // travel (a named list of existing payloads), and how a forwarded answer comes back; the gateway below is what
 // gives it a socket, and nothing here re-implements any of those three decisions.
 import { createRelayHub, createRelayDispatcher, RELAY_PAYLOAD_PATHS } from './relay.mjs';
-import { browseNearby, joinCapability, hostCarrierFacts } from './nearby.mjs';
+import { browseNearby, browseBluetooth, joinCapability, hostCarrierFacts } from './nearby.mjs';
 // `node:os` is imported for ONE purpose: publishing what this host can honestly say about itself as a City carrier
 // (cores and memory), so a REMOTE surface can weigh this machine against its own and against other PCs it can see.
 // Nothing here reads identity or user data.
@@ -114,7 +114,18 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
     return {clientRef:ref?ref:null,clientLabel:label?String(label).slice(0,100):null};
   };
   let discovery=null,discoveryState={mdns:{state:'DISABLED'},ble:{state:'DISABLED'}};
-  const pairing=new Pairing({cityId:store.cityId,endpoint:`http://${host}:${port}`,credential:token,clock:pairingClock,ttlMs:pairingTtlMs,onChange:d=>discovery?.update(d)});
+  const nearbyScans=new Map();
+  async function searchNearby(transport='lan'){
+    if(!['lan','ble'].includes(transport))fail(400,'Unknown discovery transport');
+    if(nearbyScans.has(transport))return nearbyScans.get(transport);
+    const scan=(async()=>{
+      const found=transport==='ble'?await browseBluetooth():await browseNearby({interface:host,timeoutMs:nearbyTimeoutMs});
+      return {nearby:found.candidates.map(c=>({cityRef:c.cityId??c.cityRef,displayName:c.displayName,address:c.address,port:c.port,transport:c.transport,lastSeenAt:c.lastSeenAt,stale:c.stale,grantsTrust:false,carrierFacts:c.carrierFacts??null})),bounded:found.bounded===true,discovered:found.discovered??0,unavailable:found.unavailable===true,reason:found.reason??(found.unavailable?'MDNS_UNAVAILABLE':null)};
+    })();
+    nearbyScans.set(transport,scan);
+    try{return await scan;}finally{nearbyScans.delete(transport);}
+  }
+  const pairing=new Pairing({displayName:store.cityName,cityId:store.cityId,endpoint:`http://${host}:${port}`,credential:token,clock:pairingClock,ttlMs:pairingTtlMs,onChange:d=>discovery?.update(d)});
   const SESSION_PREFIX='sess:';
   // The credential the BROWSER receives. The bare session id is not a credential on its own - the prefix is what
   // makes the auth path route it to the enrollment registry - so this is the one place the two are joined.
@@ -187,8 +198,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
           freeMemoryBytes: osFreemem(),
         }));
       } else if(path==='/api/v0/join/nearby'){
-        const found=await browseNearby({interface:host,nearbyTimeoutMs});
-        handled={nearby:found.candidates.map(c=>({cityRef:c.cityId??c.cityRef,displayName:c.displayName,address:c.address,port:c.port,transport:c.transport,lastSeenAt:c.lastSeenAt,stale:c.stale,grantsTrust:false,carrierFacts:c.carrierFacts??null})),bounded:found.bounded===true,discovered:found.discovered??0,unavailable:found.unavailable===true};
+        handled=await searchNearby();
       } else if(path==='/api/v0/join/request'){handled=join.request(body??{});}
       else if(path==='/api/v0/join/status'){handled=join.status(body??{});}
       else if(path==='/api/v0/join/exchange'){handled=join.exchange(body??{});}
@@ -389,7 +399,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // this branch's resolver matched the UNION line instead of JOIN-502's stale one (both begin with the same text
   // and the union ends with `joinRequests:join.snapshot()`), so it removed `joinRequests` and every JOIN-502 test
   // failed on the listing being undefined. Restored here, with `enrolledDevice` kept from JOIN-503.
-  const snapshot=(req)=>envelope({status:'ONLINE',updatedAt:now(),cityId:store.cityId,displayName:'Utopia · Alien',descriptor:pairing.descriptor(),discovery:discoveryState,nodes:store.list('nodes'),controlSurfaces:liveSurfaces(),tasks:store.list('tasks'),events:store.events(),capabilities:bridge.registry(),invocations:bridge.list(),joinRequests:join.snapshot(),
+  const snapshot=(req)=>envelope({status:'ONLINE',updatedAt:now(),cityId:store.cityId,displayName:store.cityName,descriptor:pairing.descriptor(),discovery:discoveryState,nodes:store.list('nodes'),controlSurfaces:liveSurfaces(),tasks:store.list('tasks'),events:store.events(),capabilities:bridge.registry(),invocations:bridge.list(),joinRequests:join.snapshot(),
     // JOIN-503: the surface that is asking is told which INSTALLATION it is. A control-token client gets null
     // (it is the owner, not an enrolled installation), which is exactly what the Settings page needs in order to
     // show an enrollment summary for an enrolled client and the engineering fallback for a control-token one.
@@ -480,11 +490,10 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // object, and shipping it to a browser surface would both leak its internals and invite the
       // surface to re-derive trust rules it has no business deriving.
       else if(req.method==='GET' && path==='/api/v0/join/nearby'){
-        const found=await browseNearby({interface:host,nearbyTimeoutMs});
+        out=await searchNearby(new URL(req.url,'http://city').searchParams.get('transport')||'lan');
         // `cityRef` is the FULL City identity read from the City's own capability endpoint, not the short
         // mDNS prefix: it is what the join fragment pins and what the receiving City checks itself
         // against, and a prefix would make that check fail on a legitimate hand-off.
-        out={nearby:found.candidates.map(c=>({cityRef:c.cityId??c.cityRef,displayName:c.displayName,address:c.address,port:c.port,transport:c.transport,lastSeenAt:c.lastSeenAt,stale:c.stale,grantsTrust:false,carrierFacts:c.carrierFacts??null})),bounded:found.bounded===true,discovered:found.discovered??0,unavailable:found.unavailable===true};
       }
       else if(req.method==='GET' && path==='/api/v0/pairing/info')out=pairing.info();
       else if(req.method==='POST' && path==='/api/v0/pairing/session'){await body(req);out=await pairing.create();}
@@ -588,6 +597,12 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       else if(req.method==='GET' && /^\/api\/v0\/capability-invocations\/[^/]+$/.test(path))out=bridge.get(decodeURIComponent(path.split('/').at(-1)))||refuse('INVOCATION_NOT_FOUND',404);
       else if(req.method==='GET' && /^\/api\/v0\/capabilities\/[^/]+$/.test(path))out=bridge.registry().find(c=>c.capabilityId===decodeURIComponent(path.split('/').at(-1)))||refuse('CAPABILITY_NOT_FOUND',404);
       else if(req.method==='POST' && /^\/api\/v0\/capabilities\/[^/]+\/invoke$/.test(path))out=await bridge.invoke(decodeURIComponent(path.split('/').at(-2)),await body(req,MAX_REQUEST_BYTES));
+      else if(req.method==='PATCH' && path==='/api/v0/city/name') {
+        if(req.headers.authorization!=='Bearer '+token)fail(403,'Only the City owner can rename the City');
+        const b=await body(req);pairing.displayName=store.renameCity(b.displayName);
+        discovery?.update(pairing.descriptor());emit('CITY_RENAMED',null,{displayName:store.cityName});
+        out={cityId:store.cityId,displayName:store.cityName};
+      }
       else if(req.method==='GET' && path==='/api/v0/city')out=snapshot(req);
       // UXI-301: the scheduler presentation feed. READ-ONLY, and it decides nothing - it reports the
       // RS-202 eligibility the City's own modules already produced, mapped through the frozen RS-290

@@ -42,8 +42,9 @@ function Test-UtopiaProcessArgument([int]$ProcessId, [string]$RelativePath) {
     if ($script:ProtectedProcessIds.Contains([int]$ProcessId)) { return $false }
     $process = Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction SilentlyContinue
     if (!$process -or !$process.CommandLine) { return $false }
-    $escaped = [regex]::Escape($RelativePath)
-    return [regex]::IsMatch($process.CommandLine, '(^|[\s"''\\/])' + $escaped + '([\s"''\\/]|$)')
+    if ($process.Name -ne 'node.exe') { return $false }
+    $escaped = [regex]::Escape($RelativePath.Replace('\','/'))
+    return [regex]::IsMatch($process.CommandLine.Replace('\','/'), '(^|[\s"''/])' + $escaped + '([\s"''/]|$)')
 }
 
 function Get-UtopiaRoomHubProcesses {

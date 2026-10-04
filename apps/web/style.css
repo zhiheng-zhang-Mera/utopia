@@ -328,3 +328,4 @@ details[open] > summary::before { background: var(--lime); }
 .connect-main p { margin: 3px 0 0; }
 .connect-actions { display: flex; gap: 8px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
 .connect-actions button { white-space: nowrap; }
+.discovery-controls,.nearby-actions{display:flex;gap:8px;flex-wrap:wrap}.nearby-selected{outline:1px solid #5ee7ff;outline-offset:3px;border-radius:8px}.nearby-actions{align-items:center}.pair-code-row input{min-width:0}

@@ -25,13 +25,14 @@ const isText = value => typeof value === 'string' && value.trim().length > 0;
 export function normalizeNearby(raw, { now = Date.now(), ttlMs = NEARBY_TTL_MS } = {}) {
   if (!raw || typeof raw !== 'object') return null;
   const address = isText(raw.address) ? raw.address.trim() : null;
-  const port = Number.isInteger(raw.port) ? raw.port : null;
+  const port = Number.isInteger(raw.port) && raw.port > 0 && raw.port <= 65535 ? raw.port : null;
   const seenAt = Number.isFinite(Date.parse(raw.lastSeenAt)) ? Date.parse(raw.lastSeenAt) : now;
   const age = now - seenAt;
   // Two-sided freshness: a row whose own timestamp lies in the future by more than a minute is not
   // current evidence, exactly as the RF-003 contract treats a peer clock running ahead.
   const stale = age >= ttlMs || age < -60000;
-  const endpoint = address && port ? `http://${address}:${port}` : null;
+  const safeAddress = address && /^[a-zA-Z0-9.:-]+$/.test(address);
+  const endpoint = safeAddress && port ? `http://${address.includes(':') ? `[${address}]` : address}:${port}` : null;
   return Object.freeze({
     key: isText(raw.cityRef) ? `city:${raw.cityRef}` : `addr:${address ?? 'unknown'}:${port ?? 0}`,
     cityRef: isText(raw.cityRef) ? raw.cityRef : null,

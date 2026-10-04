@@ -76,6 +76,7 @@ test('JOIN-502 surface: a nearby City is offered without being trusted, and join
     // The advertised City is a SECOND City the joining page navigates to - a different origin, which is
     // the whole reason the ask travels in a fragment instead of as a cross-origin POST.
     target = await createGateway({ host: '127.0.0.1', port: 0, dir: targetDir, token: CONTROL, nodeToken: NODE });
+    await fetch(target.url+'/api/v0/city/name',{method:'PATCH',headers:ownerHeaders,body:JSON.stringify({displayName:'远方城市'})});
     browser = await launchBrowser();
     const asking = await browser.newPage({ locale: 'en-US' });
     await asking.goto(app.url);
@@ -91,11 +92,16 @@ test('JOIN-502 surface: a nearby City is offered without being trusted, and join
     assert.equal((await joinRequests(target.url)).pending, 0);
 
     // Handing the ask to the discovered City is a NAVIGATION.
-    await asking.getByRole('button', { name: 'Request join' }).click();
+    asking.once('dialog', dialog=>dialog.dismiss());
+    await asking.locator('[data-connect-action="join"]').click();
+    assert.equal((await joinRequests(target.url)).pending,0,'cancelling name entry does not create an admission request');
+    asking.once('dialog', dialog=>dialog.accept('悉尼笔记本'));
+    await asking.locator('[data-connect-action="join"]').click();
     await asking.waitForURL(`${target.url}/**`, { timeout: 20000 });
     const ask = await until(async () => (await joinRequests(target.url)).requests.find(row => row.state === 'PENDING'), { label: 'exactly one pending ask against the discovered City' });
     await until(async () => (await hostText(asking)).includes('Waiting for approval'), { label: 'the joining page reports it is waiting' });
     assert.equal((await joinRequests(target.url)).pending, 1, 'the browse must create no ask; the join must create exactly one');
+    assert.equal(ask.displayName,'悉尼笔记本','the selected device name survives the cross-origin handoff');
     const listed = JSON.stringify(await joinRequests(target.url));
     assert.ok(!listed.includes(CONTROL), 'an approval card must never carry the City credential');
     assert.ok(!listed.includes('claimDigest'));
@@ -123,6 +129,7 @@ test('JOIN-502 surface: a nearby City is offered without being trusted, and join
     await until(async () => (await joinRequests(target.url)).requests.find(row => row.id === ask.id)?.state === 'CONSUMED', { label: 'the approved request is collected exactly once' });
     await asking.locator('#connection.online').waitFor({ timeout: 30000 });
     assert.equal(await asking.locator('#content').isVisible(), true);
+    assert.equal(await asking.locator('#city-display-name').innerText(),'远方城市','joining adopts the target City name');
     assert.equal((await joinRequests(target.url)).pending, 0);
     // The session credential is used, never rendered.
     assert.ok(!(await asking.content()).includes(CONTROL), 'the session credential must not be rendered into the page');
@@ -154,6 +161,7 @@ test('JOIN-502 surface: a refused browse still offers the fallbacks, and a rejec
     await scriptBrowse(page, nearbyFixture(new URL(app.url).hostname, Number(new URL(app.url).port), await cityIdOf(app.url)));
     await page.getByRole('button', { name: 'Search for nearby Cities' }).click();
     await until(async () => (await hostText(page)).includes('Utopia · Nearby'), { label: 'the discovered City is offered again' });
+    page.once('dialog', dialog=>dialog.accept('Visitor laptop'));
     await page.getByRole('button', { name: 'Request join' }).click();
     const ask = await until(async () => (await joinRequests(app.url)).requests[0], { label: 'the ask is recorded' });
     await until(async () => (await hostText(page)).includes('Waiting for approval'), { label: 'the joining page reports it is waiting' });

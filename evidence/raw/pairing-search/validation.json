@@ -1,0 +1,61 @@
+{
+  "date": "2026-10-04",
+  "branch": "codex/pairing-discovery-ux",
+  "baseSha": "69a097b5394a9fece39dd11cc13f04c9b4d28bfe",
+  "nodeVersion": "v24.19.0",
+  "root": {
+    "command": "node --test --test-concurrency=2 tests/*.test.mjs",
+    "tests": 1184,
+    "pass": 1184,
+    "fail": 0,
+    "skipped": 0,
+    "logSha256": "e7cb75850cc5faf728990b5b3c34e7f7f4ce7e0a5d270b3b0ef0085be5ca8de2"
+  },
+  "focused": {
+    "command": "node --test tests/pairing*.test.mjs tests/join502*.test.mjs tests/web-i18n.test.mjs tests/web-invite.test.mjs tests/connect-surface.test.mjs",
+    "tests": 88,
+    "pass": 88,
+    "fail": 0,
+    "skipped": 0,
+    "logSha256": "f2b9291d5d5d76a9aa36b041536ce1c0a27622f0c04c5347123236d2b0580374"
+  },
+  "copyChecks": {
+    "command": "node --test tests/web-i18n.test.mjs tests/join502-ui.test.mjs",
+    "tests": 11,
+    "pass": 11,
+    "fail": 0,
+    "skipped": 0,
+    "logSha256": "80ffe7903877b8cf1a59d01469b0c65c95f1e4e9a91d4dfe1166aa015e0e8a0f"
+  },
+  "initialRootAttempt": {
+    "tests": 1179,
+    "pass": 1177,
+    "fail": 2,
+    "reason": "City parser dependencies absent in isolated checkout; linked existing city/node_modules and reran the two files (11/11) and full suite."
+  },
+  "codeReview": "PASS - no remaining substantive findings",
+  "bilingualDocuments": "PASS",
+  "hardwareEvidence": "hardware-probe.json",
+  "screenshot": {
+    "path": "web-zh.png",
+    "scope": "scripted discovery row; layout only"
+  },
+  "physicalSameWifiTwoDevice": "NOT_RUN",
+  "physicalBleTwoDevice": "NOT_RUN",
+  "sourceSha256": {
+    "apps/web/app.js": "c44d54ec0082489d0e67803c27bbe83847b5bf591b20aa743897ce2bb3e52883",
+    "apps/web/short-code.js": "b2c4114f73ebb762f7ebe793ba20783d44f89812c36647e99f22b9914fa307b7",
+    "apps/web/discovery.js": "8acc660a5e36f61be09e0fb201257e3fdfcd6ff7d18114cc6f94877cab342b82",
+    "apps/web/i18n/en.js": "568b321afc316f62a13f2c0f6f251fc2f7f05d63d5bd147ca5a1048a61598e37",
+    "apps/web/i18n/zh-CN.js": "efc4db5af445b867c8fa420d181d2aaa9b918551b04cb85c862848d2be79f8e3",
+    "apps/web/style.css": "cbfb91fb86656ed955401f4941df5fae4bb28cc7b2d30ae73c052c20d2cff556",
+    "platform/windows/ble.mjs": "eb3dde5ef3dbbce5d152073cf8a6325ed7fbf51425b31324fc9b84cc9882ed76",
+    "platform/windows/ble-scanner.ps1": "618e4cc9b1543659ac4fe4ca5cf723e3d4ef91d35358c3c80b6314bd1cfd2175",
+    "services/dev-gateway/nearby.mjs": "aa81d58474e11ef237d6feb348995ba191c91aae14d62fcbce4377be3c61f9b4",
+    "services/dev-gateway/pairing.mjs": "1cfac51be9c89d0e3dac21a0abd0403ee4b7d10c852650b5f1ab6ec43cc3fed4",
+    "services/dev-gateway/server.mjs": "9136f8f06d105e8210e17a153aadf9680612ff32cb2aa27bae8c1890d383758f",
+    "tests/pairing-discovery-address.test.mjs": "6df6402bd102a3745e62e6bcc1b8f9fbb336a184cbab53b4ece49b47adf71252",
+    "tests/pairing-search-web.test.mjs": "0b19dd1f2ed374c77fd5835e36e21f61e8b792d9519e0847c55b3dcb7a07dd64",
+    "tests/pairing-short-code.test.mjs": "168776f488cd2c68bce9fa033192b865b26d132c61227c642431879e151717c4"
+  }
+}

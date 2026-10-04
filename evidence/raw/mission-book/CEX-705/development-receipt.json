@@ -1,0 +1,12 @@
+{
+ "workbook_id":"CEX-705",
+ "identity":"Alien-codex",
+ "baseline_sha":"0e9bea3ce739b979e582a428af8fb233045a5e75",
+ "source_binding":"Containing implementation commit; full SHA recorded externally",
+ "android":{"unit_tests":87,"build":"PASS","apk_sha256":"a13b0727b225c9aa20c16defc0b4ed89cfd90da739969974156ccb657bec07ae","physical_device":"OPPO PERM00 / BICIPVNB5HS85H9T","physical_observed":["ONLINE enrolled member","Phone Fixture A pinned as 本机","Peer Fixture B admission name visible","native explicit receipt changes server PENDING to RECEIVED"],"physical_setup":"Private fixture session seeded; simulated same-host peer; no live City mutation","restoration":"Original private connection restored and cmp exit0; original CEX701 APK install Success; test reverse removed; fixture closed","physical_not_run":["rename","sharing toggle","self/other revoke","outbound send","two physical hosts"]},
+ "backend":{"focused_tests":8,"passed":8,"scope":"Controlled Gateway/enrollment/member/worker tests, not physical campaign"},
+ "failures_retained":["projection missing model red","other-City/malformed enrollment red","malformed population red","same installation with wrong device red: 7 tests, 1 failed before fix"],
+ "formal_review":"PENDING_OPPOSITE_PHYSICAL_HOST",
+ "primary_agent_user_appointment":"NOT_IMPLEMENTED",
+ "metrics":{"latency_ms":null,"model_tokens":null,"context_window":null,"parity_gap_count":null}
+}

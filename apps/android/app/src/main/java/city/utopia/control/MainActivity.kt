@@ -64,6 +64,10 @@ class MainActivity : ComponentActivity() {
    client = c; c.start(); onDispose { c.close() }
   }
   val online = state.connection == "ONLINE"
+  val managementCity=state.snapshot?.optString("cityId")?.takeIf { it.isNotBlank() }
+  val memberManagement=remember(client,managementCity) { managementCity?.let { MemberManagementState(it) } }
+  DisposableEffect(memberManagement) { onDispose { memberManagement?.fence?.close() } }
+  LaunchedEffect(memberManagement,online) { memberManagement?.connectivityChanged() }
   val tasks = state.snapshot?.optJSONArray("tasks").objects()
   val nodes = state.snapshot?.optJSONArray("nodes").objects()
   val events = state.snapshot?.optJSONArray("events").objects()
@@ -120,8 +124,12 @@ class MainActivity : ComponentActivity() {
          },
        )
      }
-     if(nodes.isEmpty()) item { Text("Waiting for devices") }
-     nodes.filter { selectedNode == null || it.optString("id")==selectedNode }.forEach { n -> item { DeviceCard(n,online,now,selectedNode!=null,tasks,events) { selectedNode=n.optString("id") } } }
+     if(selectedNode==null) item {
+      memberManagement?.let { CityMembersPanel(it,client,state.snapshot,online) { nodeId ->
+       if(nodes.any { it.optString("id")==nodeId }) selectedNode=nodeId else it.actionError="计算节点未报告，请刷新城市状态。"
+      } } ?: Text("成员列表尚未报告。")
+     }
+     else nodes.filter { it.optString("id")==selectedNode }.forEach { n -> item { DeviceCard(n,online,now,true,tasks,events) { selectedNode=n.optString("id") } } }
      if(selectedNode!=null) item { OutlinedButton(onClick={selectedNode=null}) { Text("All devices") } }
     } else if (page == "Services") {
      item { ServicesPanel(state,client) }
@@ -132,6 +140,9 @@ class MainActivity : ComponentActivity() {
     } else if (page == "Action") {
      item { ActionsPanel(state,client) }
     } else if (page == "Settings") {
+     item { memberManagement?.let { CityManagementSettings(it,client,state.snapshot,online) {
+      client?.close();prefs.edit().remove("host").remove("token").remove("cityId").apply();host="http://";token="";state=CityState();settingsRevision++;page="Find";selectedNode=null;selected=null
+     } } ?: Text("连接城市后可管理城市名称和设备身份。") }
      item { OutlinedButton(onClick={ client?.close(); prefs.edit().clear().apply(); token=""; host="http://"; state=CityState(); settingsRevision++; page="Find"; log.event("clearPairing") }) { Text("Clear pairing / Find your City") } }
      item { OutlinedTextField(host, { host = it }, label = { Text("City URL") }, singleLine = true, modifier = Modifier.fillMaxWidth()) }
      item { OutlinedTextField(token, { token = it }, label = { Text("Pairing token") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth()) }

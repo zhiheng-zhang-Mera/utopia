@@ -60,12 +60,12 @@ class CityClient(context: Context, private val host: String, private val token: 
  private fun maxEventSeq(snapshot: JSONObject): Int { val arr = snapshot.optJSONArray("events") ?: return 0; var max = 0; for (i in 0 until arr.length()) max = maxOf(max, arr.optJSONObject(i)?.optInt("seq", 0) ?: 0); return max }
  private var lastPublishedConnection = ""
  private fun publish(connection: String, message: String = "") { val value = CityState(connection, snapshot, message, feed); handler.post { if (!closed) { if (connection != lastPublishedConnection) { android.util.Log.i("UtopiaConnection", connection); log.event("connection_" + connection); if(connection == "ONLINE") log.event("websocketOnline"); lastPublishedConnection = connection }; changed(value) } } }
- private fun request(path: String, body: JSONObject? = null): JSONObject {
+ private fun request(path: String, body: JSONObject? = null, method:String=if(body==null) "GET" else "POST"): JSONObject {
   val builder = Request.Builder().url(host.trimEnd('/') + "/api/v0/" + path).header("Authorization", "Bearer $token").header("X-City-Api-Version", "0").header("X-City-Schema-Version", "0")
-  if (body != null) builder.post(body.toString().toRequestBody("application/json".toMediaType()))
+  if (body != null) builder.method(method,body.toString().toRequestBody("application/json".toMediaType()))
   (if(path.startsWith("capabilities/")) http.newBuilder().readTimeout(25, TimeUnit.SECONDS).callTimeout(26, TimeUnit.SECONDS).build() else http).newCall(builder.build()).execute().use { response ->
    val raw = response.body?.string() ?: "{}"
-   if (!response.isSuccessful && (path.startsWith("capabilities/") || path.startsWith("capability-invocations/"))) {
+   if (!response.isSuccessful && (path.startsWith("capabilities/") || path.startsWith("capability-invocations/") || path.startsWith("device/installations") || path.startsWith("members/messages") || path=="node/sharing" || path=="city/name")) {
     val error = runCatching { JSONObject(raw) }.getOrNull()
     throw CapabilityRequestException(error?.optString("errorCode")?.takeIf { it.isNotBlank() } ?: "HTTP_${response.code}",response.code,error?.optString("error")?.takeIf { it.isNotBlank() } ?: "Request failed: ${response.code}")
    }
@@ -189,7 +189,7 @@ class CityClient(context: Context, private val host: String, private val token: 
  private fun capabilityError(error: Exception): JSONObject { val failure=capabilityFailure(error,socketOnline);return JSONObject().put("status","FAILED").put("errorCode",failure.code).put("httpStatus",failure.status ?: JSONObject.NULL).put("error",failure.message) }
  fun invokeCapability(id: String, operation: String, input: JSONObject, done: (JSONObject) -> Unit) { submit { val response=try { request("capabilities/$id/invoke",JSONObject().put("operationId",operation).put("input",input)) } catch(e: Exception) { capabilityError(e) };handler.post {if(!closed)done(response)};refresh() } }
  fun invocationDetail(id: String, done: (JSONObject) -> Unit) { submit { val response=try { request("capability-invocations/"+java.net.URLEncoder.encode(id,"UTF-8")) } catch(e: Exception) { capabilityError(e) };handler.post {if(!closed)done(response)} } }
- private fun row(path: String, body: JSONObject? = null): JSONObject = try { request(path, body) } catch(e: Exception) { val failure=capabilityFailure(e,socketOnline);JSONObject().put("errorCode",failure.code).put("httpStatus",failure.status ?: JSONObject.NULL).put("error",failure.message) }
+ private fun row(path: String, body: JSONObject? = null,method:String=if(body==null) "GET" else "POST"): JSONObject = try { request(path, body,method) } catch(e: Exception) { val failure=capabilityFailure(e,socketOnline);JSONObject().put("errorCode",failure.code).put("httpStatus",failure.status ?: JSONObject.NULL).put("error",failure.message) }
  private fun deliver(response: JSONObject, done: (JSONObject) -> Unit) { handler.post { if(!closed) done(response) } }
  /** T1 — GET /api/v0/rooms. The returned hubUrl is loopback-only and is never used by Android. */
  fun rooms(done: (JSONObject) -> Unit) { submit { deliver(row("rooms"),done) } }
@@ -217,5 +217,13 @@ class CityClient(context: Context, private val host: String, private val token: 
   if (providerRef.isBlank()) { publish(if (socketOnline) "ONLINE" else "OFFLINE", "No service named for the choice"); return }
   submit { try { request("tasks/$id/provider-choice", JSONObject().put("providerRef", providerRef)); refresh() } catch (e: Exception) { publish(if (socketOnline) "ONLINE" else "OFFLINE", e.message ?: "Choice failed") } }
  }
+ fun memberManagement(done:(JSONObject)->Unit) { submit {
+  deliver(JSONObject().put("installations",row("device/installations")).put("messages",row("members/messages")),done)
+ } }
+ fun renameCity(name:String,done:(JSONObject)->Unit) { submit { deliver(row("city/name",JSONObject().put("displayName",name),"PATCH"),done);refresh() } }
+ fun revokeInstallation(id:String,done:(JSONObject)->Unit) { submit { deliver(row("device/installations/"+java.net.URLEncoder.encode(id,"UTF-8")+"/revoke",JSONObject().put("reason","native_user_request")),done);refresh() } }
+ fun setSharing(id:String,enabled:Boolean,done:(JSONObject)->Unit) { submit { deliver(row("node/sharing",JSONObject().put("id",id).put("enabled",enabled)),done);refresh() } }
+ fun sendMemberMessage(target:String,text:String,done:(JSONObject)->Unit) { submit { deliver(row("members/messages",JSONObject().put("targetDeviceId",target).put("text",text)),done);refresh() } }
+ fun receiveMemberMessage(id:String,done:(JSONObject)->Unit) { submit { deliver(row("members/messages/"+java.net.URLEncoder.encode(id,"UTF-8")+"/receipt",JSONObject()),done);refresh() } }
  fun close() { log.surface("stop", lastServerMaxSeq); closed = true; runCatching { connectivity.unregisterNetworkCallback(callback) }; socket?.cancel(); executor.shutdownNow(); http.dispatcher.cancelAll(); http.connectionPool.evictAll() }
 }

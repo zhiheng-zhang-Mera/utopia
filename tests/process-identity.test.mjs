@@ -76,8 +76,7 @@ test('when CIM is unusable, tasklist still catches a plainly wrong process', () 
   assert.equal(r.status,'weak');
   assert.equal(r.via,'tasklist');
   assert.equal(r.imageName,'notepad.exe');
-  // Weak evidence still kills - the PID came from our own processes.json - but it is RECORDED as weak
-  // so a reader cannot mistake it for a verified identity.
+  // A recorded PID can be recycled; weak image evidence must abort before a kill.
   assert.equal(shouldKill(r.status),r.status==='verified');
   assert.equal(isFatalIdentity(r.status),r.status==='weak'||r.status==='unavailable');
 });
@@ -91,7 +90,7 @@ test('tasklist reporting no match is already-gone rather than unavailable', () =
   assert.equal(imageNameFromTasklist('INFO: No tasks are running which match the specified criteria.'),null);
 });
 
-test('both probes failing is unavailable, and is not fatal', () => {
+test('both probes failing is unavailable and aborts before stopping any process', () => {
   const r=resolveProcessIdentity({pid:7,expected:NODE,exec:stub({
     'powershell.exe':Error('powershell.exe not found'),
     'tasklist':Error('tasklist not found'),

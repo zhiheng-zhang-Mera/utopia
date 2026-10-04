@@ -64,7 +64,23 @@
       "cause": "Windows process inventory exceeded 8-second deadline"
     },
     "repair": "Inventory budget 30 seconds; readiness 45 seconds; failures still prevent new City startup",
-    "rerun": "PENDING"
+    "rerun": {
+      "id": 37195145857,
+      "sha": "e4849bf46972977d9fc1bb06ce1fedaf1a06f093",
+      "status": "PASS",
+      "gatewayRoot": {
+        "tests": 1195,
+        "pass": 1195,
+        "fail": 0,
+        "cancelled": 0
+      },
+      "android": "PASS",
+      "rooms": "PASS",
+      "city": "PASS",
+      "bilingual": "PASS",
+      "prRun": 37195149087,
+      "cityLinkageRun": 37195149070
+    }
   },
   "logNormalization": {
     "artifact": "superseded-focused.log",

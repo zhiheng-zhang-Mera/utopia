@@ -1,0 +1,26 @@
+✔ custom City name is canonical across snapshot, pairing, discovery descriptor and restart (136.8032ms)
+✔ Settings changes the visible City name and keeps editing stable across snapshots (4910.6335ms)
+✔ startup preflight recognizes old absolute Windows paths and refuses duplicate Cities (7.2058ms)
+✔ an interrupted Windows inventory is an explicit blocking error, never an empty host (0.8413ms)
+✔ a relative Gateway path with an inconclusive identity probe blocks startup (0.5485ms)
+✔ JOIN-502 surface: a nearby City is offered without being trusted, and joining waits for an approval (5544.7995ms)
+✔ JOIN-502 surface: a refused browse still offers the fallbacks, and a rejected ask leaves the device untrusted (5587.7122ms)
+✔ short code preserves identity pinning, reports lockout, and never sends a code to the wrong City (251.4852ms)
+✔ code handoff carries only a selected City, six digits and the existing transport in a fragment (0.6348ms)
+✔ locale contract: supported tokens, fallback and first-run detection (1.5305ms)
+✔ both language packs cover every message key with matching placeholders (1.868ms)
+✔ every fixed Web UI string is present in the language packs (0.4408ms)
+✔ protocol tokens and City Control state names are never translated (5.9785ms)
+✔ web assets only use message keys that exist in the packs (1.9612ms)
+✔ badge state and display label stay separate in every locale (1.4374ms)
+✔ applyTranslations and setLocale update the document without touching storage contracts (0.3902ms)
+✔ translation fills placeholders and time formatting follows the locale (18.3603ms)
+✔ Web Settings language switch, persistence and protocol stability (real browser) (2490.934ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14460.3484

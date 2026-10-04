@@ -1,5 +1,9 @@
 * text=auto eol=lf
+# Windows shells: cmd.exe mis-parses a batch file with LF endings (measured: it read command fragments as
+# commands), so BOTH batch extensions must be CRLF in the working tree on every clone. `.cmd` was missing here and
+# therefore inherited `eol=lf` - which meant the launcher this repo ships would arrive broken on a fresh clone.
 *.bat text eol=crlf
+*.cmd text eol=crlf
 *.jar binary
 *.png binary
 # Keep recorded evidence bytes stable across checkout for SHA-256 manifests.

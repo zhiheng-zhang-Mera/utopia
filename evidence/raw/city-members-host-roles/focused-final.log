@@ -1,0 +1,42 @@
+✔ each member sees itself first and all City devices by admission name, with real message receipt (3587.2281ms)
+✔ real joined devices retain names, appear beside the host and may register only their own worker (276.1824ms)
+✔ two members exchange messages with explicit receipt and sender identity cannot be forged (252.0457ms)
+✔ member B actually computes a task from A; disabling sharing and revoke prevents further claims (428.738ms)
+✔ custom City name is canonical across snapshot, pairing, discovery descriptor and restart (156.3386ms)
+✔ Settings changes the visible City name and keeps editing stable across snapshots (5056.4718ms)
+✔ joining only demotes the local host, saves its admission name and leaves remote City intact (271.3417ms)
+✔ failed pairing and busy local work do not demote or write a new membership (112.8326ms)
+✔ JOIN-502 surface: a nearby City is offered without being trusted, and joining waits for an approval (5797.0074ms)
+✔ JOIN-502 surface: a refused browse still offers the fallbacks, and a rejected ask leaves the device untrusted (5818.0954ms)
+✔ JOIN-503 (1)(2): one join enrolls an installation, and a RESTART reconnects with nothing typed (208.7034ms)
+✔ JOIN-503 (3): an EXPIRED session is replaced by an internal re-auth, with no user-visible token prompt (138.6258ms)
+✔ JOIN-503 (4)(5): REVOKE denies reconnect, and a revoked installation cannot mint new membership (195.7549ms)
+✔ JOIN-503 (6): a REINSTALL mints new identities and is unbound until an explicit rebind (194.0334ms)
+✔ JOIN-503 (7): the secret-exposure sweep - no durable secret in the snapshot, events, records or a URL (90.3262ms)
+✔ JOIN-503: a broken or foreign device file is refused rather than half-used (7.6941ms)
+✔ JOIN-503 (8): the engineering manual fallback still exists and is not the default path (95.3423ms)
+✔ JOIN-503: an invite of either shape is understood, and junk is refused instead of guessed at (0.5581ms)
+✔ JOIN-503: enrollment events are emitted on a CLONE, which is the population-level half of detection (84.6754ms)
+✔ D-1: an enrolled session may NOT revoke another installation, and the refusal really refuses (181.5248ms)
+✔ D-2: a session sees ONLY itself - not the roster, and not the City-wide clone scan (105.9559ms)
+✔ D-1/D-2: the owner keeps FULL authority, so the repair did not break the surface it protects (139.7259ms)
+✔ D-1/D-2: the two sibling guards the review compared against are still in place (127.86ms)
+✔ short code preserves identity pinning, reports lockout, and never sends a code to the wrong City (212.476ms)
+✔ code handoff carries only a selected City, six digits and the existing transport in a fragment (0.5704ms)
+✔ locale contract: supported tokens, fallback and first-run detection (1.553ms)
+✔ both language packs cover every message key with matching placeholders (2.9135ms)
+✔ every fixed Web UI string is present in the language packs (0.6129ms)
+✔ protocol tokens and City Control state names are never translated (8.3726ms)
+✔ web assets only use message keys that exist in the packs (2.8264ms)
+✔ badge state and display label stay separate in every locale (1.7587ms)
+✔ applyTranslations and setLocale update the document without touching storage contracts (0.4046ms)
+✔ translation fills placeholders and time formatting follows the locale (21.3083ms)
+✔ Web Settings language switch, persistence and protocol stability (real browser) (2644.4988ms)
+ℹ tests 34
+ℹ suites 0
+ℹ pass 34
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17275.5105

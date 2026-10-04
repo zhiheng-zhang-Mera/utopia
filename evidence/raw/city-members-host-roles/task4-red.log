@@ -1,0 +1,21 @@
+✖ each member sees itself first and all City devices by admission name, with real message receipt (31648.2791ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 33040.4598
+
+✖ failing tests:
+
+test at tests\city-members-ui.test.mjs:4:1
+✖ each member sees itself first and all City devices by admission name, with real message receipt (31648.2791ms)
+  locator.innerText: Timeout 30000ms exceeded.
+  Call log:
+  [2m  - waiting for locator('.device-card').first()[22m
+
+      at TestContext.<anonymous> (D:\Utopia-City-Naming-Host\tests\city-members-ui.test.mjs:5:55) {
+    name: 'TimeoutError'
+  }

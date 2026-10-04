@@ -334,7 +334,8 @@ test('N2: the whole cross-network join runs over the pipe - capability, ask, dec
 
     assert.equal(result.state, 'APPROVED');
     assert.equal(result.requestId, approvedId, 'the flow collected the credential for the request the owner approved');
-    assert.ok(typeof result.credential === 'string' && result.credential.length > 0);
+    assert.match(result.credential,/^sess:/,'relay admission returns a scoped member session');
+    assert.equal(JSON.stringify(result).includes('credentialSecret'),false);
     assert.deepEqual(steps, ['DIALING', 'ASKING', 'PENDING', 'APPROVED'], 'every transition is reported in order, so the surface can show real progress');
   } finally { relay?.close(); await app.close(); await rm(dir, { recursive: true, force: true }); }
 });

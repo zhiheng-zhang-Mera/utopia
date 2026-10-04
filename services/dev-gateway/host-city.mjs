@@ -31,6 +31,9 @@ export async function reserveHostCity({stateDir = hostStateDir(), requestedDataD
   try {
     mkdirSync(stateDir, {recursive:true});
     const pointer = resolve(stateDir, 'city.json');
+    const roleFile=resolve(stateDir,'role.json');
+    const selection=existsSync(roleFile)?JSON.parse(readFileSync(roleFile,'utf8')):{role:'PRIMARY'};
+    if(!['PRIMARY','MEMBER'].includes(selection.role)||(selection.role==='MEMBER'&&typeof selection.memberEnrollmentFile!=='string'))throw new Error('Invalid selected host role; no fallback City started');
     let dataDir, expectedCityId;
     if (existsSync(pointer)) {
       const saved = JSON.parse(readFileSync(pointer, 'utf8'));
@@ -44,10 +47,12 @@ export async function reserveHostCity({stateDir = hostStateDir(), requestedDataD
       renameSync(`${pointer}.tmp`, pointer);
     }
     record = {...record, dataDir};
-    return {owner:true, dataDir, expectedCityId, get record() {return record;}, coordinationPort:server.address().port, close,
+    return {owner:true, dataDir, expectedCityId, selection, hasRoleSelection:existsSync(roleFile), stateDir, get record() {return record;}, coordinationPort:server.address().port, close,
       publish:async update => {
         record = {...record, ...update, kind, dataDir};
-        if (update.state === 'ONLINE' && existsSync(resolve(dataDir,'city.sqlite'))) {
+        if(update.role==='MEMBER'&&record.memberEnrollmentFile){writeFileSync(roleFile+'.tmp',JSON.stringify({role:'MEMBER',cityId:record.cityId,memberEnrollmentFile:record.memberEnrollmentFile}),{mode:0o600});renameSync(roleFile+'.tmp',roleFile);}
+        else if(update.role==='PRIMARY'){writeFileSync(roleFile+'.tmp',JSON.stringify({role:'PRIMARY'}),{mode:0o600});renameSync(roleFile+'.tmp',roleFile);}
+        if (update.state === 'ONLINE' && update.role !== 'MEMBER' && existsSync(resolve(dataDir,'city.sqlite'))) {
           writeFileSync(`${pointer}.tmp`, JSON.stringify({kind,dataDir,cityId:update.cityId}), {mode:0o600});
           renameSync(`${pointer}.tmp`,pointer);
         }

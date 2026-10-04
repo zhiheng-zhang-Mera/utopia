@@ -1,6 +1,6 @@
 import http from 'node:http';
 import {resolve} from 'node:path';
-import {hostname} from 'node:os';
+import {hostname,networkInterfaces} from 'node:os';
 import {createBridge} from '../capability-bridge/bridge.mjs';
 import {MAX_REQUEST_BYTES,refuse} from '../../contracts/capability-bridge-v1/protocol.mjs';
 import { readFile } from 'node:fs/promises';
@@ -12,6 +12,7 @@ import { Pairing } from './pairing.mjs';
 // RF-001 identity lifecycle (see services/dev-gateway/enrollment.mjs) - it mints installation credentials, issues
 // short-lived SESSION credentials for the browser, and answers "may this installation act?".
 import { createEnrollmentRegistrar, EnrollmentError, DEFAULT_SESSION_TTL_MS } from './enrollment.mjs';
+import {memberSnapshot} from './members.mjs';
 // The identity lifecycle's own error type. A refusal from RF-001's rules (`rebind_proof_required`, `clone_detected`,
 // `already_bound`, …) is a typed client error, not a gateway fault, so it must not surface as a 500.
 import { DeviceIdentityError } from '../../city/00-foundation/02-city-node-network/device-identity/index.mjs';
@@ -71,7 +72,7 @@ const claimNodeFor=n=>({nodeId:n.id,state:n.online?'READY':'OFFLINE',capabilitie
 // enrollment registry reads the second. Dropping either one produces a ReferenceError at request time rather than
 // at load time, which is why this is stated here: the first attempt at this merge kept only `deviceClock` and every
 // JOIN-502 test failed with "nearbyTimeoutMs is not defined".
-export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',token,nodeToken,heartbeatTimeout=8000,pairingClock=Date.now,pairingTtlMs=300000,discoveryEnabled=false,nearbyTimeoutMs=2000,roomHubUrl=process.env.CITY_ROOMS_URL,roomsDisabled=process.env.CITY_ROOMS_DISABLED==='1',hostId=process.env.CITY_HOST_ID,roomFetch,deviceClock=Date.now}) {
+export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',token,nodeToken,heartbeatTimeout=8000,pairingClock=Date.now,pairingTtlMs=300000,discoveryEnabled=false,nearbyTimeoutMs=2000,roomHubUrl=process.env.CITY_ROOMS_URL,roomsDisabled=process.env.CITY_ROOMS_DISABLED==='1',hostId=process.env.CITY_HOST_ID,roomFetch,deviceClock=Date.now,hostDeviceId:requestedHostDeviceId,hostJoin=null}) {
   if(!token||!nodeToken||token===nodeToken) throw new Error('Separate control and node tokens are required');
   if(host==='0.0.0.0'||host==='::') throw new Error('Configure an explicit loopback or LAN interface');
   const store=new Store(dir); const wss=new WebSocketServer({noServer:true}); let closed=false;
@@ -82,6 +83,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // its own `seq` that every surface can converge on - rather than something each surface infers privately
   // from the state of its own socket. A surface that declares nothing is still recorded, with nulls: an
   // anonymous client is a fact too, and omitting the event would make it invisible to the other surfaces.
+  const hostDeviceId=requestedHostDeviceId||'dev-'+store.cityId.replaceAll('-','');
   const controlSurfaces=new Map();
   // D-R1 (Mech's review finding, reproduced before this was written). `controlSurfaces` is keyed by SOCKET,
   // but the EVENT is a fact about the CLIENT - and the first version emitted a ref-level CLIENT_DISCONNECTED
@@ -201,12 +203,12 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         handled=await searchNearby();
       } else if(path==='/api/v0/join/request'){handled=join.request(body??{});}
       else if(path==='/api/v0/join/status'){handled=join.status(body??{});}
-      else if(path==='/api/v0/join/exchange'){handled=join.exchange(body??{});}
+      else if(path==='/api/v0/join/exchange'){handled=exchangeJoin(body??{});}
       else if(path==='/api/v0/device/session'){
         // The tokenless reconnect, and ONLY that half of it: an install credential exchange. A session-refresh call
         // needs a credential the pipe's peer does not have, so it has nothing to refresh here.
         const b=body??{};
-        const opened=enrollment.openSession({installationId:b.installationId,instanceId:b.instanceId,credentialId:b.credentialId,credentialSecret:b.credentialSecret});
+        const opened=b.installationId?enrollment.openSession({installationId:b.installationId,instanceId:b.instanceId,credentialId:b.credentialId,credentialSecret:b.credentialSecret}):enrollment.refreshSession(String(b.sessionId??'').replace(SESSION_PREFIX,''));
         handled={apiVersion:0,schemaVersion:0,credential:sessionCredential(opened.session.sessionId),session:{sessionId:opened.session.sessionId,expiresAt:opened.session.expiresAt,issuedAt:opened.session.issuedAt},installation:enrollment.describe(opened.installation.installationId),cityId:store.cityId};
       } else throw Object.assign(new Error(`the relay does not carry ${path}`),{status:403});
       return {ok:true,status:200,payload:envelope(handled),error:null};
@@ -276,7 +278,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
     // JOIN-503: a browser may present a SESSION credential instead of the City's control token. The session is
     // resolved against the enrollment registry on EVERY request (never cached), so revoking an installation
     // stops the very next call - including the WebSocket handshake a reconnect would use.
-    if(!node&&raw.startsWith(SESSION_BEARER)){
+    if(raw.startsWith(SESSION_BEARER)){
       const presented=raw.slice(SESSION_BEARER.length);
       req.citySession=enrollment.checkSession(presented);
       return;
@@ -284,6 +286,11 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
     if(!equals(raw,'Bearer '+(node?nodeToken:token)))fail(401,'Invalid pairing token');
   };
   const version=req=>{if(req.headers['x-city-api-version']!=='0'||req.headers['x-city-schema-version']!=='0')fail(409,'Protocol mismatch: apiVersion=0 and schemaVersion=0 required');};
+  const assertNewAdmission=installation=>{if(installation?.deviceId&&(installation.deviceId===hostDeviceId||store.get('nodes',installation.deviceId)||enrollment.devices().some(d=>d.deviceId===installation.deviceId)))refuse('DEVICE_ID_ALREADY_EXISTS',409,'An admission cannot assume an existing device identity');};
+
+  const exchangeJoin=b=>{let result;assertNewAdmission(b.installation);const approved=join.status(b);const exchanged=join.exchange(b);
+        if(b.installation){const enrolled=enrollment.enroll({displayName:approved.displayName,platform:approved.platform,deviceId:b.installation.deviceId??null,instanceId:b.installation.instanceId??null});const opened=enrollment.openSession({installationId:enrolled.installation.installationId,instanceId:enrolled.installation.instanceId,credentialId:enrolled.credential.credentialId,credentialSecret:enrolled.credential.credentialSecret});result={...exchanged,cityId:store.cityId,credential:sessionCredential(opened.session.sessionId),enrollment:{deviceId:enrolled.installation.deviceId,installationId:enrolled.installation.installationId,instanceId:enrolled.installation.instanceId,credentialId:enrolled.credential.credentialId,credentialSecret:enrolled.credential.credentialSecret,displayName:enrolled.device.displayName}};if(b.installation.browserOnly)result={apiVersion:0,schemaVersion:0,accepted:true,cityId:store.cityId,credential:sessionCredential(opened.session.sessionId),member:{deviceId:enrolled.installation.deviceId,displayName:enrolled.device.displayName}};}else result=exchanged;return result;};
+  const assertOwnNode=(req,id)=>{if(req.citySession&&memberRef(req)!==id)fail(403,'A member can only operate its own node');};
   const bridge=createBridge(store,emit,{artifactRoot:resolve(dir,'theme-packages')});
   // UXI-391: the ownership-transfer bridge. planRoute decides and never acts; this consumes its decision and
   // executes the move under the City's single-execution guard, so REMOTE_HANDOFF is a state with an execution
@@ -361,7 +368,9 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // facade, where idempotency already exists - that is the "user-level path first" option the workbook
   // prefers, and it avoids reopening a frozen wire contract.
   const targetVerdict=targetDeviceRef=>classifyTarget({targetDeviceRef,nodes:store.list('nodes'),claimNodeFor,acceptsWork,requiredCapabilities:REQUIRED_TASK_CAPABILITIES});
+  let acceptingTasks=true;
   const createCityTask=(type,options={})=>{
+    if(!acceptingTasks)fail(503,'This host is changing City role; no new local work accepted');
     // Parsed before the transaction: a malformed field is a client error, not a half-written task.
     const intent=readTargetIntent(options.targetDeviceRef);
     if(intent.ok===false)refuse(intent.code,422,intent.message);
@@ -399,7 +408,10 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // this branch's resolver matched the UNION line instead of JOIN-502's stale one (both begin with the same text
   // and the union ends with `joinRequests:join.snapshot()`), so it removed `joinRequests` and every JOIN-502 test
   // failed on the listing being undefined. Restored here, with `enrolledDevice` kept from JOIN-503.
-  const snapshot=(req)=>envelope({status:'ONLINE',updatedAt:now(),cityId:store.cityId,displayName:store.cityName,descriptor:pairing.descriptor(),discovery:discoveryState,nodes:store.list('nodes'),controlSurfaces:liveSurfaces(),tasks:store.list('tasks'),events:store.events(),capabilities:bridge.registry(),invocations:bridge.list(),joinRequests:join.snapshot(),
+  const isLocalRequest=req=>{const address=req?.socket?.remoteAddress?.replace(/^::ffff:/,'');return address==='127.0.0.1'||address==='::1'||Object.values(networkInterfaces()).flat().some(n=>n?.address===address);};
+  const members=()=>memberSnapshot({store,installations:enrollment.list(),surfaces:liveSurfaces(),hostDeviceId});
+  const memberRef=req=>req.citySession?req.citySession.installation.deviceId:hostDeviceId;
+  const snapshot=(req)=>envelope({hostDeviceId,currentMemberRef:req?.citySession?memberRef(req):isLocalRequest(req)?hostDeviceId:null,members:members(),hostJoinAvailable:Boolean(hostJoin)&&!req?.citySession&&isLocalRequest(req),status:'ONLINE',updatedAt:now(),cityId:store.cityId,displayName:store.cityName,descriptor:pairing.descriptor(),discovery:discoveryState,nodes:store.list('nodes'),controlSurfaces:liveSurfaces(),tasks:store.list('tasks'),events:store.events(),capabilities:bridge.registry(),invocations:bridge.list(),joinRequests:join.snapshot(),
     // JOIN-503: the surface that is asking is told which INSTALLATION it is. A control-token client gets null
     // (it is the owner, not an enrolled installation), which is exactly what the Settings page needs in order to
     // show an enrollment summary for an enrolled client and the engineering fallback for a control-token one.
@@ -463,7 +475,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // it in the removed block left the union preamble unaware of it, so /device/session answered 401 and every
       // JOIN-503 enrollment test failed with the same "Invalid pairing token" as an unauthenticated request.
       const selfAuthenticating=req.method==='POST'&&path==='/api/v0/device/session';
-      if(!publicJoin&&!legacyPublicPairing&&!selfAuthenticating)auth(req,nodeRoute);
+      if(!publicJoin&&!legacyPublicPairing&&!selfAuthenticating)auth(req,nodeRoute&&path!=='/api/v0/node/sharing');
       if(!legacyPublicPairing)version(req);
       let out;
       // JOIN-502 answers first, in the SAME chain as everything below: a second `if` chain would run
@@ -483,7 +495,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       }));
       else if(req.method==='POST' && path==='/api/v0/join/request')out=join.request(await body(req));
       else if(req.method==='POST' && path==='/api/v0/join/status')out=join.status(await body(req));
-      else if(req.method==='POST' && path==='/api/v0/join/exchange')out=join.exchange(await body(req));
+      else if(req.method==='POST' && path==='/api/v0/join/exchange')out=exchangeJoin(await body(req));
       // JOIN-502: the BROWSE. A browser cannot listen to multicast DNS, so the surface asks the City
       // that serves this page, which browses `_utopia-city._tcp` on its own LAN and answers with rows.
       // The wire shape is flat and bounded ON PURPOSE: the RF-003 candidate is an internal contract
@@ -499,7 +511,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       else if(req.method==='POST' && path==='/api/v0/pairing/session'){await body(req);out=await pairing.create();}
       else if(req.method==='POST' && path==='/api/v0/pairing/exchange'){
         const b=await body(req);
-        const exchanged=pairing.exchange(b);
+        assertNewAdmission(b.installation);const exchanged=pairing.exchange(b);
         // JOIN-503: a joining installation that declared itself during the exchange is ENROLLED in the same
         // breath, because the pairing exchange IS the owner's proof that this installation may join. The
         // response keeps the existing `credential` field untouched (an old client must not break), and adds an
@@ -528,6 +540,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
             session:{credential:sessionCredential(opened.session.sessionId),expiresAt:opened.session.expiresAt},
           }};
         } else out=exchanged;
+        if(b.installation?.browserOnly&&out.enrollment){const e=out.enrollment;out={apiVersion:0,schemaVersion:0,cityId:store.cityId,credential:e.session.credential,member:{deviceId:e.deviceId,displayName:e.displayName}};}
       }
       // JOIN-503. The enrollment surface. `enroll` needs the CONTROL token because it mints authority; the
       // browser reaches it only through the pairing page the owner already authorised. Nothing here is reachable
@@ -547,7 +560,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         //     shape, which is what "tokenless routine reconnect" means in practice.
         const opened=(!req.citySession&&b.installationId)
           ? enrollment.openSession({installationId:b.installationId,instanceId:b.instanceId,credentialId:b.credentialId,credentialSecret:b.credentialSecret})
-          : enrollment.checkSession(req.citySession?req.citySession.session.sessionId:String(b.sessionId??'').replace(SESSION_PREFIX,''));
+          : enrollment.refreshSession(req.citySession?req.citySession.session.sessionId:String(b.sessionId??'').replace(SESSION_PREFIX,''));
         out={apiVersion:0,schemaVersion:0,credential:sessionCredential(opened.session.sessionId),session:{sessionId:opened.session.sessionId,expiresAt:opened.session.expiresAt,issuedAt:opened.session.issuedAt},installation:enrollment.describe(opened.installation.installationId),cityId:store.cityId};
       }
       // Mech's formal review D-2 (accepted). The roster is the OWNER's view of the City. Before this, a `sess:`
@@ -591,6 +604,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         const mine=req.citySession?req.citySession.session.installationId:null;
         if(mine&&mine!==installationId)refuse('SESSION_CANNOT_REVOKE_OTHER',403,'an enrolled session may only revoke its own installation');
         out={apiVersion:0,schemaVersion:0,revoked:enrollment.revoke({installationId,reason:b.reason??'revoked_by_owner'}),scope:mine?'OWN_INSTALLATION':'CITY'};
+        const revokedRef=out.revoked.deviceId;const n=store.get('nodes',revokedRef);if(n)store.put('nodes',{...n,online:false});for(const [socket,surface] of controlSurfaces)if(surface.clientRef===revokedRef)socket.close(1008,'Device revoked');emit('MEMBER_REVOKED',null,{deviceId:revokedRef});
       }
       else if(req.method==='GET' && path==='/api/v0/capabilities')out={capabilities:bridge.registry()};
       else if(req.method==='GET' && path==='/api/v0/capability-invocations')out={invocations:bridge.list(new URL(req.url,'http://city').searchParams.get('limit')??undefined)};
@@ -604,6 +618,19 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         out={cityId:store.cityId,displayName:store.cityName};
       }
       else if(req.method==='GET' && path==='/api/v0/city')out=snapshot(req);
+      else if(req.method==='POST' && path==='/api/v0/node/sharing'){
+        const b=await body(req);if(memberRef(req)!==b.id)fail(403,'Only this device may change its resource sharing');if(typeof b.enabled!=='boolean')fail(400,'Sharing requires enabled boolean');const n=required('nodes',b.id);out=store.put('nodes',{...n,sharingEnabled:b.enabled});emit('NODE_SHARING_CHANGED',null,{nodeId:b.id,enabled:b.enabled});
+      }
+      else if(req.method==='POST' && path==='/api/v0/members/messages'){
+        const b=await body(req);const sender=memberRef(req);const target=members().find(m=>m.deviceId===b.targetDeviceId);if(!target)fail(404,'Target is not a member of this City');
+        if(typeof b.text!=='string'||!b.text.trim()||b.text.length>4096)fail(400,'Message must contain 1–4096 characters');
+        const rows=store.list('member_messages');if(rows.length>=256){const old=rows.find(m=>m.state==='RECEIVED');if(!old)fail(429,'Message capacity reached');store.db.prepare('DELETE FROM member_messages WHERE id=?').run(old.id);}
+        const message=store.put('member_messages',{id:randomUUID(),senderDeviceId:sender,targetDeviceId:b.targetDeviceId,text:b.text.trim(),state:'PENDING',createdAt:now(),receivedAt:null});out={message};emit('MEMBER_MESSAGE_AVAILABLE',null,{messageId:message.id,targetDeviceId:message.targetDeviceId});
+      }
+      else if(req.method==='GET' && path==='/api/v0/members/messages')out={messages:store.list('member_messages').filter(m=>m.senderDeviceId===memberRef(req)||m.targetDeviceId===memberRef(req))};
+      else if(req.method==='POST' && /^\/api\/v0\/members\/messages\/[^/]+\/receipt$/.test(path)){
+        await body(req);const message=required('member_messages',decodeURIComponent(path.split('/').at(-2)));if(message.targetDeviceId!==memberRef(req))fail(403,'Only recipient may confirm receipt');out={message:store.put('member_messages',{...message,state:'RECEIVED',receivedAt:message.receivedAt||now()})};emit('MEMBER_MESSAGE_RECEIVED',null,{messageId:message.id});
+      }
       // UXI-301: the scheduler presentation feed. READ-ONLY, and it decides nothing - it reports the
       // RS-202 eligibility the City's own modules already produced, mapped through the frozen RS-290
       // contract so the UI can show user language instead of scheduler vocabulary. Finished tasks are
@@ -619,6 +646,12 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // Deterministic Ask / Do. There is no model in this path and no BOSS/HNS route.
       else if(req.method==='GET' && path==='/api/v0/ask/targets')out={targets:await askTargets()};
       else if(req.method==='POST' && path==='/api/v0/ask')out={ask:await handleAsk(await body(req),{actions,targets:await askTargets(),roomState:await rooms.probe()})};
+      else if(req.method==='POST' && path==='/api/v0/host/join'){
+        if(req.citySession||!hostJoin||!isLocalRequest(req))fail(403,'Only the local host owner may change its role');out=await hostJoin.start(await body(req));
+      }
+      else if(req.method==='GET' && path==='/api/v0/host/join/status'){
+        if(req.citySession||!hostJoin)fail(403,'Only the local host owner may read the join ticket');out=await hostJoin.status(new URL(req.url,'http://city').searchParams.get('ticketId'));
+      }
       else if(req.method==='GET' && path==='/api/v0/nodes')out={nodes:store.list('nodes')};
       else if(req.method==='GET' && path==='/api/v0/tasks')out={tasks:store.list('tasks')};
       else if(req.method==='GET' && path==='/api/v0/events')out={events:store.events()};
@@ -682,10 +715,11 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
             }
           }
       } else if(req.method==='POST' && path==='/api/v0/node/register'){
-        const b=await body(req);if(!/^[a-zA-Z0-9-]{1,80}$/.test(b.id||'')||typeof b.displayName!=='string'||!Array.isArray(b.capabilities)||!b.capabilities.every(c=>typeof c==='string'))fail(400,'Invalid node registration');
+        const b=await body(req);assertOwnNode(req,b.id);if(req.citySession)b.displayName=enrollment.describe(req.citySession.session.installationId)?.displayName;
+        if(!/^[a-zA-Z0-9-]{1,80}$/.test(b.id||'')||typeof b.displayName!=='string'||!Array.isArray(b.capabilities)||!b.capabilities.every(c=>typeof c==='string'))fail(400,'Invalid node registration');
         const prior=store.get('nodes',b.id);
         for(const t of store.list('tasks'))if(t.assignedNodeId===b.id&&!terminal.includes(t.state))change(t,'FAILED',{error:'Node re-registered; interrupted work is not replayed.'});
-        out=store.put('nodes',{id:b.id,devicePrincipalId:b.id,displayName:b.displayName.slice(0,100),metadata:{platform:String(b.metadata?.platform||'unknown')},agentVersion:typeof b.agentVersion==='string'?b.agentVersion.slice(0,30):'0.1.0',...telemetry(b),capabilities:b.capabilities,online:true,lastHeartbeatAt:now()});
+        out=store.put('nodes',{id:b.id,devicePrincipalId:b.id,displayName:b.displayName.slice(0,100),metadata:{platform:String(b.metadata?.platform||'unknown')},agentVersion:typeof b.agentVersion==='string'?b.agentVersion.slice(0,30):'0.1.0',...telemetry(b),sharingEnabled:prior?.sharingEnabled??true,capabilities:b.capabilities,online:true,lastHeartbeatAt:now()});
         if(!prior?.online){
           emit('NODE_ONLINE',null,{nodeId:b.id});
           // MESH-301: a strict task that was waiting for this device becomes claimable the moment the device
@@ -694,9 +728,9 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
           for(const t of store.list('tasks'))if(isWaitingForTarget(t,terminal)&&t[STRICT_TARGET_FIELD]===b.id)emit('TASK_TARGET_READY',t.id,{targetDeviceRef:b.id},'gateway');
         }
       } else if(req.method==='POST' && path==='/api/v0/node/heartbeat'){
-        const b=await body(req);const n=required('nodes',b.id);const metrics=telemetry(b);if(!n.online)emit('NODE_ONLINE',null,{nodeId:n.id});out=store.put('nodes',{...n,...metrics,online:true,lastHeartbeatAt:now()});
+        const b=await body(req);assertOwnNode(req,b.id);const n=required('nodes',b.id);const metrics=telemetry(b);if(!n.online)emit('NODE_ONLINE',null,{nodeId:n.id});out=store.put('nodes',{...n,...metrics,online:true,lastHeartbeatAt:now()});
       } else if(req.method==='POST' && path==='/api/v0/node/claim'){
-        const b=await body(req);const n=required('nodes',b.id);
+        const b=await body(req);assertOwnNode(req,b.id);const n=required('nodes',b.id);
         const ready=acceptsWork(claimNodeFor(n),{requiredCapabilities:REQUIRED_TASK_CAPABILITIES});
         const busy=store.list('tasks').some(t=>t.assignedNodeId===n.id&&!terminal.includes(t.state));
         // UXI-391: a QUEUED task may be handed out only to a device the handoff bridge allows. A task that
@@ -709,14 +743,14 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         // than being handed to whoever is healthy. `claimAllowedByTarget` returns true for every untargeted
         // task, which is what keeps the pre-existing scheduler behaviour unchanged.
         const claimable=t=>t.state==='QUEUED'&&claimAllowedByTarget(t,n.id)&&handoff.claimAllowed({subjectRef:t.id,deviceRef:n.id,reservedFor:typeof t.handoffTargetRef==='string'&&t.handoffTargetRef.length>0?t.handoffTargetRef:null});
-        const t=ready&&!busy?store.list('tasks').find(claimable):null;
+        const t=ready&&!busy&&n.sharingEnabled!==false?store.list('tasks').find(claimable):null;
         if(t)handoff.noteAssignment({subjectRef:t.id,deviceRef:n.id});
         // A bare `task: null` cannot tell a device "there is no work" from "there is work and it is not
         // yours". The withheld set is the difference, stated as data; nodes that ignore it are unaffected.
         const withheld=withheldTasks({tasks:store.list('tasks'),deviceRef:n.id,terminal});
         out={task:t?change(t,'ASSIGNED',{assignedNodeId:n.id}):null,...(withheld.length>0?{withheld}:{})};
       } else if(req.method==='POST' && path==='/api/v0/node/report'){
-        const b=await body(req);const t=required('tasks',b.taskId);if(t.assignedNodeId!==b.id)fail(403,'Task belongs to another node');
+        const b=await body(req);assertOwnNode(req,b.id);const t=required('tasks',b.taskId);if(t.assignedNodeId!==b.id)fail(403,'Task belongs to another node');
         if(terminal.includes(t.state)){out=t;}else{
           const allowed=(t.state==='ASSIGNED'&&['RUNNING','FAILED'].includes(b.state))||(t.state==='RUNNING'&&['RUNNING','COMPLETED','FAILED'].includes(b.state));
           if(!allowed)fail(409,'Invalid task transition');
@@ -786,7 +820,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       const protocols=String(req.headers['sec-websocket-protocol']||'').split(',').map(s=>s.trim());
       if(!req.headers.authorization){const p=protocols.find(p=>p.startsWith('city-token.'));req.headers.authorization='Bearer '+(p?Buffer.from(p.slice(11),'base64url').toString():'');}
       auth(req);if(u.searchParams.get('apiVersion')!=='0'||u.searchParams.get('schemaVersion')!=='0')fail(409,'Protocol mismatch');
-      const identity=readClientIdentity(u.searchParams);
+      const identity=req.citySession?{clientRef:memberRef(req),clientLabel:enrollment.describe(req.citySession.session.installationId)?.displayName}:readClientIdentity(u.searchParams);
       wss.handleUpgrade(req,socket,head,ws=>{
         const key=refKey(identity.clientRef);
         const liveBefore=surfaceCounts.get(key)??0;
@@ -820,5 +854,5 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // here - recorded so the next reader does not mistake the assignment below for a join fix.
   pairing.endpoint=`http://${host}:${server.address().port}`;
   if(discoveryEnabled)discovery=await startDiscovery({descriptor:pairing.descriptor(),onStatus:s=>{discoveryState=s;}});
-  return {url:pairing.endpoint,store,join,relay,close:async()=>{if(closed)return;closed=true;bridge.close();join.close();relay.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();}};
+  return {url:pairing.endpoint,store,join,relay,quiesce:value=>{acceptingTasks=!value;},close:async()=>{if(closed)return;closed=true;bridge.close();join.close();relay.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();}};
 }

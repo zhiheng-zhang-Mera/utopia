@@ -87,11 +87,11 @@ test('forgetting migrated enrollment cannot import the legacy credential again',
   } finally {await rm(dir,{recursive:true,force:true});}
 });
 
-test('remote short code enrolls and reconnects to its target without launching a host City', {timeout:30000}, async () => {
+test('remote short code enrolls with a local member agent and reconnects without launching a host City', {timeout:120000}, async () => {
   const dir=await mkdtemp(resolve('.scratch-remote-launch-'));
   const app=await createGateway({host:'127.0.0.1',port:0,dir:resolve(dir,'remote'),token:'remote-owner',nodeToken:'remote-node'});
   const env={...process.env,UTOPIA_CLIENT_STATE_DIR:resolve(dir,'client'),UTOPIA_HOST_STATE_DIR:resolve(dir,'unused-host')};
-  const launch=async args=>run(process.execPath,[resolve(root,'scripts/utopia-client-launcher.mjs'),...args,'--no-open','--json'],{env,timeout:12000});
+  const launch=async args=>run(process.execPath,[resolve(root,'scripts/utopia-client-launcher.mjs'),...args,'--no-open','--json'],{env,timeout:75000});
   try {
     const session=await fetch(app.url+'/api/v0/pairing/session',{method:'POST',headers:{Authorization:'Bearer remote-owner','Content-Type':'application/json','X-City-Api-Version':'0','X-City-Schema-Version':'0'},body:'{}'});
     // Owner creates a real one-time session; the client uses only its short code and URL.
@@ -103,6 +103,15 @@ test('remote short code enrolls and reconnects to its target without launching a
     await app.close();
     await assert.rejects(launch([]),error=>error.stderr.includes('CITY_UNREACHABLE'));
     const {existsSync}=await import('node:fs');
-    assert.equal(existsSync(resolve(dir,'unused-host')),false);
-  } finally {await app.close(); await rm(dir,{recursive:true,force:true});}
+    const member=await readHostCity();assert.equal(member.role,'MEMBER');assert.equal(member.cityId,app.store.cityId);assert.ok(member.dataDir.startsWith(dir));
+  } finally {try{const record=await readHostCity();if(record.role==='MEMBER'&&record.dataDir?.startsWith(dir)){if(process.platform==='win32')await run('taskkill',['/PID',String(record.gatewayPid),'/F']);else process.kill(record.gatewayPid,'SIGKILL');}}catch{}await app.close();await rm(dir,{recursive:true,force:true});}
+});
+
+test('PRIMARY launcher reports successful MEMBER transition and normal main restart preserves it', {timeout:180000},async()=>{
+ try{await readHostCity();throw Error('Requires a free local host reservation');}catch(error){if(error.cause?.code!=='ECONNREFUSED')throw error;}
+ const dir=await mkdtemp(resolve('.scratch-cli-demote-'));let remote,owned;const env={...process.env,UTOPIA_HOST_STATE_DIR:resolve(dir,'host'),UTOPIA_CLIENT_STATE_DIR:resolve(dir,'client'),CITY_DATA:resolve(dir,'original'),CITY_MANAGE_SERVICES:'1',CITY_ROOMS_DISABLED:'1',CITY_DISCOVERY_DISABLED:'1',CITY_TELEMETRY_DISABLED:'1'};const launch=async args=>JSON.parse((await run(process.execPath,[resolve(root,'scripts/utopia-client-launcher.mjs'),...args,'--no-open','--json'],{env,timeout:90000})).stdout);const kill=async record=>{assert.ok(record.dataDir.startsWith(dir));if(process.platform==='win32')await run('taskkill',['/PID',String(record.gatewayPid),'/F']);else process.kill(record.gatewayPid,'SIGKILL');for(let i=0;i<100;i++){try{await readHostCity();}catch(error){if(error.cause?.code==='ECONNREFUSED')return;}await new Promise(r=>setTimeout(r,50));}};
+ try{owned=await launch(['--host-only','--host','127.0.0.1','--port','0']);const localId=owned.cityId;remote=await createGateway({dir:resolve(dir,'remote'),port:0,token:'remote-owner',nodeToken:'remote-node'});const h={Authorization:'Bearer remote-owner','Content-Type':'application/json','X-City-Api-Version':'0','X-City-Schema-Version':'0'};const pair=await(await fetch(remote.url+'/api/v0/pairing/session',{method:'POST',headers:h,body:'{}'})).json();const joined=await launch(['--enroll-code',pair.shortCode,'--enroll-host',remote.url,'--name','CLI chosen name']);assert.equal(joined.role,'MEMBER');assert.equal(joined.gatewayPid,owned.gatewayPid);const selected=await readHostCity();assert.equal(selected.role,'MEMBER');assert.equal(selected.cityId,remote.store.cityId);await kill(selected);owned=null;
+ const {spawn}=await import('node:child_process');const restarted=spawn(process.execPath,[resolve(root,'services/dev-gateway/main.mjs')],{cwd:root,env,stdio:'ignore',windowsHide:true});restarted.on('error',()=>{});for(let i=0;i<180;i++){await new Promise(r=>setTimeout(r,250));try{const record=await readHostCity();if(record.state==='ONLINE'){owned=record;break;}}catch{}}
+ assert.equal(owned?.role,'MEMBER');assert.equal(owned.cityId,remote.store.cityId);assert.equal(owned.gatewayPid,restarted.pid);const pointer=JSON.parse(await readFile(resolve(dir,'host/city.json'),'utf8'));assert.equal(pointer.cityId,localId);const snap=await(await fetch(remote.url+'/api/v0/city',{headers:h})).json();assert.ok(snap.members.some(m=>m.displayName==='CLI chosen name'&&m.computeOnline));
+ }finally{if(!owned){try{const record=await readHostCity();if(record.dataDir?.startsWith(dir))owned=record;}catch{}}if(owned)await kill(owned);await remote?.close();await rm(dir,{recursive:true,force:true});}
 });

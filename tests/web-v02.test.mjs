@@ -14,7 +14,7 @@ test('Web Devices and ephemeral pairing share the authoritative Gateway',async()
  await page.getByLabel('Pairing token').fill('web-test');await page.getByRole('button',{name:'Connect',exact:true}).click();
  await page.locator('#connection.online').waitFor();
  await page.locator('[data-page="Devices"]').click({timeout:2000});
- assert.match(await page.locator('#view').innerText(),/Waiting for a runtime node/);
+ assert.match(await page.locator('#view').innerText(),/This device.*No computing agent connected/s);
  await page.locator('[data-page="Pairing"]').click();
  await page.getByRole('button',{name:'Generate pairing session',exact:true}).click();
  await page.locator('#pairing-qr svg').waitFor();
@@ -74,23 +74,23 @@ test('Web freshness, device detail, node offline and pairing expiry',async()=>{
  await page.getByLabel('Pairing token').fill('web-test');await page.getByRole('button',{name:'Connect',exact:true}).click();await page.locator('#connection.online').waitFor();
  await page.locator('[data-page="Devices"]').click();await page.locator('.telemetry.fresh').waitFor();
  await page.evaluate(()=>window.UtopiaI18n.setLocale('zh-CN'));
- assert.equal(await page.locator('#view .badge.ONLINE').innerText(),'在线');
- assert.equal(await page.locator('#view .badge.在线').count(),0);
+ assert.equal(await page.locator('[data-member-card="test-device"] .badge.ONLINE').innerText(),'在线');
+ assert.equal(await page.locator('[data-member-card="test-device"] .badge.在线').count(),0);
  await page.evaluate(()=>window.UtopiaI18n.setLocale('en'));
  assert.match(await page.locator('#view').innerText(),/18.0%/);
  await page.locator('[data-node="test-device"]').click();
  for(const expected of ['Agent 0.2.0','Memory','Disk','1h 1m','Capabilities','task.execute.safe','Current tasks','NODE_ONLINE'])assert.ok((await page.locator('#detail').innerText()).includes(expected));
  const stale={...telemetry,observedAt:new Date(Date.now()-15000).toISOString()};
  assert.equal((await fetch(app.url+'/api/v0/node/heartbeat',{method:'POST',headers,body:JSON.stringify({id:'test-device',telemetry:stale})})).status,200);
- await page.locator('#view .telemetry.cached').waitFor();assert.equal(await page.locator('#view .badge.ONLINE').count(),0);
+ await page.locator('#view .telemetry.cached').waitFor();assert.equal(await page.locator('[data-member-card="test-device"] .badge.ONLINE').count(),0);
  const node=app.store.get('nodes','test-device');app.store.put('nodes',{...node,online:false});
- await page.locator('#view .badge.OFFLINE').waitFor();
+ await page.locator('[data-member-card="test-device"] .badge.OFFLINE').waitFor();
  await page.locator('[data-page="Pairing"]').click();await page.getByRole('button',{name:'Generate pairing session',exact:true}).click();await page.locator('#pairing-qr svg').waitFor();
  // JOIN-501: expiry removes the material, says so, and offers generation again - it does not auto-generate.
  await page.locator('#pairing-code').waitFor({state:'detached',timeout:5000});assert.match(await page.locator('#view').innerText(),/expired/);
  await page.getByRole('button',{name:'Generate pairing session',exact:true}).waitFor();
  assert.equal(await page.locator('#pairing-code').count(),0);
  await app.close();await page.locator('#connection.online').waitFor({state:'hidden'});await page.locator('[data-page="Devices"]').click();
- assert.equal(await page.locator('#view .badge.UNKNOWN').count(),1);assert.equal(await page.locator('#view .telemetry.fresh').count(),0);
+ assert.equal(await page.locator('[data-member-card="test-device"] .badge.UNKNOWN').count(),1);assert.equal(await page.locator('#view .telemetry.fresh').count(),0);
  }finally{await browser?.close();await app?.close();await rm(dir,{recursive:true,force:true});}
 });

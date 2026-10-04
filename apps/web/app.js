@@ -18,6 +18,8 @@ const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>
 // JOIN-503: a session credential is preferred over a token when the fragment carries one, so a launcher-opened
 // client is an ENROLLED client by default and the token path stays the engineering fallback it is meant to be.
 const bootSession=readSessionFromHash(location.hash);
+const bootDevice=new URLSearchParams(location.hash.slice(1)).get('device');if(bootDevice)try{localStorage.setItem('utopia.hostRef',bootDevice);}catch{}
+let selectedMember=null,memberMessages=[],memberDrafts=new Map(),hostJoinPolling=null;
 let token=bootSession||storedSession()||sessionStorage.getItem('city-token')||'',city=null,page=location.pathname==='/pairing'?'Pairing':'Home',selected=null,ws,generation=0,timer,refreshing=false,pending=false,connection='OFFLINE',selectedNode=null,pairingBusy=false,pairingEpoch=0,terminal=null,externalPage=TERMINAL_PAGES.includes(page),homeRoomsData=null,homeRoomsError='',enrolledDevices=null,enrolledError='',enrolledNotice='';
 // JOIN-502 ONBOARDING STATE. `nearby` is what the last browse found; `joinAsk` is the ask this surface
 // has outstanding, if any. They are separate because discovery is repeatable and an ask is a single
@@ -85,7 +87,7 @@ async function reconcileRestoredPairing(){
 // the worker nodes follow, so a surface can be renamed without becoming a different surface. The LABEL is
 // what the user calls it ("Alien Web", "Mech Web") and is deliberately settable, because two browsers on two
 // hosts load the SAME canonical City and the page's own origin therefore cannot tell them apart.
-function webClientRef(){let ref=null;try{ref=localStorage.getItem('utopia.clientRef');}catch{}if(!ref){ref='web-'+Math.random().toString(36).slice(2,10);try{localStorage.setItem('utopia.clientRef',ref);}catch{}}return ref;}
+function webClientRef(){if(city?.currentMemberRef)return city.currentMemberRef;try{const hostRef=localStorage.getItem('utopia.hostRef');if(hostRef&&hostRef===city?.hostDeviceId)return hostRef;}catch{}let ref=null;try{ref=localStorage.getItem('utopia.clientRef');}catch{}if(!ref){ref='web-'+Math.random().toString(36).slice(2,10);try{localStorage.setItem('utopia.clientRef',ref);}catch{}}return ref;}
 function webClientLabel(){let label=null;try{label=localStorage.getItem('utopia.clientLabel');}catch{}if(label)return label;return 'Web · '+(navigator.platform||'browser');}
 // Exposed so the surface can be named from the console during a run: localStorage.setItem('utopia.clientLabel','Alien Web')
 window.utopiaWebSurface={ref:webClientRef,label:webClientLabel,rename:name=>{try{localStorage.setItem('utopia.clientLabel',String(name));}catch{}return String(name);}};
@@ -131,6 +133,7 @@ async function exchangeInvite(value){
  const parsed=(typeof value==='string')?parseInvite(value):(value&&value.host?value:null);
  if(!parsed)return null;
  const here=location.origin.replace(/\/$/,''),there=String(parsed.host).replace(/\/$/,'');
+ if(there!==here&&city?.hostJoinAvailable&&token){const displayName=window.prompt(t('join.namePrompt'),webClientLabel());if(displayName===null)return null;return nativeHostJoin({endpoint:there,cityId:parsed.cityId,mode:'invite',displayName,invite:{cityId:parsed.cityId,sessionId:parsed.sessionId,secret:parsed.secret,method:'qr'}});}
  if(there!==here){
   // Switching City is a NAVIGATION, not a fetch: `pairing/exchange` is a route on the City that owns the
   // session, and the gateway sends no CORS headers for it, so a cross-origin POST from this page would be
@@ -140,7 +143,7 @@ async function exchangeInvite(value){
   location.assign(there+'/#pair='+encodeURIComponent(parsed.invite));
   return {navigating:true};
  }
- const r=await fetch('/api/v0/pairing/exchange',{method:'POST',headers:{'Content-Type':'application/json','X-City-Api-Version':'0','X-City-Schema-Version':'0'},body:JSON.stringify({cityId:parsed.cityId,method:'qr',sessionId:parsed.sessionId,secret:parsed.secret}),signal:AbortSignal.timeout(8000)});
+ const r=await fetch('/api/v0/pairing/exchange',{method:'POST',headers:{'Content-Type':'application/json','X-City-Api-Version':'0','X-City-Schema-Version':'0'},body:JSON.stringify({cityId:parsed.cityId,method:'qr',sessionId:parsed.sessionId,secret:parsed.secret,installation:{displayName:webClientLabel(),platform:navigator.platform,browserOnly:true}}),signal:AbortSignal.timeout(8000)});
  const x=await r.json().catch(()=>null);
  // Errors name the City that was actually asked. A generic "no credential" cannot tell "this City refused the
  // invite" from "this client asked the WRONG City", and those need completely different fixes.
@@ -307,6 +310,7 @@ async function askToJoin(endpoint, cityRef, row){
  const displayName=entered.trim();
  if(!displayName||displayName.length>64||/[\u0000-\u001f\u007f]/.test(displayName)){joinError='join.nameInvalid';render();return;}
  try{localStorage.setItem('utopia.clientLabel',displayName);}catch{}
+ if(city?.hostJoinAvailable&&token&&target!==location.origin){try{await nativeHostJoin({endpoint:target,cityId:cityRef,mode:'request',displayName});}catch(error){$('#error').textContent=error.message;}return;}
  const claim=joinClaim();
  // REMOTE ROWS FIRST, and only when this page really belongs to a City that can carry the ask: with no origin of
  // our own there is no pipe to dial from, and pretending otherwise would strand the user.
@@ -446,11 +450,12 @@ async function pairWithCode(rawInput=null,prefix='pair'){
   try{
    const target=pairTarget||{endpoint:location.origin,cityRef:city?.cityId??null,transport:'LAN'};
    const method=target.transport==='BLE_BOOTSTRAP'?'ble':'mdns';
+   if(city?.hostJoinAvailable&&token&&new URL(target.endpoint).origin!==location.origin){const displayName=window.prompt(t('join.namePrompt'),webClientLabel());if(displayName===null)return{ok:false,reason:'CANCELLED'};return await nativeHostJoin({endpoint:target.endpoint,cityId:target.cityRef,mode:'code',shortCode:raw,displayName});}
    if(new URL(target.endpoint).origin!==location.origin){
     const handoff=codeHandoff({endpoint:target.endpoint,cityRef:target.cityRef,code:raw,method});
     location.assign(handoff);return{ok:true,navigating:true};
    }
-   const done=await exchangeShortCode({code:raw,cityRef:target.cityRef,method});
+   const done=await exchangeShortCode({code:raw,cityRef:target.cityRef,method,installation:{displayName:webClientLabel(),platform:navigator.platform,browserOnly:true}});
    token=done.credential;forgetSession();sessionStorage.setItem('city-token',token);
    draft.value='';if(field)field.value='';pendingInvite=null;pairTarget=null;say('pair.codeDone');await connect();return{ok:true};
   }catch(error){say(pairingErrorKey(error));return{ok:false,reason:'EXCHANGE_FAILED'};}
@@ -504,7 +509,7 @@ function waitForDecision(ask){
    if(state.state!==joinAsk.state){joinAsk={...joinAsk,state:state.state};render();}
    if(state.state==='APPROVED'){
     clearInterval(joinPoll);
-    const collected=await joinApi('exchange',{requestId:ask.requestId,claim:ask.claim});
+    const collected=await joinApi('exchange',{requestId:ask.requestId,claim:ask.claim,installation:{browserOnly:true}});
     if(!collected?.credential)throw Error('that City approved the request but returned no credential');
     // The City's credential becomes this tab's session credential exactly as a pasted token would. It is
     // session-scoped on purpose: durable device identity is JOIN-503's work, not a browser's.
@@ -602,7 +607,7 @@ function syncPairEntry(){
  }
 }
 function status(s){connection=s;$('#connection').textContent=t('connection.'+s.toLowerCase());$('#connection').className=s==='ONLINE'?'online':'';$('#run').disabled=s!=='ONLINE';render();}
-async function refresh(){if(refreshing){pending=true;return;}if(externalPage&&city)return;refreshing=true;try{const gen=generation;const snapshot=await api('city');if(gen!==generation)return;city=snapshot;syncRunTargets();try{schedulerFeed=await api('presentation');}catch{schedulerFeed=null;}if(pairing.ownerSessionId()!==null&&city.descriptor?.pairingSessionId!==pairing.ownerSessionId()){const active=pairing.ownerSessionId();canonicalPairingSession().then(c=>{if(!c.known)return;if(c.sessionId===active)return;pairing.clearOnSessionChanged(c.sessionId);render();});}$('#pair').hidden=true;$('#content').hidden=false;$('#error').textContent='';render();}finally{refreshing=false;if(pending){pending=false;refresh().catch(disconnected);}}}
+async function refresh(){if(refreshing){pending=true;return;}if(externalPage&&city)return;refreshing=true;try{const gen=generation;const snapshot=await api('city');if(gen!==generation)return;city=snapshot;try{memberMessages=(await api('members/messages')).messages||[];for(const message of memberMessages)if(message.targetDeviceId===city.currentMemberRef&&message.state==='PENDING'){await api('members/messages/'+message.id+'/receipt',{});message.state='RECEIVED';}}catch{memberMessages=[];}syncRunTargets();try{schedulerFeed=await api('presentation');}catch{schedulerFeed=null;}if(pairing.ownerSessionId()!==null&&city.descriptor?.pairingSessionId!==pairing.ownerSessionId()){const active=pairing.ownerSessionId();canonicalPairingSession().then(c=>{if(!c.known)return;if(c.sessionId===active)return;pairing.clearOnSessionChanged(c.sessionId);render();});}$('#pair').hidden=true;$('#content').hidden=false;$('#error').textContent='';render();}finally{refreshing=false;if(pending){pending=false;refresh().catch(disconnected);}}}
 function disconnected(e){status('OFFLINE');if(e?.message)$('#error').textContent=e.message;}
 async function connect(){const gen=++generation;clearTimeout(timer);ws?.close();status('RECONNECTING');try{await refresh();if(gen!==generation)return;ws=new WebSocket(location.origin.replace(/^http/,'ws')+'/api/v0/events/stream?apiVersion=0&schemaVersion=0&clientRef='+encodeURIComponent(webClientRef())+'&clientLabel='+encodeURIComponent(webClientLabel()),['city-v0','city-token.'+btoa(token).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_')]);ws.onopen=()=>{if(gen===generation)status('ONLINE');};ws.onmessage=()=>refresh().catch(disconnected);ws.onerror=()=>disconnected();ws.onclose=()=>{if(gen===generation){disconnected();timer=setTimeout(connect,1800);}};}catch(e){if(gen===generation){disconnected(e);timer=setTimeout(connect,2500);}}}
 const badge=(stateClass, displayLabel=stateClass)=>`<span class="badge ${esc(stateClass)}">${esc(displayLabel)}</span>`;
@@ -613,7 +618,21 @@ const nodeState=n=>connection!=='ONLINE'?'UNKNOWN':!n.online?'OFFLINE':fresh(n)?
 const nodeBadge=n=>{const state=nodeState(n);const label=state==='UNKNOWN'?t('node.unknown'):t('connection.'+state.toLowerCase());return badge(state,label);};
 const fresh=n=>connection==='ONLINE'&&n.online&&Number.isFinite(Date.parse(n.telemetry?.observedAt))&&Date.now()-Date.parse(n.telemetry.observedAt)<=10000&&Date.now()>=Date.parse(n.telemetry.observedAt);
 const metrics=n=>{const sample=n.telemetry||{},valid=fresh(n);return `<div class="telemetry ${valid?'fresh':'cached'}"><p class="muted">${valid?t('device.live'):t('device.cached')} · ${esc(t('device.observed'))} ${esc(age(sample.observedAt))}</p><dl class="metrics"><div><dt>CPU</dt><dd>${Number.isFinite(sample.cpu?.usagePercent)?esc(sample.cpu.usagePercent.toFixed(1))+'%':t('device.unknown')}</dd></div><div><dt>${esc(t('device.memory'))}</dt><dd>${bytes(sample.memory?.usedBytes)} / ${bytes(sample.memory?.totalBytes)}</dd></div><div><dt>${esc(t('device.disk'))}</dt><dd>${bytes(sample.disk?.usedBytes)} / ${bytes(sample.disk?.totalBytes)}<small>${esc(t('device.free'))} ${bytes(sample.disk?.freeBytes)}</small></dd></div><div><dt>${esc(t('device.uptime'))}</dt><dd>${Number.isFinite(sample.uptimeSeconds)?Math.floor(sample.uptimeSeconds/3600)+'h '+Math.floor(sample.uptimeSeconds%3600/60)+'m':t('device.unknown')}</dd></div></dl></div>`;};
-const nodeRows=()=>city.nodes.map(n=>`<article class="device-card"><div class="row"><div class="node-info"><span class="node-icon" aria-hidden="true"></span><div><button class="task-open" data-node="${esc(n.id)}">${esc(n.displayName)}</button><p class="muted">${esc(n.metadata?.platform)} · ${esc(t('device.agent'))} ${esc(n.agentVersion||t('device.unknown'))}</p><small>${connection==='ONLINE'?'':t('device.cachedPrefix')}${esc(t('device.lastSeen'))} ${esc(age(n.lastHeartbeatAt))}</small></div></div>${nodeBadge(n)}</div>${metrics(n)}</article>`).join('')||`<p class="muted">${esc(t('empty.waitingRuntimeNode'))}</p>`;
+const legacyNodeRows=()=>city.nodes.map(n=>`<article class="device-card"><div class="row"><div class="node-info"><span class="node-icon" aria-hidden="true"></span><div><button class="task-open" data-node="${esc(n.id)}">${esc(n.displayName)}</button><p class="muted">${esc(n.metadata?.platform)} · ${esc(t('device.agent'))} ${esc(n.agentVersion||t('device.unknown'))}</p><small>${connection==='ONLINE'?'':t('device.cachedPrefix')}${esc(t('device.lastSeen'))} ${esc(age(n.lastHeartbeatAt))}</small></div></div>${nodeBadge(n)}</div>${metrics(n)}</article>`).join('')||`<p class="muted">${esc(t('empty.waitingRuntimeNode'))}</p>`;
+const ownMemberRef=()=>city?.currentMemberRef||webClientRef();
+const nodeRows=()=>!city.members?legacyNodeRows():[...city.members].sort((a,b)=>(a.deviceId===ownMemberRef()?-1:b.deviceId===ownMemberRef()?1:0)).map(m=>{
+ const n=city.nodes.find(n=>n.id===m.nodeId);const title=(m.deviceId===ownMemberRef()?t('members.thisDevice')+' · ':'')+m.displayName;
+ return '<article class="device-card" data-member-card="'+esc(m.deviceId)+'"><div class="row"><div><button class="task-open" data-member="'+esc(m.deviceId)+'"'+(n?' data-node="'+esc(n.id)+'"':'')+'>'+esc(title)+'</button><p class="muted">'+esc(t('members.role.'+m.role))+' · '+esc(m.computeOnline?(m.sharingEnabled?t('members.sharing'):t('members.notSharing')):t('members.noAgent'))+'</p></div>'+(n?nodeBadge(n):connection!=='ONLINE'?badge('UNKNOWN',t('node.unknown')):badge(m.online?'ONLINE':'OFFLINE',t('connection.'+(m.online?'online':'offline'))))+'</div>'+(n?metrics(n):'')+'</article>';
+}).join('');
+function memberDetail(m){
+ const mine=m.deviceId===ownMemberRef();const history=memberMessages.filter(x=>(x.senderDeviceId===m.deviceId&&x.targetDeviceId===ownMemberRef())||(x.targetDeviceId===m.deviceId&&x.senderDeviceId===ownMemberRef()));
+ return '<section id="member-detail" data-member-detail="'+esc(m.deviceId)+'">'+(m.nodeId?'':'<h2>'+esc(m.displayName)+'</h2>')+'<p>'+esc(t('members.role.'+m.role))+'</p>'+(mine&&m.nodeId?'<button id="member-sharing" data-enabled="'+String(!m.sharingEnabled)+'">'+esc(t(m.sharingEnabled?'members.stopSharing':'members.startSharing'))+'</button>':'')+'<h3>'+esc(t('members.messages'))+'</h3><div id="member-message-history">'+history.map(x=>'<p>'+esc(x.text)+' · '+esc(t(x.state==='RECEIVED'?'members.received':'members.pending'))+'</p>').join('')+'</div>'+(!mine?'<form id="member-message-form"><label for="member-message-text">'+esc(t('members.message'))+'</label><input id="member-message-text" maxlength="4096" required value="'+esc(memberDrafts.get(m.deviceId)||'')+'"><button id="member-message-send" type="submit">'+esc(t('members.send'))+'</button></form>':'')+'</section>';
+}
+async function nativeHostJoin(input){
+ const ticket=await api('host/join',input);joinAsk={state:'PENDING',displayName:input.displayName};clearInterval(hostJoinPolling);
+ hostJoinPolling=setInterval(async()=>{try{const state=await api('host/join/status?ticketId='+encodeURIComponent(ticket.ticketId));if(state.state==='JOINED'){clearInterval(hostJoinPolling);destroyLocalToken();location.assign(state.nextUrl);}else if(state.state==='FAILED'){clearInterval(hostJoinPolling);$('#error').textContent=state.error;} }catch(error){clearInterval(hostJoinPolling);$('#error').textContent=error.message;}},700);
+ return {ok:true,navigating:true};
+}
 const cityUrl=()=>{const e=city.descriptor?.endpoint;return e?e.scheme+'://'+e.host+':'+e.port:location.origin;};
 function renderPairCodeCard(prefix='pair'){
  const draft=pairDrafts[prefix];
@@ -750,16 +769,21 @@ function render(){
  // one both overwrote the view AND read the pre-JOIN-501 `pairing` variable, so the QR was never injected into the
  // page: every browser test hung waiting for `#pairing-qr svg`. The line above owns the Pairing page now, and the
  // owner's approval cards from JOIN-502 are added to it there rather than re-rendering the page a second time.
+ const messageField=$('#member-message-text');const messageFocus=messageField===document.activeElement?{start:messageField.selectionStart,end:messageField.selectionEnd}:null;
  const detail=city.tasks.find(t=>t.id===selected);$('#detail').hidden=!detail;if(detail)$('#detail').innerHTML=`<h2>${esc(detail.type)}</h2><div class="task-id">${esc(detail.id)}</div><p>${badge(detail.state)} · ${esc(detail.assignedNodeId||t('status.waitingNode'))}</p><progress max="100" value="${detail.progress}"></progress><h3>${esc(t('section.checkpoint'))}</h3><pre>${esc(JSON.stringify(detail.lastCheckpoint,null,2))}</pre><h3>${esc(t('section.result'))}</h3><pre>${esc(JSON.stringify(detail.result||detail.error,null,2))}</pre>${!finished(detail)?`<button id="cancel">${esc(t('task.cancel'))}</button>`:''}<h3>${esc(t('section.taskEvents'))}</h3>${events(city.events.filter(e=>e.taskId===detail.id))}`;
  const device=city.nodes.find(n=>n.id===selectedNode);if(device){$('#detail').hidden=false;$('#detail').innerHTML=`<h2>${esc(device.displayName)}</h2><p>${nodeBadge(device)} · ${esc(device.metadata?.platform)} · ${esc(t('device.agent'))} ${esc(device.agentVersion||t('device.unknown'))}</p><p class="task-id">${esc(device.id)}</p><p>${esc(t('device.lastSeen'))} ${esc(age(device.lastHeartbeatAt))}</p>${metrics(device)}<h3>${esc(t('device.capabilities'))}</h3><p>${esc(device.capabilities.join(' / '))}</p><h3>${esc(t('device.currentTasks'))}</h3>${taskRows(tasks.filter(t=>t.assignedNodeId===device.id&&!finished(t)),t('device.noTasks'))}<h3>${esc(t('device.recentEvents'))}</h3>${events(city.events.filter(e=>e.payload?.nodeId===device.id||tasks.some(t=>t.id===e.taskId&&t.assignedNodeId===device.id)).slice(-12),true)||`<p class="muted">${esc(t('device.noEvents'))}</p>`}`;}
+ const member=city.members?.find(m=>m.deviceId===(selectedMember||selectedNode));if(member){$('#detail').hidden=false;if(!selectedNode)$('#detail').innerHTML='';$('#detail').insertAdjacentHTML('beforeend',memberDetail(member));if(messageFocus){const field=$('#member-message-text');field?.focus({preventScroll:true});field?.setSelectionRange(messageFocus.start,messageFocus.end);}}
+
 }
-document.addEventListener('click',async e=>{const nav=e.target.closest('[data-page]'),task=e.target.closest('[data-task]'),node=e.target.closest('[data-node]'),locale=e.target.closest('[data-locale]'),goto=e.target.closest('[data-goto]'),room=e.target.closest('[data-home-room]'),schedAction=e.target.closest('[data-scheduler-action]');if(locale)setLocale(locale.dataset.locale);if(goto)go(goto.dataset.goto);if(nav)go(nav.dataset.page);if(room)go('Rooms');if(node){selectedNode=node.dataset.node;selected=null;render();$('#detail').scrollIntoView({behavior:'smooth'});}if(task){selectedNode=null;selected=task.dataset.task;render();$('#detail').scrollIntoView({behavior:'smooth'});}
+document.addEventListener('click',async e=>{const nav=e.target.closest('[data-page]'),task=e.target.closest('[data-task]'),node=e.target.closest('[data-node]'),locale=e.target.closest('[data-locale]'),goto=e.target.closest('[data-goto]'),room=e.target.closest('[data-home-room]'),schedAction=e.target.closest('[data-scheduler-action]');if(locale)setLocale(locale.dataset.locale);if(goto)go(goto.dataset.goto);if(nav)go(nav.dataset.page);if(room)go('Rooms');if(node){selectedMember=null;selectedNode=node.dataset.node;selected=null;render();$('#detail').scrollIntoView({behavior:'smooth'});}if(task){selectedMember=null;selectedNode=null;selected=task.dataset.task;render();$('#detail').scrollIntoView({behavior:'smooth'});}
 // UXI-301: a scheduler action the user takes must REALLY RETURN to the backend, which is an acceptance
 // item the independent review checks. The route comes from the shared ACTION_WIRING table, and the
 // task id from the button, so the panel and this dispatcher cannot disagree about what is wired.
 if(schedAction){const token=schedAction.dataset.schedulerAction,taskRef=schedAction.dataset.schedulerTask,route=schedAction.dataset.schedulerRoute,providerRef=schedAction.dataset.schedulerProvider;schedAction.disabled=true;try{if(route==='cancel'){await api('tasks/'+encodeURIComponent(taskRef)+'/cancel',{});}else if(route==='create'){await api('tasks',{type:'CHECKPOINT_DEMO'});}else if(route==='providerChoice'){if(!providerRef)throw new Error('no provider was offered to choose from');await api('tasks/'+encodeURIComponent(taskRef)+'/provider-choice',{providerRef});}else{/* local acknowledgement: nothing to send */}await refresh();}catch(err){$('#error').textContent=err.message;schedAction.disabled=false;}}
 if(e.target.id==='nearby-browse'||e.target.id==='swap-nearby-browse'){nearbyBrowse();}
 if(e.target.id==='nearby-ble'||e.target.id==='swap-nearby-ble'){nearbyBrowse('ble');}
+if(e.target.closest('[data-member]')&&!node){selectedMember=e.target.closest('[data-member]').dataset.member;selectedNode=null;selected=null;render();}
+if(e.target.id==='member-sharing'){try{const member=city.members.find(m=>m.deviceId===ownMemberRef());await api('node/sharing',{id:member.nodeId,enabled:e.target.dataset.enabled==='true'});await refresh();}catch(error){$('#error').textContent=error.message;}}
 if(e.target.dataset?.pairTarget){const target=nearbyCities(nearby??[]).find(row=>row.key===e.target.dataset.pairTarget);if(target?.endpoint&&target.cityRef&&!pairDrafts.pair.busy&&!pairDrafts.swap.busy){pairTarget=target;pendingInvite=null;render();const prefix=page==='Pairing'&&connection==='ONLINE'?'swap':'pair';$(`#${prefix}-code`)?.focus();$(`#${prefix}-code`)?.scrollIntoView({behavior:'smooth',block:'nearest'});}}
 // THE PC LIST ACTIONS. One reusable browse, so the button inside the old section and the one on the list run the
 // same code path; then the three things a row can do. `join` goes through the EXISTING JOIN-502 ask flow and
@@ -875,3 +899,6 @@ document.addEventListener('submit',async event=>{
  event.preventDefault();const name=event.target.querySelector('#city-name').value;
  try{await api('city/name',{displayName:name},'PATCH');await refresh();}catch(error){$('#error').textContent=error.message;}
 });
+
+document.addEventListener('input',event=>{if(event.target.id==='member-message-text'){const ref=$('#member-detail')?.dataset.memberDetail;if(ref)memberDrafts.set(ref,event.target.value);}});
+document.addEventListener('submit',async event=>{if(event.target.id!=='member-message-form')return;event.preventDefault();const targetDeviceId=$('#member-detail').dataset.memberDetail;try{await api('members/messages',{targetDeviceId,text:$('#member-message-text').value});memberDrafts.delete(targetDeviceId);await refresh();}catch(error){$('#error').textContent=error.message;}});

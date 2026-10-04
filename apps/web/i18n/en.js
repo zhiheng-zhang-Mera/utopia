@@ -426,4 +426,5 @@ export const messages = {
 };
 
 Object.assign(messages,{"members.thisDevice":"This device","members.role.PRIMARY":"City host","members.role.MEMBER":"Member host","members.role.CONTROL_ONLY":"Web control only","members.role.COMPUTE_NODE":"Computing device","members.sharing":"Sharing computing resources","members.notSharing":"Resource sharing paused","members.noAgent":"No computing agent connected","members.messages":"Device messages","members.message":"Message","members.send":"Send","members.received":"Received","members.pending":"Waiting for receipt","members.stopSharing":"Stop sharing this device","members.startSharing":"Share this device"});
+Object.assign(messages,{"catalog.hint":"Not sure what you can do?","catalog.open":"View all capabilities","catalog.title":"Available targets — select, then submit your action"});
 export default { meta, messages };

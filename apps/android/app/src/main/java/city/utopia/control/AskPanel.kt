@@ -35,9 +35,10 @@ import org.json.JSONObject
  var busy by remember { mutableStateOf(false) }
  var failure by remember { mutableStateOf<String?>(null) }
  var result by remember { mutableStateOf<AskResult?>(null) }
- var targets by remember { mutableStateOf<List<TargetOption>?>(null) }
- var targetsBusy by remember { mutableStateOf(false) }
- var targetsFailure by remember { mutableStateOf<String?>(null) }
+ var targets by remember(client) { mutableStateOf<List<TargetOption>?>(null) }
+ var preparedSelection by remember(client) { mutableStateOf<JSONObject?>(null) }
+ var targetsBusy by remember(client) { mutableStateOf(false) }
+ var targetsFailure by remember(client) { mutableStateOf<String?>(null) }
  var pendingKey by remember { mutableStateOf<String?>(null) }
  var pendingFor by remember { mutableStateOf<String?>(null) }
  fun send(selection: JSONObject?, confirm: Boolean) {
@@ -75,9 +76,16 @@ import org.json.JSONObject
    style = MaterialTheme.typography.bodySmall,
    color = MaterialTheme.colorScheme.onSurfaceVariant,
   )
-  OutlinedTextField(text, { text = it }, label = { Text("你想做什么？") }, enabled = !busy, minLines = 2, modifier = Modifier.fillMaxWidth())
+  Text("不知道能做什么？",style=MaterialTheme.typography.bodySmall)
+  OutlinedButton(onClick={loadTargets()},enabled=online&&!targetsBusy&&client!=null) { Text(if(targetsBusy) "正在载入…" else "查看全部能力") }
+  targetsFailure?.let { UtFeedback(it,kind="error") }
+  targets?.let { catalog ->
+   if(catalog.isEmpty()) UtEmptyState("Gateway 没有提供目标")
+   catalog.forEach { candidate -> TargetChoice(candidate,busy||!online) { text=candidate.example.ifBlank { candidate.label };preparedSelection=candidate.choice;targets=null;result=null } }
+  }
+  OutlinedTextField(text, { text = it; preparedSelection=null }, label = { Text("你想做什么？") }, enabled = !busy, minLines = 2, modifier = Modifier.fillMaxWidth())
   Button(
-   onClick = { send(null, false) },
+   onClick = { send(preparedSelection, false) },
    enabled = online && !busy && text.isNotBlank() && client != null,
    modifier = Modifier.fillMaxWidth(),
   ) { Text(if (busy) "正在执行…" else "去做") }
@@ -123,14 +131,7 @@ import org.json.JSONObject
      UtLabel("没有规则匹配你的话", color = MaterialTheme.colorScheme.secondary)
      Text("什么都没有执行，也没有猜测。你可以自己挑一个目标，或者换句话再说一次。", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
      OutlinedButton(onClick = { loadTargets() }, enabled = online && !targetsBusy && client != null) { Text(if (targetsBusy) "正在载入…" else "显示全部目标") }
-     targetsFailure?.let { UtFeedback(it, kind = "error") }
-     val manual = targets
-     if (manual != null) {
-      if (manual.isEmpty()) UtEmptyState("Gateway 没有提供目标") else {
-       UtLabel("手动选择")
-       manual.forEach { candidate -> TargetChoice(candidate, busy || !online) { send(candidate.choice, false) } }
-      }
-     }
+
     }
    }
    if (askShowsAction(answer.status)) answer.action?.let { action -> UtPanel { UtLabel("执行结果"); ActionRecord(action) } }

@@ -49,6 +49,7 @@ const state = {
   ask: { input: '', busy: false, result: null, targets: [], error: '', confirmed: false, note: '', pendingFor: null, pendingKey: null },
   actions: { data: null, busy: false, error: '', detail: null, selected: null, limit: DEFAULT_ACTION_LIMIT },
 };
+let catalogOpen=false,catalogBusy=false,preparedTarget=null,catalogEpoch=0,catalogCredential=null;
 let call = null;
 let context = { online: false, go: null, external: false };
 let frameTimer = null;
@@ -192,6 +193,8 @@ function renderAsk(container) {
   container.innerHTML = `<section class="panel terminal-ask"><h2>${tr('terminal.ask.title')}</h2>`
     + `<p class="muted">${tr('terminal.ask.hint')}</p>`
     + `<p class="muted terminal-note">${tr('terminal.ask.barHint')}</p>`
+    + `<p>${tr('catalog.hint')}</p><button data-terminal="catalog-open" ${!context.online||catalogBusy?'disabled':''}>${tr(catalogBusy?'terminal.loading':'catalog.open')}</button>`
+    + (catalogOpen ? `<section id="ask-catalog"><h3>${tr('catalog.title')}</h3>${state.ask.targets.map((candidate,index)=>targetCard(candidate,'catalog-select',` data-index="${index}" data-target="${esc(candidate.target)}"`)).join('')}</section>` : '')
     + `<div class="terminal-actions"><button data-terminal="ask-clear">${tr('terminal.ask.clear')}</button></div>`
     + (ask.note ? `<p class="muted terminal-note">${esc(ask.note)}</p>` : '')
     + (ask.error ? `<p class="terminal-error" role="alert">${esc(ask.error)}</p>` : '')
@@ -416,6 +419,7 @@ const controller = {
     host = container;
     if (typeof api === 'function') call = api;
     if (hooks && typeof hooks === 'object') {
+      if(hooks.credentialContext!==undefined&&hooks.credentialContext!==catalogCredential){catalogCredential=hooks.credentialContext;++catalogEpoch;catalogOpen=false;catalogBusy=false;preparedTarget=null;state.ask.targets=[];}
       context = { online: isOnline === true, go: hooks.go ?? context.go, page: hooks.page ?? context.page, external: hooks.external !== false };
     }
     const page = context.page;
@@ -449,14 +453,20 @@ const controller = {
     const text = String(value ?? '').trim();
     if (!text) { state.ask.error = t('terminal.ask.empty'); controller.render(); return; }
     state.ask.input = text; state.ask.confirmed = false;
-    submitAsk({ text }).catch(() => {});
+    const prepared=preparedTarget;preparedTarget=null;submitAsk({ text,...(prepared?.text===text?{selection:prepared.selection}:{}) }).catch(() => {});
   },
 
   onClick(event) {
     const target = event.target.closest?.('[data-terminal]');
     if (!target || !host?.contains(target)) return;
     const action = target.dataset.terminal;
-    if (action === 'room-open') openRoom(target.dataset.room);
+    if (action === 'catalog-open') {
+      if(!context.online||catalogBusy)return;catalogBusy=true;state.ask.error='';controller.render();
+      const epoch=catalogEpoch;call('ask/targets').then(payload=>{if(epoch!==catalogEpoch)return;state.ask.targets=list(payload?.targets);catalogOpen=true;}).catch(error=>{if(epoch!==catalogEpoch)return;state.ask.error=error.message;catalogOpen=false;}).finally(()=>{if(epoch!==catalogEpoch)return;catalogBusy=false;controller.render();});
+    } else if (action === 'catalog-select') {
+      const candidate=state.ask.targets[Number(target.dataset.index)];if(!context.online||candidate?.available!==true||state.ask.busy)return;
+      const value=text(candidate.example)||text(candidate.label)||text(candidate.target);preparedTarget={text:value,selection:candidatePayload(candidate)};state.ask.input=value;state.ask.result=null;catalogOpen=false;controller.render();const input=doc()?.querySelector('#ask-text');if(input){input.value=value;input.dispatchEvent(new Event('input',{bubbles:true}));input.focus();}
+    } else if (action === 'room-open') openRoom(target.dataset.room);
     else if (action === 'room-close') { state.rooms.open = null; state.rooms.hub = null; state.rooms.hubStandalone = null; controller.render(); }
     else if (action === 'action-open') openAction(target.dataset.action).catch(() => {});
     else if (action === 'ask-open') {
@@ -479,7 +489,7 @@ const controller = {
       const record = node('ask-record');
       if (record) record.hidden = !record.hidden;
     } else if (action === 'ask-clear') {
-      state.ask = { input: '', busy: false, result: null, targets: state.ask.targets, error: '', confirmed: false, note: '', pendingFor: null, pendingKey: null };
+      catalogOpen=false;preparedTarget=null;state.ask = { input: '', busy: false, result: null, targets: state.ask.targets, error: '', confirmed: false, note: '', pendingFor: null, pendingKey: null };
       controller.render();
     }
   },

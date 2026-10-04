@@ -25,7 +25,7 @@ import { createJoinRequests, shortRef } from './join.mjs';
 // travel (a named list of existing payloads), and how a forwarded answer comes back; the gateway below is what
 // gives it a socket, and nothing here re-implements any of those three decisions.
 import { createRelayHub, createRelayDispatcher, RELAY_PAYLOAD_PATHS } from './relay.mjs';
-import { browseNearby, joinCapability, hostCarrierFacts } from './nearby.mjs';
+import { browseNearby, browseBluetooth, joinCapability, hostCarrierFacts } from './nearby.mjs';
 // `node:os` is imported for ONE purpose: publishing what this host can honestly say about itself as a City carrier
 // (cores and memory), so a REMOTE surface can weigh this machine against its own and against other PCs it can see.
 // Nothing here reads identity or user data.
@@ -114,6 +114,17 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
     return {clientRef:ref?ref:null,clientLabel:label?String(label).slice(0,100):null};
   };
   let discovery=null,discoveryState={mdns:{state:'DISABLED'},ble:{state:'DISABLED'}};
+  const nearbyScans=new Map();
+  async function searchNearby(transport='lan'){
+    if(!['lan','ble'].includes(transport))fail(400,'Unknown discovery transport');
+    if(nearbyScans.has(transport))return nearbyScans.get(transport);
+    const scan=(async()=>{
+      const found=transport==='ble'?await browseBluetooth():await browseNearby({interface:host,timeoutMs:nearbyTimeoutMs});
+      return {nearby:found.candidates.map(c=>({cityRef:c.cityId??c.cityRef,displayName:c.displayName,address:c.address,port:c.port,transport:c.transport,lastSeenAt:c.lastSeenAt,stale:c.stale,grantsTrust:false,carrierFacts:c.carrierFacts??null})),bounded:found.bounded===true,discovered:found.discovered??0,unavailable:found.unavailable===true,reason:found.reason??(found.unavailable?'MDNS_UNAVAILABLE':null)};
+    })();
+    nearbyScans.set(transport,scan);
+    try{return await scan;}finally{nearbyScans.delete(transport);}
+  }
   const pairing=new Pairing({cityId:store.cityId,endpoint:`http://${host}:${port}`,credential:token,clock:pairingClock,ttlMs:pairingTtlMs,onChange:d=>discovery?.update(d)});
   const SESSION_PREFIX='sess:';
   // The credential the BROWSER receives. The bare session id is not a credential on its own - the prefix is what
@@ -187,8 +198,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
           freeMemoryBytes: osFreemem(),
         }));
       } else if(path==='/api/v0/join/nearby'){
-        const found=await browseNearby({interface:host,nearbyTimeoutMs});
-        handled={nearby:found.candidates.map(c=>({cityRef:c.cityId??c.cityRef,displayName:c.displayName,address:c.address,port:c.port,transport:c.transport,lastSeenAt:c.lastSeenAt,stale:c.stale,grantsTrust:false,carrierFacts:c.carrierFacts??null})),bounded:found.bounded===true,discovered:found.discovered??0,unavailable:found.unavailable===true};
+        handled=await searchNearby();
       } else if(path==='/api/v0/join/request'){handled=join.request(body??{});}
       else if(path==='/api/v0/join/status'){handled=join.status(body??{});}
       else if(path==='/api/v0/join/exchange'){handled=join.exchange(body??{});}
@@ -480,11 +490,10 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // object, and shipping it to a browser surface would both leak its internals and invite the
       // surface to re-derive trust rules it has no business deriving.
       else if(req.method==='GET' && path==='/api/v0/join/nearby'){
-        const found=await browseNearby({interface:host,nearbyTimeoutMs});
+        out=await searchNearby(new URL(req.url,'http://city').searchParams.get('transport')||'lan');
         // `cityRef` is the FULL City identity read from the City's own capability endpoint, not the short
         // mDNS prefix: it is what the join fragment pins and what the receiving City checks itself
         // against, and a prefix would make that check fail on a legitimate hand-off.
-        out={nearby:found.candidates.map(c=>({cityRef:c.cityId??c.cityRef,displayName:c.displayName,address:c.address,port:c.port,transport:c.transport,lastSeenAt:c.lastSeenAt,stale:c.stale,grantsTrust:false,carrierFacts:c.carrierFacts??null})),bounded:found.bounded===true,discovered:found.discovered??0,unavailable:found.unavailable===true};
       }
       else if(req.method==='GET' && path==='/api/v0/pairing/info')out=pairing.info();
       else if(req.method==='POST' && path==='/api/v0/pairing/session'){await body(req);out=await pairing.create();}

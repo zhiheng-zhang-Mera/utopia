@@ -6,7 +6,7 @@ export class Pairing {
  constructor({cityId,endpoint,credential,clock=Date.now,ttlMs=300000,onChange=()=>{}}){Object.assign(this,{cityId,endpoint,credential,clock,ttlMs,onChange});this.session=null;}
  active(){const s=this.session;return !!s&&!s.usedAt&&this.clock()<s.expiresAt&&s.attempts<5;}
  descriptor(){const s=this.active()?this.session:null;const u=new URL(this.endpoint);return {descriptorVersion:1,cityId:this.cityId,displayName:'Utopia · Alien',endpoint:{scheme:u.protocol.slice(0,-1),host:u.hostname,port:Number(u.port||(u.protocol==='https:'?443:80))},apiVersion:0,schemaVersion:0,pairingSessionId:s?.id||null,expiresAt:s?new Date(s.expiresAt).toISOString():null};}
- info(){const d=this.descriptor();return {cityId:this.cityId,displayName:d.displayName,descriptor:d,activeSession:this.active(),expiresAt:d.expiresAt,shortCodeEnabled:this.active()};}
+ info(){const d=this.descriptor(),s=this.session;const sessionState=!s?'IDLE':s.usedAt?'USED':this.clock()>=s.expiresAt?'EXPIRED':s.attempts>=5?'LOCKED':'ACTIVE';return {cityId:this.cityId,displayName:d.displayName,descriptor:d,activeSession:this.active(),expiresAt:d.expiresAt,shortCodeEnabled:this.active(),sessionState};}
  async create(){
   const secret=randomBytes(32).toString('base64url'),shortCode=String(randomInt(1000000)).padStart(6,'0'),createdAt=this.clock();
   const s={id:randomUUID(),secretHash:hash(secret),codeHash:hash(shortCode),createdAt,expiresAt:createdAt+this.ttlMs,usedAt:null,attempts:0};this.session=s;

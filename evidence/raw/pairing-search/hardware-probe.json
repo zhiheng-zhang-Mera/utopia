@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-04",
+  "hostScope": "one physical Windows host, non-loopback interface",
+  "twoPhysicalDevices": "NOT_RUN",
+  "mdns": {
+    "unavailable": false,
+    "discovered": 3,
+    "reachableCities": 3,
+    "ownAdvertisedCityResolved": true
+  },
+  "ble": {
+    "unavailable": false,
+    "reason": null,
+    "discovered": 0,
+    "reachableCities": 0
+  },
+  "lanShortCodeExchange": {
+    "status": "PASS",
+    "singleUse": true
+  },
+  "invalidTransportStatus": 400
+}

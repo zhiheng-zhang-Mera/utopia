@@ -17,6 +17,8 @@
 // instead (see join.mjs) rather than pretending discovery was authentication.
 
 import Bonjour from 'bonjour-service';
+import { isIP } from 'node:net';
+import { scanBle } from '../../platform/windows/ble.mjs';
 import { normalizeCandidates, pruneStale, resolveToPairing } from '../../contracts/remote-local-discovery-v1/discovery.mjs';
 
 export const NEARBY_SERVICE = Object.freeze({ type: 'utopia-city', protocol: 'tcp' });
@@ -103,7 +105,7 @@ export function nearbyView(candidate, { port = null } = {}) {
  * a GET of public information, bounded, and a City that cannot answer is dropped from the list instead
  * of being offered as a target that cannot be joined.
  */
-async function identifyCity(endpoint, { fetchImpl = globalThis.fetch, timeoutMs = 1500 } = {}) {
+export async function identifyCity(endpoint, { fetchImpl = globalThis.fetch, timeoutMs = 1500 } = {}) {
   if (typeof fetchImpl !== 'function') return null;
   try {
     const response = await fetchImpl(`${endpoint}/api/v0/join/info`, {
@@ -142,6 +144,7 @@ export async function browseNearby({
   const seen = [];
   let bonjour = null;
   let browser = null;
+  let unavailable = false;
   try {
     bonjour = bonjourFactory(iface ? { interface: iface } : {});
     await new Promise(resolve => {
@@ -155,11 +158,11 @@ export async function browseNearby({
           const advertisement = advertisementFromService(service, { advertisedAt: new Date(now()).toISOString() });
           if (advertisement) seen.push({ advertisement, port: Number.isInteger(service.port) ? service.port : null });
         });
-        browser.on?.('error', finish);
+        browser.on?.('error', () => { unavailable = true; finish(); });
       } catch {
         // A machine with no usable multicast interface is not an error the onboarding page should
         // crash on: it is the "nothing discovered" case, and the fallbacks must still be offered.
-        finish();
+        unavailable = true; finish();
       }
     });
     const normalized = normalizeCandidates(seen.map(entry => entry.advertisement), { nowMs: now() });
@@ -172,9 +175,20 @@ export async function browseNearby({
     if (identify) {
       const identified = await Promise.all(views.map(async view => {
         if (!view.joinEndpoint) return null;
-        const identity = await identifyCity(view.joinEndpoint, { fetchImpl });
-        if (!identity || identity.acceptsRequests === false) return null;
-        return { ...view, cityId: identity.cityId, displayName: identity.displayName ?? view.displayName, carrierFacts: identity.carrierFacts ?? null };
+        const candidate = candidates.find(c => c.candidate_ref === view.candidateRef);
+        // A multi-NIC host can advertise an unreachable adapter before its Wi-Fi IP.
+        // Try all advertised addresses within one timeout, then retain the one that answered.
+        const addresses = (candidate?.addresses ?? [view.address]).filter(a => typeof a === 'string' && /^[a-zA-Z0-9.:-]+$/.test(a) && !a.startsWith('fe80:'));
+        const rank = a => isIP(a) === 4 && !a.startsWith('169.254.') && !a.startsWith('127.') ? 0 : isIP(a) === 6 ? 2 : 1;
+        addresses.sort((a,b) => rank(a)-rank(b));
+        const replies = await Promise.all(addresses.slice(0,8).map(async address => {
+          const endpoint = `http://${isIP(address) === 6 ? `[${address}]` : address}:${view.port}`;
+          return { address, endpoint, identity: await identifyCity(endpoint, { fetchImpl }) };
+        }));
+        const reply = replies.find(r => r.identity && r.identity.acceptsRequests !== false);
+        if (!reply) return null;
+        const identity = reply.identity;
+        return { ...view, address: reply.address, joinEndpoint: reply.endpoint, cityId: identity.cityId, displayName: identity.displayName ?? view.displayName, carrierFacts: identity.carrierFacts ?? null };
       }));
       offered = identified.filter(Boolean);
     }
@@ -187,6 +201,7 @@ export async function browseNearby({
       bounded: true,
       max,
       discovered: seen.length,
+      unavailable,
     });
   } catch {
     return Object.freeze({ candidates: Object.freeze([]), stale: Object.freeze([]), resolutions: Object.freeze([]), bounded: true, max, discovered: 0, unavailable: true });
@@ -194,6 +209,19 @@ export async function browseNearby({
     try { browser?.stop?.(); } catch {}
     try { bonjour?.destroy?.(); } catch {}
   }
+}
+
+export async function browseBluetooth({ scan = scanBle, fetchImpl = globalThis.fetch, timeoutMs = 5000, now = Date.now } = {}) {
+  const result = await scan({ timeoutMs });
+  if (result.unavailable) return { candidates: [], bounded: true, discovered: 0, unavailable: true, reason: result.reason };
+  const endpoints = [...new Set(result.endpoints ?? [])].slice(0, MAX_NEARBY);
+  const candidates = (await Promise.all(endpoints.map(async endpoint => {
+    const identity = await identifyCity(endpoint, { fetchImpl });
+    if (!identity || identity.acceptsRequests === false) return null;
+    const url = new URL(endpoint);
+    return { cityId: identity.cityId, cityRef: identity.cityId, displayName: identity.displayName, address: url.hostname, port: Number(url.port||80), transport: 'BLE_BOOTSTRAP', lastSeenAt: new Date(now()).toISOString(), grantsTrust: false, carrierFacts: identity.carrierFacts };
+  }))).filter(Boolean);
+  return { candidates, bounded: true, discovered: endpoints.length, unavailable: false };
 }
 
 /**

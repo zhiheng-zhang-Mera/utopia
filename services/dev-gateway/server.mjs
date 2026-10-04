@@ -50,6 +50,10 @@ import { STRICT_TARGET_FIELD, TARGET_REASONS, classifyTarget, claimAllowedByTarg
 // here. Utopia's own policy travels as data (REQUIRED_TASK_CAPABILITIES and
 // claimNodeFor below), so this is an equivalence-preserving rewiring, not a new rule.
 import { acceptsWork } from '../../city/00-foundation/01-city-core/fleet-routing/index.mjs';
+// WBC-602: the Node Role / Capability / Resource descriptor. Pure, additive and read-only: it projects a node
+// record that already exists into the shape a capability/resource scheduler would need, and translates a record
+// written before the contract into a conservative one. It schedules nothing and owns no state.
+import { describeLegacyNode, availabilityFrom } from '../../contracts/node-descriptor-v1/node-descriptor.mjs';
 // City Core (MB-006). Whether work interrupted by a restart may resume is decided by the
 // migrated checkpoint-gate module instead of an inline state test.
 import { checkpointGate, unboundCheckpointPort } from '../../city/02-engineering/04-restart-recovery-station/checkpoint-gate/index.mjs';
@@ -356,6 +360,38 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // Product closeout (T1–T3). The Room Hub is reached over loopback only, and the Action
   // facade is the single user-facing record over Rooms, capabilities and City tasks.
   const rooms=createRoomPack({baseUrl:roomHubUrl,disabled:roomsDisabled,fetchImpl:roomFetch});
+  // WBC-602: the Node Role / Capability / Resource descriptor, projected READ-ONLY.
+  //
+  // WHY A PROJECTION AND NOT A STORED RECORD. A descriptor derived from the node's current liveness, sharing
+  // flag and telemetry would go stale the moment the next heartbeat landed, and a stale descriptor stored
+  // beside the canonical record is exactly how a second, disagreeing truth starts. So the canonical node
+  // record stays the only stored node truth, and the descriptor is computed from it at read time.
+  //
+  // WHY IT IS ADDITIVE. The raw `nodes` list is untouched; `nodeDescriptors` is a new sibling field. A surface
+  // that does not know about descriptors sees precisely what it saw before, and a node record written before
+  // this contract existed still translates (roles from LEGACY_DEFAULT, unknown resources as UNKNOWN rather than
+  // zero). `availabilityFrom` is told the fleet-routing verdict rather than deriving one, because whether a node
+  // accepts work is already decided in one place and this file must not grow a second opinion about it.
+  const ableNode=n=>acceptsWork(claimNodeFor(n),{requiredCapabilities:REQUIRED_TASK_CAPABILITIES})===true;
+  const nodeDescriptors=()=>store.list('nodes').map(node=>{
+    const able=ableNode(node);
+    // DEFECT FOUND BY THIS TASK'S OWN TEST, REPAIRED HERE. The first version of this projection passed the
+    // Core's verdict straight through, so a device whose owner had withdrawn sharing reported
+    // `acceptingWork: true` beside `sharingEnabled: false` — a descriptor that contradicts itself on the one
+    // question a scheduler reads it for. `acceptingWork` is now the conjunction the claim path actually
+    // applies: the Core accepts this node AND its owner still shares it. "This is an execution resource"
+    // (isExecutionResource), "the Core accepts it" (the node's capabilities/liveness) and "it will take work
+    // right now" (acceptingWork) are three separate facts, and each one is stated.
+    const sharingEnabled=node.sharingEnabled!==false;
+    return describeLegacyNode(node,{
+      availability:availabilityFrom({
+        acceptingWork:able&&sharingEnabled,
+        state:node.online===true?'ONLINE':'OFFLINE',
+        reason:node.online!==true?'ENDPOINT_OFFLINE':(!sharingEnabled?'SHARING_DISABLED_BY_OWNER':(able?null:'ENDPOINT_NOT_ACCEPTING_WORK')),
+        sharingEnabled,
+      }),
+    });
+  });
   // Is some real node currently able to accept the work Utopia places? Decided by the
   // migrated fleet-routing module, exactly as `/api/v0/node/claim` decides it.
   const cityAvailability=()=>{
@@ -652,7 +688,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       else if(req.method==='GET' && path==='/api/v0/host/join/status'){
         if(req.citySession||!hostJoin)fail(403,'Only the local host owner may read the join ticket');out=await hostJoin.status(new URL(req.url,'http://city').searchParams.get('ticketId'));
       }
-      else if(req.method==='GET' && path==='/api/v0/nodes')out={nodes:store.list('nodes')};
+      else if(req.method==='GET' && path==='/api/v0/nodes')out={nodes:store.list('nodes'),nodeDescriptors:nodeDescriptors()};
       else if(req.method==='GET' && path==='/api/v0/tasks')out={tasks:store.list('tasks')};
       else if(req.method==='GET' && path==='/api/v0/events')out={events:store.events()};
       // JOIN-502 owner decisions. These are AUTHENTICATED: deciding who joins is exactly the authority
@@ -729,6 +765,13 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         }
       } else if(req.method==='POST' && path==='/api/v0/node/heartbeat'){
         const b=await body(req);assertOwnNode(req,b.id);const n=required('nodes',b.id);const metrics=telemetry(b);if(!n.online)emit('NODE_ONLINE',null,{nodeId:n.id});out=store.put('nodes',{...n,...metrics,online:true,lastHeartbeatAt:now()});
+      } else if(req.method==='POST' && path==='/api/v0/node/descriptor'){
+        // WBC-602: what this City believes about one node's roles, capabilities, resources and availability —
+        // read-only and computed at request time, so a node can see the descriptor a future scheduler would read
+        // without this route gaining any authority over its own role or resources. A POST is used because the
+        // node credential authenticates the node route family; nothing is written.
+        const b=await body(req);assertOwnNode(req,b.id);required('nodes',b.id);
+        out={descriptor:nodeDescriptors().find(descriptor=>descriptor.nodeId===b.id)??null};
       } else if(req.method==='POST' && path==='/api/v0/node/claim'){
         const b=await body(req);assertOwnNode(req,b.id);const n=required('nodes',b.id);
         const ready=acceptsWork(claimNodeFor(n),{requiredCapabilities:REQUIRED_TASK_CAPABILITIES});

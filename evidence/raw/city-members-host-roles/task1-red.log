@@ -1,0 +1,59 @@
+✖ real joined devices retain names, appear beside the host and may register only their own worker (199.2855ms)
+✖ two members exchange messages with explicit receipt and sender identity cannot be forged (147.2053ms)
+✖ member B actually computes a task from A; disabling sharing and revoke prevents further claims (136.6395ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 0
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1538.4968
+
+✖ failing tests:
+
+test at tests\city-members.test.mjs:11:1
+✖ real joined devices retain names, appear beside the host and may register only their own worker (199.2855ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  null !== '悉尼电脑'
+
+      at TestContext.<anonymous> (file:///D:/Utopia-City-Naming-Host/tests/city-members.test.mjs:13:59)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: '悉尼电脑',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\city-members.test.mjs:19:1
+✖ two members exchange messages with explicit receipt and sender identity cannot be forged (147.2053ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  404 !== 200
+
+      at TestContext.<anonymous> (file:///D:/Utopia-City-Naming-Host/tests/city-members.test.mjs:21:132)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 404,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\city-members.test.mjs:29:1
+✖ member B actually computes a task from A; disabling sharing and revoke prevents further claims (136.6395ms)
+  Error: Invalid pairing token
+      at api (file:///D:/Utopia-City-Naming-Host/agents/reference-node/agent.mjs:8:320)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async startAgent (file:///D:/Utopia-City-Naming-Host/agents/reference-node/agent.mjs:19:6)
+      at async TestContext.<anonymous> (file:///D:/Utopia-City-Naming-Host/tests/city-members.test.mjs:31:7)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)

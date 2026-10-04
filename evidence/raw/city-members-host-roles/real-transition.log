@@ -1,0 +1,11 @@
+✔ joining only demotes the local host, saves its admission name and leaves remote City intact (200.4737ms)
+✔ failed pairing and busy local work do not demote or write a new membership (87.4578ms)
+✔ native production transition retires only local Gateway and its worker, while remote host stays primary (401.8736ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1753.2152

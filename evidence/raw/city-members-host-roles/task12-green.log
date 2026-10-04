@@ -1,0 +1,25 @@
+✔ real joined devices retain names, appear beside the host and may register only their own worker (244.4672ms)
+✔ two members exchange messages with explicit receipt and sender identity cannot be forged (219.499ms)
+✔ member B actually computes a task from A; disabling sharing and revoke prevents further claims (436.7975ms)
+✔ JOIN-503 (1)(2): one join enrolls an installation, and a RESTART reconnects with nothing typed (174.171ms)
+✔ JOIN-503 (3): an EXPIRED session is replaced by an internal re-auth, with no user-visible token prompt (124.8009ms)
+✔ JOIN-503 (4)(5): REVOKE denies reconnect, and a revoked installation cannot mint new membership (157.6369ms)
+✔ JOIN-503 (6): a REINSTALL mints new identities and is unbound until an explicit rebind (157.9371ms)
+✔ JOIN-503 (7): the secret-exposure sweep - no durable secret in the snapshot, events, records or a URL (110.8854ms)
+✔ JOIN-503: a broken or foreign device file is refused rather than half-used (6.3259ms)
+✔ JOIN-503 (8): the engineering manual fallback still exists and is not the default path (91.0287ms)
+✔ JOIN-503: an invite of either shape is understood, and junk is refused instead of guessed at (0.7ms)
+✔ JOIN-503: enrollment events are emitted on a CLONE, which is the population-level half of detection (95.7919ms)
+✔ D-1: an enrolled session may NOT revoke another installation, and the refusal really refuses (191.3654ms)
+✔ D-2: a session sees ONLY itself - not the roster, and not the City-wide clone scan (129.9792ms)
+✔ D-1/D-2: the owner keeps FULL authority, so the repair did not break the surface it protects (164.9947ms)
+✔ D-1/D-2: the two sibling guards the review compared against are still in place (120.7504ms)
+✔ real node executes file checkpoint task; cancelled task stays cancelled (1254.1527ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5044.2348

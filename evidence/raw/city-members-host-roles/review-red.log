@@ -1,0 +1,63 @@
+✔ real joined devices retain names, appear beside the host and may register only their own worker (250.7399ms)
+✔ two members exchange messages with explicit receipt and sender identity cannot be forged (237.2348ms)
+✔ member B actually computes a task from A; disabling sharing and revoke prevents further claims (432.2257ms)
+✖ new admission cannot take the host or an existing member identity, even with a valid short code (150.1716ms)
+✖ an active browser session refresh actually extends expiry while preserving its installation scope (133.0862ms)
+✔ joining only demotes the local host, saves its admission name and leaves remote City intact (244.2061ms)
+✔ failed pairing and busy local work do not demote or write a new membership (109.7019ms)
+✔ native production transition retires only local Gateway and its worker, while remote host stays primary (398.5646ms)
+✖ selected MEMBER role survives coordinator crash without replacing the original City pointer (5.0887ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 6
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2795.136
+
+✖ failing tests:
+
+test at tests\city-members.test.mjs:40:1
+✖ new admission cannot take the host or an existing member identity, even with a valid short code (150.1716ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  200 !== 409
+
+      at TestContext.<anonymous> (file:///D:/Utopia-City-Naming-Host/tests/city-members.test.mjs:40:654)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 200,
+    expected: 409,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\city-members.test.mjs:42:1
+✖ an active browser session refresh actually extends expiry while preserving its installation scope (133.0862ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+
+    assert.ok(Date.parse(fresh.body.session.expiresAt)>Date.parse(a.session.expiresAt))
+
+      at TestContext.<anonymous> (file:///D:/Utopia-City-Naming-Host/tests/city-members.test.mjs:42:462)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\host-member-role.test.mjs:17:1
+✖ selected MEMBER role survives coordinator crash without replacing the original City pointer (5.0887ms)
+  TypeError: Cannot read properties of undefined (reading 'role')
+      at TestContext.<anonymous> (file:///D:/Utopia-City-Naming-Host/tests/host-member-role.test.mjs:17:535)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)

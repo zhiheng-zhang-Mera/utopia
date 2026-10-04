@@ -21,7 +21,8 @@ test('Web control creates a real task and shows durable result',async()=>{
  assert.match(await page.locator('#detail').innerText(),/sha256/);
  await page.reload();await page.getByText('COMPLETED',{exact:true}).first().waitFor();
  await app.close();
- await page.getByText('UNKNOWN',{exact:true}).waitFor();
- assert.equal(await page.locator('.badge.online').count(),0);
+ await page.locator('#connection.online').waitFor({state:'hidden'});
+ await page.getByText('UNKNOWN',{exact:true}).first().waitFor();
+ assert.equal(await page.locator('.badge.ONLINE').count(),0);
  }finally{await browser?.close();await agent?.stop();await app?.close();await rm(dir,{recursive:true,force:true});}
 });

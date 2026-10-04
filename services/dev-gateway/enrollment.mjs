@@ -100,7 +100,7 @@ export function createEnrollmentRegistrar({ put, list, get, now, randomBytes, em
 
   const sessionTtl = DEFAULT_SESSION_TTL_MS;
 
-  const readDevice = id => get(DEVICES, id);
+  const readDevice = id => get(DEVICES, `dev:${id}`) || get(DEVICES, id);
   const readInstallation = id => get(INSTALLATIONS, `ins:${id}`);
 
   // Records are stored under an id-prefixed key so the three tables can never be confused with each other or
@@ -308,6 +308,7 @@ export function createEnrollmentRegistrar({ put, list, get, now, randomBytes, em
     enroll,
     openSession,
     checkSession,
+    refreshSession:sessionId=>issueSession(checkSession(sessionId).installation),
     revoke,
     rebind,
     quarantine,

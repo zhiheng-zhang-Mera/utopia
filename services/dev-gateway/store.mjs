@@ -17,7 +17,7 @@ export class Store {
       // only its fingerprint - so there is nothing in here that could be replayed.
       + ' CREATE TABLE IF NOT EXISTS devices(id TEXT PRIMARY KEY, json TEXT NOT NULL);'
       + ' CREATE TABLE IF NOT EXISTS installations(id TEXT PRIMARY KEY, json TEXT NOT NULL);'
-      + ' CREATE TABLE IF NOT EXISTS device_sessions(id TEXT PRIMARY KEY, json TEXT NOT NULL);');
+      + ' CREATE TABLE IF NOT EXISTS device_sessions(id TEXT PRIMARY KEY, json TEXT NOT NULL); CREATE TABLE IF NOT EXISTS member_messages(id TEXT PRIMARY KEY, json TEXT NOT NULL);');
     const meta=this.db.prepare('SELECT version FROM meta').get();
     if(meta && meta.version!==0) throw new Error('Unsupported stored schema version');
     if(!meta) this.db.prepare('INSERT INTO meta VALUES(0)').run();

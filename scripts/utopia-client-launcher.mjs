@@ -18,6 +18,24 @@ if (!existsSync(deviceFile) && !existsSync(migrationMarker)) {const old=readDevi
 const say=message=>{if(!has('json')) console.log(message);};
 function open(url) {if(!has('no-open')) spawn('cmd.exe',['/c','start','',url],{detached:true,stdio:'ignore',windowsHide:true}).unref();}
 const report=record=>console.log(has('json') ? JSON.stringify(record) : 'City: '+record.endpoint+' ('+record.cityId+')');
+const apiHeaders=credential=>({Authorization:'Bearer '+credential,'Content-Type':'application/json','X-City-Api-Version':'0','X-City-Schema-Version':'0'});
+async function joinThroughHost(hostRecord,input){
+ if(!hostRecord.configFile)throw new Error('Upgrade the local City before changing its role');
+ const config=JSON.parse(readFileSync(hostRecord.configFile,'utf8'));
+ const r=await fetch(hostRecord.endpoint+'/api/v0/host/join',{method:'POST',headers:apiHeaders(config.token),body:JSON.stringify(input),signal:AbortSignal.timeout(10000)});const ticket=await r.json();if(!r.ok)throw new Error(ticket.error||'Local host join refused');
+ for(let i=0;i<180;i++){await new Promise(r=>setTimeout(r,500));const response=await fetch(hostRecord.endpoint+'/api/v0/host/join/status?ticketId='+encodeURIComponent(ticket.ticketId),{headers:apiHeaders(config.token),signal:AbortSignal.timeout(10000)});const state=await response.json();if(state.state==='FAILED')throw new Error(state.error);if(state.state==='JOINED'){open(state.nextUrl);report({endpoint:input.endpoint,cityId:state.cityId,enrolled:true,role:'MEMBER',gatewayPid:hostRecord.gatewayPid,dataDir:hostRecord.dataDir});return;}}
+ throw new Error('Host join did not complete within 90 seconds');
+}
+async function startSavedMember(enrolled){
+ let existing;try{existing=await readHostCity();}catch(error){if(error.cause?.code!=='ECONNREFUSED')throw error;}
+ if(existing?.role==='MEMBER'){if(existing.cityId!==enrolled.cityId)throw new Error('This host is already a member of another City');const session=await openDeviceSession(enrolled);open(enrolled.endpoint+'/#session='+encodeURIComponent(session.credential));report({endpoint:enrolled.endpoint,cityId:enrolled.cityId,enrolled:true,role:'MEMBER'});return;}
+ if(existing){await joinThroughHost(existing,{endpoint:enrolled.endpoint,cityId:enrolled.cityId,mode:'adopt',displayName:enrolled.displayName});return;}
+ const runtime=resolve(root,'.runtime');mkdirSync(runtime,{recursive:true});const log=openSync(resolve(runtime,'member-launch.log'),'a');
+ const child=spawn(process.execPath,['services/dev-gateway/main.mjs'],{cwd:root,env:{...process.env,CITY_MEMBER_FILE:deviceFile,UTOPIA_CLIENT_STATE_DIR:clientDir},detached:true,stdio:['ignore',log,log],windowsHide:true});child.unref();closeSync(log);
+ for(let i=0;i<180;i++){await new Promise(r=>setTimeout(r,250));try{existing=await readHostCity();if(existing.role==='MEMBER'&&existing.state==='ONLINE')break;}catch(error){if(error.cause?.code!=='ECONNREFUSED')throw error;}}
+ if(existing?.role!=='MEMBER'||existing.cityId!==enrolled.cityId)throw new Error('Member agent did not become ready; inspect .runtime/member-launch.log');
+ const session=await openDeviceSession(enrolled);open(enrolled.endpoint+'/#session='+encodeURIComponent(session.credential));report({endpoint:enrolled.endpoint,cityId:enrolled.cityId,enrolled:true,role:'MEMBER',gatewayPid:existing.gatewayPid,dataDir:existing.dataDir});
+}
 async function main() {
   if(has('forget-device')) {
     if (!forgetDeviceFile(deviceFile)) throw new Error('Could not remove stored device enrollment');
@@ -40,22 +58,24 @@ async function main() {
       invite={cityId:info.cityId,sessionId:info.descriptor?.pairingSessionId,method:'mdns',shortCode:code};
     }
     if(!invite) throw new Error('Invalid City invitation');
+    let hostRecord;try{hostRecord=await readHostCity();}catch(error){if(error.cause?.code!=='ECONNREFUSED')throw error;}
+    if(hostRecord?.role==='PRIMARY'){await joinThroughHost(hostRecord,{endpoint:url.origin,cityId:invite.cityId,mode:has('enroll-code')?'code':'invite',shortCode:flag('enroll-code'),invite,displayName:flag('name','Utopia device')});return;}
+    if(hostRecord?.role==='MEMBER')throw new Error('This host is already joined; leave the current City before enrolling elsewhere');
     const {record}=await enrollWithCity({endpoint:url.origin,invite,displayName:flag('name','Utopia device')});
     writeDeviceFile(deviceFile,record);
-    report({endpoint:record.endpoint,cityId:record.cityId,enrolled:true});
+    await startSavedMember(record);
     return;
   }
   const enrolled=readDeviceFile(deviceFile);
   if(enrolled && !has('host-only')) {
-    const session=await openDeviceSession(enrolled);
-    open(enrolled.endpoint+'/#session='+encodeURIComponent(session.credential));
-    report({endpoint:enrolled.endpoint,cityId:enrolled.cityId,enrolled:true});
+    await startSavedMember(enrolled);
     return;
   }
   let record;
   try {record=await readHostCity();} catch(error) {
     if(!['ECONNREFUSED'].includes(error.cause?.code)) throw error;
   }
+  if(record?.role==='MEMBER'){const selected=readDeviceFile(record.memberEnrollmentFile||deviceFile);if(!selected)throw new Error('Member credential unavailable; no second City started');await startSavedMember(selected);return;}
   say('Checking this host for an already running City, including older installations…');
   const existing=await findRunningCities();
   if(record&&existing.some(city=>city.gatewayPid!==record.gatewayPid))throw new Error('Another Gateway is already running alongside the reserved City. No new City started: '+existing.map(city=>city.endpoint).join('; '));
@@ -79,11 +99,12 @@ async function main() {
     try {record=await readHostCity();} catch(error) {if(error.cause?.code!=='ECONNREFUSED') throw error;}
   }
   if(record?.state!=='ONLINE') throw new Error('City did not become ready within 45 seconds; inspect .runtime/gateway-launch.log');
+  if(record.role==='MEMBER'){const saved=readDeviceFile(record.memberEnrollmentFile||deviceFile);if(!saved)throw new Error('Member credential unavailable; no second City started');await startSavedMember(saved);return;}
   if(!record.configFile){open(record.endpoint);report({endpoint:record.endpoint,cityId:record.cityId,gatewayPid:record.gatewayPid,dataDir:record.dataDir,requiresPairing:true});return;}
   const config=JSON.parse(readFileSync(record.configFile,'utf8'));
   const response=await fetch(record.endpoint+'/api/v0/city',{headers:{Authorization:'Bearer '+config.token,'X-City-Api-Version':'0','X-City-Schema-Version':'0'},signal:AbortSignal.timeout(5000)});
   if(!response.ok || (await response.json()).cityId!==record.cityId) throw new Error('Existing host City identity or credential refused');
-  open(record.endpoint+'/#token='+encodeURIComponent(config.token));
+  open(record.endpoint+'/#token='+encodeURIComponent(config.token)+'&device='+encodeURIComponent(record.deviceId||''));
   report({endpoint:record.endpoint,cityId:record.cityId,gatewayPid:record.gatewayPid,dataDir:record.dataDir});
 }
 try {await main();} catch(error) {

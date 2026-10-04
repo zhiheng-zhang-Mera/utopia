@@ -130,7 +130,7 @@ export async function joinCityOverRelay({
   }
 
   // 4. THE ONLY ROUTE TO A CREDENTIAL, through the same one-time claim.
-  const collected = readAnswer(await forward('/api/v0/join/exchange', { requestId, claim }, { timeoutMs }));
+  const collected = readAnswer(await forward('/api/v0/join/exchange', { requestId, claim, installation:{browserOnly:true} }, { timeoutMs }));
   if (collected.status !== 200 || !collected.payload?.credential) {
     throw new RelayJoinError('RELAY_JOIN_EXCHANGE_REFUSED', collected.error ?? `the City did not release a credential (${collected.status})`, { status: collected.status });
   }

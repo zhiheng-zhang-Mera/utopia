@@ -1,0 +1,45 @@
+{
+  "status": "IN_PROGRESS",
+  "baseSha": "48cbc21376007c5461e8e456a898c3f788f0fa77",
+  "focusedBeforeLastReviewRepairs": {
+    "tests": 34,
+    "pass": 34
+  },
+  "reviewRepairFocused": {
+    "tests": 22,
+    "pass": 22
+  },
+  "realLocalDemotion": {
+    "tests": 3,
+    "pass": 3
+  },
+  "followupRelayAndRoles": {
+    "tests": 21,
+    "pass": 21
+  },
+  "fullFirst": {
+    "tests": 1202,
+    "pass": 1199,
+    "fail": 3
+  },
+  "fullSecond": {
+    "tests": 1205,
+    "pass": 1204,
+    "fail": 1,
+    "cause": "Offline assertion raced an existing UNKNOWN worker; now explicitly waits for transport disconnect"
+  },
+  "physicalTwoHosts": "NOT_RUN",
+  "crossRegion": "NOT_RUN",
+  "review": "Two P1 and three P2 findings repaired; final source review found no remaining blocker",
+  "sourceSha256": {
+    "services/dev-gateway/enrollment.mjs": "ac07fbab120124484a429e00dc8afc24860a20a3dfffda1f430ca48167debb46",
+    "services/dev-gateway/members.mjs": "d1bf5e8e10fe4524f161f13aed85286f2e9a422c07b03c7958ec6e995e5dd702",
+    "services/dev-gateway/host-join.mjs": "2f0f6dbda4edd67a8a77561b44369d6c9219708f9cf0be003391098b5c1e84b6",
+    "services/dev-gateway/member-runtime.mjs": "44af7604548297787bc84901bfc29cd1e5910b6f7f7c9cf0f089e9b73716d146",
+    "services/dev-gateway/host-city.mjs": "e1e3c6e906dfe28b5a5d93795b8e5009a703ff58b3a4191f08cc97f31886a578",
+    "services/dev-gateway/main.mjs": "cf84ae267f35ed0f55e255d077086c07af99e956c85d2f423e79ec56e010f3fd",
+    "services/dev-gateway/server.mjs": "cfc215cbe70cfcd2a8ad157f74db24f631aa43a586f266d02dcc126b7d770f70",
+    "apps/web/app.js": "74ad2918fbed98f020050144ec7ffc28daa9ac58382697ca264d020c93d62dff",
+    "scripts/utopia-client-launcher.mjs": "21d8aaa07aa59c2d7048f152c1774ae2c6f9027753a38f506c1326a5ca790dd0"
+  }
+}

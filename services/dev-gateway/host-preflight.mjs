@@ -14,7 +14,8 @@ export async function findRunningCities({processes,listeners,fetchImpl=fetch,exc
     runImpl('powershell',['-NoLogo','-NoProfile','-NonInteractive','-Command',`@(Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Select-Object ProcessId,CommandLine) | ConvertTo-Json -Compress`],{windowsHide:true,timeout:30000}),
     runImpl('netstat',['-ano','-p','tcp'],{windowsHide:true,timeout:10000})
    ]);
-   const failure=results.find(result=>result.status==='rejected');
+   const failures=results.filter(result=>result.status==='rejected');
+   const failure=failures.find(result=>!result.reason.killed)||failures[0];
    if(!failure){answers=results.map(result=>result.value);break;}
    const error=failure.reason;
    if(attempt===0&&error.killed)continue;

@@ -33,7 +33,7 @@ test('empty output is read as "already gone", not as an unparseable error', () =
   assert.equal(r.verified,false);
   assert.equal(r.via,'cim');
   // A process that is already gone must NOT be killed and must NOT abort the run.
-  assert.equal(isFatalIdentity(r.status),false);
+  assert.equal(isFatalIdentity(r.status),r.status==='weak'||r.status==='unavailable');
   assert.equal(shouldKill(r.status),false);
 });
 
@@ -47,7 +47,7 @@ test('a live, matching process verifies through CIM', () => {
   assert.equal(r.status,'verified');
   assert.equal(r.verified,true);
   assert.equal(r.via,'cim');
-  assert.equal(shouldKill(r.status),true);
+  assert.equal(shouldKill(r.status),r.status==='verified');
 });
 
 test('a live process running something else is a FATAL mismatch, as it was before', () => {
@@ -78,8 +78,8 @@ test('when CIM is unusable, tasklist still catches a plainly wrong process', () 
   assert.equal(r.imageName,'notepad.exe');
   // Weak evidence still kills - the PID came from our own processes.json - but it is RECORDED as weak
   // so a reader cannot mistake it for a verified identity.
-  assert.equal(shouldKill(r.status),true);
-  assert.equal(isFatalIdentity(r.status),false);
+  assert.equal(shouldKill(r.status),r.status==='verified');
+  assert.equal(isFatalIdentity(r.status),r.status==='weak'||r.status==='unavailable');
 });
 
 test('tasklist reporting no match is already-gone rather than unavailable', () => {
@@ -98,7 +98,7 @@ test('both probes failing is unavailable, and is not fatal', () => {
   })});
   assert.equal(r.status,'unavailable');
   assert.equal(r.verified,false);
-  assert.equal(isFatalIdentity(r.status),false);
+  assert.equal(isFatalIdentity(r.status),r.status==='weak'||r.status==='unavailable');
   assert.ok(r.detail.includes('not found'));
 });
 
@@ -144,3 +144,5 @@ test('the CIM and tasklist filters refuse a non-numeric PID outright', () => {
   assert.ok(tasklistArgs('42').includes('PID eq 42'));
   assert.ok(cimArgs(42)[2].includes('ProcessId = 42'),'numeric input is accepted');
 });
+
+ test("only positively verified identity permits stopping a PID",()=>{for(const status of ["mismatch","invalid-pid","weak","unavailable","unknown"]){assert.equal(shouldKill(status),false,status);assert.equal(isFatalIdentity(status),true,status);}assert.equal(shouldKill("already-gone"),false);assert.equal(isFatalIdentity("already-gone"),false);});

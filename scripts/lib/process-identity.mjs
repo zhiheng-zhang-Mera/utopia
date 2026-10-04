@@ -141,14 +141,13 @@ export const resolveProcessIdentity = ({pid, expected, exec = defaultExec}) => {
 };
 
 /** Statuses for which the recorded process should still be killed. */
-export const shouldKill = (status) => status === 'verified' || status === 'mismatch' || status === 'weak'
-  || status === 'unavailable';
+export const shouldKill = (status) => status === 'verified';
 
 /**
  * Statuses that must abort the run before anything is killed: the PID either belongs to something
- * that is plainly not our process, or is not a PID at all.
+ * whose expected command line was not positively verified. Weak/unavailable probes cannot authorize a kill.
  */
-export const isFatalIdentity = (status) => status === 'mismatch' || status === 'invalid-pid';
+export const isFatalIdentity = (status) => status !== 'verified' && status !== 'already-gone';
 
 /** @deprecated kept for callers written against the earlier name. */
 export const isFatalMismatch = isFatalIdentity;

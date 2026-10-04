@@ -1,0 +1,12 @@
+{
+  "verdict": "ERROR",
+  "error": "timed out waiting for the WAIT task to be RUNNING on node A",
+  "results": [
+    {
+      "id": "a WAIT task is accepted, which is the type that HOLDS a node",
+      "ok": true,
+      "detail": "status=200 id=Q-f24e20be-597e-49ab-a85c-d83be5025c24"
+    }
+  ],
+  "record": {}
+}

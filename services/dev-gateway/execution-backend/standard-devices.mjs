@@ -121,6 +121,7 @@ export function createStandardDevicesBackend({
     if (node.sharingEnabled === false) return 'SHARING_DISABLED_BY_OWNER';
     const missing = requiredCapabilities.filter(capability => !(Array.isArray(node.capabilities) ? node.capabilities : []).includes(capability));
     if (missing.length > 0) return `MISSING_CAPABILITY:${missing.join(',')}`;
+    if (!nodeAcceptsWork(node)) return 'ENDPOINT_NOT_ACCEPTING_WORK';
     if (tasks().some(task => task.assignedNodeId === node.id && !isTerminal(task))) return 'ENDPOINT_BUSY';
     return null;
   }

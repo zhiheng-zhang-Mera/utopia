@@ -54,7 +54,7 @@ const task = (overrides = {}) => ({
 });
 
 /** A fake canonical store with the real atomic-mutation shape, plus a change log for transition assertions. */
-function harness({ nodes = [], tasks = [], handoffAllowed = () => true } = {}) {
+function harness({ nodes = [], tasks = [], handoffAllowed = () => true, claimShape = claimNodeFor } = {}) {
   const tables = { nodes: [...nodes], tasks: [...tasks] };
   const events = [];
   const assignments = [];
@@ -67,7 +67,7 @@ function harness({ nodes = [], tasks = [], handoffAllowed = () => true } = {}) {
   const backend = createStandardDevicesBackend({
     store,
     terminal: TERMINAL,
-    claimNodeFor,
+    claimNodeFor: claimShape,
     requiredCapabilities: REQUIRED_TASK_CAPABILITIES,
     claimAllowedByTarget,
     handoffClaimAllowed: handoffAllowed,
@@ -317,3 +317,5 @@ test('the port refuses to be constructed without the facts it must not invent', 
 test('review: dispatch cannot bypass strict target or handoff reservation',()=>{const strict=harness({nodes:[node({id:'Alien-Win'}),node({id:'Mech-Win'})],tasks:[task({targetDeviceRef:'Mech-Win'})]});assert.throws(()=>strict.backend.dispatch({taskId:'Q-1',endpointRef:'Alien-Win'}),e=>e.code==='TASK_NOT_CLAIMABLE');assert.equal(strict.store.get('tasks','Q-1').state,'QUEUED');const reserved=harness({nodes:[node()],tasks:[task()],handoffAllowed:()=>false});assert.throws(()=>reserved.backend.dispatch({taskId:'Q-1',endpointRef:'Mech-Win'}),e=>e.code==='TASK_NOT_CLAIMABLE');assert.equal(reserved.assignments.length,0);});
 test('review: dispatch cannot transfer an already running task to a different free endpoint',()=>{const h=harness({nodes:[node({id:'Alien-Win'}),node({id:'Mech-Win'})],tasks:[task({state:'RUNNING',assignedNodeId:'Mech-Win'})]});assert.throws(()=>h.backend.dispatch({taskId:'Q-1',endpointRef:'Alien-Win'}),e=>e.code==='INVALID_TRANSITION');assert.equal(h.store.get('tasks','Q-1').assignedNodeId,'Mech-Win');assert.equal(h.assignments.length,0);});
 test('review: claim readiness does not say ready when sharing is disabled or endpoint busy',()=>{for(const h of [harness({nodes:[node({sharingEnabled:false})],tasks:[task()]}),harness({nodes:[node()],tasks:[task({state:'RUNNING',assignedNodeId:'Mech-Win'})]})]){const result=h.backend.claim({nodeId:'Mech-Win'});assert.equal(result.task,null);assert.equal(result.readiness.ready,false);assert.ok(result.readiness.reason);}});
+
+test('review: endpoint readiness and dispatch honor injected canonical Core acceptance',()=>{const h=harness({nodes:[node()],tasks:[task()],claimShape:n=>({...claimNodeFor(n),state:'DISABLED'})});assert.equal(h.backend.endpoints()[0].ready,false);assert.equal(h.backend.readiness().ready,false);assert.equal(h.backend.claim({nodeId:'Mech-Win'}).task,null);assert.throws(()=>h.backend.dispatch({taskId:'Q-1',endpointRef:'Mech-Win'}),e=>e.code==='ENDPOINT_NOT_READY');assert.equal(h.store.get('tasks','Q-1').state,'QUEUED');});

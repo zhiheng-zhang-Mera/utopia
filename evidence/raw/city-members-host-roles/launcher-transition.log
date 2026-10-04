@@ -1,0 +1,12 @@
+✔ two installation launchers share one City across ports and recover the same identity after a crash (103896.8419ms)
+✔ forgetting migrated enrollment cannot import the legacy credential again (1953.9529ms)
+✔ remote short code enrolls with a local member agent and reconnects without launching a host City (5267.9618ms)
+✔ PRIMARY launcher reports successful MEMBER transition and normal main restart preserves it (7523.7771ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 119697.5555

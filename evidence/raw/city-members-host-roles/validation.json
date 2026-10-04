@@ -26,7 +26,7 @@
     "tests": 1205,
     "pass": 1204,
     "fail": 1,
-    "cause": "Offline assertion raced an existing UNKNOWN worker; now explicitly waits for transport disconnect"
+    "cause": "Global badge selector matched hidden connection recommendation best carrier, not device online status; now asserts only device-card badges and waits for transport disconnect"
   },
   "physicalTwoHosts": "NOT_RUN",
   "crossRegion": "NOT_RUN",
@@ -41,5 +41,12 @@
     "services/dev-gateway/server.mjs": "cfc215cbe70cfcd2a8ad157f74db24f631aa43a586f266d02dcc126b7d770f70",
     "apps/web/app.js": "74ad2918fbed98f020050144ec7ffc28daa9ac58382697ca264d020c93d62dff",
     "scripts/utopia-client-launcher.mjs": "21d8aaa07aa59c2d7048f152c1774ae2c6f9027753a38f506c1326a5ca790dd0"
-  }
+  },
+  "launcherLifecycle": {
+    "tests": 4,
+    "pass": 4,
+    "status": "PASS",
+    "scope": "Includes PRIMARY to MEMBER CLI success and normal main restart"
+  },
+  "webTaskDiagnostic": "Actual residual ONLINE class belongs to hidden best-carrier recommendation; device states are UNKNOWN after disconnect"
 }

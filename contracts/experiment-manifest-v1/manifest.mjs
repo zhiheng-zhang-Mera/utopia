@@ -292,6 +292,9 @@ export function validateExperimentManifest(input, { knownCapabilities = [], know
   const declaredHosts = Array.isArray(input.hosts) ? input.hosts.filter(isText).map(value => value.trim()) : [];
   const declaredWorkers = Array.isArray(input.workers) ? input.workers.filter(isText).map(value => value.trim()) : [];
   const declaredSurfaces = Array.isArray(input.controlSurfaces) ? input.controlSurfaces.filter(isText).map(value => value.trim()) : [];
+  for(const [name,refs] of [['hosts',declaredHosts],['workers',declaredWorkers],['controlSurfaces',declaredSurfaces]]) {
+    if(new Set(refs).size!==refs.length)issues.push(issue('TOPOLOGY_IMPOSSIBLE',name,`${name} must name distinct identities; repeated refs cannot satisfy topology cardinality`));
+  }
   if (topologyFacts) {
     if (declaredHosts.length !== topologyFacts.minHosts || declaredHosts.length > topologyFacts.maxHosts) {
       const expected = topologyFacts.minHosts === topologyFacts.maxHosts ? String(topologyFacts.minHosts) : `${topologyFacts.minHosts}-${topologyFacts.maxHosts}`;
@@ -348,12 +351,16 @@ export function validateExperimentManifest(input, { knownCapabilities = [], know
   } else {
     for (const [index, raw] of input.softwareRefs.entries()) {
       try {
-        softwareRefs.push(parseSoftwareRef(raw));
+        const parsed=parseSoftwareRef(raw);
+        if(!parsed.exact&&!/^[vV]?\d+(\.\d+)*([-.+][A-Za-z0-9._-]+)*$/.test(parsed.identity))throw new ExperimentManifestError('MALFORMED_SOFTWARE_REF','Movable software refs require an exact commit SHA; branch names are not provenance');
+        softwareRefs.push(parsed);
       } catch (error) {
         issues.push(issue('MALFORMED_SOFTWARE_REF', `softwareRefs[${index}]`, error.detail ?? String(raw)));
       }
     }
   }
+
+  if(softwareRefs.length>0&&!softwareRefs.some(ref=>ref.exact))issues.push(issue('MALFORMED_SOFTWARE_REF','softwareRefs','At least one exact 40-character software commit is required; version labels alone cannot anchor experiment code'));
 
   // References that are carried, never resolved into authority.
   const references = freeze({

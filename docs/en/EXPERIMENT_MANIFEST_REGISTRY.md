@@ -36,7 +36,9 @@ will be judged by, because that would make the acceptance criteria self-certifie
 
 Research routes live under the research namespace and are reachable by any surface that already holds the owner
 credential; the layered Research interface that presents them belongs to the later research surface task, so this
-release exposes the contract, not a new top-level navigation entry.
+review correction adds the thinnest Advanced > Research entry: list/inspect authored manifests, import JSON, validate without persisting, and explicitly register without executing. REX-807 still owns the fuller layered research workflow.
 
 Physical two-host results remain NOT_RUN when unavailable; no experiment is executed by this task, so no
 measurement, hardware or performance claim is made here.
+
+Review correction: repeated host/worker/control-surface identities cannot satisfy topology cardinality. Validated manifests reject movable branch refs and require at least one40-character code commit; supplementary explicit component versions remain labelled. The parsing helper may describe an unanchored label, but validation refuses it. A committed registration is retained even when subsequent list refresh fails; the failure is a separate message. Drafts survive periodic rendering; late context/page responses cannot replace the current view. No cross-device experiment or model decision is added.

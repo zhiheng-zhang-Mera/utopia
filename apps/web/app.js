@@ -1,4 +1,5 @@
 import {renderServices} from './services.js';
+import {renderResearch} from './research.js';
 import {schedulerPanel} from './scheduler.js';
 // UXI-301: the scheduler presentation feed, refreshed alongside the snapshot. When it is missing the
 // panel says it is not being reported rather than rendering a healthy or idle surface.
@@ -747,6 +748,7 @@ function render(){
  if(page==='Home')$('#view').innerHTML=assistantSlot()+`<div class="grid" style="margin-top:14px"><section class="panel"><h2>${esc(t('section.runtimeNodes'))}</h2>${nodeRows()}</section><section class="panel"><h2>${esc(t('section.recentActivity'))}</h2>${events(city.events.slice(-4))}</section></div><section class="panel" style="margin-top:12px" id="home-rooms"><h2>${esc(t('section.homeRooms'))}</h2><p class="muted">${esc(t('home.rooms.hint'))}</p><div id="home-rooms-body"><p class="muted">${esc(t('terminal.loading'))}</p></div></section><section class="panel" style="margin-top:12px"><h2>${esc(t('section.recentTasks'))}</h2>${taskRows(tasks.slice(-5))}</section>`;
  if(page==='Home')homeRooms();
  if(page==='Services')renderServices($('#view'),city,connection==='ONLINE',api);
+ if(page==='Research')renderResearch($('#view'),connection==='ONLINE',api,city.cityId+':'+generation);
  if(page==='Settings')loadEnrolledDevices();
  // Terminal pages mount lazily: `terminal` is only created once a terminal page is shown,
  // which is why this must not depend on `terminal` already existing.

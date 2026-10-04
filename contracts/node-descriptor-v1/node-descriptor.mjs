@@ -104,10 +104,9 @@ export function resourceBlock({
     cpu: isPlainObject(cpu) ? freeze({ cores: measurement(cpu.cores, { at: observedAt }), loadPercent: measurement(cpu.loadPercent, { unit: 'percent', at: observedAt }) }) : freeze({ cores: measurement(null), loadPercent: measurement(null, { unit: 'percent' }) }),
     memory: isPlainObject(memory) ? freeze({ totalBytes: measurement(memory.totalBytes, { unit: 'bytes', at: observedAt }), usedBytes: measurement(memory.usedBytes, { unit: 'bytes', at: observedAt }), freeBytes: measurement(memory.freeBytes, { unit: 'bytes', at: observedAt }) }) : freeze({ totalBytes: measurement(null, { unit: 'bytes' }), usedBytes: measurement(null, { unit: 'bytes' }), freeBytes: measurement(null, { unit: 'bytes' }) }),
     disk: isPlainObject(disk) ? freeze({ totalBytes: measurement(disk.totalBytes, { unit: 'bytes', at: observedAt }), usedBytes: measurement(disk.usedBytes, { unit: 'bytes', at: observedAt }), freeBytes: measurement(disk.freeBytes, { unit: 'bytes', at: observedAt }) }) : freeze({ totalBytes: measurement(null, { unit: 'bytes' }), usedBytes: measurement(null, { unit: 'bytes' }), freeBytes: measurement(null, { unit: 'bytes' }) }),
-    // `null` here is an explicit UNSUPPORTED, not an unknown: the product does not model GPU or accelerator
-    // resources yet, and saying so is more honest than reporting a measurement nobody took.
-    gpu: gpu === null || gpu === undefined ? absent({ unit: 'devices', at: observedAt }) : measurement(gpu.count ?? null, { unit: 'devices', at: observedAt }),
-    network: isPlainObject(network) ? freeze({ reachable: network.reachable === true, metered: network.metered === null || network.metered === undefined ? null : network.metered === true }) : freeze({ reachable: false, metered: null }),
+    // Unmodelled hardware is unknown; only an explicit report may say it is unsupported.
+    gpu: gpu?.supported === false ? absent({ unit: 'devices', at: observedAt }) : measurement(gpu?.count ?? null, { unit: 'devices', at: observedAt }),
+    network: freeze({ reachable: typeof network?.reachable === 'boolean' ? network.reachable : null, metered: typeof network?.metered === 'boolean' ? network.metered : null }),
     observedAt,
   });
 }
@@ -123,10 +122,11 @@ export function nodeDescriptor({
   nodeId, displayName = null, platform = null, agentVersion = null,
   roles = DEFAULT_LEGACY_ROLES, roleSource = 'LEGACY_DEFAULT', capabilities = [],
   resources = {}, availability = null, health = null, trustRef = null, observedAt = null,
-  isExecutionResource = true,
+  isExecutionResource,
 } = {}) {
   if (!isText(nodeId)) throw new NodeDescriptorError('INVALID_DESCRIPTOR', 'nodeId is required');
-  const roleList = [...new Set(Array.isArray(roles) && roles.length > 0 ? roles : DEFAULT_LEGACY_ROLES)];
+  if(!Array.isArray(roles)||roles.length<1||roles.length>NODE_ROLES.length)throw new NodeDescriptorError('INVALID_ROLE','explicit roles must be a non-empty bounded role array');
+  const roleList = [...new Set(roles)];
   for (const role of roleList) {
     if (!NODE_ROLES.includes(role)) throw new NodeDescriptorError('INVALID_ROLE', `unknown role ${String(role)}; known roles: ${NODE_ROLES.join(', ')}`);
   }
@@ -136,9 +136,12 @@ export function nodeDescriptor({
   // A control surface may never be an execution resource, whatever else it declares. This is enforced HERE
   // rather than trusted to callers, because this is the negative control the workbook asks the reviewer to
   // attack: no combination of resource or capability fields may promote a control surface into a worker.
-  if (!isExecutionResource && roleList.includes('EXECUTION_NODE')) {
+  const executionResource=isExecutionResource===undefined?roleList.includes('EXECUTION_NODE'):isExecutionResource;
+  if(typeof executionResource!=='boolean')throw new NodeDescriptorError('INVALID_DESCRIPTOR','isExecutionResource must be boolean');
+  if (!executionResource && roleList.includes('EXECUTION_NODE')) {
     throw new NodeDescriptorError('INVALID_ROLE', `a non-execution entity may not hold EXECUTION_NODE (node ${nodeId})`);
   }
+  if(executionResource&&!roleList.includes('EXECUTION_NODE'))throw new NodeDescriptorError('INVALID_DESCRIPTOR','an execution resource must hold EXECUTION_NODE');
   return freeze({
     contractVersion: NODE_DESCRIPTOR_CONTRACT_VERSION,
     nodeId,
@@ -147,7 +150,7 @@ export function nodeDescriptor({
     agentVersion: agentVersion ?? null,
     roles: freeze(roleList.slice().sort()),
     roleSource,
-    isExecutionResource: isExecutionResource === true,
+    isExecutionResource: executionResource,
     capabilities: freeze([...(Array.isArray(capabilities) ? capabilities : [])].filter(isText).map(value => value.trim()).sort()),
     resources: resourceBlock({ ...resources, observedAt: resources?.observedAt ?? observedAt }),
     availability: availability ?? freeze({ state: 'UNKNOWN', acceptingWork: false, reason: 'NOT_OBSERVED' }),
@@ -183,7 +186,7 @@ export function describeLegacyNode(record, { availability = null } = {}) {
   if (!isPlainObject(record) || !isText(record.id)) throw new NodeDescriptorError('INVALID_DESCRIPTOR', 'a legacy node record needs an id');
   const declaredRoles = Array.isArray(record.roles) ? record.roles.filter(isText) : [];
   const telemetry = isPlainObject(record.telemetry) ? record.telemetry : null;
-  const resources = telemetry === null ? {} : {
+  const resources = telemetry === null ? {network:{reachable:typeof record.online==='boolean'?record.online:null,metered:null}} : {
     cpu: { cores: telemetry.cpuCores ?? null, loadPercent: telemetry.cpu?.usagePercent ?? null },
     memory: telemetry.memory && typeof telemetry.memory === 'object'
       ? { totalBytes: telemetry.memory.totalBytes ?? null, usedBytes: telemetry.memory.usedBytes ?? null, freeBytes: telemetry.memory.freeBytes ?? null }
@@ -193,7 +196,7 @@ export function describeLegacyNode(record, { availability = null } = {}) {
     disk: telemetry.disk && typeof telemetry.disk === 'object'
       ? { totalBytes: telemetry.disk.totalBytes ?? null, usedBytes: telemetry.disk.usedBytes ?? null, freeBytes: telemetry.disk.freeBytes ?? null }
       : {},
-    network: { reachable: record.online === true, metered: null },
+    network: { reachable: typeof record.online==='boolean'?record.online:null, metered: null },
     observedAt: typeof telemetry.observedAt === 'string' ? telemetry.observedAt : null,
   };
   return nodeDescriptor({
@@ -252,9 +255,14 @@ export function taskRequirements({
   requiredCapabilities = [], preferredCapabilities = [], platformConstraints = [],
   resourceMinima = {}, acceleratorRequired = false, executionPreference = null,
 } = {}) {
+  for(const [name,values] of Object.entries({requiredCapabilities,preferredCapabilities,platformConstraints})){
+    if(!Array.isArray(values)||values.length>128||!values.every(value=>isText(value)&&value.length<=128))throw new NodeDescriptorError('INVALID_REQUIREMENTS',`${name} must be a bounded array of non-empty strings`);
+  }
+  if(!isPlainObject(resourceMinima)||Object.keys(resourceMinima).length>RESOURCE_KINDS.length)throw new NodeDescriptorError('INVALID_REQUIREMENTS','resourceMinima must be a resource mapping');
+  if(typeof acceleratorRequired!=='boolean'||!(executionPreference===null||isText(executionPreference)))throw new NodeDescriptorError('INVALID_REQUIREMENTS','invalid accelerator requirement or execution preference');
   const minima = {};
   for (const [kind, value] of Object.entries(isPlainObject(resourceMinima) ? resourceMinima : {})) {
-    if (!Number.isFinite(value) || value < 0) throw new NodeDescriptorError('INVALID_REQUIREMENTS', `resourceMinima.${kind} must be a non-negative finite number`);
+    if (!RESOURCE_KINDS.includes(kind)||!Number.isFinite(value) || value < 0) throw new NodeDescriptorError('INVALID_REQUIREMENTS', `resourceMinima.${kind} must name a supported resource with a non-negative finite number`);
     minima[kind] = value;
   }
   return freeze({
@@ -284,16 +292,17 @@ export function explainRequirementFit(requirements, descriptor) {
   const missing = req.requiredCapabilities.filter(capability => !descriptor.capabilities.includes(capability));
   if (missing.length > 0) reasons.push(`MISSING_CAPABILITY:${missing.join(',')}`);
   if (!descriptor.isExecutionResource) reasons.push('NOT_AN_EXECUTION_RESOURCE');
+  if(req.platformConstraints.length>0){if(!isText(descriptor.platform))reasons.push('PLATFORM_UNKNOWN');else if(!req.platformConstraints.includes(descriptor.platform))reasons.push('PLATFORM_MISMATCH');}
   for (const [kind, minimum] of Object.entries(req.resourceMinima)) {
     const node = descriptor.resources?.[kind];
     if (node === undefined) { reasons.push(`RESOURCE_UNKNOWN:${kind}`); continue; }
-    const measured = node.totalBytes ?? node.cores;
+    const measured = node.totalBytes ?? node.cores ?? (node.presence ? node : undefined);
     // Unknown capacity is NOT a failure here: it is reported as unknown so a caller can decide, and so a
     // missing telemetry field can never be read as "this node is too small".
     if (measured === undefined || measured === null || measured.presence !== 'KNOWN') { reasons.push(`RESOURCE_UNKNOWN:${kind}`); continue; }
     if (measured.value < minimum) reasons.push(`RESOURCE_BELOW_MINIMUM:${kind}`);
   }
-  if (req.acceleratorRequired && descriptor.resources?.gpu?.presence !== 'KNOWN') reasons.push('ACCELERATOR_UNKNOWN');
+  if(req.acceleratorRequired){const gpu=descriptor.resources?.gpu;if(gpu?.presence==='UNSUPPORTED'||gpu?.presence==='KNOWN'&&gpu.value===0)reasons.push('ACCELERATOR_UNAVAILABLE');else if(gpu?.presence!=='KNOWN')reasons.push('ACCELERATOR_UNKNOWN');}
   return freeze({ fits: reasons.length === 0, reasons: freeze(reasons), decided: false, schedulingAuthority: 'NONE' });
 }
 

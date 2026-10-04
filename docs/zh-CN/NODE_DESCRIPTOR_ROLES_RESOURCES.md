@@ -1,7 +1,7 @@
 # 节点角色 / 能力 / 资源描述符
 
 DATE: 2026-10-05
-STATUS: WBC-602 NODE_CAPABILITY_RESOURCE_COMPAT_ACCEPTED (development complete; opposite-host formal review pending)
+STATUS: WBC-602 REVIEW_CORRECTION_PENDING_EXACT_CI
 
 现在 City 节点由“它能做什么”描述，而不是由它跑在哪台机器上描述。`node-descriptor-v1` 契约给每个节点一份稳定
 描述符：角色、它自己声明能力、已上报资源、当前可用性、健康状态，以及指向拥有它身份的 City 注册表的引用。未来的
@@ -25,3 +25,9 @@ City 当前的真实角色可以表达：每台已注册的 Windows 节点既是
 
 真实双机结果在不可用时仍保持 NOT_RUN；隔离的单机测试不能证明硬件性能，本任务既不要求也不假设真实 Workbench 或
 GPU 池存在。
+
+异机复核修正：缺少 GPU 或网络测量保持 UNKNOWN，不代表没有硬件或网络不可达；仅显式
+supported:false 声明表示 UNSUPPORTED。平台不匹配与测得零个加速器分别报告，未知容量不作调度决定。
+忙碌执行端根据规范任务记录显示 acceptingWork:false。入网时显式配置的执行/验证多角色通过验证后保存，
+旧协议重连和重启会保留，不按主机名或 Windows 平台猜测验证角色。Android 仍为非执行控制端。
+显式错误角色或需求数组返回类型化拒绝；省略字段的旧节点仍兼容。角色引用既有身份，不授予新权限。

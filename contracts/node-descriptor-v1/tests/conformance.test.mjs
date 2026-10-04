@@ -21,6 +21,7 @@ import {
   explainRequirementFit,
   isExecutionEndpoint,
   measurement,
+  resourceBlock,
   nodeDescriptor,
   taskRequirements,
 } from '../node-descriptor.mjs';
@@ -110,8 +111,9 @@ test('a missing measurement is UNKNOWN, never zero and never unavailable', () =>
   assert.equal(measurement(0).presence, 'KNOWN', 'a real zero is a real measurement');
   assert.equal(measurement(0).value, 0);
   assert.equal(absent().presence, 'UNSUPPORTED');
-  // GPU is not modelled by this release, and the descriptor says so rather than reporting a measurement.
-  assert.equal(noTelemetry.resources.gpu.presence, 'UNSUPPORTED');
+  // Missing GPU data says nothing about whether this host has accelerator hardware.
+  assert.equal(noTelemetry.resources.gpu.presence, 'UNKNOWN');
+  assert.equal(resourceBlock({gpu:{supported:false}}).gpu.presence,'UNSUPPORTED');
 });
 
 test('real telemetry projects into the descriptor with its own timestamp, without inventing fields', () => {

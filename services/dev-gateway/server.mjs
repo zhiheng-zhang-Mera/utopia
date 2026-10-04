@@ -53,7 +53,7 @@ import { acceptsWork } from '../../city/00-foundation/01-city-core/fleet-routing
 // WBC-602: the Node Role / Capability / Resource descriptor. Pure, additive and read-only: it projects a node
 // record that already exists into the shape a capability/resource scheduler would need, and translates a record
 // written before the contract into a conservative one. It schedules nothing and owns no state.
-import { describeLegacyNode, availabilityFrom } from '../../contracts/node-descriptor-v1/node-descriptor.mjs';
+import { describeLegacyNode, availabilityFrom, NODE_ROLES } from '../../contracts/node-descriptor-v1/node-descriptor.mjs';
 // City Core (MB-006). Whether work interrupted by a restart may resume is decided by the
 // migrated checkpoint-gate module instead of an inline state test.
 import { checkpointGate, unboundCheckpointPort } from '../../city/02-engineering/04-restart-recovery-station/checkpoint-gate/index.mjs';
@@ -375,6 +375,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   const ableNode=n=>acceptsWork(claimNodeFor(n),{requiredCapabilities:REQUIRED_TASK_CAPABILITIES})===true;
   const nodeDescriptors=()=>store.list('nodes').map(node=>{
     const able=ableNode(node);
+    const busy=store.list('tasks').some(task=>task.assignedNodeId===node.id&&!terminal.includes(task.state));
     // DEFECT FOUND BY THIS TASK'S OWN TEST, REPAIRED HERE. The first version of this projection passed the
     // Core's verdict straight through, so a device whose owner had withdrawn sharing reported
     // `acceptingWork: true` beside `sharingEnabled: false` — a descriptor that contradicts itself on the one
@@ -385,9 +386,9 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
     const sharingEnabled=node.sharingEnabled!==false;
     return describeLegacyNode(node,{
       availability:availabilityFrom({
-        acceptingWork:able&&sharingEnabled,
+        acceptingWork:able&&sharingEnabled&&!busy,
         state:node.online===true?'ONLINE':'OFFLINE',
-        reason:node.online!==true?'ENDPOINT_OFFLINE':(!sharingEnabled?'SHARING_DISABLED_BY_OWNER':(able?null:'ENDPOINT_NOT_ACCEPTING_WORK')),
+        reason:node.online!==true?'ENDPOINT_OFFLINE':(!sharingEnabled?'SHARING_DISABLED_BY_OWNER':(!able?'ENDPOINT_NOT_ACCEPTING_WORK':busy?'ENDPOINT_BUSY':null)),
         sharingEnabled,
       }),
     });
@@ -753,9 +754,11 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       } else if(req.method==='POST' && path==='/api/v0/node/register'){
         const b=await body(req);assertOwnNode(req,b.id);if(req.citySession)b.displayName=enrollment.describe(req.citySession.session.installationId)?.displayName;
         if(!/^[a-zA-Z0-9-]{1,80}$/.test(b.id||'')||typeof b.displayName!=='string'||!Array.isArray(b.capabilities)||!b.capabilities.every(c=>typeof c==='string'))fail(400,'Invalid node registration');
+        if(b.roles!==undefined&&(!Array.isArray(b.roles)||b.roles.length<1||b.roles.length>NODE_ROLES.length||!b.roles.every(role=>NODE_ROLES.includes(role))||!b.roles.includes('EXECUTION_NODE')))fail(400,'Registered worker roles must include EXECUTION_NODE and use the supported vocabulary');
         const prior=store.get('nodes',b.id);
+        const roles=b.roles??prior?.roles;
         for(const t of store.list('tasks'))if(t.assignedNodeId===b.id&&!terminal.includes(t.state))change(t,'FAILED',{error:'Node re-registered; interrupted work is not replayed.'});
-        out=store.put('nodes',{id:b.id,devicePrincipalId:b.id,displayName:b.displayName.slice(0,100),metadata:{platform:String(b.metadata?.platform||'unknown')},agentVersion:typeof b.agentVersion==='string'?b.agentVersion.slice(0,30):'0.1.0',...telemetry(b),sharingEnabled:prior?.sharingEnabled??true,capabilities:b.capabilities,online:true,lastHeartbeatAt:now()});
+        out=store.put('nodes',{id:b.id,devicePrincipalId:b.id,displayName:b.displayName.slice(0,100),metadata:{platform:String(b.metadata?.platform||'unknown')},agentVersion:typeof b.agentVersion==='string'?b.agentVersion.slice(0,30):'0.1.0',...telemetry(b),...(roles?{roles:[...new Set(roles)].sort()}:{}),sharingEnabled:prior?.sharingEnabled??true,capabilities:b.capabilities,online:true,lastHeartbeatAt:now()});
         if(!prior?.online){
           emit('NODE_ONLINE',null,{nodeId:b.id});
           // MESH-301: a strict task that was waiting for this device becomes claimable the moment the device

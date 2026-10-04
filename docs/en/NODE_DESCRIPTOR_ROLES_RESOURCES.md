@@ -1,7 +1,7 @@
 # Node role, capability and resource descriptors
 
 DATE: 2026-10-05
-STATUS: WBC-602 NODE_CAPABILITY_RESOURCE_COMPAT_ACCEPTED (development complete; opposite-host formal review pending)
+STATUS: WBC-602 REVIEW_CORRECTION_PENDING_EXACT_CI
 
 A City node is now described by what it can do rather than by the name of the machine it runs on. The
 `node-descriptor-v1` contract gives every node a stable descriptor: its roles, the capabilities it advertises,
@@ -21,8 +21,9 @@ is `UNKNOWN` with a reason — never `0`, never `unavailable` — and a task req
 nobody measured produces an undecided fit rather than a refusal, because "we did not measure this" and "this
 node is too small" are different answers.
 
-The City's current role truth is expressible: each registered Windows node is an execution node and a
-validation node, and the Android client is a control surface. Android is not a City node and is not registered
+The City can preserve explicitly configured execution and validation roles through registration and restart.
+Legacy Windows workers retain EXECUTION_NODE only; validation roles are never inferred from a hostname or
+platform. The Android client is a control surface. Android is not a City node and is not registered
 as one; it is described by a separate control-surface descriptor whose `isExecutionResource` is false, and the
 contract refuses any attempt to give such an entity the `EXECUTION_NODE` role. No combination of capabilities or
 resource fields can promote a control surface into a worker.
@@ -33,3 +34,10 @@ it reports, and it says so.
 
 Physical two-host results remain NOT_RUN when unavailable; isolated single-host tests do not establish hardware
 performance, and no real Workbench or GPU pool is required or assumed.
+
+Opposite-host correction: omitted GPU/network data remains UNKNOWN rather than asserting absent hardware or
+unreachability. Only an explicit supported:false accelerator report is UNSUPPORTED. Platform mismatches and
+measured zero accelerators have distinct requirement-fit reasons; unknown capacity remains undecided. Busy
+workers report acceptingWork:false using canonical assigned nonterminal tasks. Optional worker role declarations
+are validated, preserved on legacy reconnect and reference existing identity; they confer no new authority.
+Malformed explicit role/requirement arrays are typed refusals, while omitted legacy fields remain compatible.

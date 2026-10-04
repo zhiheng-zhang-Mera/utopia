@@ -1,0 +1,134 @@
+{
+  "workbook": "WBC-602",
+  "reviewer": "Alien-codex",
+  "physicalReviewHost": "MERA-ALIANWARE",
+  "developerHost": "MEGA-REP",
+  "originalSourceSha": "c312a60b4d73f02597bde1f106372b253067fe33",
+  "baselineSha": "0e9bea3ce739b979e582a428af8fb233045a5e75",
+  "sourceBinding": "Commit owning this receipt; external Digital-City exact head/CI binding",
+  "originalFocused": {
+    "pass": 13
+  },
+  "reviewFocused": {
+    "pass": 19
+  },
+  "broaderBeforeFinalConstructorChange": {
+    "pass": 34
+  },
+  "canonicalHttpComparison": {
+    "baselineSha": "0e9bea3ce739b979e582a428af8fb233045a5e75",
+    "reviewedOriginalSha": "c312a60b4d73f02597bde1f106372b253067fe33",
+    "host": "MERA-ALIANWARE",
+    "role": "Alien-codex",
+    "kind": "CONTROLLED_REAL_GATEWAY_HTTP",
+    "baseline": [
+      [
+        "startup",
+        200
+      ],
+      [
+        "untargeted",
+        true,
+        "Alien-fixture",
+        "ASSIGNED"
+      ],
+      [
+        "wrong-holder-report",
+        403
+      ],
+      [
+        "running",
+        "RUNNING"
+      ],
+      [
+        "nonmonotonic",
+        400
+      ],
+      [
+        "completed",
+        "COMPLETED"
+      ],
+      [
+        "offline-strict",
+        true
+      ],
+      [
+        "strict-holder",
+        true,
+        "Mech-fixture"
+      ],
+      [
+        "unknown-strict",
+        200,
+        "TARGET_DEVICE_UNKNOWN"
+      ],
+      [
+        "cancel",
+        "CANCELLED"
+      ]
+    ],
+    "correction": [
+      [
+        "startup",
+        200
+      ],
+      [
+        "untargeted",
+        true,
+        "Alien-fixture",
+        "ASSIGNED"
+      ],
+      [
+        "wrong-holder-report",
+        403
+      ],
+      [
+        "running",
+        "RUNNING"
+      ],
+      [
+        "nonmonotonic",
+        400
+      ],
+      [
+        "completed",
+        "COMPLETED"
+      ],
+      [
+        "offline-strict",
+        true
+      ],
+      [
+        "strict-holder",
+        true,
+        "Mech-fixture"
+      ],
+      [
+        "unknown-strict",
+        200,
+        "TARGET_DEVICE_UNKNOWN"
+      ],
+      [
+        "cancel",
+        "CANCELLED"
+      ]
+    ],
+    "equivalent": true,
+    "physicalDistributedExecution": "NOT_RUN"
+  },
+  "findings": [
+    "GPU/network missing observations falsely asserted absence",
+    "Platform mismatch and measured-zero accelerator fit ignored",
+    "Malformed requirement arrays not typed refused",
+    "Busy worker advertised acceptingWork",
+    "Declared worker roles lost during registration/restart",
+    "Malformed explicit roles manufactured execution identity"
+  ],
+  "correctionScope": "Additive contract/projection/validated optional role declaration; no claim scheduler or trust redesign",
+  "rawRefs": [
+    ".runtime/evidence/mission-book/WBC-602/review-red.log",
+    ".runtime/evidence/mission-book/WBC-602/role-contract-red.log",
+    ".runtime/evidence/mission-book/WBC-602/role-contract-green.log"
+  ],
+  "physicalDistributedExecution": "NOT_RUN"
+}

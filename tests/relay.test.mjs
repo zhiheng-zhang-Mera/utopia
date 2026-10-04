@@ -26,7 +26,11 @@ test('a forwarded request reaches the peer and its answer comes back to the call
   h.accept({ token: 'ok' }, transport);
   const promise = h.forward('peer-a', { requestId: 'r1', path: '/api/v0/join/request', body: { displayName: 'X' } });
   assert.equal(sent.length, 1);
-  assert.deepEqual(sent[0], { kind: 'join-forward', requestId: 'r1', path: '/api/v0/join/request', body: { displayName: 'X' } });
+  // THE FRAME KIND IS `relay-push`, and this assertion was REWRITTEN rather than deleted when the wire name changed.
+  // `join-forward` was shared by both directions, so a City read its own pushed request coming back as "another City
+  // wants to forward through me" and every forward deadlocked. The names are now direction-specific:
+  // `relay-push` (City -> peer), `relay-request` (dialling peer -> City), `relay-answer` (both answers).
+  assert.deepEqual(sent[0], { kind: 'relay-push', requestId: 'r1', path: '/api/v0/join/request', body: { displayName: 'X' } });
   assert.deepEqual(h.settle('peer-a', { requestId: 'r1', response: { accepted: true } }), { settled: true });
   assert.deepEqual(await promise, { accepted: true });
   assert.equal(h.stats().pending, 0, 'the slot is released');

@@ -21,6 +21,10 @@ import { startDiscovery } from './discovery.mjs';
 // credential only after an already trusted device approves - it is not a second trust store, and
 // discovery grants nothing on its own.
 import { createJoinRequests, shortRef } from './join.mjs';
+// S1: the OUTBOUND-DIAL relay, now wired to a real WebSocket. `relay.mjs` decides who may register, what may
+// travel (a named list of existing payloads), and how a forwarded answer comes back; the gateway below is what
+// gives it a socket, and nothing here re-implements any of those three decisions.
+import { createRelayHub, createRelayDispatcher, RELAY_PAYLOAD_PATHS } from './relay.mjs';
 import { browseNearby, joinCapability, hostCarrierFacts } from './nearby.mjs';
 // `node:os` is imported for ONE purpose: publishing what this host can honestly say about itself as a City carrier
 // (cores and memory), so a REMOTE surface can weigh this machine against its own and against other PCs it can see.
@@ -140,6 +144,63 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
     // credential. `grantsTrust:false` rides along so no consumer can read the event as trust.
     emit(type,view.id,{requestId:view.id,shortRef:view.shortRef,displayName:view.displayName,platform:view.platform,state:view.state,grantsTrust:false},'city');
   }});
+  // INTEGRATION S1: THE RELAY PIPE, now actually connected to a socket. `relay.mjs` was the transport and nothing
+  // dialled it, so `choosePath` could return `relay-in-city` while no path existed. This hub is the City end of
+  // that path: a peer that cannot be dialled opens an OUTBOUND WebSocket to `/api/v0/relay` and registers.
+  //
+  // ADMISSION REUSES CREDENTIALS THIS CITY ALREADY ISSUES - no second kind is invented here:
+  //   * a `sess:` credential (JOIN-503) is resolved against the enrollment registry, and the peer ref comes from
+  //     the SESSION's installation, never from what the peer claims about itself;
+  //   * the control token admits the owner's own machine under the ref it declares.
+  // A peer that presents NEITHER is still admitted, and that is a decision with a reason rather than an oversight:
+  // the whole point of this pipe is the PC that is not in the City yet (that is what "asking to join" means), and
+  // `join/request` is already a public route - forwarding it grants nothing. What the credential DOES buy is
+  // ATTRIBUTION (`verified`), and what EVERY peer is still refused is anything outside `RELAY_PAYLOAD_PATHS`, so
+  // this pipe can never become an open proxy.
+  const relayAdmit=hello=>{
+    const raw=typeof hello?.credential==='string'?hello.credential:'';
+    const declared=typeof hello?.installationId==='string'?hello.installationId.trim().slice(0,120):'';
+    const label=typeof hello?.label==='string'?hello.label.slice(0,100):null;
+    if(raw!==''){
+      // A credential was PRESENTED, so it must resolve. Falling through to "anonymous" on a bad one would let a
+      // revoked device keep a pipe simply by presenting the credential that was revoked.
+      if(raw.startsWith(SESSION_PREFIX)){
+        try {
+          const resolved=enrollment.checkSession(raw.slice(SESSION_PREFIX.length));
+          // The ref comes from the SESSION's installation, never from what the peer says about itself.
+          return {accepted:true,peerRef:resolved.session.installationId,label,verified:true,role:'enrolled-session'};
+        } catch(error) {
+          return {accepted:false,reason:error?.code??'CREDENTIAL_REFUSED'};
+        }
+      }
+      const bearer=raw.startsWith('Bearer ')?raw.slice(7):raw;
+      // An EMPTY presented credential is not the control token, and must not be: `raw` being non-empty is the whole
+      // reason this branch is entered.
+      if(bearer===''||!equals('Bearer '+bearer,'Bearer '+token))return {accepted:false,reason:'CREDENTIAL_MISMATCH'};
+      return {accepted:true,peerRef:'control:'+(declared||'owner'),label,verified:true,role:'control-token'};
+    }
+    if(declared==='')return {accepted:false,reason:'NO_PEER_REF'};
+    return {accepted:true,peerRef:declared,label,verified:false,role:'joining-peer'};
+  };
+  // THE CODEC IS THE IDENTITY, and that is a bug fix rather than a preference. `relaySendFor` already produces the
+  // wire text (`JSON.stringify`) because a WebSocket frame is a string, so the hub's default JSON codec serialised
+  // it a SECOND time: the peer received a JSON *string containing* JSON, and every forwarded request died with
+  // `RELAY_TIMEOUT` while both ends looked healthy. The hub's own tests passed because they inject the identity
+  // codec - which is exactly the shape this gateway now uses.
+  const relay=createRelayHub({admit:relayAdmit,codec:{encode:value=>value,decode:text=>JSON.parse(String(text))}});
+  // A dialling peer DECLARES where its own City lives, and that is what a pushed payload is executed against when
+  // the payload belongs to a City other than this relay. Recorded per peer and looked up at dispatch time.
+  const relayOrigins=new Map();
+  // `cityUrl` is read AT DISPATCH TIME, not at creation time: the City's own endpoint is only known after
+  // `listen()` (tests use port 0), so a value captured here would pin the pre-listen port for ever. This is the
+  // same distinction the join capability endpoint needed, and it is stated because it silently half-works otherwise.
+  const relayDispatch=(peerRef,raw)=>createRelayDispatcher({relay,cityUrl:pairing.endpoint,getCityUrl:ref=>relayOrigins.get(ref)??null})(peerRef,raw);
+  // S1: the frames the City sends its own end of the pipe are the join/approve handshake carried by `relay.mjs`.
+  // Nothing here writes to disk and nothing here becomes a trust store - the pipe only moves the request.
+  const relayOnMessage=(peerRef,raw)=>{Promise.resolve().then(()=>relayDispatch(peerRef,raw)).then(result=>{if(result && result.handled!==true&&result.delivered!==true&&result.settled!==true)console.warn('relay frame ignored',JSON.stringify(result));
+    // A forwarded frame returns work to RUN rather than a promise to await: the socket handler must not block on a
+    // slow peer, and the asking peer's own wait is bounded by the hub's request timeout.
+    if(result&&typeof result.settleLater==='function')result.settleLater().then(outcome=>{if(outcome?.delivered!==true)console.warn('relay answer not delivered',outcome?.reason);}).catch(error=>console.error('relay forward failed',error?.stack??error));}).catch(error=>console.error('relay frame failed',error?.stack??error));};
   const change=(task,state,patch={},event='TASK_'+state)=>store.atomic(()=>{Object.assign(task,patch,{state,updatedAt:now()});store.put('tasks',task);emit(event,task.id,{state,progress:task.progress,...patch},task.assignedNodeId||'gateway');return task;});
   // City Core (MB-006). Whether work interrupted by a restart may resume is decided by the
   // migrated checkpoint-gate module, not by an inline state test. Utopia's policy travels as
@@ -615,9 +676,53 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       if(e instanceof DeviceIdentityError){res.writeHead(403,{'Content-Type':'application/json'});res.end(JSON.stringify(envelope({error:e.code,errorCode:e.code,detail:e.detail})));return;}
       res.writeHead(e.status||500,{'Content-Type':'application/json'});res.end(JSON.stringify(envelope({error:e.status?e.message:'Gateway error',...(e.code?{errorCode:e.code}:{})})));if(!e.status)console.error(e);}
   });
+  // A relay peer is WRITTEN TO by the City (that is the whole point: the City pushes an answer it received down the
+  // pipe), so the hub is handed a send function rather than the socket. A pipe whose far end has gone throws here
+  // and `relay.forward` turns that into a typed failure for whoever was waiting, instead of a silent no-op.
+  const relaySendFor=ws=>frame=>{if(ws.readyState!==1)throw new Error('relay peer is not connected');ws.send(JSON.stringify(frame));};
   server.on('upgrade',(req,socket,head)=>{
     try {
-      const u=new URL(req.url,'http://city');if(u.pathname!=='/api/v0/events/stream')fail(404,'Not found');
+      const u=new URL(req.url,'http://city');
+      // S1: the relay pipe. Reached WITHOUT an owner credential by design (the peer that most needs it is the one
+      // that has not joined yet); what it may carry is bounded by the payload list, not by this route's auth, and
+      // the `admit` policy above is the single place the credential question is settled.
+      if(u.pathname==='/api/v0/relay'){
+        if(u.searchParams.get('apiVersion')!=='0'||u.searchParams.get('schemaVersion')!=='0')fail(409,'Protocol mismatch');
+        // A browser cannot set an Authorization header on a WebSocket, so the credential travels in a subprotocol -
+        // the same choice the events stream makes. It arrives base64url-encoded (a subprotocol token cannot contain
+        // arbitrary characters) and is decoded HERE, because the admission policy must compare the real credential
+        // and not its encoding. The first version compared the encoded form against the raw token, which refused
+        // every legitimate dial while the hand-rolled peers in its tests (which sent the token unencoded) passed.
+        const presentedToken=String(req.headers['sec-websocket-protocol']??'').split(',').map(p=>p.trim()).find(p=>p.startsWith('city-token.'));
+        let presented='';
+        if(presentedToken)try{presented=Buffer.from(presentedToken.slice(11),'base64url').toString('utf8');}catch{presented='';}
+        const raw=(req.headers.authorization?String(req.headers.authorization).replace(/^Bearer\s+/i,''):presented);
+        const verdict=relayAdmit({credential:raw,installationId:u.searchParams.get('installationId')??'',label:u.searchParams.get('label')??''});
+        if(verdict.accepted!==true)fail(403,verdict.reason??'the City did not admit this relay peer');
+        wss.handleUpgrade(req,socket,head,ws=>{
+          let entry=null;
+          try {
+            entry=relay.register({peerRef:verdict.peerRef,label:verdict.label??null,send:relaySendFor(ws),close:()=>{try{ws.close();}catch{/* already gone */}}});
+          } catch(error) {
+            try{ws.close(1011,'relay registration refused');}catch{/* nothing to close */}
+            console.error('relay registration failed',error);
+            return;
+          }
+          const peerRef=verdict.peerRef;
+          // Where this peer's own City lives, if it said. Used as the execution address for a pushed payload.
+          const declaredOrigin=String(u.searchParams.get('clientUrl')??'').trim().replace(/\/+$/,'');
+          if(/^https?:\/\/[^\s]+$/i.test(declaredOrigin))relayOrigins.set(peerRef,declaredOrigin);
+          emit('RELAY_PEER_CONNECTED',null,{peerRef,role:verdict.role??'unknown',verified:verdict.verified===true,label:verdict.label??null},'city');
+          // The ready frame carries the ref the CITY decided, so a peer whose ref was taken from its session can see
+          // that (and cannot believe it chose its own identity).
+          try{ws.send(JSON.stringify(envelope({type:'RELAY_READY',peerRef,role:verdict.role??'unknown',verified:verdict.verified===true,payloads:RELAY_PAYLOAD_PATHS})));}catch{/* the peer vanished between upgrade and hello */}
+          ws.on('error',()=>{});
+          ws.on('message',data=>relayOnMessage(peerRef,data?.toString?.()??String(data)));
+          ws.on('close',()=>{relayOrigins.delete(peerRef);try{if(relay.unregister(peerRef))emit('RELAY_PEER_DISCONNECTED',null,{peerRef,connectedAt:entry.connectedAt},'city');}catch{/* already unregistered */}});
+        });
+        return;
+      }
+      if(u.pathname!=='/api/v0/events/stream')fail(404,'Not found');
       // Browser WebSocket cannot set Authorization; token travels in a subprotocol, never a URL.
       const protocols=String(req.headers['sec-websocket-protocol']||'').split(',').map(s=>s.trim());
       if(!req.headers.authorization){const p=protocols.find(p=>p.startsWith('city-token.'));req.headers.authorization='Bearer '+(p?Buffer.from(p.slice(11),'base64url').toString():'');}
@@ -656,5 +761,5 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // here - recorded so the next reader does not mistake the assignment below for a join fix.
   pairing.endpoint=`http://${host}:${server.address().port}`;
   if(discoveryEnabled)discovery=await startDiscovery({descriptor:pairing.descriptor(),onStatus:s=>{discoveryState=s;}});
-  return {url:pairing.endpoint,store,join,close:async()=>{if(closed)return;closed=true;bridge.close();join.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();}};
+  return {url:pairing.endpoint,store,join,relay,close:async()=>{if(closed)return;closed=true;bridge.close();join.close();relay.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();}};
 }

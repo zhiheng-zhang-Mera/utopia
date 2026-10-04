@@ -33,8 +33,14 @@
 //
 // WHAT THIS MODULE DOES NOT DO: it does not dial, relay, or tunnel. It decides WHICH mechanism applies to a pair of
 // peers from facts the client already holds, returns the action that would establish it (as data), and names the
-// Owner decision when the only remaining options need one. Building the transport is a separate, larger change, and
-// pretending otherwise in a comment would be the kind of claim this project keeps having to correct.
+// Owner decision when the only remaining options need one.
+//
+// S1/S2 UPDATE, so this header does not keep saying something that is no longer true: the transport for option 2
+// NOW EXISTS. `apps/web/relay-dial.mjs` dials the City's relay endpoint and `services/dev-gateway/server.mjs` accepts
+// it, so `{kind:'dial-outbound'}` is executable rather than aspirational - which is why `choosePath` now carries the
+// relay TARGET (`relayHost` / `relayPort` / `relayCityRef`) instead of only the word "relay". The remaining options
+// (overlay, port-forward, public relay) are still decisions and still reported as decisions; this module still
+// dials nothing itself.
 
 /** The mechanisms, worst-to-best is intentional: this list is used as a preference ORDER by `choosePath`. */
 export const PATHS = Object.freeze([
@@ -78,11 +84,14 @@ const sameLan = (a, b) => {
  *   `peerAddress`  - the peer's address, if one is known
  *   `transport`    - how the peer was reached: lan | bluetooth | remote | unknown
  *   `relayAvailable` - is there a City we can dial OUTBOUND to that will forward for us (our own, or the peer's)?
+ *   `relayHost` / `relayPort` / `relayCityRef` - WHICH City to dial. `relayAvailable` without a host is reported as
+ *                      available but without an address, because a mechanism the user cannot act on must not be
+ *                      dressed up as a working path.
  *   `overlayPresent` - has the user already installed/joined an overlay network on BOTH sides?
  *   `inboundForwarded` - does the peer accept inbound connections on a forwarded port?
  * @returns {{path: string, action: object|null, ownerDecision: object|null, reason: string}}
  */
-export function choosePath({ selfAddress = null, peerAddress = null, transport = 'unknown', relayAvailable = false, overlayPresent = false, inboundForwarded = false } = {}) {
+export function choosePath({ selfAddress = null, peerAddress = null, transport = 'unknown', relayAvailable = false, relayHost = null, relayPort = null, relayCityRef = null, overlayPresent = false, inboundForwarded = false } = {}) {
   const addressable = typeof peerAddress === 'string' && peerAddress.length > 0;
 
   // Loopback FIRST: a peer that IS this machine needs no heuristic at all, and checking it after the /24 test made
@@ -103,7 +112,17 @@ export function choosePath({ selfAddress = null, peerAddress = null, transport =
 
   // 2. The option that needs nothing from outside this project: an outbound dial.
   if (relayAvailable) {
-    return freeze('relay-in-city', { kind: 'dial-outbound', via: 'relay', to: peerAddress }, null,
+    // The TARGET travels with the decision. "Dial out to a relay" is not actionable on its own - the surface has to
+    // know WHICH City to open the socket to - so the host is part of the action and its absence is visible rather
+    // than silently absent (`relayHost: null` means the caller knows a relay exists and not where it is).
+    return freeze('relay-in-city', {
+      kind: 'dial-outbound',
+      via: 'relay',
+      to: peerAddress,
+      relayHost: typeof relayHost === 'string' && relayHost.length > 0 ? relayHost : null,
+      relayPort: Number.isFinite(relayPort) ? relayPort : null,
+      relayCityRef: typeof relayCityRef === 'string' && relayCityRef.length > 0 ? relayCityRef : null,
+    }, null,
       'the peer cannot be dialled, but it can dial OUT to a relay one of these Cities runs - every NAT allows that, and it needs no account and no router change');
   }
 
@@ -138,12 +157,24 @@ function freeze(path, action, ownerDecision, reason) {
  * relay and another is on the same LAN, the City has to be reachable BOTH ways, and a single answer for the group
  * would be wrong for at least one of them.
  */
-export function planGroupPaths({ selfAddress = null, peers = [], relayAvailable = false, overlayPresent = false } = {}) {
+export function planGroupPaths({ selfAddress = null, peers = [], relayAvailable = false, relayTarget = null, overlayPresent = false } = {}) {
   const list = (Array.isArray(peers) ? peers : []).filter(p => p && typeof p === 'object');
   const perPeer = list.map(peer => Object.freeze({
     peerRef: peer.peerRef ?? null,
     displayName: peer.displayName ?? null,
-    ...choosePath({ selfAddress, peerAddress: peer.address ?? null, transport: peer.transport ?? 'unknown', relayAvailable, overlayPresent, inboundForwarded: peer.inboundForwarded === true }),
+    ...choosePath({
+      selfAddress,
+      peerAddress: peer.address ?? null,
+      transport: peer.transport ?? 'unknown',
+      relayAvailable,
+      // A peer that published its own relay address is preferred over the group default: the whole point of the
+      // carrier decision is that the HARDEST peer must be reachable, and the carrier it named is the one it can reach.
+      relayHost: peer.relayHost ?? relayTarget?.host ?? null,
+      relayPort: peer.relayPort ?? relayTarget?.port ?? null,
+      relayCityRef: peer.relayCityRef ?? peer.cityRef ?? relayTarget?.cityRef ?? null,
+      overlayPresent,
+      inboundForwarded: peer.inboundForwarded === true,
+    }),
   }));
   const needsOwner = perPeer.filter(p => p.ownerDecision !== null);
   const mechanisms = [...new Set(perPeer.map(p => p.path))];

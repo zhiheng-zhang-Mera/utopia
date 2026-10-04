@@ -28,7 +28,7 @@ export class Pairing {
   if(body?.cityId!==this.cityId)error(409,'City identity mismatch');
   if(!['qr','mdns','ble'].includes(body.method))error(400,'Unknown pairing method');
   const s=this.session;if(!s||body.sessionId!==s.id||s.usedAt||this.clock()>=s.expiresAt)error(410,'Pairing session expired, replaced or already used');
-  if(s.attempts>=5)error(429,'Pairing session locked after failed attempts; refresh on Alien');
+  if(s.attempts>=5)error(429,'Pairing session locked after failed attempts; generate a new invitation on the City host');
   const material=body.method==='qr'?body.secret:body.shortCode;
   const wanted=body.method==='qr'?s.secretHash:s.codeHash;
   if(typeof material!=='string'||material.length>256||!timingSafeEqual(hash(material),wanted)){s.attempts++;error(403,'Incorrect pairing secret or short code');}

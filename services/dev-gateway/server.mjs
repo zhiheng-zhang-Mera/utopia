@@ -333,7 +333,16 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // kept both, so this earlier one ran FIRST and authenticated before `publicJoin` existed, which made every
       // join route answer 401 while the code behind it was correct (`ask 0 answered 401` in the JOIN-502 suite).
       // The union preamble below is the one that names all three exemption kinds, so it is the only one kept.
-      const publicJoin=path==='/api/v0/join/info'||path==='/api/v0/join/request'||path==='/api/v0/join/status'||path==='/api/v0/join/exchange';
+      // REVIEW, JOIN-502 second pass: the BROWSE is now public, and that is a decision with a stated reason.
+      // A joining PC holds no credential - that is the premise of the whole join flow - and the connection screen
+      // must be able to LIST the nearby PCs before anybody has typed anything. As developed, this route was
+      // authenticated, so a disconnected surface's own browse answered 401 and the "your PCs" list could never
+      // populate on the very screen that needs it. WHAT IT DISCLOSES: the same City identities, addresses and
+      // capability summaries this City ALREADY multicasts over mDNS to every machine on the link, so the
+      // incremental disclosure of the unauthenticated route is nil. WHAT IT DOES NOT DO: it grants nothing (every
+      // row carries grantsTrust:false), the browse is bounded in both directions, and every DECISION route - the
+      // request list, approve, reject - stays authenticated.
+      const publicJoin=path==='/api/v0/join/info'||path==='/api/v0/join/request'||path==='/api/v0/join/status'||path==='/api/v0/join/exchange'||path==='/api/v0/join/nearby';
       const legacyPublicPairing=path==='/api/v0/pairing/info'||path==='/api/v0/pairing/exchange';
       // INTEGRATION: `selfAuthenticating` belongs to THIS preamble, not to the one that was removed above - keeping
       // it in the removed block left the union preamble unaware of it, so /device/session answered 401 and every

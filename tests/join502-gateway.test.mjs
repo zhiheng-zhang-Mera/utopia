@@ -86,14 +86,21 @@ test('JOIN-502: the browse is authenticated, and a nearby City never makes this 
   let app;
   try {
     app = await createGateway({ host: '127.0.0.1', port: 0, dir, token: CONTROL, nodeToken: NODE, nearbyTimeoutMs: 300 });
-    // The browse is a READ of the City's own LAN view, so it carries the control credential like every
-    // other read. An unauthenticated browse route would hand a stranger the City's list of owners.
-    assert.equal((await call(app, 'join/nearby')).status, 401);
+    // REVIEW (JOIN-502, second pass): the browse is REACHABLE WITHOUT a credential, and this assertion REPLACES an
+    // earlier one that demanded a 401. The earlier test encoded a DEFECT rather than a contract: a joining PC holds
+    // no credential by definition, and the connection screen must list the nearby PCs before anything is typed, so
+    // an authenticated browse meant the list could never populate on the screen that needs it. The disclosure the
+    // old comment feared does not exist - this City ALREADY multicasts the same identities, addresses and capability
+    // summaries over mDNS to everything on the link. The boundary stays where it belongs: nothing here grants trust
+    // (every row says grantsTrust:false), the browse is bounded, and the DECISION routes stay authenticated, which
+    // is pinned separately in tests/join502-review-second-pass.test.mjs.
+    assert.equal((await call(app, 'join/nearby')).status, 200, 'a joining PC has no credential, so the browse cannot require one');
     const browsed = await call(app, 'join/nearby', { headers: owner });
     assert.equal(browsed.status, 200);
     const body = await browsed.json();
     assert.ok(Array.isArray(body.nearby), 'a machine with no multicast answer must still answer an empty list');
     assert.equal(body.bounded, true);
+    assert.ok((body.nearby ?? []).every(r => r.grantsTrust === false), 'discovery still grants no trust');
 
     // JOIN-501's Owner rule is a HARD boundary for this task (workbook section 6): discovery and asking
     // must never create temporary pairing material as a side effect. Measured through the City's own

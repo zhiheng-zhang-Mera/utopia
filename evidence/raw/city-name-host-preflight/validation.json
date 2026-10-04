@@ -52,5 +52,10 @@
   },
   "finalLauncherCheck": "PASS - checks legacy listeners even when a reserved City is already online; requested different port reuses the live City",
   "liveInstallation": "live-installation.json",
-  "ci": "NOT_RUN_AT_LOCAL_FREEZE"
+  "ci": "NOT_RUN_AT_LOCAL_FREEZE",
+  "logNormalization": {
+    "artifact": "superseded-focused.log",
+    "change": "Trailing whitespace removed for Git whitespace checks; original log retained locally",
+    "originalSha256": "956f9216521fc83a53d48f34c32180ef1b2a857fa1fdee2011bbf4242b6f1481"
+  }
 }

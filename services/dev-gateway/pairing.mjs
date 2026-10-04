@@ -11,9 +11,18 @@ export class Pairing {
   const secret=randomBytes(32).toString('base64url'),shortCode=String(randomInt(1000000)).padStart(6,'0'),createdAt=this.clock();
   const s={id:randomUUID(),secretHash:hash(secret),codeHash:hash(shortCode),createdAt,expiresAt:createdAt+this.ttlMs,usedAt:null,attempts:0};this.session=s;
   const descriptor=this.descriptor();const params=new URLSearchParams({v:'1',host:this.endpoint,city:this.cityId,session:s.id,expires:descriptor.expiresAt,secret});const qrPayload='utopia://pair?'+params;
+  // THE SAME MATERIAL AS A PLAIN WEB LINK, because `utopia://` is a custom scheme: a person cannot paste it into a
+  // browser's address bar and have anything happen. The web link is what "share this with the other PC" actually
+  // needs, and the other machine opens it, sees the invite and accepts it in one click. `qrPayload` is NOT replaced -
+  // the QR and the Android deep link keep working exactly as before.
+  //
+  // WHAT THIS COSTS, stated rather than glossed over: the one-time secret is now in a URL a server may log. It is
+  // bounded by design - single use, short TTL, bound to one session id, and locked after five attempts - and the
+  // alternative (a scheme nobody can paste) is why the sharing path was unusable on a plain Windows PC.
+  const inviteUrl=this.endpoint+'/?pair='+encodeURIComponent(params.toString());
   const qrSvg=await QRCode.toString(qrPayload,{type:'svg',width:360,margin:4,errorCorrectionLevel:'M'});
   this.onChange(descriptor);
-  return {descriptor,pairingSessionId:s.id,shortCode,createdAt:new Date(createdAt).toISOString(),expiresAt:descriptor.expiresAt,qrPayload,qrSvg};
+  return {descriptor,pairingSessionId:s.id,shortCode,createdAt:new Date(createdAt).toISOString(),expiresAt:descriptor.expiresAt,qrPayload,qrSvg,inviteUrl,inviteValue:params.toString()};
  }
  exchange(body){
   if(body?.cityId!==this.cityId)error(409,'City identity mismatch');

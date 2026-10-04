@@ -177,6 +177,18 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 #pairing-qr { width: 220px; max-width: 100%; background: #fff; padding: 8px; }
 #pairing-qr svg { width: 100%; display: block; }
 #pairing-code { font-family: var(--mono); font-size: 30px; letter-spacing: .3em; color: var(--lime); }
+/* N3: the shareable thing is a WEB link a person can paste into another PC's address bar, so it is rendered as a
+   real anchor - selectable, openable, and visibly a link rather than a blob of text in a box. */
+.invite-link { display: inline-block; max-width: 100%; overflow-wrap: anywhere; font-family: var(--mono); font-size: 12.5px; color: var(--lime); background: var(--panel-2, #10140f); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; text-decoration: none; }
+.invite-link:hover, .invite-link:focus { text-decoration: underline; }
+.share-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+/* The pairing-code / invite-link card: the entry point a person needs when the two PCs are on different networks. */
+#pair-code-card { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin: 14px 0; background: var(--panel-2, #10140f); }
+#pair-code-card h3 { margin: 0 0 6px; font-size: 14px; }
+.pair-code-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+.pair-code-row input { flex: 1 1 260px; min-width: 0; font-family: var(--mono); }
+#pair-invite-ready { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 10px; }
+#pair-invite-ready[hidden] { display: none; }
 .lan-warning { border-top: 1px solid var(--line); padding-top: 12px; font-size: 12px; font-weight: 700; color: var(--warn); }
 li { margin-bottom: 8px; line-height: 1.5; }
 

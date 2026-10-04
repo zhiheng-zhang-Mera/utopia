@@ -27,6 +27,9 @@ let nearby=null,nearbyBusy=false,nearbyError='',joinAsk=null,joinBusy=false,join
 // N2: the cross-network join. `selfOrigin` is captured ONCE, because a successful join navigates the page to the
 // other City and `location.origin` then stops describing the City whose pipe carried the ask.
 let selfOrigin=location.origin;
+// N3: the invite a person pasted or opened, held between "we have it" and "they confirmed it". It is never written
+// to storage: it is one paste, not a remembered credential.
+let pendingInvite=null;
 /** Metres of trust: this is the whole reason the claim exists. Only the browser that created the ask
  *  holds this secret, so a second machine on the same LAN cannot adopt the ask by reading the City. It
  *  lives in sessionStorage, never localStorage: it is a tab-scoped episode, not a device credential. */
@@ -372,11 +375,86 @@ async function resumeJoin({hint, claim, cityRef}){
   joinAsk=null;joinError=joinErrorKey(err);render();
  }
 }
-function joinErrorKey(error){
- if(error?.status===403)return 'join.errorRejected';
+function joinErrorKey(error){ if(error?.status===403)return 'join.errorRejected';
  if(error?.status===429)return 'join.errorBusy';
  if(error?.status===404)return 'join.errorUnreachable';
  return 'join.errorUnreachable';
+}
+/**
+ * N3: pair with another PC from EITHER thing a person can actually hold - the link it gave them, or its 6-digit
+ * code.
+ *
+ * TWO STEPS, ON PURPOSE. A link carries the City's address, its identity, the session and the one-time secret, so
+ * pasting it is all the WORK there is; but the exchange itself is confirmed once by the person who opened it. That
+ * keeps "one paste and done" without letting a link that arrived by accident silently move this browser onto
+ * somebody else's City.
+ *
+ * WHY A BARE CODE IS NOT ENOUGH, said to the user rather than hidden behind a spinner: a 6-digit code is a code, not
+ * an address. It cannot reach a City nobody has named yet, so the honest answer is to ask for the link (or the
+ * code typed on the OTHER PC, which is the side that knows who it is talking to).
+ */
+function beginPairingFromInvite(raw,prefix='pair'){
+ const value=String(raw??'').trim();
+ const linkMatch=value.match(/[?&#]pair=([^&\s]+)/i);
+ let payload=linkMatch?decodeURIComponent(linkMatch[1]):value;
+ // THE PREFIX HAS TO COME BACK, and this is the defect that made a pasted link do nothing: `?pair=` carries the
+ // payload URL-encoded, so what comes out of the query is the INNER query (`v=1&host=…`) - and `parseInvite` quite
+ // rightly requires the `utopia://pair?` scheme, because that is what the QR carries. A link that decoded to a
+ // perfectly good payload was thrown away one line later, with no error anywhere. Accepting both shapes here is the
+ // honest fix: the deep link and the web link are the same material in two wrappers.
+ if(!payload.startsWith('utopia://pair')){
+  const inner=payload.replace(/^utopia:\/\/pair\?/,'').replace(/^\?/,'');
+  if(!/(^|&)(host|session)=/.test(inner))return null;
+  payload='utopia://pair?'+inner;
+ }
+ const parsed=parseInvite(payload);
+ if(!parsed)return null;
+ pendingInvite={payload,host:parsed.host,cityId:parsed.cityId??null};
+ const note=$(`#${prefix}-code-note`);
+ if(note)note.textContent=t('pairing.linkReady');
+ // Name the machine the invite came from: "an invite from somewhere" is not something a person can check.
+ const fromLine=$(`#${prefix}-invite-text`);
+ if(fromLine){let where=parsed.host;try{where=new URL(parsed.host).host;}catch{/* keep the raw host if it is not a URL */}
+  fromLine.textContent=`${t('pairing.linkReady')} · ${where}`;}
+ syncPairEntry();
+ return{ok:true,ready:true,host:parsed.host};
+}
+
+async function pairWithCode(rawInput=null,prefix='pair'){
+ const note=$(`#${prefix}-code-note`),button=$(`#${prefix}-code-connect`),field=$(`#${prefix}-code`);
+ const raw=String(rawInput??field?.value??'').trim();
+ const say=key=>{if(note)note.textContent=key?t(key):'';};
+ if(!raw){say('pair.codeEmpty');field?.focus();return{ok:false,reason:'EMPTY'};}
+ const started=beginPairingFromInvite(raw,prefix);
+ if(started)return started;
+ if(/^\d{6}$/.test(raw)){say('pair.codeBad');return{ok:false,reason:'CODE_NEEDS_ADDRESS'};}
+ say('pair.codeBad');
+ return{ok:false,reason:'UNRECOGNIZED'};
+}
+
+/** The confirmed half: the person who opened the link has accepted it, so the exchange runs now. */
+async function acceptPendingInvite(prefix='pair'){
+ const button=$(`#${prefix}-invite-accept`),note=$(`#${prefix}-code-note`);
+ const say=key=>{if(note)note.textContent=key?t(key):'';};
+ if(!pendingInvite){say('pair.codeEmpty');return{ok:false,reason:'NOTHING_PENDING'};}
+ if(button)button.disabled=true;say('pair.codeBusy');
+ try{
+  const done=await exchangeInvite(pendingInvite.payload);
+  if(done?.navigating)return{ok:true,navigating:true};
+  if(!done?.credential)throw Error(t('pair.codeFailed'));
+  token=done.credential;try{sessionStorage.setItem('city-token',token);}catch{}
+  $('#pair').hidden=true;$('#content').hidden=false;
+  say('pair.codeDone');pendingInvite=null;syncPairEntry();
+  connect();
+  return{ok:true};
+ }catch(error){
+  // The City's own refusal decides which sentence is true: a wrong/used code, a locked session, or a dead host are
+  // three different things to the person reading it, and collapsing them into "failed" is the defect this project
+  // has already had to correct once on the join flow.
+  const message=String(error?.message??error);
+  say(/locked|too many/i.test(message)?'pair.codeLocked':/refused|incorrect|expired|used/i.test(message)?'pair.codeRejected':'pair.codeFailed');
+  return{ok:false,reason:'EXCHANGE_FAILED'};
+ }finally{if(button)button.disabled=false;}
 }
 /** A refused ask still has a STATE, and the state is what the surface shows. Reporting every failure as
  *  EXPIRED is how a rejection first reached the user as "no longer valid" - true of the request, useless
@@ -472,6 +550,22 @@ function homeRooms(){
  if(homeRoomsData||homeRoomsError||!token)return renderHomeRooms();
  api('rooms').then(payload=>{homeRoomsData=payload?.rooms??null;if(!homeRoomsData)homeRoomsError=t('terminal.rooms.malformed');}).catch(e=>{homeRoomsError=e.message;}).finally(renderHomeRooms);
 }
+function syncPairEntry(){
+ // TWO RENDER PLACES, ONE STATE. The first screen's card is filled once (its markup is static in index.html so the
+ // disconnected screen works even before any record exists); the Pairing page's card is re-rendered by
+ // `pairingView`. Whichever is on screen, the "an invite is waiting" flag has to agree with `pendingInvite`, or the
+ // confirm button appears on one copy and not the other.
+ const host=$('#pair-code-card');
+ if(host&&!host.dataset.rendered){host.innerHTML=renderPairCodeCard('pair');host.dataset.rendered='1';}
+ for(const prefix of ['pair','swap']){
+  const ready=$(`#${prefix}-invite-ready`);
+  if(!ready)continue;
+  ready.hidden=pendingInvite===null;
+  const label=$(`#${prefix}-invite-text`);
+  if(label&&pendingInvite){let where=pendingInvite.host;try{where=new URL(pendingInvite.host).host;}catch{/* keep the raw host if it is not a URL */}
+   label.textContent=`${t('pairing.linkReady')} · ${where}`;}
+ }
+}
 function status(s){connection=s;$('#connection').textContent=t('connection.'+s.toLowerCase());$('#connection').className=s==='ONLINE'?'online':'';$('#run').disabled=s!=='ONLINE';render();}
 async function refresh(){if(refreshing){pending=true;return;}if(externalPage&&city)return;refreshing=true;try{const gen=generation;const snapshot=await api('city');if(gen!==generation)return;city=snapshot;syncRunTargets();try{schedulerFeed=await api('presentation');}catch{schedulerFeed=null;}if(pairing.ownerSessionId()!==null&&city.descriptor?.pairingSessionId!==pairing.ownerSessionId()){const active=pairing.ownerSessionId();canonicalPairingSession().then(c=>{if(!c.known)return;if(c.sessionId===active)return;pairing.clearOnSessionChanged(c.sessionId);render();});}$('#pair').hidden=true;$('#content').hidden=false;$('#error').textContent='';render();}finally{refreshing=false;if(pending){pending=false;refresh().catch(disconnected);}}}
 function disconnected(e){status('OFFLINE');if(e?.message)$('#error').textContent=e.message;}
@@ -486,9 +580,25 @@ const fresh=n=>connection==='ONLINE'&&n.online&&Number.isFinite(Date.parse(n.tel
 const metrics=n=>{const sample=n.telemetry||{},valid=fresh(n);return `<div class="telemetry ${valid?'fresh':'cached'}"><p class="muted">${valid?t('device.live'):t('device.cached')} · ${esc(t('device.observed'))} ${esc(age(sample.observedAt))}</p><dl class="metrics"><div><dt>CPU</dt><dd>${Number.isFinite(sample.cpu?.usagePercent)?esc(sample.cpu.usagePercent.toFixed(1))+'%':t('device.unknown')}</dd></div><div><dt>${esc(t('device.memory'))}</dt><dd>${bytes(sample.memory?.usedBytes)} / ${bytes(sample.memory?.totalBytes)}</dd></div><div><dt>${esc(t('device.disk'))}</dt><dd>${bytes(sample.disk?.usedBytes)} / ${bytes(sample.disk?.totalBytes)}<small>${esc(t('device.free'))} ${bytes(sample.disk?.freeBytes)}</small></dd></div><div><dt>${esc(t('device.uptime'))}</dt><dd>${Number.isFinite(sample.uptimeSeconds)?Math.floor(sample.uptimeSeconds/3600)+'h '+Math.floor(sample.uptimeSeconds%3600/60)+'m':t('device.unknown')}</dd></div></dl></div>`;};
 const nodeRows=()=>city.nodes.map(n=>`<article class="device-card"><div class="row"><div class="node-info"><span class="node-icon" aria-hidden="true"></span><div><button class="task-open" data-node="${esc(n.id)}">${esc(n.displayName)}</button><p class="muted">${esc(n.metadata?.platform)} · ${esc(t('device.agent'))} ${esc(n.agentVersion||t('device.unknown'))}</p><small>${connection==='ONLINE'?'':t('device.cachedPrefix')}${esc(t('device.lastSeen'))} ${esc(age(n.lastHeartbeatAt))}</small></div></div>${nodeBadge(n)}</div>${metrics(n)}</article>`).join('')||`<p class="muted">${esc(t('empty.waitingRuntimeNode'))}</p>`;
 const cityUrl=()=>{const e=city.descriptor?.endpoint;return e?e.scheme+'://'+e.host+':'+e.port:location.origin;};
-function pairingView(){
- const d=city.discovery||{},ps=pairingState(),remaining=ps.remainingSeconds||0;
- return `<section class="panel"><h2>${esc(t('pairing.title'))} ${esc(city.displayName||t('pairing.yourCity'))}</h2><p>${esc(t('settings.cityUrl'))}: ${esc(cityUrl())}</p><p class="task-id">${esc(t('pairing.cityId'))}: ${esc(city.cityId||t('device.unknown'))}</p><p>${esc(t('pairing.session'))}: ${esc(ps.session?.pairingSessionId||city.descriptor?.pairingSessionId||t('pairing.none'))}</p><p class="muted">${esc(pairingReasonMessage(ps.notice)?t(pairingReasonMessage(ps.notice)):'')}</p>${ps.session?`<div class="pairing-material"><div id="pairing-qr" role="img" aria-label="${esc(t('pairing.qr'))}"></div><div><p>${esc(t('pairing.code'))}</p><strong id="pairing-code">${esc(ps.session.shortCode)}</strong><p id="pairing-countdown">${esc(t('pairing.countdown',{seconds:remaining}))}</p><p>${esc(t('pairing.single'))}</p></div></div><div class="pairing-share"><h3>${esc(t('pairing.share'))}</h3><p class="muted">${esc(t('pairing.shareHint'))}</p><textarea id="pairing-invite" readonly rows="3" spellcheck="false">${esc(ps.session.qrPayload)}</textarea><button id="copy-invite">${esc(t('pairing.copy'))}</button><p class="muted" id="copy-note"></p></div>`:''}<button id="generate-pairing" ${connection!=='ONLINE'||pairingBusy||!ps.generate.available?'disabled':''}>${ps.generate.available?t(ps.generate.label):t('pairing.active')}</button><p class="muted">${esc(t('pairing.explanation'))}</p><h3>${esc(t('section.connectionDiagnostics'))}</h3><p>mDNS: ${esc(d.mdns?.state||'UNKNOWN')} · ${esc(d.mdns?.reason||'')}</p><p>Bluetooth: ${esc(d.ble?.state||'UNKNOWN')} · ${esc(d.ble?.reason||'')}</p><p>Gateway: ${esc(connection)}</p><details><summary>${esc(t('common.runDetails'))}</summary><div class="task-id">apiVersion 0 · schemaVersion 0</div></details><h3>${esc(t('pairing.choose'))}</h3><ol><li><strong>QR:</strong> ${esc(t('pairing.qrHelp'))}</li><li><strong>${esc(t('pairing.lan'))}:</strong> ${esc(t('pairing.lanHelp'))}</li><li><strong>${esc(t('pairing.ble'))}:</strong> ${esc(t('pairing.bleHelp'))}</li><li><strong>${esc(t('pairing.manual'))}:</strong> ${esc(t('pairing.manualHelp'))}</li></ol><p>${esc(t('pairing.plane'))}</p><p class="lan-warning">LAN DEVELOPMENT ONLY · NOT FOR PUBLIC INTERNET</p></section>`;
+function renderPairCodeCard(prefix='pair'){
+ // ONE definition, rendered in TWO places, because the entry is needed in two states and a second copy would drift:
+ //   * on the first screen while this client is NOT connected (the state the screen exists for);
+ //   * inside the Pairing page, because a CONNECTED client is the state everyone is actually in - and the first
+ //     version put this card only inside `#pair`, which is hidden the moment a client connects. The result was an
+ //     entry nobody could see, reported exactly as "there is no place to type the pairing code".
+ //
+ // THE IDS ARE PREFIXED, and that is not cosmetic: two live copies with the same ids make `querySelector` return the
+ // hidden one, so the visible card would have looked for its own input and found the other card's.
+ return `<h3 id="${prefix}-code-title">${esc(t('pair.codeTitle'))}</h3><p class="muted">${esc(t('pair.codeHint'))}</p><div class="pair-code-row"><input id="${prefix}-code" type="text" autocomplete="off" inputmode="text" placeholder="${esc(t('pair.codePlaceholder'))}" aria-label="${esc(t('pair.codeTitle'))}"><button id="${prefix}-code-connect" class="primary">${esc(t('pair.codeConnect'))}</button></div><p class="muted" id="${prefix}-code-note"></p><div id="${prefix}-invite-ready" hidden><p class="muted" id="${prefix}-invite-text"></p><button id="${prefix}-invite-accept" class="primary">${esc(t('pairing.linkConnect'))}</button></div>`;
+}
+function pairingView(){ const d=city.discovery||{},ps=pairingState(),remaining=ps.remainingSeconds||0;
+ // N3: THE SHAREABLE THING IS A WEB LINK. The `utopia://` payload is kept for the QR and for the Android deep link,
+ // but it is NOT what a person can hand to another Windows PC: a custom scheme pasted into a browser's address bar
+ // does nothing at all. So the share block leads with a plain http(s) URL the other machine can open, and the raw
+ // payload is demoted to a folded detail for whoever needs it.
+ const invite=ps.session?.inviteUrl||null;
+ const shareBlock=ps.session?`<div class="pairing-share"><h3>${esc(t('pairing.share'))}</h3><p class="muted">${esc(t('pairing.shareHint'))}</p>${invite?`<p class="muted">${esc(t('pairing.linkHint'))}</p><p><a id="pairing-link" class="invite-link" href="${esc(invite)}">${esc(invite)}</a></p><div class="share-row"><button id="copy-invite" class="primary">${esc(t('pairing.copyLink'))}</button><span class="muted" id="copy-note"></span></div>`:''}<details><summary>${esc(t('pairing.raw'))}</summary><textarea id="pairing-invite" readonly rows="3" spellcheck="false">${esc(ps.session.qrPayload)}</textarea><div class="share-row"><button id="copy-raw">${esc(t('pairing.copy'))}</button></div></details></div>`:'';
+ return `<section class="panel"><h2>${esc(t('pairing.title'))} ${esc(city.displayName||t('pairing.yourCity'))}</h2>${shareBlock}<section id="pairing-card" aria-labelledby="pairing-code-title">${renderPairCodeCard('swap')}</section><p>${esc(t('settings.cityUrl'))}: ${esc(cityUrl())}</p><p class="task-id">${esc(t('pairing.cityId'))}: ${esc(city.cityId||t('device.unknown'))}</p><p>${esc(t('pairing.session'))}: ${esc(ps.session?.pairingSessionId||city.descriptor?.pairingSessionId||t('pairing.none'))}</p><p class="muted">${esc(pairingReasonMessage(ps.notice)?t(pairingReasonMessage(ps.notice)):'')}</p>${ps.session?`<div class="pairing-material"><div id="pairing-qr" role="img" aria-label="${esc(t('pairing.qr'))}"></div><div><p>${esc(t('pairing.code'))}</p><strong id="pairing-code">${esc(ps.session.shortCode)}</strong><p class="muted">${esc(t('pairing.codeHint'))}</p><p id="pairing-countdown">${esc(t('pairing.countdown',{seconds:remaining}))}</p><p>${esc(t('pairing.single'))}</p></div></div>`:''}<button id="generate-pairing" ${connection!=='ONLINE'||pairingBusy||!ps.generate.available?'disabled':''}>${ps.generate.available?t(ps.generate.label):t('pairing.active')}</button><p class="muted">${esc(t('pairing.explanation'))}</p><h3>${esc(t('section.connectionDiagnostics'))}</h3><p>mDNS: ${esc(d.mdns?.state||'UNKNOWN')} · ${esc(d.mdns?.reason||'')}</p><p>Bluetooth: ${esc(d.ble?.state||'UNKNOWN')} · ${esc(d.ble?.reason||'')}</p><p>Gateway: ${esc(connection)}</p><details><summary>${esc(t('common.runDetails'))}</summary><div class="task-id">apiVersion 0 · schemaVersion 0</div></details><h3>${esc(t('pairing.choose'))}</h3><ol><li><strong>QR:</strong> ${esc(t('pairing.qrHelp'))}</li><li><strong>${esc(t('pairing.lan'))}:</strong> ${esc(t('pairing.lanHelp'))}</li><li><strong>${esc(t('pairing.ble'))}:</strong> ${esc(t('pairing.bleHelp'))}</li><li><strong>${esc(t('pairing.manual'))}:</strong> ${esc(t('pairing.manualHelp'))}</li></ol><p>${esc(t('pairing.plane'))}</p><p class="lan-warning">LAN DEVELOPMENT ONLY · NOT FOR PUBLIC INTERNET</p></section>`;
 }
 /* UI-101 step 5: the default reading path shows a readable label, and the raw
    internal vocabulary (event type, sequence, task id) lives in a folded
@@ -553,6 +663,10 @@ function assistantSlot(){
   return `<section class="operator"><div class="op-frame"><span class="op-side"></span><span class="op-tag">${esc(t('assistant.role'))}</span><div class="op-art">${ASSISTANT_ART}</div><span class="op-slot">SLOT 01</span></div><div class="op-body"><p class="op-role">${esc(t('assistant.role'))} · ASSISTANT</p><p class="op-name">${esc(t('assistant.unassigned'))}</p><p class="op-sub">${esc(t('assistant.note'))}</p><dl class="kv"><dt>${esc(t('assistant.boundDevice'))}</dt><dd>${esc(online[0]?.displayName||t('assistant.pending'))}</dd><dt>${esc(t('assistant.appearance'))}</dt><dd>${esc(t('assistant.placeholderValue'))}</dd><dt>${esc(t('assistant.voice'))}</dt><dd>${esc(t('assistant.disabled'))}</dd><dt>${esc(t('assistant.duty'))}</dt><dd>${esc(t('assistant.pending'))}</dd></dl></div></section>`;
 }
 function render(){
+ // The pairing entry is refreshed on every render: it is rendered in two places (the first screen while
+ // disconnected, the Pairing page while connected) and both have to track whether an invite is waiting to be
+ // confirmed. Cheap and idempotent - it only fills an empty host and syncs one `hidden` flag.
+ syncPairEntry();
  // JOIN-502: the onboarding block belongs to the DISCONNECTED panel, and it is injected here rather
  // than written into index.html so the shell document keeps its single responsibility and the two
  // surfaces cannot drift apart. It renders before a token exists, which is the state it is for. The
@@ -608,8 +722,14 @@ if(e.target.dataset?.connectAction){const kind=e.target.dataset.connectAction,re
 if(e.target.dataset?.joinRequest){const ep=e.target.dataset.joinRequest;askToJoin(ep,e.target.dataset.joinRef||null,connectFacts().rows.find(r=>(r.cityRef||r.address)===e.target.dataset.joinRef||r.address===ep.replace(/^https?:\/\//,'').replace(/\/.*$/,''))||null);}// An owner decision returns to the backend, then the UI re-reads canonical state. It never mutates the
 // local row: an approval the City did not record must not look approved on screen.
 if(e.target.dataset?.joinApprove||e.target.dataset?.joinReject){const id=e.target.dataset.joinApprove||e.target.dataset.joinReject;const action=e.target.dataset.joinApprove?'approve':'reject';e.target.disabled=true;try{await api('join/requests/'+encodeURIComponent(id)+'/'+action,{});await refresh();}catch(err){$('#error').textContent=err.message;e.target.disabled=false;}}
-if(e.target.id==='copy-invite'){const box=$('#pairing-invite'),note=$('#copy-note');const done=ok=>{if(note)note.textContent=t(ok?'pairing.copied':'pairing.copyManual');};const fallback=()=>{try{box.focus();box.select();return document.execCommand('copy');}catch{return false;}};if(navigator.clipboard?.writeText){navigator.clipboard.writeText(box.value).then(()=>done(true)).catch(()=>done(fallback()));}else done(fallback());}
-if(e.target.id==='generate-pairing'){await generatePairing();}if(e.target.dataset?.revoke){await revokeDevice(e.target.dataset.revoke);}if(e.target.id==='cancel'){try{await api('tasks/'+selected+'/cancel',{});await refresh();}catch(err){$('#error').textContent=err.message;}}if(e.target.id==='disconnect'){clearPairing();token='';$('#token').value='';sessionStorage.removeItem('city-token');forgetSession();++generation;clearTimeout(timer);ws?.close();$('#pair').hidden=false;$('#content').hidden=true;go('Home');status('OFFLINE');}});
+if(e.target.id==='generate-pairing'){await generatePairing();}
+// N3: the two halves of "pair with the other PC from what a person can actually hold".
+if(e.target.id==='pair-code-connect'||e.target.id==='swap-code-connect'){await pairWithCode(null,e.target.id.startsWith('swap')?'swap':'pair');}
+if(e.target.id==='pair-invite-accept'||e.target.id==='swap-invite-accept'){await acceptPendingInvite(e.target.id.startsWith('swap')?'swap':'pair');}
+// The share block leads with a WEB link. Copying falls back to selecting the node when the clipboard API is absent,
+// because a share button that does nothing in an insecure context is the same defect as no button.
+if(e.target.id==='copy-invite'){const link=$('#pairing-link'),note=$('#copy-note');const url=link?link.getAttribute('href'):'';const done=ok=>{if(note)note.textContent=t(ok?'pairing.copied':'pairing.copyManual');};const fallback=()=>{try{const range=document.createRange();range.selectNodeContents(link);const sel=getSelection();sel.removeAllRanges();sel.addRange(range);return document.execCommand('copy');}catch{return false;}};if(navigator.clipboard?.writeText&&url){navigator.clipboard.writeText(url).then(()=>done(true)).catch(()=>done(fallback()));}else done(fallback());}
+if(e.target.id==='copy-raw'){const box=$('#pairing-invite'),note=$('#copy-note');const done=ok=>{if(note)note.textContent=t(ok?'pairing.copied':'pairing.copyManual');};const fallback=()=>{try{box.focus();box.select();return document.execCommand('copy');}catch{return false;}};if(navigator.clipboard?.writeText){navigator.clipboard.writeText(box.value).then(()=>done(true)).catch(()=>done(fallback()));}else done(fallback());}if(e.target.dataset?.revoke){await revokeDevice(e.target.dataset.revoke);}if(e.target.id==='cancel'){try{await api('tasks/'+selected+'/cancel',{});await refresh();}catch(err){$('#error').textContent=err.message;}}if(e.target.id==='disconnect'){clearPairing();token='';$('#token').value='';sessionStorage.removeItem('city-token');forgetSession();++generation;clearTimeout(timer);ws?.close();$('#pair').hidden=false;$('#content').hidden=true;go('Home');status('OFFLINE');}});
 $('#connect').onclick=async()=>{const value=$('#token').value.trim();$('#token').value='';const invite=parseInvite(value);if(invite){try{const done=await exchangeInvite(invite);if(done?.navigating)return;if(!done?.credential)throw Error('the City returned no credential for that invite');token=done.credential;sessionStorage.setItem('city-token',token);$('#pair').hidden=true;$('#content').hidden=false;connect();}catch(err){$('#error').textContent=err.message;}return;}token=value;sessionStorage.setItem('city-token',token);connect();};
 $('#ask-form').addEventListener('submit',e=>{e.preventDefault();ask($('#ask-text').value);});
 $('#run').onclick=async()=>{try{$('#run').disabled=true;const target=$('#run-target')?.value||'';if(target){const created=await api('actions',{route:'CITY_TASK',target:'city.task',operation:'CHECKPOINT_DEMO',input:{targetDeviceRef:target},idempotencyKey:(crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random())});const id=created?.action?.backendRef?.taskId;if(!id)throw new Error(created?.action?.error?.message||'the City refused the targeted task');selectedNode=null;selected=id;}else{const task=await api('tasks',{type:'CHECKPOINT_DEMO'});selectedNode=null;selected=task.id;}await refresh();}catch(e){$('#error').textContent=e.message;}finally{$('#run').disabled=connection!=='ONLINE';}};
@@ -629,6 +749,17 @@ applyTranslations();
 // A client may have been opened with an INVITE in its fragment (the launcher, or a hand-off from another City).
 // Resolving it here means the page arrives already connected to the City the invite names, without the user
 // typing anything and without the secret ever reaching a server as part of a URL.
+// N3: A LINK FROM THE OTHER PC. This is the path that works on two plain Windows machines, so it is handled FIRST -
+// and it does not connect by itself: the invite is put in front of the person who opened it with one button to
+// accept, because a link that arrives by accident must not silently move this browser onto somebody else's City.
+const bootQuery=new URLSearchParams(location.search);
+const bootInviteLink=bootQuery.get('pair')??bootQuery.get('accept');
+if(bootInviteLink){
+ history.replaceState(null,'',location.pathname+location.hash);
+ // The query string carried the one-time secret, so it is stripped from the address bar at once - the same
+ // treatment the `#pair=` fragment already gets.
+ try{beginPairingFromInvite(bootInviteLink);}catch(err){$('#error').textContent=err.message;}
+}
 if(bootInvite){
  try{
   const done=await exchangeInvite(bootInvite);
@@ -666,3 +797,7 @@ if(token)connect();else status('OFFLINE');
 autoProbeOnce();
 if(token){$('#pair').hidden=true;$('#content').hidden=false;mountTerminal();}
 if(pairing.ownerSessionId()!==null)reconcileRestoredPairing().catch(()=>{});
+// The pairing entry is filled even when the disconnected screen has NO city record yet, which is exactly the state a
+// first-time user is in: `render` bails out without a snapshot, so a card filled only from `render` would have been
+// an empty section on the one screen that needs it most.
+syncPairEntry();

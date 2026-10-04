@@ -112,6 +112,9 @@ export function createPairingLifecycle({ storage, now = () => Date.now() } = {})
         createdAt: parsed.createdAt ?? null,
         expiresAt: parsed.expiresAt,
         qrPayload: parsed.qrPayload,
+        // Optional on purpose: a session stored by an older build has no web link, and restoring it must not fail -
+        // the surface falls back to the `utopia://` payload it does have.
+        inviteUrl: text(parsed.inviteUrl) ?? null,
         qrSvg: parsed.qrSvg ?? '',
       };
       notice = '';
@@ -131,6 +134,9 @@ export function createPairingLifecycle({ storage, now = () => Date.now() } = {})
         createdAt: text(result.createdAt),
         expiresAt: text(result.expiresAt),
         qrPayload: text(result.qrPayload),
+        // The paste-able web link. Kept beside the payload rather than replacing it: the QR and the Android deep
+        // link are the same material in a form a camera or an app can read.
+        inviteUrl: text(result.inviteUrl) ?? null,
         qrSvg: typeof result.qrSvg === 'string' ? result.qrSvg : '',
       };
       if (!next.pairingSessionId || !next.shortCode || !next.expiresAt || !Number.isFinite(Date.parse(next.expiresAt))) {

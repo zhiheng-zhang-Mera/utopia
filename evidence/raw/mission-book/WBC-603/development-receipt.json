@@ -1,0 +1,104 @@
+{
+  "workbook_id": "WBC-603",
+  "identity": "Alien-codex",
+  "baseline_sha": "05ff89553fdd8d3c13219a4598fc02f8c6182a65",
+  "dependency_source_shas": [
+    "f66db60998343bf99243621cfcfa2363a4566db8",
+    "d99101fdac5169aad74ae84fb7c0c25be43ad7d9"
+  ],
+  "source_binding": "Containing implementation commit; exact head recorded externally",
+  "dependency_smoke": {
+    "contract_tests": 39,
+    "http_tests": 4,
+    "before_product_edits": true
+  },
+  "focused_tests": {
+    "total": 55,
+    "pass": 55,
+    "new_tests": 12
+  },
+  "observed": [
+    "default dormant no adapter or startup I/O",
+    "explicit member and descriptor gate",
+    "canonical canary/progress/result",
+    "canonical sharing paused on drain",
+    "held work can complete while draining",
+    "cancel AbortSignal and no late result",
+    "crash/restart exactly one executor invocation",
+    "standard work completes with pool absent"
+  ],
+  "failures_retained": [
+    "missing modules red",
+    "unsupported WAIT fixture command corrected to CHECKPOINT_DEMO",
+    "progress failure attempted lower canonical progress red",
+    "node report CANCELLED refused; existing authorized control route used",
+    "foreign-task pool control red",
+    "late cancel/claim stop two reviewer regressions red",
+    "crash test observed server RUNNING before executor invocation: INVALID timing assertion repaired with bounded wait",
+    "own-sharing control refused wrong host identity; fixture bound to pool-a without weakening server authority"
+  ],
+  "limitations": [
+    "deterministic fake and same-host Gateway only",
+    "real Workbench NOT_RUN",
+    "Linux/macOS physical NOT_RUN",
+    "opposite-host Formal Review pending",
+    "product pool activation reserved for later profile task",
+    "checkpoint execution continuation NOT_IMPLEMENTED",
+    "cancellation cooperative; unresolved claim stop explicitly BUSY",
+    "canonical GPU telemetry adapter NOT_IMPLEMENTED"
+  ],
+  "metrics": {
+    "latency_ms": null,
+    "throughput": null,
+    "model_tokens": null,
+    "context_window": null
+  },
+  "formal_review": "PENDING",
+  "raw_log_hashes": [
+    {
+      "path": ".runtime/evidence/mission-book/WBC-603/dependency-union-smoke.log",
+      "sha256": "efb0e4aab77629ade4df2748a91f2044e8254f46aacc27db2dc177f3c86759ac"
+    },
+    {
+      "path": ".runtime/evidence/mission-book/WBC-603/dependency-http-smoke.log",
+      "sha256": "569ce73f70cc7cd533ce797e0ea8da240e6b0305502b4a751787ee1b4e401d4c"
+    },
+    {
+      "path": ".runtime/evidence/mission-book/WBC-603/pool-red.log",
+      "sha256": "8ffcb98fb40a0798f068d413d31989ef4c841f1196931dc69b379b3b2d9ef5ea"
+    },
+    {
+      "path": ".runtime/evidence/mission-book/WBC-603/agent-red.log",
+      "sha256": "b35b950fe298ed7485619da1673c30677e367591e06c92a7a374d71894ce0bb6"
+    },
+    {
+      "path": ".runtime/evidence/mission-book/WBC-603/progress-cancel-red-bounded.log",
+      "sha256": "18837ffd20a80abac51658bb193d253e1aaffb8268615aac7861226732c8ac6b"
+    },
+    {
+      "path": ".runtime/evidence/mission-book/WBC-603/cancel-claim-review-red.log",
+      "sha256": "45c38df58ecb377e0b930c8560f987d25fe04882bb6140c581b6ee23c5f1c0bf"
+    },
+    {
+      "path": ".runtime/evidence/mission-book/WBC-603/cancel-claim-review-green.log",
+      "sha256": "edf3b879711ce7e11be71cf11ac6c342ab80161c02630229dc8b603cdf86e617"
+    },
+    {
+      "path": ".runtime/evidence/mission-book/WBC-603/drain-canonical-first.log",
+      "sha256": "6d1db5eea8a555336781c098b4b5e5fb444331fd6dc7426f7b669207bd612793"
+    },
+    {
+      "path": ".runtime/evidence/mission-book/WBC-603/final-with-canonical-drain.log",
+      "sha256": "433375095e9b8713e7c6084dd9c26b95e8cdc4fe7d0b156faecb0db0732f1b60"
+    }
+  ],
+  "technical_review": {
+    "reviewer": "history_integration_review",
+    "scope": "Same physical host technical critique, not Formal Review",
+    "findings_fixed": [
+      "late old cancel affects next task",
+      "stop drops unresolved canonical claim"
+    ],
+    "final": "No residual blocker; independently ran 12/12 new tests"
+  }
+}

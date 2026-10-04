@@ -76,7 +76,8 @@ test('a City with no Workbench starts, serves and executes: the seam adds no sta
     // process, and the City is already answering.
     assert.equal((await request('health')).status, 200);
     assert.equal(app.executionProfile, 'STANDARD_DEVICES');
-    assert.deepEqual(app.executionBackends.profiles(), ['STANDARD_DEVICES']);
+    assert.deepEqual(app.executionBackends.profiles(), ['STANDARD_DEVICES','WORKER_POOL']);
+    assert.throws(()=>app.executionBackends.active('WORKER_POOL'),{code:'BACKEND_DORMANT'});
 
     const health = await (await request('health')).json();
     // The gateway's own verdict must not include the execution backend. This is asserted as a RELATION rather
@@ -220,9 +221,10 @@ test('the City exposes which backend placed the work, and only STANDARD_DEVICES 
     assert.equal(city.executionBackend.backend.backendId, 'standard-devices');
     assert.equal(city.executionBackend.backend.mode, 'enabled');
     assert.equal(city.executionBackend.backend.canExecute, true);
-    assert.deepEqual(city.executionBackend.registered.map(entry => entry.profile), ['STANDARD_DEVICES']);
+    assert.deepEqual(city.executionBackend.registered.filter(entry=>entry.canExecute).map(entry => entry.profile), ['STANDARD_DEVICES']);
+    assert.equal(city.executionBackend.registered.find(entry=>entry.profile==='WORKER_POOL').mode,'dormant');
     // No node is present yet, so nothing is reported as an execution endpoint either: the descriptor describes
     // the backend, never a device it does not have.
-    assert.deepEqual(app.executionBackends.list().map(entry => entry.backendId), ['standard-devices']);
+    assert.deepEqual(app.executionBackends.list().filter(entry=>entry.canExecute).map(entry => entry.backendId), ['standard-devices']);
   } finally { if (app) await app.close(); await rm(dir, { recursive: true, force: true }); }
 });

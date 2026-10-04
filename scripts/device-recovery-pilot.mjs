@@ -3,6 +3,7 @@ import {execFileSync,spawn} from 'node:child_process';
 import {readFileSync,writeFileSync,mkdirSync,openSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {chromium} from 'playwright';
+import {resolveProcessIdentity,isFatalIdentity} from './lib/process-identity.mjs';
 const adb=process.env.ADB||'adb';
 const cmd=(...a)=>execFileSync(adb,a,{timeout:25000,maxBuffer:8*1024*1024}).toString();
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
@@ -39,13 +40,25 @@ function tree(){cmd('shell','uiautomator','dump','/sdcard/utopia-recovery.xml');
 const browser=await chromium.launch({channel:'msedge',headless:true});const page=await browser.newPage({locale:'en-US'});await page.goto(processes.url);await page.locator('#token').fill(config.token);await page.locator('#connect').click();await page.locator('#connection').filter({hasText:'ONLINE'}).waitFor();
 const rows=[];let serviceStopped=false;mkdirSync('.runtime/evidence/v0.2',{recursive:true});
 try{for(let i=0;i<count;i++){
- const before=await snapshot(),row={kind,run:i+1,codeSha,apkSha256,localApkSha256,installedApkMatchesLocal,sweptStrayAgents:swept.length,disconnectAt:new Date().toISOString(),offlineObservedAt:null,restoreAt:null,onlineObservedAt:null,historyPreserved:null,cityIdentityPreserved:null,observations:[]};
+ const before=await snapshot(),row={kind,run:i+1,codeSha,apkSha256,localApkSha256,installedApkMatchesLocal,sweptStrayAgents:swept.length,identity:null,disconnectAt:new Date().toISOString(),offlineObservedAt:null,restoreAt:null,onlineObservedAt:null,historyPreserved:null,cityIdentityPreserved:null,observations:[]};
  if(kind==='wifi')cmd('shell','svc','wifi','disable');else {
   const pid=processes[kind==='gateway'?'gatewayPid':'agentPid'];
-  const actual=JSON.parse(execFileSync('powershell.exe',['-NoProfile','-Command',`Get-CimInstance Win32_Process -Filter 'ProcessId = ${Number(pid)}' | Select-Object CommandLine | ConvertTo-Json -Compress`],{windowsHide:true}).toString());
   const expected=kind==='gateway'?'services/dev-gateway/main.mjs':'agents/reference-node/main.mjs';
-  if(!actual?.CommandLine?.includes(expected))throw Error('Recorded process identity mismatch');
-  process.kill(pid);serviceStopped=true;
+  // Identity is resolved in scripts/lib/process-identity.mjs. The previous inline version JSON.parsed
+  // the output unconditionally, so a PID that was no longer live produced empty output and threw
+  // "Unexpected end of JSON input" - a stale PID became a crash. See that module for the three cases
+  // it now distinguishes, and note the outcome is RECORDED rather than assumed.
+  const identity=resolveProcessIdentity({pid,expected});
+  row.identity=identity;
+  if(isFatalIdentity(identity.status))throw Error('Recorded process identity mismatch: PID '+pid+' is not '+expected+' (saw '+String(identity.commandLine).slice(0,120)+')');
+  if(identity.status==='already-gone'){
+    // The process we wanted stopped is already stopped, so there is nothing to kill and no reason to
+    // fail: the offline observation that follows is exactly what the run needs to see.
+    console.log(kind,i+1,'recorded PID',pid,'already gone; skipping kill');
+  }else{
+    try{process.kill(pid);serviceStopped=true;}
+    catch(e){ if(e&&e.code==='ESRCH')console.log(kind,i+1,'PID',pid,'vanished before kill'); else throw e; }
+  }
  }
  let offline=false;
  for(let j=0;j<5;j++){await wait(2000);const androidCaptureStartedAt=new Date().toISOString();const xml=tree(),at=new Date().toISOString();const appNodes=[...xml.matchAll(/<node\s+([^>]+)>/g)].map(m=>m[1]).filter(n=>/package="city\.utopia\.control"/.test(n));const androidUiPresent=appNodes.some(n=>/text="UTOPIA"/.test(n));const android=appNodes.flatMap(n=>[...n.matchAll(/text="(ONLINE|OFFLINE|UNKNOWN|RECONNECTING)[^"]*"/g)].map(m=>m[1]));const web=await page.locator('#connection').innerText();const webNode=await page.locator('.device-card .badge').first().innerText();const stoppedPid=kind==='wifi'?null:Number(processes[kind==='gateway'?'gatewayPid':'agentPid']);let stoppedPidAlive=null;if(stoppedPid!==null){try{stoppedPidAlive=execFileSync('powershell.exe',['-NoProfile','-Command',`@(Get-CimInstance Win32_Process -Filter 'ProcessId = ${stoppedPid}').Count`],{windowsHide:true}).toString().trim()!=='0';}catch{}}row.observations.push({androidCaptureStartedAt,at,androidUiPresent,android,web,webNode,stoppedPid,stoppedPidAlive});if(androidUiPresent && (kind==='node'?(android.includes('OFFLINE') && webNode==='OFFLINE'):(!android.includes('ONLINE') && android.some(s=>['OFFLINE','UNKNOWN','RECONNECTING'].includes(s)) && (kind!=='gateway'||webNode==='UNKNOWN')))){offline=true;row.offlineObservedAt=at;writeFileSync(`.runtime/evidence/v0.2/${kind}-${i+1}-offline.xml`,xml);break;}}

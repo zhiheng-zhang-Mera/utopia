@@ -426,4 +426,5 @@ export const messages = {
 };
 
 Object.assign(messages,{"members.thisDevice":"This device","members.role.PRIMARY":"City host","members.role.MEMBER":"Member host","members.role.CONTROL_ONLY":"Web control only","members.role.COMPUTE_NODE":"Computing device","members.sharing":"Sharing computing resources","members.notSharing":"Resource sharing paused","members.noAgent":"No computing agent connected","members.messages":"Device messages","members.message":"Message","members.send":"Send","members.received":"Received","members.pending":"Waiting for receipt","members.stopSharing":"Stop sharing this device","members.startSharing":"Share this device"});
+Object.assign(messages,{'scheduler.choice.explicitPrompt':'Choose how to continue this service','scheduler.choice.alternateDevice':'Keep this service and use another device','scheduler.choice.reason.TARGET_DEVICE_BOUND':'This service is bound to the selected device.','scheduler.choice.reason.ALTERNATE_NOT_AVAILABLE':'No eligible alternative device is available.','scheduler.choice.reason.NO_SWITCH_DECISION':'No device change is currently offered.'});
 export default { meta, messages };

@@ -94,7 +94,7 @@ export function candidateFromNode(node) {
     // "this City cannot express disablement yet". Should it gain that ability, this line must READ the field
     // rather than keep a default, and the regression test next to this fix fails if a node that IS explicitly
     // marked disabled is ever treated as enabled.
-    enablement: typeof node?.enablement === 'string' ? node.enablement : 'ENABLED',
+    enablement: node?.sharingEnabled===false?'DISABLED':typeof node?.enablement === 'string' ? node.enablement : 'ENABLED',
     load: loadFromTelemetry(node?.telemetry),
   });
 }
@@ -282,6 +282,16 @@ export function projectTaskStatus({task, candidates = [], load, routeStage = nul
   });
 }
 
+/** Additive executable-choice metadata; the frozen presentation DTO keeps its action vocabulary. */
+export function schedulerChoicesFor({task,candidates=[],otherInFlightByNode=null,dto}={}){
+ const plan=routePlanFor({task,candidates,otherInFlightByNode});
+ const decisionRequired=!TERMINAL_STATES.includes(task?.state)&&typeof task?.assignedNodeId==='string'&&task.switchDeclined!==true&&(plan?.stage==='SWITCH_OFFERED'||dto?.provider_choice_required===true);
+ const strict=typeof task?.targetDeviceRef==='string'&&task.targetDeviceRef.length>0;
+ const alternative=decisionRequired?routePlanFor({task:{...task,switchDeclined:true},candidates,otherInFlightByNode}):null;
+ const reason=strict?'TARGET_DEVICE_BOUND':!decisionRequired?'NO_SWITCH_DECISION':alternative?.stage!=='ALTERNATE_DEVICE'?'ALTERNATE_NOT_AVAILABLE':null;
+ return Object.freeze({version:1,decisionRequired,alternateDevice:Object.freeze({allowed:reason===null,reason,expectedUpdatedAt:task?.updatedAt??null}),keepWaiting:Object.freeze({allowed:decisionRequired})});
+}
+
 /**
  * The whole read-only feed: one entry per task the City knows about.
  *
@@ -312,21 +322,20 @@ export function buildPresentationFeed({tasks = [], nodes = [], includeTerminal =
   for (const task of tasks) {
     const state = String(task?.state ?? '');
     if (!includeTerminal && TERMINAL_STATES.includes(state)) continue;
+    const otherInFlightByNode=othersFor(task);
+    const dto=projectTaskStatus({task,candidates,otherInFlightByNode,routeStage:routeStageFor({task,candidates,otherInFlightByNode})});
     entries.push(Object.freeze({
       taskId: typeof task?.id === 'string' ? task.id : null,
       taskState: state,
-      dto: projectTaskStatus({
-        task,
-        candidates,
-        otherInFlightByNode: othersFor(task),
-        routeStage: routeStageFor({task, candidates, otherInFlightByNode: othersFor(task)}),
-      }),
+      dto,
+      userChoices:schedulerChoicesFor({task,candidates,otherInFlightByNode,dto}),
     }));
   }
   return Object.freeze({
     presentation_feed_version: PRESENTATION_FEED_VERSION,
     generatedAt,
     candidates: Object.freeze(candidates.map((c) => c.deviceRef)),
+    candidateLabels:Object.freeze(nodes.map(node=>typeof node?.displayName==='string'?node.displayName:node?.id??'')),
     tasks: Object.freeze(entries),
   });
 }

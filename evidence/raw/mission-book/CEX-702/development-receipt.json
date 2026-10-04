@@ -1,0 +1,93 @@
+{
+  "workbook_id": "CEX-702",
+  "developer": "Alien-codex",
+  "baseline_sha": "0e9bea3ce739b979e582a428af8fb233045a5e75",
+  "plan_sha": "120244712c608ec065b0c0c00c0ab41504c81cef",
+  "source_binding": "Containing implementation commit; exact SHA recorded externally after commit",
+  "controlled_web_gateway_worker": {
+    "tests": 4,
+    "pass": 4,
+    "result": {
+      "task_count": 1,
+      "decline_event_count": 1,
+      "handoff_transfer_count": 1,
+      "waitedMs": 500
+    },
+    "scope": "local controlled fixtures, not distributed performance measurement"
+  },
+  "final_regressions": {
+    "tests": 53,
+    "pass": 53
+  },
+  "android": {
+    "unit_tests": 82,
+    "build": "PASS",
+    "online_click": "NOT_RUN",
+    "physical_devices_campaign": "NOT_RUN",
+    "apk_sha256": "e5fcdf5cb818f82d890bd7c534e7db42e91d40e07f5b09a81f3b75decb804a0c"
+  },
+  "technical_review": {
+    "replay_false_acceptance": "REPRODUCED_AND_FIXED",
+    "recheck": "4/4 PASS; no residual blocker",
+    "formal_physical_review": "PENDING"
+  },
+  "metrics": {
+    "click_to_handoff_ms": null,
+    "click_to_result_ms": null,
+    "token_count": null,
+    "context_window": null,
+    "unknown_reason": "NOT_OBSERVABLE"
+  },
+  "raw_logs": [
+    {
+      "path": ".runtime/evidence/mission-book/CEX-702/web-red.log",
+      "sha256": "7aa7ee8015409c14c5e4d6e7702ae290f02651257078887c04dab3bac06d8e28",
+      "bytes": 2234
+    },
+    {
+      "path": ".runtime/evidence/mission-book/CEX-702/web-green-first.log",
+      "sha256": "7e0bcc74617505e4c7f1a98b25384f83af3996c700959b70d97784a45e23f263",
+      "bytes": 1269
+    },
+    {
+      "path": ".runtime/evidence/mission-book/CEX-702/web-green-second.log",
+      "sha256": "c43ade30f9d87414872d27d672185395c32678a9df7145835dd6e861f8cec2cf",
+      "bytes": 478
+    },
+    {
+      "path": ".runtime/evidence/mission-book/CEX-702/compatibility-first.log",
+      "sha256": "97c51c24c6478dcbaebef394516aae816c2b360cbbc0ea8d0d84c994542d7b90",
+      "bytes": 4649
+    },
+    {
+      "path": ".runtime/evidence/mission-book/CEX-702/android-red.log",
+      "sha256": "847c8d1ec16ded53261e832bd747faa82465c53d6a1f7634828b5e64202fc42c",
+      "bytes": 5377
+    },
+    {
+      "path": ".runtime/evidence/mission-book/CEX-702/android-green-first.log",
+      "sha256": "af957122834c4bc6a2b6e09e99d0ad1a2bccb4cb2fd7e5096a0738a36fa0117e",
+      "bytes": 2748
+    },
+    {
+      "path": ".runtime/evidence/mission-book/CEX-702/review-replay-red.log",
+      "sha256": "04a0435a9ea034b286925bcb20546e6fa78379818498fd667c881fc2d5f8b6d8",
+      "bytes": 1315
+    },
+    {
+      "path": ".runtime/evidence/mission-book/CEX-702/review-replay-green.log",
+      "sha256": "5dd32458505741cb9ab488b4a3d70825bda7a426fe39123a665127cab80be015",
+      "bytes": 5089
+    },
+    {
+      "path": ".runtime/evidence/mission-book/CEX-702/android-labels-final.log",
+      "sha256": "d9b4d2385021c1953b93747c5309a1467c6736b46d15411fc553389bbd95319d",
+      "bytes": 2384
+    },
+    {
+      "path": ".runtime/evidence/mission-book/CEX-702/final-focused.log",
+      "sha256": "aa98c8bcbaba285b07eac02afffa21d419df8449264e750cbcff4d533a003396",
+      "bytes": 5281
+    }
+  ]
+}

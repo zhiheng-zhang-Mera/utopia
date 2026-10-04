@@ -683,13 +683,24 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
           out=change(t,'QUEUED',{assignedNodeId:null,chosenProviderRef:b.providerRef,userChoiceAt:now()});
           emit('TASK_PROVIDER_CHOSEN',t.id,{providerRef:b.providerRef},'user');
       } else if(req.method==='POST' && /^\/api\/v0\/tasks\/[^/]+\/switch-declined$/.test(path)){
+          const b=await body(req);
           // UXI-301: the user declined the provider switch. That is the ONE condition RS-202's planner
           // reaches ALTERNATE_DEVICE on, and it means "do not switch provider - use another of my own
           // devices instead". Recorded as an explicit user intent that the routing planner then acts on,
           // rather than as a flag set by a test.
           const t=required('tasks',path.split('/').at(-2));
           if(terminal.includes(t.state))fail(409,'Task already finished');
-          out=change(t,t.state,{switchDeclined:true,userDeclinedSwitchAt:now()});
+          const explicitAlternate=b.decision==='ALTERNATE_DEVICE';
+          if(b.decision!==undefined&&!explicitAlternate)refuse('CHOICE_INVALID',400,'Unsupported scheduler decision');
+          if(explicitAlternate&&(typeof b.expectedUpdatedAt!=='string'||!Number.isFinite(Date.parse(b.expectedUpdatedAt))))refuse('CHOICE_INVALID',400,'A current task revision is required');
+          if(explicitAlternate&&t.alternateDeviceDecisionRevision===b.expectedUpdatedAt){out=t;}else{
+          if(explicitAlternate){
+            if(t.updatedAt!==b.expectedUpdatedAt)refuse('CHOICE_STALE',409,'The task changed; refresh before choosing');
+            const entry=buildPresentationFeed({tasks:store.list('tasks'),nodes:store.list('nodes')}).tasks.find(entry=>entry.taskId===t.id);
+            const choice=entry?.userChoices?.alternateDevice;
+            if(!choice?.allowed)refuse(choice?.reason??'NO_SWITCH_DECISION',409,'Another device cannot be selected for this task right now');
+          }
+          out=change(t,t.state,{switchDeclined:true,userDeclinedSwitchAt:now(),...(explicitAlternate?{alternateDeviceDecisionRevision:b.expectedUpdatedAt}:{})});
           emit('TASK_SWITCH_DECLINED',t.id,{},'user');
           // UXI-391: THIS is where the plan is consumed. The user's decline is the only condition under which
           // RS-202 reaches ALTERNATE_DEVICE, so the orchestration plans over live City state and executes the
@@ -713,6 +724,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
                 emit('TASK_HANDOFF_REFUSED',out.id,{reason:move.reason,from:move.from??null,to:move.to??null},'gateway');
               }
             }
+          }
           }
       } else if(req.method==='POST' && path==='/api/v0/node/register'){
         const b=await body(req);assertOwnNode(req,b.id);if(req.citySession)b.displayName=enrollment.describe(req.citySession.session.installationId)?.displayName;

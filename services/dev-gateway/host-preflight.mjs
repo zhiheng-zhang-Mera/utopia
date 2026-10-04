@@ -7,10 +7,19 @@ export async function findRunningCities({processes,listeners,fetchImpl=fetch,exc
  if(processes===undefined) {
   if(process.platform!=='win32')return [];
   let answers;
-  try {answers=await Promise.all([
-   runImpl('powershell',['-NoLogo','-NoProfile','-NonInteractive','-Command',`@(Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Select-Object ProcessId,CommandLine) | ConvertTo-Json -Compress`],{windowsHide:true,timeout:30000}),
-   runImpl('netstat',['-ano','-p','tcp'],{windowsHide:true,timeout:10000})
-  ]);}catch(error){throw Object.assign(new Error('Could not confirm existing host Gateways; no City may be started: '+error.message),{code:error.killed?'HOST_SCAN_TIMEOUT':'HOST_SCAN_FAILED',cause:error});}
+  // A cold/busy Windows inventory can exceed its budget. Retry one complete observation;
+  // a failed scan never counts as an empty host and cannot authorize a new City.
+  for(let attempt=0;attempt<2;attempt++){
+   const results=await Promise.allSettled([
+    runImpl('powershell',['-NoLogo','-NoProfile','-NonInteractive','-Command',`@(Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Select-Object ProcessId,CommandLine) | ConvertTo-Json -Compress`],{windowsHide:true,timeout:30000}),
+    runImpl('netstat',['-ano','-p','tcp'],{windowsHide:true,timeout:10000})
+   ]);
+   const failure=results.find(result=>result.status==='rejected');
+   if(!failure){answers=results.map(result=>result.value);break;}
+   const error=failure.reason;
+   if(attempt===0&&error.killed)continue;
+   throw Object.assign(new Error('Could not confirm existing host Gateways; no City may be started: '+error.message),{code:error.killed?'HOST_SCAN_TIMEOUT':'HOST_SCAN_FAILED',cause:error});
+  }
   const parsed=JSON.parse(answers[0].stdout||'[]');processes=Array.isArray(parsed)?parsed:[parsed];listeners=answers[1].stdout;
  }
  const cities=new Map();

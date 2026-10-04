@@ -35,6 +35,7 @@ set "ROOT=%~dp0"
 set "DEP=%ROOT%dependence"
 set "LOGFILE=%DEP%\launcher.log"
 set "PROBE=%DEP%\.env-probe"
+set "PROBE_TMP=%DEP%\.env-probe.tmp"
 set "NODE_BOOT=%DEP%\node\node.exe"
 set "NODE_VER=v24.14.1"
 set "NODE_DIR=node-%NODE_VER%-win-x64"
@@ -145,12 +146,62 @@ rem v0 on this machine - cmd's handling of nested quotes there is not worth
 rem betting the launcher on. node writes dependence\.env-probe and cmd only has
 rem to read lines, which cannot be mis-quoted.
 rem ---------------------------------------------------------------------------
+rem THE FOLDER MUST EXIST BEFORE THE PROBE, and the first version of this step forgot it: with dependence\ absent
+rem the redirection could not be created, the probe silently did not run, and the launcher concluded "nothing is
+rem missing" and started the City with no packages installed. The folder is created here, its failure is fatal
+rem rather than ignored, and a probe that did not run now reports itself instead of being read as an all-clear.
 if not exist "%DEP%" mkdir "%DEP%" >nul 2>nul
-if exist "%PROBE%" del /q "%PROBE%" >nul 2>nul
-"%NODEEXE%" -e "const fs=require('fs');const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));console.log('NODE '+process.versions.node);const miss=Object.keys(pkg.dependencies||{}).filter(function(d){return !fs.existsSync('node_modules/'+d+'/package.json');}).sort();if(miss.length){console.log('MISSING '+miss.join(' '));}else{console.log('OK');}" >"%PROBE%" 2>nul
-if exist "%PROBE%" for /f "usebackq tokens=1,* delims= " %%A in ("%PROBE%") do (
-  if /i "%%A"=="NODE" set "NODE_MAJOR=%%B"
-  if /i "%%A"=="MISSING" set "MISSING=%%B"
+if not exist "%DEP%" (
+  echo   Could not create "%DEP%" - the launcher needs it for its probe and log.
+  pause
+  exit /b 5
+)
+rem WHY A FILE AND NOT A PIPE, WHICH IS THE OPPOSITE OF WHAT THE FIRST FIX TRIED: `for /f ... in (`command`)` makes
+rem cmd run the command through a PIPE. A launcher started with no console (Start-Process with redirected output, a
+rem shortcut, a scheduled task) has no console handles to build one from, and the console printed, verbatim:
+rem   ???????????   /   ?????      ("the system cannot find the path specified" / "invalid handle")
+rem The probe then never ran and the launcher installed nothing - on exactly the launch path a Windows launcher
+rem needs most. A plain `>` redirection into a file needs no console handles at all, which is why it is used here.
+rem
+rem TWO GUARDS make the read safe, because a stale answer is worse than no answer: `del` first (so a failed write
+rem cannot be masked by last run's file) and `PROBED` set ONLY when the file exists.
+if exist "%PROBE_TMP%" del /q "%PROBE_TMP%" >nul 2>nul
+set "NODE_MAJOR="
+set "MISSING="
+set "PROBED="
+"%NODEEXE%" -e "const fs=require('fs');const pkg=JSON.parse(fs.readFileSync('package.json','utf8'));console.log('NODE '+process.versions.node);const miss=Object.keys(pkg.dependencies||{}).filter(function(d){return !fs.existsSync('node_modules/'+d+'/package.json');}).sort();if(miss.length){console.log('MISSING '+miss.join(' '));}else{console.log('OK');}" >"%PROBE_TMP%" 2>nul
+if not exist "%PROBE_TMP%" (
+  rem THE PROBE COULD NOT RUN - and the launcher still has to work, because "no answer" must never mean "nothing to
+  rem do". This path was reached for real while testing: a launcher started WITHOUT A CONSOLE (Start-Process with
+  rem redirected output - exactly how a shortcut or a scheduled task launches it) fails here, because cmd cannot
+  rem build the handles that redirection wants. The requirement is "a freshly cloned host opens", so the fallback
+  rem covers the one case that matters most: node_modules missing or empty means nothing has ever been installed,
+  rem and the installer is run on that evidence alone.
+  rem
+  rem THIS IS NOT A GUESS ABOUT WHICH PACKAGES: the installer is never handed a list - npm resolves the whole
+  rem declared set from package.json itself. The only decision made here is WHETHER to run it, and "the package
+  rem folder is missing or holds nothing" is unambiguous evidence for that.
+  if not exist "%ROOT%node_modules\" (
+    set "MISSING=<node_modules is missing>"
+    set "PROBED=1"
+    echo   NOTE: the dependency check could not run; node_modules is missing, installing.
+  ) else (
+    for /f %%C in ('dir /b /a "%ROOT%node_modules" 2^>nul ^| find /c /v ""') do if %%C LSS 1 set "MISSING=<node_modules is empty>"
+    if defined MISSING (
+      set "PROBED=1"
+      echo   NOTE: the dependency check could not run; node_modules is empty, installing.
+    ) else (
+      echo   NOTE: the dependency check could not run - starting without touching node_modules.
+    )
+  )
+)
+if exist "%PROBE_TMP%" (
+  for /f "usebackq tokens=1,* delims= " %%A in ("%PROBE_TMP%") do (
+    if /i "%%A"=="NODE" set "NODE_MAJOR=%%B"
+    if /i "%%A"=="MISSING" set "MISSING=%%B"
+    set "PROBED=1"
+  )
+  if not exist "%PROBE%" copy /y "%PROBE_TMP%" "%PROBE%" >nul 2>nul
 )
 if not defined NODE_MAJOR set "NODE_MAJOR=0.0.0"
 rem Node 24 is what the app declares (engines >=24). A NEWER one is fine; an older
@@ -161,6 +212,9 @@ if not defined MISSING (
   echo   packages: OK - starting now.
   goto :START
 )
+rem Reaching here means there IS something to do: either the probe named packages that are missing, or it could not
+rem run at all while node_modules was missing or empty. A probe that could not run on a POPULATED node_modules
+rem already took the :START branch above, so this is never an installer run on a bare guess.
 
 :INSTALL
 rem ---------------------------------------------------------------------------
@@ -194,7 +248,9 @@ if exist "%ROOT%package-lock.json" (
 )
 if exist "%NODE_BOOT%" if not exist "%ROOT%node_modules\ws\package.json" call "%NPM_CMD%" install --no-audit --no-fund --loglevel=error --package-lock=false --cache "%NPM_CACHE%" >>"%LOGFILE%" 2>&1
 set "STILL="
-if exist "%PROBE%" for /f "usebackq tokens=1,* delims= " %%A in ("%PROBE%") do if /i "%%A"=="MISSING" (
+rem Checked against the SAME probe file this run wrote (not the convenience copy), so "installed" is verified against
+rem what was actually asked for rather than against a stale list.
+if exist "%PROBE_TMP%" for /f "usebackq tokens=1,* delims= " %%A in ("%PROBE_TMP%") do if /i "%%A"=="MISSING" (
   for %%D in (%%B) do if not exist "%ROOT%node_modules\%%D\package.json" set "STILL=%%D"
 )
 if defined STILL (

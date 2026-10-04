@@ -12,7 +12,7 @@
     "unavailableCount": 5
   },
   "webTests": {
-    "pass": 8,
+    "pass": 9,
     "fail": 0,
     "scenarios": [
       "fresh entry without Ask failure",
@@ -20,7 +20,8 @@
       "unavailable disabled and reason",
       "live backend fixture propagation",
       "selection does not execute",
-      "City side effects still require confirmation"
+      "City side effects still require confirmation",
+      "uncertain selected request retry retains selection and idempotency key"
     ]
   },
   "android": {
@@ -39,11 +40,13 @@
   "formalOppositeHostReview": "NOT_RUN",
   "failedRefs": [
     ".runtime/evidence/mission-book/CEX-703/web-red.log (invalid test navigation selector)",
-    ".runtime/evidence/mission-book/CEX-703/web-functional-red.log (missing catalog control)"
+    ".runtime/evidence/mission-book/CEX-703/web-functional-red.log (missing catalog control)",
+    ".runtime/evidence/mission-book/CEX-703/retry-red.log"
   ],
   "rawRefs": [
     ".runtime/evidence/mission-book/CEX-703/web-green3.log",
     ".runtime/evidence/mission-book/CEX-703/android-green2.log",
-    ".runtime/evidence/mission-book/CEX-703/physical-ask.xml"
+    ".runtime/evidence/mission-book/CEX-703/physical-ask.xml",
+    ".runtime/evidence/mission-book/CEX-703/retry-green.log"
   ]
 }

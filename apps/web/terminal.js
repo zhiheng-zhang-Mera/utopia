@@ -343,6 +343,7 @@ function newIdempotencyKey() {
 
 async function submitAsk(body) {
   const askState = state.ask;
+  const selectedDraft=preparedTarget;
   if (askState.busy) return;
   // The same action retried (after a timeout, say) reuses its key so the gateway replays
   // instead of executing twice; a changed action mints a new key so the user can legitimately
@@ -356,6 +357,7 @@ async function submitAsk(body) {
   try {
     const result = await ask({ ...body, idempotencyKey: askState.pendingKey });
     if (!result) { askState.error = t('terminal.ask.malformed'); return; }
+    if(selectedDraft&&preparedTarget===selectedDraft&&body.selection===selectedDraft.selection)preparedTarget=null;
     askState.result = result;
     askState.confirmed = body.confirm === true;
     askState.pendingFor = null; askState.pendingKey = null;
@@ -453,7 +455,7 @@ const controller = {
     const text = String(value ?? '').trim();
     if (!text) { state.ask.error = t('terminal.ask.empty'); controller.render(); return; }
     state.ask.input = text; state.ask.confirmed = false;
-    const prepared=preparedTarget;preparedTarget=null;submitAsk({ text,...(prepared?.text===text?{selection:prepared.selection}:{}) }).catch(() => {});
+    const prepared=preparedTarget;if(prepared?.text!==text)preparedTarget=null;submitAsk({ text,...(prepared?.text===text?{selection:prepared.selection}:{}) }).catch(() => {});
   },
 
   onClick(event) {
@@ -508,6 +510,8 @@ doc()?.addEventListener('click', (event) => {
   if (id === 'actions-reload') { loadActions().then(() => controller.render()); return; }
   controller.onClick(event);
 });
+doc()?.addEventListener('input',event=>{if(event.target?.id==='ask-text'&&preparedTarget&&event.target.value.trim()!==preparedTarget.text)preparedTarget=null;});
+
 doc()?.addEventListener('change', (event) => {
   if (event.target?.id !== 'actions-limit' || !context.external) return;
   const limit = Number(event.target.value);

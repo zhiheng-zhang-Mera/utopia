@@ -1,0 +1,7 @@
+# WBC603 implementation plan
+
+Baseline 05ff89553fdd8d3c13219a4598fc02f8c6182a65 is the smoke-tested exact accepted dependency union. Existing STANDARD_DEVICES remains sole default active profile. Register a dormant Worker Pool port without startup I/O. Explicit enabled test construction wraps the canonical device backend, narrows endpoints to an explicit allowlist of City descriptors and reuses canonical dispatch/claim/report/control; no queue or task storage.
+
+Add a versioned headless agent driven by explicit calls, using an injected existing Gateway request adapter and opaque credential handle. Register/heartbeat/claim/report/cancel/drain/stop/restart are bounded operations without discovery/timers. Executor receives progress/cancellation hooks; restart re-registers and follows existing fail-honest interrupted-work semantics instead of replaying. No checkpoint-authorized execution resumption is invented. Drain admits no new work while held work may finish; stop fences late reports and explicitly cancels held work.
+
+Red-first tests: dormant port refuses work and performs no I/O; explicit descriptor allowlist/role/readiness gates; real Gateway canary with progress/result/terminal; cancel; crash/restart without duplicate; drain; unavailable adapter; standard device still works after pool absent. Reviewer attacks state duplication and background startup dependence. Source/receipt/evolution, exact hosted CI, registry four dimensions and opposite-host Formal Review determine acceptance. Primary-agent migration and real Workbench are out of scope.

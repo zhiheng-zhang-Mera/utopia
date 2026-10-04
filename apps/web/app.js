@@ -185,7 +185,7 @@ function syncRunTargets(){
  select.innerHTML='<option value="">Any node</option>'+nodes.map(n=>`<option value="${esc(n.id)}">${esc(n.displayName||n.id)}</option>`).join('');
  select.value=nodes.some(n=>n.id===current)?current:'';
 }
-async function api(path,body){const r=await fetch('/api/v0/'+path,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json','X-City-Api-Version':'0','X-City-Schema-Version':'0'},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(path.startsWith('capabilities/')?25000:5000)});const x=await r.json();if(!r.ok)throw Error(x.error);if(x.apiVersion!==0||x.schemaVersion!==0)throw Error('Protocol mismatch: this client requires version 0');return x;}
+async function api(path,body,method=body?'POST':'GET'){const r=await fetch('/api/v0/'+path,{method,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json','X-City-Api-Version':'0','X-City-Schema-Version':'0'},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(path.startsWith('capabilities/')?25000:5000)});const x=await r.json();if(!r.ok)throw Error(x.error);if(x.apiVersion!==0||x.schemaVersion!==0)throw Error('Protocol mismatch: this client requires version 0');return x;}
 function clearPairing(message=''){pairing.clear(message);}
 // The explicit generator. This is the ONLY function in the page that may create pairing material, and it is reached only from the click handler above. It refuses to run while a session is ACTIVE, so a doubled click or a stale button cannot rotate the code.
 /* THE PC LIST. Facts in, rows out - and the facts are deliberately only the ones this client actually has:
@@ -289,9 +289,8 @@ async function invitePeer(row){
  * Browsers never send a fragment to a server, so the claim secret is not written into any City log,
  * and the target page strips it from the address bar as soon as it has read it.
  *
- * The ask is `{hint, claim}` and nothing else that matters: `displayName` is re-derived at the target
- * from the page's own surface label, so the value on the approval card is the one the joining surface
- * actually calls itself, not one this page could have forged for it.
+ * The ask carries the human-selected device display name across origins. It is
+ * untrusted display text, not an identity or an authorization credential.
  *
  * N2 - AND WHEN NAVIGATING THERE IS IMPOSSIBLE. Navigation needs the target to be reachable BY THE BROWSER, which
  * is exactly what a PC on another network behind NAT is not. So a row whose reach is `relay` takes the OTHER road:
@@ -303,6 +302,11 @@ async function invitePeer(row){
 async function askToJoin(endpoint, cityRef, row){
  const target=String(endpoint||'').replace(/\/$/,'');
  if(!/^https?:\/\/[^\s]+$/.test(target)){joinError='join.errorUnreachable';render();return;}
+ const entered=window.prompt(t('join.namePrompt'),webClientLabel());
+ if(entered===null)return;
+ const displayName=entered.trim();
+ if(!displayName||displayName.length>64||/[\u0000-\u001f\u007f]/.test(displayName)){joinError='join.nameInvalid';render();return;}
+ try{localStorage.setItem('utopia.clientLabel',displayName);}catch{}
  const claim=joinClaim();
  // REMOTE ROWS FIRST, and only when this page really belongs to a City that can carry the ask: with no origin of
  // our own there is no pipe to dial from, and pretending otherwise would strand the user.
@@ -312,12 +316,12 @@ async function askToJoin(endpoint, cityRef, row){
    try{
     const dial=await dialRelay({host:dialTarget.host,port:dialTarget.port,installationId:installationHint(),label:webClientLabel(),clientUrl:selfOrigin});
     joinError='';
-    joinAsk={state:'DIALING',claim,joinEndpoint:target,displayName:webClientLabel(),hint:installationHint(),cityRef:cityRef||null};
+    joinAsk={state:'DIALING',claim,joinEndpoint:target,displayName,hint:installationHint(),cityRef:cityRef||null};
     render();
     const result=await joinCityOverRelay({
      forward:(path,body,options)=>dial.forward(path,body,options),
      claim,
-     displayName:webClientLabel(),
+     displayName,
      platform:navigator.platform||'browser',
      hint:installationHint(),
      origin:selfOrigin,
@@ -343,20 +347,20 @@ async function askToJoin(endpoint, cityRef, row){
    }catch(err){
     // REPORT, THEN FALL BACK: the relay may be unreachable, refused, or the owner may simply have said no - and a
     // rejection must not be retried by navigating, because navigating would ASK AGAIN.
-    joinAsk={state:err?.code==='RELAY_JOIN_REJECTED'?'REJECTED':err?.code==='RELAY_JOIN_EXPIRED'?'EXPIRED':'UNREACHABLE',claim,joinEndpoint:target,displayName:webClientLabel(),hint:installationHint(),cityRef:cityRef||null};
+    joinAsk={state:err?.code==='RELAY_JOIN_REJECTED'?'REJECTED':err?.code==='RELAY_JOIN_EXPIRED'?'EXPIRED':'UNREACHABLE',claim,joinEndpoint:target,displayName,hint:installationHint(),cityRef:cityRef||null};
     joinError=err?.code==='RELAY_JOIN_REJECTED'?'join.errorRejected':joinErrorKey(err);
     render();
     if(err?.fallback===false)return;
    }
   }
  }
- const fragment=new URLSearchParams({v:'1',hint:installationHint(),claim});
+ const fragment=new URLSearchParams({v:'1',hint:installationHint(),claim,name:displayName});
  if(cityRef)fragment.set('city',String(cityRef).slice(0,80));
  // SAME ORIGIN: `location.assign` with only a fragment added is a SAME-DOCUMENT navigation, so the page
  // would not reload, the boot path would never run, and the ask would silently never be recorded - which
  // is exactly how this failed the first time it was exercised. Asking the page we are already on is also
  // the case where nothing needs carrying anywhere, so the ask is delivered directly.
- if(target===location.origin.replace(/\/$/,'')){resumeJoin({hint:fragment.get('hint'),claim,cityRef:cityRef||null});return;}
+ if(target===location.origin.replace(/\/$/,'')){resumeJoin({hint:fragment.get('hint'),claim,cityRef:cityRef||null,displayName});return;}
  // CROSS ORIGIN: destroy this City's session credential before leaving, the same rule the invite switch
  // follows - a credential for the City we are leaving is dead weight at the new one.
  destroyLocalToken();
@@ -366,16 +370,18 @@ async function askToJoin(endpoint, cityRef, row){
  *  so this function is what turns "a nearby PC picked this City" into a recorded request. It is
  *  idempotent by construction: the City recognises the installation hint and answers with the row it
  *  already has rather than creating a second approval card. */
-async function resumeJoin({hint, claim, cityRef}){
- const pending={hint,claim,cityRef};
+async function resumeJoin({hint, claim, cityRef, displayName=webClientLabel()}){
+ if(typeof displayName!=='string'||!displayName.trim()||displayName.trim().length>64||/[\u0000-\u001f\u007f]/.test(displayName)){joinError='join.nameInvalid';render();return;}
+ displayName=displayName.trim();try{localStorage.setItem('utopia.clientLabel',displayName);}catch{}
+ const pending={hint,claim,cityRef,displayName};
  try{
   /** The pinned identity is CHECKED, never trusted. A link that names a City different from the one that
    *  received it is a mis-addressed ask, and delivering it here would ask the wrong owner to approve
    *  another City's join. */
   if(cityRef&&city&&cityRef!==city.cityId){joinError='join.errorRejected';render();return;}
-  const ask=await joinApi('request',{displayName:webClientLabel(),platform:navigator.platform||'browser',installationHint:typeof pending.hint==='string'?pending.hint:installationHint(),origin:location.origin,claim:pending.claim});
+  const ask=await joinApi('request',{displayName,platform:navigator.platform||'browser',installationHint:typeof pending.hint==='string'?pending.hint:installationHint(),origin:location.origin,claim:pending.claim});
   if(!ask?.id)throw Error('that City created no join request');
-  joinAsk={requestId:ask.id,state:ask.state,claim:pending.claim,joinEndpoint:location.origin,displayName:webClientLabel(),hint:pending.hint??null};
+  joinAsk={requestId:ask.id,state:ask.state,claim:pending.claim,joinEndpoint:location.origin,displayName,hint:pending.hint??null};
   render();
   waitForDecision(joinAsk);
  }catch(err){
@@ -635,6 +641,7 @@ function pairingView(){ const d=city.discovery||{},ps=pairingState(),remaining=p
    run-details block instead of being printed on the surface. */
 const EVENT_LABELS={'CLIENT_CONNECTED':'event.clientConnected','CITY_STARTED':'event.cityStarted','task.completed':'event.taskCompleted','task.progress':'event.taskProgress','task.cancelled':'event.taskCancelled','node.heartbeat':'event.nodeHeartbeat'};
 const events=(list,raw=false)=>list.slice().reverse().map(e=>`<div class="event"><time>${esc(formatTime(e.timestamp))}</time><strong>${esc(raw?e.type:t(EVENT_LABELS[e.type]||'event.other'))}</strong><details><summary>${esc(t('common.runDetails'))}</summary><div class="task-id">${raw?'':' '+esc(e.type)+' · '}#${esc(e.seq)} · ${esc(e.taskId||'City')}</div></details></div>`).join('');
+function cityNameSection(){return '<h2>'+esc(t('settings.cityName'))+'</h2><form id="city-name-form"><label for="city-name">'+esc(t('settings.cityName'))+'</label><input id="city-name" maxlength="64" required value="'+esc(city.displayName)+'"><button type="submit">'+esc(t('settings.saveCityName'))+'</button></form>';}
 function languageSection(){const current=getLocale();return `<h2>${esc(t('settings.interface'))}</h2><p>${esc(t('settings.language'))}</p><div class="lang-row" id="language">${SUPPORTED_LOCALES.map(l=>`<button class="lang-option${l===current?' selected':''}" data-locale="${esc(l)}" aria-label="${esc(localeLabel(l))}" aria-pressed="${l===current}">${esc(localeLabel(l))}</button>`).join('')}</div><p class="muted">${esc(t('settings.languageHint'))}</p>`;}
 /* JOIN-503 — the device-identity surface.
    Two states, and the page must not blur them:
@@ -693,6 +700,8 @@ function assistantSlot(){
   return `<section class="operator"><div class="op-frame"><span class="op-side"></span><span class="op-tag">${esc(t('assistant.role'))}</span><div class="op-art">${ASSISTANT_ART}</div><span class="op-slot">SLOT 01</span></div><div class="op-body"><p class="op-role">${esc(t('assistant.role'))} · ASSISTANT</p><p class="op-name">${esc(t('assistant.unassigned'))}</p><p class="op-sub">${esc(t('assistant.note'))}</p><dl class="kv"><dt>${esc(t('assistant.boundDevice'))}</dt><dd>${esc(online[0]?.displayName||t('assistant.pending'))}</dd><dt>${esc(t('assistant.appearance'))}</dt><dd>${esc(t('assistant.placeholderValue'))}</dd><dt>${esc(t('assistant.voice'))}</dt><dd>${esc(t('assistant.disabled'))}</dd><dt>${esc(t('assistant.duty'))}</dt><dd>${esc(t('assistant.pending'))}</dd></dl></div></section>`;
 }
 function render(){
+ const previousNameForm=$('#city-name-form');
+ const nameSelection=document.activeElement?.id==='city-name'?{start:document.activeElement.selectionStart,end:document.activeElement.selectionEnd}:null;
  const focused=document.activeElement;
  const typing=focused?.id==='swap-code'?{start:focused.selectionStart,end:focused.selectionEnd}:null;
  const oldPairCard=$('#pairing-card');
@@ -712,6 +721,7 @@ function render(){
  // not swap the buttons out from under the pointer mid-click.
  renderConnectSurface();
  $('#ask-form').hidden=$('#content').hidden;
+ const cityLabel=city?.displayName||pairTarget?.displayName; if(cityLabel){document.title=cityLabel+' · Utopia';$('#city-display-name').textContent=cityLabel;}
  if(!city){$('#heading').textContent=t('heading.'+page.toLowerCase());if(terminal)terminal.render($('#view'));return;}
  $('#heading').textContent=t('heading.'+page.toLowerCase());$('#updated').textContent=t('status.lastSnapshot',{time:formatTime(city.updatedAt)});
  const tasks=city.tasks;
@@ -725,7 +735,8 @@ function render(){
  if(page==='Devices')$('#view').innerHTML=schedulerPanel(schedulerFeed,{isOnline:connection==='ONLINE',advanced:true})+`<section class="panel">${nodeRows()}</section>`;
  if(page==='Tasks')$('#view').innerHTML=`<section class="panel"><h2>${esc(t('section.taskRegistry'))}</h2>${taskRows(tasks)}</section>`;
  if(page==='Activity')$('#view').innerHTML=`<section class="panel"><h2>${esc(t('section.eventTimeline',{count:city.events.length}))}</h2><button data-goto="Actions">${esc(t('nav.actions'))}</button>${events(city.events)}</section>`;
- if(page==='Settings')$('#view').innerHTML=`<section class="panel">${deviceSection()}${languageSection()}<h2>${esc(t('section.connectionDiagnostics'))}</h2><p>${esc(t('settings.cityUrl'))}: ${esc(location.origin)}</p><details><summary>${esc(t('common.runDetails'))}</summary><div class="task-id">apiVersion = 0 · schemaVersion = 0</div></details><p class="muted">${esc(t('settings.tokenNote'))}</p><button id="disconnect">${esc(t('settings.changeToken'))}</button></section>`;
+ if(page==='Settings')$('#view').innerHTML=`<section class="panel">${cityNameSection()}${deviceSection()}${languageSection()}<h2>${esc(t('section.connectionDiagnostics'))}</h2><p>${esc(t('settings.cityUrl'))}: ${esc(location.origin)}</p><details><summary>${esc(t('common.runDetails'))}</summary><div class="task-id">apiVersion = 0 · schemaVersion = 0</div></details><p class="muted">${esc(t('settings.tokenNote'))}</p><button id="disconnect">${esc(t('settings.changeToken'))}</button></section>`;
+ if(previousNameForm&&nameSelection&&page==='Settings'){$('#city-name-form')?.replaceWith(previousNameForm);const input=$('#city-name');input.focus({preventScroll:true});input.setSelectionRange(nameSelection.start,nameSelection.end);}
  if(page==='Pairing'){
   $('#view').innerHTML=pairingView()+ownerJoinSection();
   const card=$('#pairing-card');
@@ -735,7 +746,6 @@ function render(){
   if(typing){const field=$('#swap-code');field?.focus({preventScroll:true});field?.setSelectionRange(typing.start,typing.end);}
   const ps=pairingState();if(ps.session&&$('#pairing-qr'))$('#pairing-qr').innerHTML=ps.session.qrSvg;
  }
- if(page==='Settings')$('#view').innerHTML=`<section class="panel">${languageSection()}<h2>${esc(t('section.connectionDiagnostics'))}</h2><p>${esc(t('settings.cityUrl'))}: ${esc(location.origin)}</p><details><summary>${esc(t('common.runDetails'))}</summary><div class="task-id">apiVersion = 0 · schemaVersion = 0</div></details><p>${esc(t('settings.tokenNote'))}</p><button id="disconnect">${esc(t('settings.changeToken'))}</button></section>`;
  // INTEGRATION: JOIN-502's own `if(page==='Pairing')` line was removed here. The union kept BOTH, and the later
  // one both overwrote the view AND read the pre-JOIN-501 `pairing` variable, so the QR was never injected into the
  // page: every browser test hung waiting for `#pairing-qr svg`. The line above owns the Pairing page now, and the
@@ -757,7 +767,7 @@ if(e.target.dataset?.pairTarget){const target=nearbyCities(nearby??[]).find(row=
 if(e.target.id==='connect-rescan'){autoProbed=true;nearbyBrowse();}
 if(e.target.dataset?.connectAction){const kind=e.target.dataset.connectAction,ref=e.target.dataset.connectRef||null;
  if(kind==='useSelf'){const stored=(()=>{try{return sessionStorage.getItem('city-token')||'';}catch{return '';}})();if(stored){token=stored;$('#pair').hidden=true;$('#content').hidden=false;connect();}else{$('#error').textContent=t('connect.action.useSelf');}}
- else if(kind==='join'&&ref){askToJoin(ref,ref,connectFacts().rows.find(r=>r.cityRef===ref)||null);}
+ else if(kind==='join'&&ref){const row=connectFacts().rows.find(r=>r.cityRef===ref);const target=nearbyCities(row?[row]:[])[0];if(target?.endpoint)askToJoin(target.endpoint,ref,row);else{joinError='join.errorUnreachable';render();}}
  else if(kind==='invite'){const row=connectFacts().rows.find(r=>r.cityRef===ref)||null;const ok=await invitePeer(row);$('#error').textContent=ok?'':t('connect.inviteFailed');}
 }
 // JOIN-502: the browse above reads the LOCAL City's LAN view; this ask goes to the City the browse
@@ -846,7 +856,7 @@ if(bootJoin){
   const here=(await joinApi('info'))?.cityId??null;
   if(!here)throw Object.assign(Error('this City did not state its identity'),{status:404});
   if(cityRef&&cityRef!==here)throw Object.assign(Error('this join link names a different City'),{status:409});
-  await resumeJoin({hint,claim,cityRef:here});
+  await resumeJoin({hint,claim,cityRef:here,displayName:parsed.get('name')||webClientLabel()});
  }catch(err){console.error('join ask could not be delivered',err&&err.message);joinAsk=null;joinError=joinErrorKey(err);render();}
 }
 if(token)connect();else status('OFFLINE');
@@ -859,3 +869,9 @@ if(pairing.ownerSessionId()!==null)reconcileRestoredPairing().catch(()=>{});
 // first-time user is in: `render` bails out without a snapshot, so a card filled only from `render` would have been
 // an empty section on the one screen that needs it most.
 syncPairEntry();
+
+document.addEventListener('submit',async event=>{
+ if(event.target.id!=='city-name-form')return;
+ event.preventDefault();const name=event.target.querySelector('#city-name').value;
+ try{await api('city/name',{displayName:name},'PATCH');await refresh();}catch(error){$('#error').textContent=error.message;}
+});

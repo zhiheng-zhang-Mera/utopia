@@ -419,6 +419,10 @@ export const messages = {
   'join.lanFailed': 'Wi-Fi discovery is unavailable. Check the Gateway network interface and firewall, then retry.',
   'join.connectCode': 'Connect with code',
   'join.selected': 'Selected',
+"join.namePrompt": "Choose your device name for this City",
+  "join.nameInvalid": "Enter a name with 1–64 characters",
+  "settings.cityName": "City name",
+  "settings.saveCityName": "Save City name",
 };
 
 export default { meta, messages };

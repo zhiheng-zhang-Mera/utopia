@@ -414,6 +414,10 @@ export const messages = {
   'join.lanFailed': 'Wi-Fi 设备搜索不可用，请检查 Gateway 的网络接口和防火墙后重试。',
   'join.connectCode': '输入配对码连接',
   'join.selected': '已选择',
+"join.namePrompt": "请输入入网名称（此设备在城市中的名称）",
+  "join.nameInvalid": "请输入 1–64 个字符的入网名称",
+  "settings.cityName": "城市名称",
+  "settings.saveCityName": "保存城市名称",
 };
 
 export default { meta, messages };

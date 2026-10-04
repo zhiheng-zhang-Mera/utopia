@@ -3,8 +3,7 @@ import {reserveHostCity} from './host-city.mjs';
 import {existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {randomBytes} from 'node:crypto';
-import {execFile} from 'node:child_process';
-import {promisify} from 'node:util';
+import {findRunningCities} from './host-preflight.mjs';
 import {Store} from './store.mjs';
 async function main() {
 process.env.CITY_MANAGE_SERVICES ??= '1';
@@ -18,11 +17,8 @@ const closeRooms = () => new Promise((yes,no) => roomHub.server.close(error=>err
 try {
   // Older installations do not own the coordination socket. Refuse an already
   // listening legacy Gateway rather than creating a second City beside it.
-  if (process.platform === 'win32') {
-    const script = `$nodes=@(Get-CimInstance Win32_Process -Filter "Name='node.exe'" | Where-Object { $_.ProcessId -ne ${process.pid} -and $_.CommandLine -and $_.CommandLine.Replace([char]92,[char]47) -match '(^|[\\s"/])services/dev-gateway/main\\.mjs([\\s"]|$)' }); $listeners=@(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue); @($nodes | Where-Object { $id=$_.ProcessId; @($listeners | Where-Object { $_.OwningProcess -eq $id }).Count -gt 0 } | Select-Object -ExpandProperty ProcessId) | ConvertTo-Json -Compress`;
-    const {stdout} = await promisify(execFile)('powershell',['-NoProfile','-Command',script],{windowsHide:true,timeout:10000});
-    if (stdout.trim() && stdout.trim() !== '[]') throw new Error('A legacy Gateway is already listening on this host. Stop it explicitly before starting the unified City.');
-  }
+  const existing=await findRunningCities();
+  if(existing.length)throw new Error('Another City is already running on this host: '+existing.map(city=>city.endpoint).join(', '));
   mkdirSync(reservation.dataDir, {recursive:true});
   if (reservation.expectedCityId) {
     const store = new Store(reservation.dataDir);

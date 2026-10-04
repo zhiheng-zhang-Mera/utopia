@@ -125,7 +125,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
     nearbyScans.set(transport,scan);
     try{return await scan;}finally{nearbyScans.delete(transport);}
   }
-  const pairing=new Pairing({cityId:store.cityId,endpoint:`http://${host}:${port}`,credential:token,clock:pairingClock,ttlMs:pairingTtlMs,onChange:d=>discovery?.update(d)});
+  const pairing=new Pairing({displayName:store.cityName,cityId:store.cityId,endpoint:`http://${host}:${port}`,credential:token,clock:pairingClock,ttlMs:pairingTtlMs,onChange:d=>discovery?.update(d)});
   const SESSION_PREFIX='sess:';
   // The credential the BROWSER receives. The bare session id is not a credential on its own - the prefix is what
   // makes the auth path route it to the enrollment registry - so this is the one place the two are joined.
@@ -399,7 +399,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // this branch's resolver matched the UNION line instead of JOIN-502's stale one (both begin with the same text
   // and the union ends with `joinRequests:join.snapshot()`), so it removed `joinRequests` and every JOIN-502 test
   // failed on the listing being undefined. Restored here, with `enrolledDevice` kept from JOIN-503.
-  const snapshot=(req)=>envelope({status:'ONLINE',updatedAt:now(),cityId:store.cityId,displayName:'Utopia · Alien',descriptor:pairing.descriptor(),discovery:discoveryState,nodes:store.list('nodes'),controlSurfaces:liveSurfaces(),tasks:store.list('tasks'),events:store.events(),capabilities:bridge.registry(),invocations:bridge.list(),joinRequests:join.snapshot(),
+  const snapshot=(req)=>envelope({status:'ONLINE',updatedAt:now(),cityId:store.cityId,displayName:store.cityName,descriptor:pairing.descriptor(),discovery:discoveryState,nodes:store.list('nodes'),controlSurfaces:liveSurfaces(),tasks:store.list('tasks'),events:store.events(),capabilities:bridge.registry(),invocations:bridge.list(),joinRequests:join.snapshot(),
     // JOIN-503: the surface that is asking is told which INSTALLATION it is. A control-token client gets null
     // (it is the owner, not an enrolled installation), which is exactly what the Settings page needs in order to
     // show an enrollment summary for an enrolled client and the engineering fallback for a control-token one.
@@ -597,6 +597,12 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       else if(req.method==='GET' && /^\/api\/v0\/capability-invocations\/[^/]+$/.test(path))out=bridge.get(decodeURIComponent(path.split('/').at(-1)))||refuse('INVOCATION_NOT_FOUND',404);
       else if(req.method==='GET' && /^\/api\/v0\/capabilities\/[^/]+$/.test(path))out=bridge.registry().find(c=>c.capabilityId===decodeURIComponent(path.split('/').at(-1)))||refuse('CAPABILITY_NOT_FOUND',404);
       else if(req.method==='POST' && /^\/api\/v0\/capabilities\/[^/]+\/invoke$/.test(path))out=await bridge.invoke(decodeURIComponent(path.split('/').at(-2)),await body(req,MAX_REQUEST_BYTES));
+      else if(req.method==='PATCH' && path==='/api/v0/city/name') {
+        if(req.headers.authorization!=='Bearer '+token)fail(403,'Only the City owner can rename the City');
+        const b=await body(req);pairing.displayName=store.renameCity(b.displayName);
+        discovery?.update(pairing.descriptor());emit('CITY_RENAMED',null,{displayName:store.cityName});
+        out={cityId:store.cityId,displayName:store.cityName};
+      }
       else if(req.method==='GET' && path==='/api/v0/city')out=snapshot(req);
       // UXI-301: the scheduler presentation feed. READ-ONLY, and it decides nothing - it reports the
       // RS-202 eligibility the City's own modules already produced, mapped through the frozen RS-290

@@ -1,0 +1,45 @@
+{
+  "date": "2026-10-04",
+  "baseSha": "bd8925082aefda059eb9932f8065904ed3250008",
+  "full": {
+    "tests": 1194,
+    "pass": 1193,
+    "fail": 0,
+    "cancelled": 1,
+    "status": "INCOMPLETE_TIMEOUT",
+    "cancelledCase": "Web control creates a real task and shows durable result",
+    "command": "node --test --test-concurrency=4 --test-timeout=120000 tests/*.test.mjs",
+    "scope": "Run began before final connection-list dispatch and editing-only form preservation repairs; final focused tests cover these repairs"
+  },
+  "focused": {
+    "tests": 17,
+    "pass": 17,
+    "fail": 0,
+    "status": "PASS"
+  },
+  "legacyReuse": {
+    "status": "PASS",
+    "requestedPort": 4998,
+    "reusedOriginalPort": 4391,
+    "reusedCityId": "e1d87b2a-0ec5-457e-822b-91d81e40dc67",
+    "noNewGateway": true
+  },
+  "physicalTwoDeviceWifi": "NOT_RUN",
+  "physicalTwoDeviceBLE": "NOT_RUN",
+  "review": "Three guard findings repaired; follow-up review found no P1/P2 findings; minor inactive-form preservation issue repaired",
+  "sourceSha256": {
+    "apps/web/app.js": "85c9f3dda2f25926c2e4a276756c7fb55875d258c2741266d4d4c74cd7cf7743",
+    "apps/web/index.html": "12a94af262e37107cd43c561a0414fbdb48b0fe381c41fbeccbbb3972175eae4",
+    "apps/web/i18n/en.js": "c38813783d9ee6dee33b5e5f8ef81a1dc1719314d290ddc7c17b687bcd8de26e",
+    "apps/web/i18n/zh-CN.js": "1299450d396fbe6b811b92f61a2bc359974a02acbfce2a7ab37d6079a23a6396",
+    "services/dev-gateway/store.mjs": "b9e349bb194b0a21f48795c4c031fa748b811241340435a0992b894110eff240",
+    "services/dev-gateway/server.mjs": "4cb4e0c759ad6979f8f23fcb3f8a8484970b34fb9bb5386e39e4b0d7027586eb",
+    "services/dev-gateway/pairing.mjs": "1d502fbc77e21e77c19d1ea28cee15da291d58d31ab6c67136ac9827f7120e15",
+    "services/dev-gateway/main.mjs": "674c0c466b90ad1b0442c8ce9bdfd8dc4b6869c215e34f4aebe7211fc9b0ad1b",
+    "services/dev-gateway/host-preflight.mjs": "43b7ce2b9e9b24a1c8d34eea8d0ace9ea8b6097a9b65edc2c42164df4cdf66a9",
+    "scripts/utopia-client-launcher.mjs": "4aa659effd13da18d08b9ddc0b6faf971c6eed9a36279eafd3f5d26066c9a5aa",
+    "tests/city-name.test.mjs": "c04714eb9bf39ca081c11870f80844f5a5c0537f8bfb9dcd2f7805124d340493",
+    "tests/host-preflight.test.mjs": "9fc43b7816c08b845ac6d0b5a5da1fd772163dc2c09b2e51f3046a504897dc93",
+    "tests/join502-ui.test.mjs": "77750ab8a91888c22d5e2c83dfaa5e50d2560bec7b6baaf27605ed52ab4a0df0"
+  }
+}

@@ -1,0 +1,593 @@
+{
+  "taskId": "Q-e8738c51-bd44-4e6b-b04e-1a561f57ebe5",
+  "running": {
+    "schemaVersion": 1,
+    "authoritative": false,
+    "eventSource": "CANONICAL_GATEWAY_STORE",
+    "health": "COMPLETE",
+    "nodes": [
+      {
+        "kind": "HOST",
+        "id": "mon-canary-node",
+        "displayName": "Controlled runtime peer",
+        "online": true
+      },
+      {
+        "kind": "TASK",
+        "id": "Q-e8738c51-bd44-4e6b-b04e-1a561f57ebe5",
+        "state": "RUNNING",
+        "taskType": "WAIT",
+        "hostRef": "mon-canary-node",
+        "ownerRef": null,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "progress": 10
+      },
+      {
+        "kind": "TASK",
+        "id": "Q-8dfb6a86-9356-43c2-acae-c9aa6701f465",
+        "state": "COMPLETED",
+        "taskType": "WAIT",
+        "hostRef": "mon-canary-node",
+        "ownerRef": null,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "progress": 100
+      }
+    ],
+    "edges": [
+      {
+        "from": "Q-e8738c51-bd44-4e6b-b04e-1a561f57ebe5",
+        "to": "mon-canary-node",
+        "type": "ASSIGNED_TO",
+        "reason": "Canonical task.assignedNodeId",
+        "targetPresent": true
+      },
+      {
+        "from": "Q-8dfb6a86-9356-43c2-acae-c9aa6701f465",
+        "to": "mon-canary-node",
+        "type": "ASSIGNED_TO",
+        "reason": "Canonical task.assignedNodeId",
+        "targetPresent": true
+      }
+    ],
+    "events": [
+      {
+        "canonicalEventId": "a1c61b90-b4ac-4622-a49f-12550579703f",
+        "seq": 1,
+        "type": "CITY_STARTED",
+        "taskRef": null,
+        "actorRef": "gateway",
+        "timestamp": "2026-10-04T22:59:25.619Z",
+        "evidenceRef": "a1c61b90-b4ac-4622-a49f-12550579703f"
+      },
+      {
+        "canonicalEventId": "77a9af0e-ae56-4039-be3c-ee4ca4a247a6",
+        "seq": 2,
+        "type": "NODE_ONLINE",
+        "taskRef": null,
+        "actorRef": "gateway",
+        "timestamp": "2026-10-04T22:59:25.656Z",
+        "evidenceRef": "77a9af0e-ae56-4039-be3c-ee4ca4a247a6"
+      },
+      {
+        "canonicalEventId": "ed152e19-e2a0-4f5c-acfa-1b23d82c65ba",
+        "seq": 3,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-8dfb6a86-9356-43c2-acae-c9aa6701f465",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-04T22:59:25.665Z",
+        "evidenceRef": "ed152e19-e2a0-4f5c-acfa-1b23d82c65ba"
+      },
+      {
+        "canonicalEventId": "55b0f397-d3fb-41d0-8dc1-135b74efb449",
+        "seq": 4,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-8dfb6a86-9356-43c2-acae-c9aa6701f465",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-04T22:59:25.665Z",
+        "evidenceRef": "55b0f397-d3fb-41d0-8dc1-135b74efb449"
+      },
+      {
+        "canonicalEventId": "63722dff-0fef-46ff-b0f4-efe05e248433",
+        "seq": 5,
+        "type": "TASK_ASSIGNED",
+        "taskRef": "Q-8dfb6a86-9356-43c2-acae-c9aa6701f465",
+        "actorRef": "mon-canary-node",
+        "timestamp": "2026-10-04T22:59:25.670Z",
+        "evidenceRef": "63722dff-0fef-46ff-b0f4-efe05e248433"
+      },
+      {
+        "canonicalEventId": "cd79ed38-7524-4faa-b8be-92ca173a137d",
+        "seq": 6,
+        "type": "TASK_STARTED",
+        "taskRef": "Q-8dfb6a86-9356-43c2-acae-c9aa6701f465",
+        "actorRef": "mon-canary-node",
+        "timestamp": "2026-10-04T22:59:25.675Z",
+        "evidenceRef": "cd79ed38-7524-4faa-b8be-92ca173a137d"
+      },
+      {
+        "canonicalEventId": "56d4a934-b11f-4912-9cd6-48d07d979172",
+        "seq": 7,
+        "type": "TASK_COMPLETED",
+        "taskRef": "Q-8dfb6a86-9356-43c2-acae-c9aa6701f465",
+        "actorRef": "mon-canary-node",
+        "timestamp": "2026-10-04T22:59:25.697Z",
+        "evidenceRef": "56d4a934-b11f-4912-9cd6-48d07d979172"
+      },
+      {
+        "canonicalEventId": "0a3f15bb-23a3-4713-bf38-fa283eaa8247",
+        "seq": 8,
+        "type": "CITY_STARTED",
+        "taskRef": null,
+        "actorRef": "gateway",
+        "timestamp": "2026-10-04T23:02:09.158Z",
+        "evidenceRef": "0a3f15bb-23a3-4713-bf38-fa283eaa8247"
+      },
+      {
+        "canonicalEventId": "4271336d-23eb-487e-abf8-ec1ce90336ab",
+        "seq": 9,
+        "type": "NODE_ONLINE",
+        "taskRef": null,
+        "actorRef": "gateway",
+        "timestamp": "2026-10-04T23:02:09.190Z",
+        "evidenceRef": "4271336d-23eb-487e-abf8-ec1ce90336ab"
+      },
+      {
+        "canonicalEventId": "6b81a382-fab8-458d-a538-34798cb33363",
+        "seq": 10,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-e8738c51-bd44-4e6b-b04e-1a561f57ebe5",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-04T23:02:09.199Z",
+        "evidenceRef": "6b81a382-fab8-458d-a538-34798cb33363"
+      },
+      {
+        "canonicalEventId": "4218e95f-6f86-4dd7-8e32-7b5e01fb2c49",
+        "seq": 11,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-e8738c51-bd44-4e6b-b04e-1a561f57ebe5",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-04T23:02:09.199Z",
+        "evidenceRef": "4218e95f-6f86-4dd7-8e32-7b5e01fb2c49"
+      },
+      {
+        "canonicalEventId": "16804596-09dc-48a1-b597-12f59fb4a044",
+        "seq": 12,
+        "type": "TASK_ASSIGNED",
+        "taskRef": "Q-e8738c51-bd44-4e6b-b04e-1a561f57ebe5",
+        "actorRef": "mon-canary-node",
+        "timestamp": "2026-10-04T23:02:09.210Z",
+        "evidenceRef": "16804596-09dc-48a1-b597-12f59fb4a044"
+      },
+      {
+        "canonicalEventId": "1ae8f5fd-077f-4dde-a1c3-607c91917bc8",
+        "seq": 13,
+        "type": "TASK_STARTED",
+        "taskRef": "Q-e8738c51-bd44-4e6b-b04e-1a561f57ebe5",
+        "actorRef": "mon-canary-node",
+        "timestamp": "2026-10-04T23:02:09.215Z",
+        "evidenceRef": "1ae8f5fd-077f-4dde-a1c3-607c91917bc8"
+      }
+    ],
+    "evidence": [
+      {
+        "canonicalEventId": "a1c61b90-b4ac-4622-a49f-12550579703f",
+        "seq": 1,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "767ac781-8073-492b-972a-d5397ba43f58"
+      },
+      {
+        "canonicalEventId": "77a9af0e-ae56-4039-be3c-ee4ca4a247a6",
+        "seq": 2,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "767ac781-8073-492b-972a-d5397ba43f58"
+      },
+      {
+        "canonicalEventId": "ed152e19-e2a0-4f5c-acfa-1b23d82c65ba",
+        "seq": 3,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "767ac781-8073-492b-972a-d5397ba43f58"
+      },
+      {
+        "canonicalEventId": "55b0f397-d3fb-41d0-8dc1-135b74efb449",
+        "seq": 4,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "767ac781-8073-492b-972a-d5397ba43f58"
+      },
+      {
+        "canonicalEventId": "63722dff-0fef-46ff-b0f4-efe05e248433",
+        "seq": 5,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "767ac781-8073-492b-972a-d5397ba43f58"
+      },
+      {
+        "canonicalEventId": "cd79ed38-7524-4faa-b8be-92ca173a137d",
+        "seq": 6,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "767ac781-8073-492b-972a-d5397ba43f58"
+      },
+      {
+        "canonicalEventId": "56d4a934-b11f-4912-9cd6-48d07d979172",
+        "seq": 7,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "767ac781-8073-492b-972a-d5397ba43f58"
+      },
+      {
+        "canonicalEventId": "0a3f15bb-23a3-4713-bf38-fa283eaa8247",
+        "seq": 8,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "767ac781-8073-492b-972a-d5397ba43f58"
+      },
+      {
+        "canonicalEventId": "4271336d-23eb-487e-abf8-ec1ce90336ab",
+        "seq": 9,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "767ac781-8073-492b-972a-d5397ba43f58"
+      },
+      {
+        "canonicalEventId": "6b81a382-fab8-458d-a538-34798cb33363",
+        "seq": 10,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "767ac781-8073-492b-972a-d5397ba43f58"
+      },
+      {
+        "canonicalEventId": "4218e95f-6f86-4dd7-8e32-7b5e01fb2c49",
+        "seq": 11,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "767ac781-8073-492b-972a-d5397ba43f58"
+      },
+      {
+        "canonicalEventId": "16804596-09dc-48a1-b597-12f59fb4a044",
+        "seq": 12,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "767ac781-8073-492b-972a-d5397ba43f58"
+      },
+      {
+        "canonicalEventId": "1ae8f5fd-077f-4dde-a1c3-607c91917bc8",
+        "seq": 13,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "767ac781-8073-492b-972a-d5397ba43f58"
+      }
+    ],
+    "decision": [],
+    "observedAt": "2026-10-04T23:02:09.218Z",
+    "projectedAt": "2026-10-04T23:02:09.219Z",
+    "projectionLatencyMs": 1,
+    "completeness": {
+      "tasksOmitted": 0,
+      "nodesOmitted": 0,
+      "eventsOmitted": 0,
+      "historyGap": false,
+      "firstSeq": 1,
+      "lastSeq": 13,
+      "canonicalHighWatermark": 13,
+      "continuous": false
+    },
+    "unsupportedSources": [
+      "review",
+      "test/CI",
+      "model/provider switch",
+      "Owner escalation"
+    ],
+    "cityId": "767ac781-8073-492b-972a-d5397ba43f58",
+    "scope": "BOUNDED_CANONICAL_WINDOW",
+    "safeSummaryAvailable": false,
+    "unobservedTaskRisk": false
+  },
+  "completed": {
+    "schemaVersion": 1,
+    "authoritative": false,
+    "eventSource": "CANONICAL_GATEWAY_STORE",
+    "health": "COMPLETE",
+    "nodes": [
+      {
+        "kind": "HOST",
+        "id": "mon-canary-node",
+        "displayName": "Controlled runtime peer",
+        "online": true
+      },
+      {
+        "kind": "TASK",
+        "id": "Q-8dfb6a86-9356-43c2-acae-c9aa6701f465",
+        "state": "COMPLETED",
+        "taskType": "WAIT",
+        "hostRef": "mon-canary-node",
+        "ownerRef": null,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "progress": 100
+      },
+      {
+        "kind": "TASK",
+        "id": "Q-e8738c51-bd44-4e6b-b04e-1a561f57ebe5",
+        "state": "COMPLETED",
+        "taskType": "WAIT",
+        "hostRef": "mon-canary-node",
+        "ownerRef": null,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "progress": 100
+      }
+    ],
+    "edges": [
+      {
+        "from": "Q-8dfb6a86-9356-43c2-acae-c9aa6701f465",
+        "to": "mon-canary-node",
+        "type": "ASSIGNED_TO",
+        "reason": "Canonical task.assignedNodeId",
+        "targetPresent": true
+      },
+      {
+        "from": "Q-e8738c51-bd44-4e6b-b04e-1a561f57ebe5",
+        "to": "mon-canary-node",
+        "type": "ASSIGNED_TO",
+        "reason": "Canonical task.assignedNodeId",
+        "targetPresent": true
+      }
+    ],
+    "events": [
+      {
+        "canonicalEventId": "a1c61b90-b4ac-4622-a49f-12550579703f",
+        "seq": 1,
+        "type": "CITY_STARTED",
+        "taskRef": null,
+        "actorRef": "gateway",
+        "timestamp": "2026-10-04T22:59:25.619Z",
+        "evidenceRef": "a1c61b90-b4ac-4622-a49f-12550579703f"
+      },
+      {
+        "canonicalEventId": "77a9af0e-ae56-4039-be3c-ee4ca4a247a6",
+        "seq": 2,
+        "type": "NODE_ONLINE",
+        "taskRef": null,
+        "actorRef": "gateway",
+        "timestamp": "2026-10-04T22:59:25.656Z",
+        "evidenceRef": "77a9af0e-ae56-4039-be3c-ee4ca4a247a6"
+      },
+      {
+        "canonicalEventId": "ed152e19-e2a0-4f5c-acfa-1b23d82c65ba",
+        "seq": 3,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-8dfb6a86-9356-43c2-acae-c9aa6701f465",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-04T22:59:25.665Z",
+        "evidenceRef": "ed152e19-e2a0-4f5c-acfa-1b23d82c65ba"
+      },
+      {
+        "canonicalEventId": "55b0f397-d3fb-41d0-8dc1-135b74efb449",
+        "seq": 4,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-8dfb6a86-9356-43c2-acae-c9aa6701f465",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-04T22:59:25.665Z",
+        "evidenceRef": "55b0f397-d3fb-41d0-8dc1-135b74efb449"
+      },
+      {
+        "canonicalEventId": "63722dff-0fef-46ff-b0f4-efe05e248433",
+        "seq": 5,
+        "type": "TASK_ASSIGNED",
+        "taskRef": "Q-8dfb6a86-9356-43c2-acae-c9aa6701f465",
+        "actorRef": "mon-canary-node",
+        "timestamp": "2026-10-04T22:59:25.670Z",
+        "evidenceRef": "63722dff-0fef-46ff-b0f4-efe05e248433"
+      },
+      {
+        "canonicalEventId": "cd79ed38-7524-4faa-b8be-92ca173a137d",
+        "seq": 6,
+        "type": "TASK_STARTED",
+        "taskRef": "Q-8dfb6a86-9356-43c2-acae-c9aa6701f465",
+        "actorRef": "mon-canary-node",
+        "timestamp": "2026-10-04T22:59:25.675Z",
+        "evidenceRef": "cd79ed38-7524-4faa-b8be-92ca173a137d"
+      },
+      {
+        "canonicalEventId": "56d4a934-b11f-4912-9cd6-48d07d979172",
+        "seq": 7,
+        "type": "TASK_COMPLETED",
+        "taskRef": "Q-8dfb6a86-9356-43c2-acae-c9aa6701f465",
+        "actorRef": "mon-canary-node",
+        "timestamp": "2026-10-04T22:59:25.697Z",
+        "evidenceRef": "56d4a934-b11f-4912-9cd6-48d07d979172"
+      },
+      {
+        "canonicalEventId": "0a3f15bb-23a3-4713-bf38-fa283eaa8247",
+        "seq": 8,
+        "type": "CITY_STARTED",
+        "taskRef": null,
+        "actorRef": "gateway",
+        "timestamp": "2026-10-04T23:02:09.158Z",
+        "evidenceRef": "0a3f15bb-23a3-4713-bf38-fa283eaa8247"
+      },
+      {
+        "canonicalEventId": "4271336d-23eb-487e-abf8-ec1ce90336ab",
+        "seq": 9,
+        "type": "NODE_ONLINE",
+        "taskRef": null,
+        "actorRef": "gateway",
+        "timestamp": "2026-10-04T23:02:09.190Z",
+        "evidenceRef": "4271336d-23eb-487e-abf8-ec1ce90336ab"
+      },
+      {
+        "canonicalEventId": "6b81a382-fab8-458d-a538-34798cb33363",
+        "seq": 10,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-e8738c51-bd44-4e6b-b04e-1a561f57ebe5",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-04T23:02:09.199Z",
+        "evidenceRef": "6b81a382-fab8-458d-a538-34798cb33363"
+      },
+      {
+        "canonicalEventId": "4218e95f-6f86-4dd7-8e32-7b5e01fb2c49",
+        "seq": 11,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-e8738c51-bd44-4e6b-b04e-1a561f57ebe5",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-04T23:02:09.199Z",
+        "evidenceRef": "4218e95f-6f86-4dd7-8e32-7b5e01fb2c49"
+      },
+      {
+        "canonicalEventId": "16804596-09dc-48a1-b597-12f59fb4a044",
+        "seq": 12,
+        "type": "TASK_ASSIGNED",
+        "taskRef": "Q-e8738c51-bd44-4e6b-b04e-1a561f57ebe5",
+        "actorRef": "mon-canary-node",
+        "timestamp": "2026-10-04T23:02:09.210Z",
+        "evidenceRef": "16804596-09dc-48a1-b597-12f59fb4a044"
+      },
+      {
+        "canonicalEventId": "1ae8f5fd-077f-4dde-a1c3-607c91917bc8",
+        "seq": 13,
+        "type": "TASK_STARTED",
+        "taskRef": "Q-e8738c51-bd44-4e6b-b04e-1a561f57ebe5",
+        "actorRef": "mon-canary-node",
+        "timestamp": "2026-10-04T23:02:09.215Z",
+        "evidenceRef": "1ae8f5fd-077f-4dde-a1c3-607c91917bc8"
+      },
+      {
+        "canonicalEventId": "38a2bb03-b19c-4fe6-9285-f8161fdbc115",
+        "seq": 14,
+        "type": "TASK_COMPLETED",
+        "taskRef": "Q-e8738c51-bd44-4e6b-b04e-1a561f57ebe5",
+        "actorRef": "mon-canary-node",
+        "timestamp": "2026-10-04T23:02:09.223Z",
+        "evidenceRef": "38a2bb03-b19c-4fe6-9285-f8161fdbc115"
+      }
+    ],
+    "evidence": [
+      {
+        "canonicalEventId": "a1c61b90-b4ac-4622-a49f-12550579703f",
+        "seq": 1,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "767ac781-8073-492b-972a-d5397ba43f58"
+      },
+      {
+        "canonicalEventId": "77a9af0e-ae56-4039-be3c-ee4ca4a247a6",
+        "seq": 2,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "767ac781-8073-492b-972a-d5397ba43f58"
+      },
+      {
+        "canonicalEventId": "ed152e19-e2a0-4f5c-acfa-1b23d82c65ba",
+        "seq": 3,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "767ac781-8073-492b-972a-d5397ba43f58"
+      },
+      {
+        "canonicalEventId": "55b0f397-d3fb-41d0-8dc1-135b74efb449",
+        "seq": 4,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "767ac781-8073-492b-972a-d5397ba43f58"
+      },
+      {
+        "canonicalEventId": "63722dff-0fef-46ff-b0f4-efe05e248433",
+        "seq": 5,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "767ac781-8073-492b-972a-d5397ba43f58"
+      },
+      {
+        "canonicalEventId": "cd79ed38-7524-4faa-b8be-92ca173a137d",
+        "seq": 6,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "767ac781-8073-492b-972a-d5397ba43f58"
+      },
+      {
+        "canonicalEventId": "56d4a934-b11f-4912-9cd6-48d07d979172",
+        "seq": 7,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "767ac781-8073-492b-972a-d5397ba43f58"
+      },
+      {
+        "canonicalEventId": "0a3f15bb-23a3-4713-bf38-fa283eaa8247",
+        "seq": 8,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "767ac781-8073-492b-972a-d5397ba43f58"
+      },
+      {
+        "canonicalEventId": "4271336d-23eb-487e-abf8-ec1ce90336ab",
+        "seq": 9,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "767ac781-8073-492b-972a-d5397ba43f58"
+      },
+      {
+        "canonicalEventId": "6b81a382-fab8-458d-a538-34798cb33363",
+        "seq": 10,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "767ac781-8073-492b-972a-d5397ba43f58"
+      },
+      {
+        "canonicalEventId": "4218e95f-6f86-4dd7-8e32-7b5e01fb2c49",
+        "seq": 11,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "767ac781-8073-492b-972a-d5397ba43f58"
+      },
+      {
+        "canonicalEventId": "16804596-09dc-48a1-b597-12f59fb4a044",
+        "seq": 12,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "767ac781-8073-492b-972a-d5397ba43f58"
+      },
+      {
+        "canonicalEventId": "1ae8f5fd-077f-4dde-a1c3-607c91917bc8",
+        "seq": 13,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "767ac781-8073-492b-972a-d5397ba43f58"
+      },
+      {
+        "canonicalEventId": "38a2bb03-b19c-4fe6-9285-f8161fdbc115",
+        "seq": 14,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "767ac781-8073-492b-972a-d5397ba43f58"
+      }
+    ],
+    "decision": [],
+    "observedAt": "2026-10-04T23:02:09.229Z",
+    "projectedAt": "2026-10-04T23:02:09.229Z",
+    "projectionLatencyMs": 0,
+    "completeness": {
+      "tasksOmitted": 0,
+      "nodesOmitted": 0,
+      "eventsOmitted": 0,
+      "historyGap": false,
+      "firstSeq": 1,
+      "lastSeq": 14,
+      "canonicalHighWatermark": 14,
+      "continuous": false
+    },
+    "unsupportedSources": [
+      "review",
+      "test/CI",
+      "model/provider switch",
+      "Owner escalation"
+    ],
+    "cityId": "767ac781-8073-492b-972a-d5397ba43f58",
+    "scope": "BOUNDED_CANONICAL_WINDOW",
+    "safeSummaryAvailable": false,
+    "unobservedTaskRisk": false
+  },
+  "physicalDevices": "NOT_RUN",
+  "executor": "CONTROLLED_PROTOCOL_REPORT_NOT_HARDWARE_BENCHMARK"
+}

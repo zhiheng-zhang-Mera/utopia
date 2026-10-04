@@ -65,7 +65,7 @@ class CityClient(context: Context, private val host: String, private val token: 
   if (body != null) builder.post(body.toString().toRequestBody("application/json".toMediaType()))
   (if(path.startsWith("capabilities/")) http.newBuilder().readTimeout(25, TimeUnit.SECONDS).callTimeout(26, TimeUnit.SECONDS).build() else http).newCall(builder.build()).execute().use { response ->
    val raw = response.body?.string() ?: "{}"
-   if (!response.isSuccessful && (path.startsWith("capabilities/") || path.startsWith("capability-invocations/"))) {
+   if (!response.isSuccessful && (path.startsWith("capabilities/") || path.startsWith("capability-invocations/") || path.startsWith("join/requests") || path.startsWith("pairing/"))) {
     val error = runCatching { JSONObject(raw) }.getOrNull()
     throw CapabilityRequestException(error?.optString("errorCode")?.takeIf { it.isNotBlank() } ?: "HTTP_${response.code}",response.code,error?.optString("error")?.takeIf { it.isNotBlank() } ?: "Request failed: ${response.code}")
    }
@@ -217,5 +217,15 @@ class CityClient(context: Context, private val host: String, private val token: 
   if (providerRef.isBlank()) { publish(if (socketOnline) "ONLINE" else "OFFLINE", "No service named for the choice"); return }
   submit { try { request("tasks/$id/provider-choice", JSONObject().put("providerRef", providerRef)); refresh() } catch (e: Exception) { publish(if (socketOnline) "ONLINE" else "OFFLINE", e.message ?: "Choice failed") } }
  }
+ fun ownerOnboarding(done:(JSONObject)->Unit) { submit {
+  deliver(JSONObject().put("pairing",row("pairing/info")).put("joins",row("join/requests")),done)
+ } }
+ fun generateOwnerPairing(expectedState:String,done:(JSONObject)->Unit) { submit {
+  deliver(row("pairing/session",JSONObject().put("expectedSessionState",expectedState)),done)
+ } }
+ fun decideJoin(id:String,approve:Boolean,done:(JSONObject)->Unit) { submit {
+  deliver(row("join/requests/"+java.net.URLEncoder.encode(id,"UTF-8")+if(approve) "/approve" else "/reject",JSONObject()),done)
+  refresh()
+ } }
  fun close() { log.surface("stop", lastServerMaxSeq); closed = true; runCatching { connectivity.unregisterNetworkCallback(callback) }; socket?.cancel(); executor.shutdownNow(); http.dispatcher.cancelAll(); http.connectionPool.evictAll() }
 }

@@ -26,6 +26,7 @@ const launch = () => chromium.launch({ channel: process.platform === 'win32' ? '
 /** A page connected to its own City, with every creation call it makes recorded at the network layer. */
 async function connect(browser, app, token) {
   const page = await browser.newPage({ locale: 'en-US' });
+  await page.addInitScript(() => {const Native=window.WebSocket;window.__reviewSockets=[];window.WebSocket=class extends Native {constructor(...args){super(...args);window.__reviewSockets.push(this);}};});
   const creations = [];
   page.on('request', request => { if (request.method() === 'POST' && request.url().includes('/api/v0/pairing/session')) creations.push(Date.now()); });
   await page.goto(app.url);
@@ -81,12 +82,11 @@ test('REVIEW JOIN-501 A2: a real WebSocket drop and the product\u2019s own recon
     const codeBefore = await page.locator('#pairing-code').innerText();
     const qrBefore = await page.locator('#pairing-qr svg').evaluate(el => el.outerHTML);
 
-    await page.evaluate(() => {
-      for (const key of Object.keys(window)) {
-        const value = window[key];
-        if (value && value.constructor && value.constructor.name === 'WebSocket' && value.readyState === 1) value.close();
-      }
-    });
+    const socketCount=await page.evaluate(()=>window.__reviewSockets.length);
+    assert.ok(socketCount>0,'the instrument captured a real WebSocket');
+    await page.evaluate(async()=>{const socket=window.__reviewSockets.find(s=>s.readyState===1);if(!socket)throw Error('no live socket captured');const closed=new Promise(resolve=>socket.addEventListener('close',resolve,{once:true}));socket.close();await closed;});
+    await page.waitForFunction(count=>window.__reviewSockets.length>count,socketCount);
+    assert.ok(await page.evaluate(()=>window.__reviewSockets.some(s=>s.readyState===3)),'actual socket closure was observed');
     await page.locator('#connection.online').waitFor({ timeout: 15000 });
     await page.waitForTimeout(2500);
 

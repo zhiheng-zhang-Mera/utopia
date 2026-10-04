@@ -133,3 +133,5 @@ test('the task pilot creates its evidence directory before writing into it', () 
   assert.ok(pipelineStart>-1,'expected the pilot to take a city snapshot');
   assert.ok(mkdir<pipelineStart,'fail fast: create the directory before the pipeline starts');
 });
+
+ test("task pilot imports a usable sized nodeByLabel selector",async()=>{const {nodeByLabel}=await import("../scripts/lib/ui-route.mjs");assert.equal(typeof nodeByLabel,"function");const xml=`<node text="Run Test Task" bounds="[0,0][0,0]"/><node text="Run Test Task" bounds="[1,2][11,12]"/>`;assert.deepEqual(centreOf(nodeByLabel(xml,["Run Test Task"])),["6","7"]);assert.equal(nodeByLabel(xml,["Missing"]),null);});

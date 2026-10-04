@@ -168,3 +168,6 @@ export const resolveRoute = (xml, { labels = NAV_LABELS, bandRatio = 0.85 } = {}
   }
   return null;
 };
+
+/** Sized label target for action buttons; zero-bounds labels are never tappable. */
+export const nodeByLabel=(xml,labels)=>nodesOf(xml).find(attrs=>labels.includes(textOf(attrs))&&isSized(attrs))??null;

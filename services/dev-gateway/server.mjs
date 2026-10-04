@@ -50,6 +50,11 @@ import { STRICT_TARGET_FIELD, TARGET_REASONS, classifyTarget, claimAllowedByTarg
 // here. Utopia's own policy travels as data (REQUIRED_TASK_CAPABILITIES and
 // claimNodeFor below), so this is an equivalence-preserving rewiring, not a new rule.
 import { acceptsWork } from '../../city/00-foundation/01-city-core/fleet-routing/index.mjs';
+// REX-801: the experiment manifest contract and its registry. A manifest describes an experiment that is meant
+// to be reproducible; it owns no work, grants no fault authority, and never invents a default for a missing
+// field. The registry is file-backed and lives outside the task-keyed City store on purpose.
+import { createExperimentRegistry } from './research/registry.mjs';
+import { ARTIFACT_RETENTION, SEED_POLICIES, STOP_CONDITION_KINDS, TOPOLOGIES, ExperimentManifestError } from '../../contracts/experiment-manifest-v1/manifest.mjs';
 // City Core (MB-006). Whether work interrupted by a restart may resume is decided by the
 // migrated checkpoint-gate module instead of an inline state test.
 import { checkpointGate, unboundCheckpointPort } from '../../city/02-engineering/04-restart-recovery-station/checkpoint-gate/index.mjs';
@@ -404,6 +409,36 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   const askTargets=async()=>{const roomState=await rooms.probe();return buildTargets({roomState,capabilities:bridge.registry(),cityAvailability:cityAvailability(),roomsAvailable:roomState.available});};
   const body=async (req,limit=16384)=>{let size=0;const chunks=[];for await(const c of req){size+=c.length;if(size>limit){if(limit===MAX_REQUEST_BYTES)refuse('INPUT_TOO_LARGE',413);fail(413,'Request too large');}chunks.push(c);}try{return JSON.parse(Buffer.concat(chunks).toString('utf8')||'{}');}catch{if(limit===MAX_REQUEST_BYTES)refuse('INVALID_JSON');fail(400,'Invalid JSON');}};
   const required=(table,id)=>store.get(table,id)||fail(404,'Not found');
+  // REX-801: the research experiment registry.
+  //
+  // The capability vocabulary is taken from the LIVE bridge rather than from a constant, so "this manifest
+  // requires a capability nobody provides" is decided against what this City can actually do right now — the
+  // workbook's unknown-capability gate is only meaningful if it is answered by the real provider list. The
+  // documents live under the git-ignored runtime directory as files (see research/registry.mjs for why the City's
+  // task-keyed store is the wrong home for a description), and nothing here executes anything: the routes can
+  // list, create, validate and inspect an experiment, and that is all.
+  const experiments=createExperimentRegistry({
+    dir:resolve(dir,'research','experiments'),
+    knownCapabilities:bridge.registry().map(descriptor=>descriptor.capabilityId),
+  });
+  // What a research surface needs in order to build a valid manifest, published with every research response so
+  // the contract is discoverable from the contract itself: the topologies this release can describe, the seed
+  // policies, the stop-condition kinds, the retention levels, and the LIVE capability vocabulary that the
+  // unknown-capability gate is decided against. None of it is a copy that can drift, because the capability list
+  // is read from the bridge on each request.
+  const researchFacts=()=>({
+    contractVersion:experiments.contractVersion,
+    topologies:Object.keys(TOPOLOGIES),
+    topologyRequirements:TOPOLOGIES,
+    seedPolicies:SEED_POLICIES,
+    stopConditionKinds:STOP_CONDITION_KINDS,
+    artifactRetention:ARTIFACT_RETENTION,
+    capabilityVocabulary:bridge.registry().map(descriptor=>descriptor.capabilityId),
+    ownsTaskState:false,
+    grantsFaultAuthority:false,
+    executesExperiments:false,
+  });
+
   // INTEGRATION (JOIN-502 + JOIN-503): ONE snapshot carries both additions. The earlier de-duplication regex in
   // this branch's resolver matched the UNION line instead of JOIN-502's stale one (both begin with the same text
   // and the union ends with `joinRequests:join.snapshot()`), so it removed `joinRequests` and every JOIN-502 test
@@ -456,6 +491,11 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // two routes that skip it, and they do so because they predate the header and their callers are
       // already deployed.
       const nodeRoute=path.startsWith('/api/v0/node/');
+      // REX-801: research routes are CONTROL-credential routes. A node credential describes a worker, and an
+      // experiment description is an owner-level act of research governance: it names required capabilities, stop
+      // conditions and acceptance criteria for work that will be placed on those workers. Letting a worker
+      // register the experiment it will be judged by would make the acceptance criteria self-certified.
+      const researchRoute=path.startsWith('/api/v0/research/');
       // INTEGRATION: JOIN-502's OWN auth preamble used to stand here and has been removed. The text-level union
       // kept both, so this earlier one ran FIRST and authenticated before `publicJoin` existed, which made every
       // join route answer 401 while the code behind it was correct (`ask 0 answered 401` in the JOIN-502 suite).
@@ -475,7 +515,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // it in the removed block left the union preamble unaware of it, so /device/session answered 401 and every
       // JOIN-503 enrollment test failed with the same "Invalid pairing token" as an unauthenticated request.
       const selfAuthenticating=req.method==='POST'&&path==='/api/v0/device/session';
-      if(!publicJoin&&!legacyPublicPairing&&!selfAuthenticating)auth(req,nodeRoute&&path!=='/api/v0/node/sharing');
+      if(!publicJoin&&!legacyPublicPairing&&!selfAuthenticating)auth(req,nodeRoute&&path!=='/api/v0/node/sharing'&&!researchRoute);
       if(!legacyPublicPairing)version(req);
       let out;
       // JOIN-502 answers first, in the SAME chain as everything below: a second `if` chain would run
@@ -758,7 +798,50 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
           const patch={progress:b.progress};for(const k of ['lastCheckpoint','result','error'])if(b[k]!==undefined)patch[k]=b[k];
           out=change(t,b.state,patch,b.state==='RUNNING'?(t.state==='ASSIGNED'?'TASK_STARTED':'TASK_CHECKPOINTED'):'TASK_'+b.state);
         }
-      }else fail(404,'Not found');
+      }
+      // REX-801 — the Research control contract. Four stable operations, all authenticated with the control
+      // credential: list, inspect, create-or-import (validate then register), and validate-before-run. There is
+      // deliberately NO run/stop here: this contract describes experiments, and executing them belongs to
+      // REX-803. A caller that expects a run endpoint will get a typed 404 rather than a surprise.
+      //
+      // Note the shape of the refusals: a malformed manifest is NEVER repaired into a valid one. Registration
+      // answers with the full issue list (409 when the id is already taken by different content, 422 when the
+      // manifest is invalid), so the caller can see exactly why, and the rejection is persisted as evidence by
+      // the registry itself.
+      else if(path==='/api/v0/research/experiments'&&req.method==='GET'){
+        const query=new URL(req.url,'http://city').searchParams.get('status');
+        out={...experiments.list({status:query&&query.length>0?query:null}),research:researchFacts()};
+      } else if(path==='/api/v0/research/experiments'&&req.method==='POST'){
+        const b=await body(req,65536);
+        const result=experiments.register(b.manifest??b);
+        // A refused manifest is PERSISTED as evidence by the registry and then answered as a typed refusal with
+        // the whole issue list: 422 for "you sent an invalid description", 409 for "that id is already taken by
+        // different content" (which is thrown by the registry itself).
+        if(result.record.status==='REJECTED'){
+          emit('RESEARCH_EXPERIMENT_REJECTED',null,{experimentId:result.record.experimentId,issueCount:result.record.issues.length},'user');
+          throw new ExperimentManifestError('REJECTED',`${result.record.issues.length} issue(s) in the submitted manifest`,result.record.issues);
+        }
+        if(!result.replayed)emit('RESEARCH_EXPERIMENT_REGISTERED',null,{experimentId:result.record.experimentId,topology:result.record.manifest.topology,repetitions:result.record.manifest.repetitions},'user');
+        out={registered:true,replayed:result.replayed,persisted:result.persisted,...result.record,research:researchFacts()};
+      } else if(req.method==='POST'&&path==='/api/v0/research/experiments/validate'){
+        const b=await body(req,65536);
+        const verdict=experiments.validate(b.manifest??b);
+        emit('RESEARCH_EXPERIMENT_VALIDATED',null,{experimentId:verdict.experimentId,ok:verdict.ok,issueCount:verdict.issues.length},'user');
+        out={validation:verdict,research:researchFacts()};
+      } else if(req.method==='GET'&&/^\/api\/v0\/research\/experiments\/[^/]+\/seeds$/.test(path)){
+        const id=decodeURIComponent(path.split('/').at(-2));
+        const requested=new URL(req.url,'http://city').searchParams.get('repetitions');
+        const repetitions=requested===null||requested===''?null:Number(requested);
+        if(repetitions!==null&&(!Number.isSafeInteger(repetitions)||repetitions<1))refuse('INVALID_FIELD',400,'repetitions must be a positive integer when given');
+        out={seeds:experiments.seeds(id,{repetitions}),research:researchFacts()};
+      } else if(req.method==='GET'&&/^\/api\/v0\/research\/experiments\/[^/]+$/.test(path)){
+        const id=decodeURIComponent(path.split('/').at(-1));
+        out={experiment:experiments.get(id),research:researchFacts()};
+      } else if(req.method==='POST'&&/^\/api\/v0\/research\/experiments\/[^/]+\/register$/.test(path)){
+        // Import-by-id is not offered: an import must carry the manifest itself, so nothing is fetched from an
+        // address the City did not choose. Stated as a typed refusal rather than a 404 so the reason is readable.
+        refuse('IMPORT_REQUIRES_INLINE_MANIFEST',400);
+      } else fail(404,'Not found');
       res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(envelope(out)));
     }catch(e){
       // JOIN-503: an enrollment refusal is a typed fact (which installation, which ladder rung), so its code
@@ -767,6 +850,10 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // A refusal from the identity lifecycle itself (RF-001's rules) carries the same kind of typed code. The
       // refused facts are all client errors: a missing rebind proof, a clone, an already-bound installation.
       if(e instanceof DeviceIdentityError){res.writeHead(403,{'Content-Type':'application/json'});res.end(JSON.stringify(envelope({error:e.code,errorCode:e.code,detail:e.detail})));return;}
+      // REX-801: a refused experiment manifest is a typed fact with its whole issue list, so a caller can see
+      // every reason at once instead of fixing one field per round trip. The rejection is also persisted by the
+      // registry, so this response is a view of stored evidence rather than the only copy of it.
+      if(e instanceof ExperimentManifestError){res.writeHead(e.status||400,{'Content-Type':'application/json'});res.end(JSON.stringify(envelope({error:e.code,errorCode:e.code,detail:e.detail,issues:e.issues})));return;}
       res.writeHead(e.status||500,{'Content-Type':'application/json'});res.end(JSON.stringify(envelope({error:e.status?e.message:'Gateway error',...(e.code?{errorCode:e.code}:{})})));if(!e.status)console.error(e);}
   });
   // A relay peer is WRITTEN TO by the City (that is the whole point: the City pushes an answer it received down the

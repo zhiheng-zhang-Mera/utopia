@@ -53,6 +53,17 @@ import { acceptsWork } from '../../city/00-foundation/01-city-core/fleet-routing
 // City Core (MB-006). Whether work interrupted by a restart may resume is decided by the
 // migrated checkpoint-gate module instead of an inline state test.
 import { checkpointGate, unboundCheckpointPort } from '../../city/02-engineering/04-restart-recovery-station/checkpoint-gate/index.mjs';
+// WBC-601: the execution backend seam. The Windows Alien/Mech path is now an *implementation* of a versioned
+// port (`execution-backend-v1`) rather than the only shape execution can take, so a future Workbench node pool
+// is a second registration instead of a rewrite of this file. What matters here is what did NOT change: the
+// claim/report decisions below are still the frozen ones, evaluated in the same order by the same functions,
+// and `STANDARD_DEVICES` is enabled unconditionally so no configuration can make the current path unavailable.
+import {
+  DEFAULT_EXECUTION_PROFILE,
+  createExecutionBackendRegistry,
+  describeExecutionBackend,
+} from '../../contracts/execution-backend-v1/execution-backend.mjs';
+import { createStandardDevicesBackend } from './execution-backend/standard-devices.mjs';
 
 const now=()=>new Date().toISOString();
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
@@ -404,6 +415,45 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   const askTargets=async()=>{const roomState=await rooms.probe();return buildTargets({roomState,capabilities:bridge.registry(),cityAvailability:cityAvailability(),roomsAvailable:roomState.available});};
   const body=async (req,limit=16384)=>{let size=0;const chunks=[];for await(const c of req){size+=c.length;if(size>limit){if(limit===MAX_REQUEST_BYTES)refuse('INPUT_TOO_LARGE',413);fail(413,'Request too large');}chunks.push(c);}try{return JSON.parse(Buffer.concat(chunks).toString('utf8')||'{}');}catch{if(limit===MAX_REQUEST_BYTES)refuse('INVALID_JSON');fail(400,'Invalid JSON');}};
   const required=(table,id)=>store.get(table,id)||fail(404,'Not found');
+  // WBC-601: THE EXECUTION BACKEND SEAM.
+  //
+  // Which execution profile this City runs, and which backends may serve it. Two decisions are recorded here
+  // rather than left to a default that a later edit could change by accident:
+  //
+  //   1. `STANDARD_DEVICES` is registered UNCONDITIONALLY. It is not the fallback of a missing Workbench; it is
+  //      the baseline the product already runs on, and the hard compatibility invariant of this programme is
+  //      that a City with no Workbench and no Linux server is fully startable and fully executable.
+  //   2. Future profiles are NOT enabled, and naming one does not enable it. `CITY_EXECUTION_PROFILE` may only
+  //      select a profile that WBC-601 actually ships; anything else is refused at startup with the supported
+  //      set named, because a City that silently ran the wrong profile would make every later "the pool did it"
+  //      claim unverifiable. Enabling WORKER_POOL/HYBRID is WBC-603/604's work, not a configuration toggle.
+  const enabledBackends=['standard-devices',...(process.env.CITY_EXECUTION_BACKENDS??'').split(',').map(v=>v.trim()).filter(Boolean)];
+  const unsupportedBackends=enabledBackends.filter(id=>id!=='standard-devices');
+  if(unsupportedBackends.length>0)throw new Error(`No execution backend implementation exists for ${unsupportedBackends.join(', ')}; only standard-devices is implemented. A future backend is enabled by shipping it, not by naming it.`);
+  const executionProfile=process.env.CITY_EXECUTION_PROFILE??DEFAULT_EXECUTION_PROFILE;
+  if(executionProfile!==DEFAULT_EXECUTION_PROFILE)throw new Error(`Execution profile ${executionProfile} is not enabled by this release; supported profiles: ${DEFAULT_EXECUTION_PROFILE}`);
+  const executionBackends=createExecutionBackendRegistry({defaultProfile:DEFAULT_EXECUTION_PROFILE});
+  // The port is built over the gateway's OWN primitives - its node liveness shape, its strict-target guard, its
+  // handoff reservation guard, its canonical transition writer - so the backend cannot grow a second opinion
+  // about any of them. `claimNodeFor`/`acceptsWork` are the very functions the Core is asked through elsewhere
+  // in this file, and `REQUIRED_TASK_CAPABILITIES` is exported by this module, so the policy has one home.
+  const standardDevices=createStandardDevicesBackend({
+    store,
+    terminal,
+    claimNodeFor,
+    requiredCapabilities:REQUIRED_TASK_CAPABILITIES,
+    claimAllowedByTarget,
+    handoffClaimAllowed:args=>handoff.claimAllowed(args),
+    noteAssignment:args=>handoff.noteAssignment(args),
+    withheldTasks,
+    changeTask:change,
+    requireRecord:required,
+    fail,
+  });
+  executionBackends.register(standardDevices);
+  // Read at request time through the registry, never captured as the raw port: a later backend registration
+  // must be able to take effect without every route holding a stale reference.
+  const executionBackend=()=>executionBackends.active(executionProfile);
   // INTEGRATION (JOIN-502 + JOIN-503): ONE snapshot carries both additions. The earlier de-duplication regex in
   // this branch's resolver matched the UNION line instead of JOIN-502's stale one (both begin with the same text
   // and the union ends with `joinRequests:join.snapshot()`), so it removed `joinRequests` and every JOIN-502 test
@@ -415,7 +465,12 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
     // JOIN-503: the surface that is asking is told which INSTALLATION it is. A control-token client gets null
     // (it is the owner, not an enrolled installation), which is exactly what the Settings page needs in order to
     // show an enrollment summary for an enrolled client and the engineering fallback for a control-token one.
-    enrolledDevice:req?.citySession?enrollment.describe(req.citySession.session.installationId):null});
+    enrolledDevice:req?.citySession?enrollment.describe(req.citySession.session.installationId):null,
+    // WBC-601: which execution profile is serving this City, as an observable fact rather than an internal
+    // detail. It is a DESCRIPTOR only - it names the backend and its mode, never a device - so a surface can
+    // say "these runs are placed by STANDARD_DEVICES" without gaining any authority over placement. A future
+    // backend appears here by being registered; nothing in this field can enable one.
+    executionBackend:{profile:executionProfile,backend:describeExecutionBackend(executionBackends.active(executionProfile)),registered:executionBackends.list()}});
   // JOIN-502: `joinRequests` carries only LIVE ask rows (PENDING / APPROVED) as bounded public views,
   // so an already connected trusted surface can show "someone nearby wants to join" without polling a
   // second endpoint. It deliberately contains no claim digest and no credential, and each row declares
@@ -438,8 +493,16 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // degradation is stated explicitly instead, in `status` and in `components`.
       if(path==='/api/v0/health'){
         const roomState=await rooms.probe();
-        const components={gateway:{state:'READY'},rooms:{state:roomState.available?'READY':'UNAVAILABLE',reason:roomState.available?null:roomState.reason,hubUrl:roomState.hubUrl}};
-        const degraded=Object.values(components).some(c=>c.state!=='READY');
+        // WBC-601: the execution backend is reported as its own component with its own readiness word. It is
+        // NOT part of the degraded calculation on purpose: "no device is online right now" is a normal state of
+        // a peer-to-peer City, not a broken gateway, and making it degrade the whole City would recreate exactly
+        // the kind of global blocker this programme forbids. Readiness is stated so a supervisor can see it.
+        const backendState=executionBackend().readiness();
+        const components={gateway:{state:'READY'},rooms:{state:roomState.available?'READY':'UNAVAILABLE',reason:roomState.available?null:roomState.reason,hubUrl:roomState.hubUrl},execution:{state:backendState.state,reason:backendState.reason,detail:backendState.detail,profile:executionProfile,backendId:standardDevices.backendId,ready:backendState.ready,endpointCount:backendState.endpointCount,readyEndpointCount:backendState.readyEndpointCount}};
+        // `execution` is deliberately excluded from the degraded calculation: having no device online at this
+        // instant is a normal state of a peer-to-peer City, not a broken gateway, and folding it in would make a
+        // supervisor unable to tell the two apart. The word is still reported, so it is visible where it matters.
+        const degraded=components.gateway.state!=='READY'||components.rooms.state!=='READY';
         res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
         res.end(JSON.stringify(envelope({status:degraded?'degraded':'healthy',components})));
         return;
@@ -730,34 +793,16 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       } else if(req.method==='POST' && path==='/api/v0/node/heartbeat'){
         const b=await body(req);assertOwnNode(req,b.id);const n=required('nodes',b.id);const metrics=telemetry(b);if(!n.online)emit('NODE_ONLINE',null,{nodeId:n.id});out=store.put('nodes',{...n,...metrics,online:true,lastHeartbeatAt:now()});
       } else if(req.method==='POST' && path==='/api/v0/node/claim'){
-        const b=await body(req);assertOwnNode(req,b.id);const n=required('nodes',b.id);
-        const ready=acceptsWork(claimNodeFor(n),{requiredCapabilities:REQUIRED_TASK_CAPABILITIES});
-        const busy=store.list('tasks').some(t=>t.assignedNodeId===n.id&&!terminal.includes(t.state));
-        // UXI-391: a QUEUED task may be handed out only to a device the handoff bridge allows. A task that
-        // was transferred to B stays RESERVED for B, and a device the guard shows as its current holder is the
-        // only one that may take it - so a recovered A cannot re-claim work that has already moved to B.
-        //
-        // MESH-301: a strict target is a STRONGER guard than a reservation, and it is applied first. The
-        // reservation is the City's own post-hoc repair and may be released when the reserved device dies; the
-        // user's target may never be released, so a strict task whose device is away stays unclaimed rather
-        // than being handed to whoever is healthy. `claimAllowedByTarget` returns true for every untargeted
-        // task, which is what keeps the pre-existing scheduler behaviour unchanged.
-        const claimable=t=>t.state==='QUEUED'&&claimAllowedByTarget(t,n.id)&&handoff.claimAllowed({subjectRef:t.id,deviceRef:n.id,reservedFor:typeof t.handoffTargetRef==='string'&&t.handoffTargetRef.length>0?t.handoffTargetRef:null});
-        const t=ready&&!busy&&n.sharingEnabled!==false?store.list('tasks').find(claimable):null;
-        if(t)handoff.noteAssignment({subjectRef:t.id,deviceRef:n.id});
-        // A bare `task: null` cannot tell a device "there is no work" from "there is work and it is not
-        // yours". The withheld set is the difference, stated as data; nodes that ignore it are unaffected.
-        const withheld=withheldTasks({tasks:store.list('tasks'),deviceRef:n.id,terminal});
-        out={task:t?change(t,'ASSIGNED',{assignedNodeId:n.id}):null,...(withheld.length>0?{withheld}:{})};
+        const b=await body(req);assertOwnNode(req,b.id);
+        required('nodes',b.id);
+        // WBC-601: the decision moved behind the execution backend port and did NOT change. The guard order is
+        // still strict-target first, then the handoff reservation, then the endpoint's own readiness/busy/sharing
+        // gate, and the withheld set is still returned as data. The lookup above is kept so that an unknown node
+        // id answers the same typed 404 it answered before the seam existed.
+        out=executionBackend().claim({nodeId:b.id});
       } else if(req.method==='POST' && path==='/api/v0/node/report'){
-        const b=await body(req);assertOwnNode(req,b.id);const t=required('tasks',b.taskId);if(t.assignedNodeId!==b.id)fail(403,'Task belongs to another node');
-        if(terminal.includes(t.state)){out=t;}else{
-          const allowed=(t.state==='ASSIGNED'&&['RUNNING','FAILED'].includes(b.state))||(t.state==='RUNNING'&&['RUNNING','COMPLETED','FAILED'].includes(b.state));
-          if(!allowed)fail(409,'Invalid task transition');
-          if(!Number.isFinite(b.progress)||b.progress<t.progress||b.progress>100)fail(400,'Invalid progress');
-          const patch={progress:b.progress};for(const k of ['lastCheckpoint','result','error'])if(b[k]!==undefined)patch[k]=b[k];
-          out=change(t,b.state,patch,b.state==='RUNNING'?(t.state==='ASSIGNED'?'TASK_STARTED':'TASK_CHECKPOINTED'):'TASK_'+b.state);
-        }
+        const b=await body(req);assertOwnNode(req,b.id);
+        out=executionBackend().report({taskId:b.taskId,nodeId:b.id,state:b.state,progress:b.progress,lastCheckpoint:b.lastCheckpoint,result:b.result,error:b.error});
       }else fail(404,'Not found');
       res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(envelope(out)));
     }catch(e){
@@ -854,5 +899,5 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // here - recorded so the next reader does not mistake the assignment below for a join fix.
   pairing.endpoint=`http://${host}:${server.address().port}`;
   if(discoveryEnabled)discovery=await startDiscovery({descriptor:pairing.descriptor(),onStatus:s=>{discoveryState=s;}});
-  return {url:pairing.endpoint,store,join,relay,quiesce:value=>{acceptingTasks=!value;},close:async()=>{if(closed)return;closed=true;bridge.close();join.close();relay.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();}};
+  return {url:pairing.endpoint,store,join,relay,executionProfile,executionBackends,executionBackend,quiesce:value=>{acceptingTasks=!value;},close:async()=>{if(closed)return;closed=true;bridge.close();join.close();relay.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();}};
 }

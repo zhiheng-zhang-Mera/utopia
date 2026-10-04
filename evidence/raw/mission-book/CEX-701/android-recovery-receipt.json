@@ -1,0 +1,34 @@
+{
+  "role": "Alien-codex",
+  "status": "COMPONENT_PASS",
+  "unit": {
+    "tests": 84,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "build": "assembleDebug PASS",
+  "apkSha256": "f796d9ce7d7086a30a3bb8fa2c88a60fb258106e77a7e76b3b4bc22737360a51",
+  "installedApkHashMatches": true,
+  "physicalDevice": {
+    "model": "OPPO PERM00",
+    "observed": [
+      "Settings recovery panel",
+      "owner Web Settings action",
+      "unreachable City guidance",
+      "Find City reconnect action"
+    ],
+    "connectedRecovery": "NOT_RUN"
+  },
+  "failuresRetained": [
+    "invalid inherited Java/SDK paths",
+    "test-first unresolved recovery functions",
+    "initial UI dump before app launch; wrong Settings route; corrected with am start -W and package verification"
+  ],
+  "rawRefs": [
+    ".runtime/evidence/mission-book/CEX-701/android-01/green.log",
+    ".runtime/evidence/mission-book/CEX-701/android-01/red-complete.log",
+    ".runtime/evidence/mission-book/CEX-701/android-01/recovery-settings.xml"
+  ],
+  "formalOppositeHostReview": "NOT_RUN"
+}

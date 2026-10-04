@@ -24,6 +24,9 @@ let token=bootSession||storedSession()||sessionStorage.getItem('city-token')||''
 // bounded episode: a fresh browse must never silently replace or re-create an ask that a human on the
 // other machine is being asked to decide.
 let nearby=null,nearbyBusy=false,nearbyError='',joinAsk=null,joinBusy=false,joinError='',joinPoll=null,joinAskEpoch=0;
+// N2: the cross-network join. `selfOrigin` is captured ONCE, because a successful join navigates the page to the
+// other City and `location.origin` then stops describing the City whose pipe carried the ask.
+let selfOrigin=location.origin;
 /** Metres of trust: this is the whole reason the claim exists. Only the browser that created the ask
  *  holds this secret, so a second machine on the same LAN cannot adopt the ask by reading the City. It
  *  lives in sessionStorage, never localStorage: it is a tab-scoped episode, not a device credential. */
@@ -99,6 +102,14 @@ import {nearbyCities, probeNearby} from './discovery.js';
 // others), each with the quickest way onto it, plus which one should carry the City for all of them. Pure
 // presentation logic, so what it shows is testable without a browser; this file supplies facts and dispatches.
 import {buildConnectList, renderConnectList} from './connect-surface.js';
+// N2: the cross-network half. `reachForRow` decides whether a row can be reached by NAVIGATING there (same link,
+// where the browser can post the ask directly) or only over the relay pipe - which is the whole reason a PC on
+// another network needed a transport in the first place.
+import {joinCityOverRelay, reachForRow, relayTargetFor} from './relay-join.mjs';
+// The dialler itself. Its absence here was a PAGE-LEVEL defect that no module test could see: `askToJoin` referenced
+// `dialRelay` while only `relay-join.mjs` was imported, so the module threw `dialRelay is not defined` at load and
+// the ENTIRE page failed to initialise. A real browser found it in one run; every unit test passed throughout.
+import {dialRelay} from './relay-dial.mjs';
 // 销毁本地令牌: the bootstrap token belongs to THIS City. Once this client moves to another City it is dead
 // weight, so it is removed here rather than left behind in session storage for a later accidental reuse.
 function destroyLocalToken(){try{sessionStorage.removeItem('city-token');}catch{}token='';}
@@ -133,8 +144,21 @@ const bootToken=bootParams.get('token'),bootInvite=bootParams.get('pair');
 // Exposed for the same reason window.utopiaWebSurface is: an acceptance run has to be able to exercise the invite
 // path directly instead of only through a click, and a feature that can only be exercised by clicking is a
 // feature no script can check.
+// N2: the credential a relay join collected for ANOTHER City arrives here. It is read from the fragment (never the
+// query string, which a server would see) and consumed immediately, then the fragment is stripped - the same rule
+// the invite and join fragments already follow.
+const bootHandoff=bootParams.get('handoff');
+if(bootHandoff){
+ const handoff=new URLSearchParams(bootHandoff);
+ const handed=handoff.get('token')||'';
+ if(handed){token=handed;try{sessionStorage.setItem('city-token',token);}catch{}}
+}
 window.utopiaInvite={parse:parseInvite,exchange:exchangeInvite,destroyLocalToken};
-if(bootToken||bootInvite)history.replaceState(null,'',location.pathname+location.search);
+// N2: the relay dialler, exposed for the same reason `window.utopiaInvite` is - an acceptance run has to be able to
+// exercise "join a PC on another network" directly. A `dial-outbound` action on the connection list dispatches to
+// THIS function, so a script driving it and a user clicking the row take exactly the same path.
+window.utopiaRelay={dial:dialRelay,joinCityOverRelay,reachForRow,relayTargetFor,selfOrigin:()=>selfOrigin};
+if(bootToken||bootInvite||bootHandoff)history.replaceState(null,'',location.pathname+location.search);
 if(bootToken){token=bootToken;try{sessionStorage.setItem('city-token',token);}catch{}}
 // MESH-301: the strict-target choices are built from the City's OWN node list, so a target this surface
 // offers is one the City currently knows about. Nothing here is hardcoded, and "Any node" stays reachable:
@@ -258,11 +282,64 @@ async function invitePeer(row){
  * The ask is `{hint, claim}` and nothing else that matters: `displayName` is re-derived at the target
  * from the page's own surface label, so the value on the approval card is the one the joining surface
  * actually calls itself, not one this page could have forged for it.
+ *
+ * N2 - AND WHEN NAVIGATING THERE IS IMPOSSIBLE. Navigation needs the target to be reachable BY THE BROWSER, which
+ * is exactly what a PC on another network behind NAT is not. So a row whose reach is `relay` takes the OTHER road:
+ * this City dials the far PC's City over the relay pipe (`relay-dial` + `relay-join`) and the ask travels down that
+ * connection instead. The user stays on this page, the claim never leaves the browser, and the fallback is still the
+ * fragment navigation + the QR/short-code channel underneath - a failure here must not remove the way in that
+ * already worked.
  */
-function askToJoin(endpoint, cityRef){
+async function askToJoin(endpoint, cityRef, row){
  const target=String(endpoint||'').replace(/\/$/,'');
  if(!/^https?:\/\/[^\s]+$/.test(target)){joinError='join.errorUnreachable';render();return;}
  const claim=joinClaim();
+ // REMOTE ROWS FIRST, and only when this page really belongs to a City that can carry the ask: with no origin of
+ // our own there is no pipe to dial from, and pretending otherwise would strand the user.
+ if(row&&reachForRow(row)==='relay'&&selfOrigin){
+  const dialTarget=relayTargetFor({...row,address:row.address||target.replace(/^https?:\/\//,'').replace(/\/.*$/,'')},selfOrigin);
+  if(dialTarget){
+   try{
+    const dial=await dialRelay({host:dialTarget.host,port:dialTarget.port,installationId:installationHint(),label:webClientLabel(),clientUrl:selfOrigin});
+    joinError='';
+    joinAsk={state:'DIALING',claim,joinEndpoint:target,displayName:webClientLabel(),hint:installationHint(),cityRef:cityRef||null};
+    render();
+    const result=await joinCityOverRelay({
+     forward:(path,body,options)=>dial.forward(path,body,options),
+     claim,
+     displayName:webClientLabel(),
+     platform:navigator.platform||'browser',
+     hint:installationHint(),
+     origin:selfOrigin,
+     cityRef:cityRef||null,
+     onStep:(state,detail)=>{if(state==='PENDING'||state==='APPROVED')joinAsk={...joinAsk,state,requestId:detail?.id??joinAsk.requestId};render();},
+    });
+    try{dial.close();}catch{}
+    if(!result?.credential)throw Error('that City approved the request but returned no credential');
+    joinAsk={...joinAsk,state:'CONSUMED'};
+    const targetOrigin=new URL(target).origin;
+    // A SAME-ORIGIN join needs no navigation: the credential is used right here.
+    if(targetOrigin===selfOrigin.replace(/\/$/,'')){
+     token=result.credential;try{sessionStorage.setItem('city-token',token);}catch{}
+     $('#pair').hidden=true;$('#content').hidden=false;connect();
+    }else{
+     // CROSS-ORIGIN: the credential belongs to the OTHER City, so carrying it in a fragment is the only way to hand
+     // it over without ever putting it in a URL a server sees.
+     const handover=new URLSearchParams({v:'1',token:result.credential,city:result.cityId||''});
+     destroyLocalToken();
+     location.assign(targetOrigin+'/#handoff='+encodeURIComponent(handover.toString()));
+    }
+    return;
+   }catch(err){
+    // REPORT, THEN FALL BACK: the relay may be unreachable, refused, or the owner may simply have said no - and a
+    // rejection must not be retried by navigating, because navigating would ASK AGAIN.
+    joinAsk={state:err?.code==='RELAY_JOIN_REJECTED'?'REJECTED':err?.code==='RELAY_JOIN_EXPIRED'?'EXPIRED':'UNREACHABLE',claim,joinEndpoint:target,displayName:webClientLabel(),hint:installationHint(),cityRef:cityRef||null};
+    joinError=err?.code==='RELAY_JOIN_REJECTED'?'join.errorRejected':joinErrorKey(err);
+    render();
+    if(err?.fallback===false)return;
+   }
+  }
+ }
  const fragment=new URLSearchParams({v:'1',hint:installationHint(),claim});
  if(cityRef)fragment.set('city',String(cityRef).slice(0,80));
  // SAME ORIGIN: `location.assign` with only a fragment added is a SAME-DOCUMENT navigation, so the page
@@ -355,9 +432,11 @@ function nearbyRows(){
 function joinAskView(){
  if(!joinAsk)return joinError?`<p class="muted" role="alert">${esc(t(joinError))}</p>`:'';
  const endpoint=joinAsk.endpoint?`<span class="task-id">${esc(joinAsk.endpoint)}</span>`:'';
- if(joinAsk.state==='PENDING')return `<p class="muted">${esc(t('join.waiting'))} ${endpoint}</p>`;
+ if(joinAsk.state==='DIALING')return `<p class="muted">${esc(t('join.relay.dialing'))} ${endpoint}</p>`;
+ if(joinAsk.state==='PENDING')return `<p class="muted">${esc(t(joinAsk.hint?'join.relay.waiting':'join.waiting'))} ${endpoint}</p>`;
  if(joinAsk.state==='APPROVED')return `<p class="muted">${esc(t('join.approved'))} ${endpoint}</p>`;
  if(joinAsk.state==='REJECTED')return `<p class="muted" role="alert">${esc(t('join.rejected'))} ${endpoint}</p>`;
+ if(joinAsk.state==='UNREACHABLE')return `<p class="muted" role="alert">${esc(t('join.relay.unreachable'))} ${endpoint}</p>`;
  return `<p class="muted" role="alert">${esc(t('join.gone'))} ${endpoint}</p>`;
 }
 function nearbySection(){
@@ -521,12 +600,12 @@ if(e.target.id==='nearby-browse'){nearbyBrowse();}
 if(e.target.id==='connect-rescan'){autoProbed=true;nearbyBrowse();}
 if(e.target.dataset?.connectAction){const kind=e.target.dataset.connectAction,ref=e.target.dataset.connectRef||null;
  if(kind==='useSelf'){const stored=(()=>{try{return sessionStorage.getItem('city-token')||'';}catch{return '';}})();if(stored){token=stored;$('#pair').hidden=true;$('#content').hidden=false;connect();}else{$('#error').textContent=t('connect.action.useSelf');}}
- else if(kind==='join'&&ref){askToJoin(ref,ref);}
+ else if(kind==='join'&&ref){askToJoin(ref,ref,connectFacts().rows.find(r=>r.cityRef===ref)||null);}
  else if(kind==='invite'){const row=connectFacts().rows.find(r=>r.cityRef===ref)||null;const ok=await invitePeer(row);$('#error').textContent=ok?'':t('connect.inviteFailed');}
 }
 // JOIN-502: the browse above reads the LOCAL City's LAN view; this ask goes to the City the browse
 // found, which is a different origin - the reason it carries a claim secret instead of a credential.
-if(e.target.dataset?.joinRequest){askToJoin(e.target.dataset.joinRequest,e.target.dataset.joinRef||null);}// An owner decision returns to the backend, then the UI re-reads canonical state. It never mutates the
+if(e.target.dataset?.joinRequest){const ep=e.target.dataset.joinRequest;askToJoin(ep,e.target.dataset.joinRef||null,connectFacts().rows.find(r=>(r.cityRef||r.address)===e.target.dataset.joinRef||r.address===ep.replace(/^https?:\/\//,'').replace(/\/.*$/,''))||null);}// An owner decision returns to the backend, then the UI re-reads canonical state. It never mutates the
 // local row: an approval the City did not record must not look approved on screen.
 if(e.target.dataset?.joinApprove||e.target.dataset?.joinReject){const id=e.target.dataset.joinApprove||e.target.dataset.joinReject;const action=e.target.dataset.joinApprove?'approve':'reject';e.target.disabled=true;try{await api('join/requests/'+encodeURIComponent(id)+'/'+action,{});await refresh();}catch(err){$('#error').textContent=err.message;e.target.disabled=false;}}
 if(e.target.id==='copy-invite'){const box=$('#pairing-invite'),note=$('#copy-note');const done=ok=>{if(note)note.textContent=t(ok?'pairing.copied':'pairing.copyManual');};const fallback=()=>{try{box.focus();box.select();return document.execCommand('copy');}catch{return false;}};if(navigator.clipboard?.writeText){navigator.clipboard.writeText(box.value).then(()=>done(true)).catch(()=>done(fallback()));}else done(fallback());}

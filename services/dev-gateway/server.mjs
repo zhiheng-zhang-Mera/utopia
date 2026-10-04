@@ -60,6 +60,9 @@ const equals=(a,b)=>Buffer.byteLength(a)===Buffer.byteLength(b)&&timingSafeEqual
 // Exported so the consumption test asserts against the gateway's real policy instead of
 // restating it (a restated copy could be wrong in the same way the policy is wrong).
 export const REQUIRED_TASK_CAPABILITIES=['task.execute.safe','filesystem.temp'];
+// S1: a pipe is a doorway, so it is rate-limited. Sized generously for a join handshake (which is a handful of
+// calls over minutes) and tightly enough that a peer cannot use the City's join routes as a request amplifier.
+export const RELAY_REQUESTS_PER_SECOND=20;
 // The Core's node shape, filled from the gateway's own liveness truth. A node that is
 // not online is OFFLINE, and the Core refuses an OFFLINE node whatever it lists.
 const claimNodeFor=n=>({nodeId:n.id,state:n.online?'READY':'OFFLINE',capabilities:n.capabilities,lastHeartbeatAt:Date.parse(n.lastHeartbeatAt)||0,seq:0});
@@ -157,6 +160,51 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // `join/request` is already a public route - forwarding it grants nothing. What the credential DOES buy is
   // ATTRIBUTION (`verified`), and what EVERY peer is still refused is anything outside `RELAY_PAYLOAD_PATHS`, so
   // this pipe can never become an open proxy.
+  // A relay frame is answered by running the City's OWN handler for that payload, in-process.
+  //
+  // WHY IN-PROCESS AND NOT A SELF-CALL OVER HTTP: this server binds ONE explicit interface, so a City listening only
+  // on its LAN address has no guaranteed loopback URL - and guessing one would break on exactly the machines this
+  // feature exists for. Nothing here is remote, so nothing here should travel.
+  //
+  // WHAT IT REFUSES: only the payload list the relay already enforces is handled, and these handlers are the PUBLIC
+  // join handshake plus the tokenless session route - no owner or installation operation is reachable from a pipe.
+  // The list is checked here as well as in `relay.mjs` rather than trusted across the boundary.
+  const relayRate=new Map();
+  const executeRelayPayload=async({peerRef,path,method,body})=>{
+    // A pipe is a doorway, so it gets a rate: a peer that hammers the City's join routes must be slowed down rather
+    // than being allowed to fill the pending-request table with asks nobody asked for.
+    const nowMs=Date.now();const windowStart=nowMs-1000;
+    const recent=(relayRate.get(peerRef)??[]).filter(at=>at>windowStart);
+    if(recent.length>=RELAY_REQUESTS_PER_SECOND)throw Object.assign(new Error('this relay peer is sending requests too quickly'),{status:429});
+    recent.push(nowMs);relayRate.set(peerRef,recent);
+    const verb=method==='GET'?'GET':'POST';
+    try {
+      let handled;
+      if(path==='/api/v0/join/info'){
+        handled=joinCapability(pairing.descriptor(),discoveryState,hostCarrierFacts({
+          cores: typeof osCpus === 'function' ? osCpus().length : null,
+          totalMemoryBytes: osTotalmem(),
+          freeMemoryBytes: osFreemem(),
+        }));
+      } else if(path==='/api/v0/join/nearby'){
+        const found=await browseNearby({interface:host,nearbyTimeoutMs});
+        handled={nearby:found.candidates.map(c=>({cityRef:c.cityId??c.cityRef,displayName:c.displayName,address:c.address,port:c.port,transport:c.transport,lastSeenAt:c.lastSeenAt,stale:c.stale,grantsTrust:false,carrierFacts:c.carrierFacts??null})),bounded:found.bounded===true,discovered:found.discovered??0,unavailable:found.unavailable===true};
+      } else if(path==='/api/v0/join/request'){handled=join.request(body??{});}
+      else if(path==='/api/v0/join/status'){handled=join.status(body??{});}
+      else if(path==='/api/v0/join/exchange'){handled=join.exchange(body??{});}
+      else if(path==='/api/v0/device/session'){
+        // The tokenless reconnect, and ONLY that half of it: an install credential exchange. A session-refresh call
+        // needs a credential the pipe's peer does not have, so it has nothing to refresh here.
+        const b=body??{};
+        const opened=enrollment.openSession({installationId:b.installationId,instanceId:b.instanceId,credentialId:b.credentialId,credentialSecret:b.credentialSecret});
+        handled={apiVersion:0,schemaVersion:0,credential:sessionCredential(opened.session.sessionId),session:{sessionId:opened.session.sessionId,expiresAt:opened.session.expiresAt,issuedAt:opened.session.issuedAt},installation:enrollment.describe(opened.installation.installationId),cityId:store.cityId};
+      } else throw Object.assign(new Error(`the relay does not carry ${path}`),{status:403});
+      return {ok:true,status:200,payload:envelope(handled),error:null};
+    } catch(error) {
+      const status=Number.isFinite(error?.status)?error.status:500;
+      return {ok:false,status,payload:envelope({error:status===500?'Gateway error':error.message,...(error.code?{errorCode:error.code}:{}),...(error.detail?{detail:error.detail}:{})}),error:String(error?.message??error)};
+    }
+  };
   const relayAdmit=hello=>{
     const raw=typeof hello?.credential==='string'?hello.credential:'';
     const declared=typeof hello?.installationId==='string'?hello.installationId.trim().slice(0,120):'';
@@ -188,13 +236,9 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // `RELAY_TIMEOUT` while both ends looked healthy. The hub's own tests passed because they inject the identity
   // codec - which is exactly the shape this gateway now uses.
   const relay=createRelayHub({admit:relayAdmit,codec:{encode:value=>value,decode:text=>JSON.parse(String(text))}});
-  // A dialling peer DECLARES where its own City lives, and that is what a pushed payload is executed against when
-  // the payload belongs to a City other than this relay. Recorded per peer and looked up at dispatch time.
+  // A dialling peer DECLARES where its own City lives; recorded per peer and cleared when its pipe closes.
   const relayOrigins=new Map();
-  // `cityUrl` is read AT DISPATCH TIME, not at creation time: the City's own endpoint is only known after
-  // `listen()` (tests use port 0), so a value captured here would pin the pre-listen port for ever. This is the
-  // same distinction the join capability endpoint needed, and it is stated because it silently half-works otherwise.
-  const relayDispatch=(peerRef,raw)=>createRelayDispatcher({relay,cityUrl:pairing.endpoint,getCityUrl:ref=>relayOrigins.get(ref)??null})(peerRef,raw);
+  const relayDispatch=(peerRef,raw)=>createRelayDispatcher({relay,execute:executeRelayPayload})(peerRef,raw);
   // S1: the frames the City sends its own end of the pipe are the join/approve handshake carried by `relay.mjs`.
   // Nothing here writes to disk and nothing here becomes a trust store - the pipe only moves the request.
   const relayOnMessage=(peerRef,raw)=>{Promise.resolve().then(()=>relayDispatch(peerRef,raw)).then(result=>{if(result && result.handled!==true&&result.delivered!==true&&result.settled!==true)console.warn('relay frame ignored',JSON.stringify(result));

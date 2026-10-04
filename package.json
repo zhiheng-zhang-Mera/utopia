@@ -11,6 +11,7 @@
     "start": "node services/dev-gateway/main.mjs",
     "agent": "node agents/reference-node/main.mjs",
     "check:docs": "node scripts/check-bilingual.mjs",
+    "check:browser-relay": "node scripts/browser-relay-check.mjs",
     "mission:event": "node scripts/record-mission-event.mjs",
     "mission:finalize": "node scripts/finalize-mission-episode.mjs"
   },

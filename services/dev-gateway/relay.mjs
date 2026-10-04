@@ -255,17 +255,19 @@ export async function forwardRequestOverRelay({ relay, peerRef, path, method = '
  *
  * TWO DIRECTIONS TRAVEL OVER ONE SOCKET, so the names are direction-specific and checked before anything else:
  *   * `relay-answer`  - an answer to a request THIS City pushed down (`relay.forward`), settled here;
- *   * `relay-request` - a request FROM the dialling peer, which this City forwards to the peer the caller named
- *     (the `targetPeerRef` in the frame). That is what makes the pipe usable in the direction the dialling PC
- *     needs: it cannot be dialled, but it can ask the reachable City to push a join payload to the peer it wants.
+ *   * `relay-request` - a request FROM the dialling peer. THE CITY RUNS IT ITSELF, on its own routes, and writes the
+ *     answer back down the pipe.
  *
- * A frame that is neither is IGNORED with a stated reason rather than throwing into the socket handler: a peer that
- * sends junk must not be able to kill its own connection and, with it, every request in flight.
+ * WHY THE CITY RUNS IT, and not "the peer it was forwarded to". The first version pushed the payload on to a peer
+ * named in the frame. That produced a flow that LOOKED correct and could never join anybody: the dialling peer is,
+ * by definition, the machine that cannot be dialled, so asking it to execute a join ask against another City means
+ * asking the one machine with no route to that City to use one. The requester wants to reach THIS City - the
+ * reachable one - and this City is therefore the only sensible place for the payload to run.
  *
- * `forwardToPeer` is injected because the hub knows how to PUT a request on a pipe and does not know how to answer
- * one: the City's own routing does that, so this module keeps no second opinion about join payloads.
+ * `execute` is injected because the hub knows how to move frames and must not grow a second opinion about the
+ * City's routes; a frame is dispatched only after `isRoutableRelayPayload` has approved its path.
  */
-export function createRelayDispatcher({ relay, maxBytes = DEFAULT_RELAY_MESSAGE_BYTES, decode = jsonCodec.decode, cityUrl = null, getCityUrl = null, clock = Date.now } = {}) {
+export function createRelayDispatcher({ relay, maxBytes = DEFAULT_RELAY_MESSAGE_BYTES, decode = jsonCodec.decode, execute = null } = {}) {
   if (!relay) throw new RelayError('RELAY_MISCONFIGURED', 'a dispatcher needs a relay hub', 500);
   return async function dispatch(peerRef, raw) {
     if (typeof raw === 'string' && raw.length > maxBytes) return { handled: false, reason: 'TOO_LARGE' };
@@ -283,50 +285,30 @@ export function createRelayDispatcher({ relay, maxBytes = DEFAULT_RELAY_MESSAGE_
     }
     if (message.kind !== 'relay-request') return { handled: false, reason: 'UNKNOWN_KIND' };
 
-    // The dialling peer cannot be dialled, so it asks THIS City to push the payload to the peer it names. The ref is
-    // checked against the hub's OWN table: a peer cannot ask the City to reach a machine of its choosing, only one
-    // that is already connected here.
-    const targetRef = typeof message.targetPeerRef === 'string' && message.targetPeerRef !== '' ? message.targetPeerRef : peerRef;
     const path = (() => { try { return new URL(String(message.path ?? '/'), 'http://city').pathname; } catch { return null; } })();
     const verb = String(message.method ?? 'POST').toUpperCase() === 'GET' ? 'GET' : 'POST';
     const refuse = (detail, status) => {
-      const answer = relayAnswer({ requestId: message.requestId, ok: true, status, payload: null, error: detail });
-      try { relay.deliver(peerRef, { kind: 'relay-answer', requestId: message.requestId, ok: true, status, response: answer.response, ...(answer.error ? { error: answer.error } : {}) }); } catch { /* the pipe is gone */ }
+      const answer = relayAnswer({ requestId: message.requestId, ok: false, status, payload: null, error: detail });
+      try { relay.deliver(peerRef, { kind: 'relay-answer', requestId: message.requestId, ok: false, status, response: answer.response, error: detail }); } catch { /* the pipe is gone */ }
       return { handled: true, direction: 'refused', reason: detail };
     };
-    if (!relay.listPeers().some(candidate => candidate.peerRef === targetRef)) {
-      // The target is not connected HERE, so the asking peer is told so rather than waiting for an answer that
-      // cannot come. This is the case a single-City relay hits immediately, and naming it is what lets the surface
-      // distinguish "no path to that PC" from "the relay is down".
-      return refuse(`peer ${targetRef} is not connected to this City`, 404);
-    }
     if (path === null || !isRoutableRelayPayload({ path })) return refuse(`the relay does not carry ${path ?? message.path}`, 403);
-    // `url` is what the answering peer should send the payload TO. A peer registered with a RELAY must still address
-    // the City that will decide the join, which is not the relay; without this the pushed ask would be resolved
-    // against the peer's own page and delivered to the wrong City - or, outside a browser, fail to resolve at all.
-    // A peer that DECLARED its own origin at dial time is preferred, because that is the City it belongs to.
-    const answeringUrl = (typeof getCityUrl === 'function' ? getCityUrl(peerRef) : null) ?? cityUrl;
-    if (typeof answeringUrl !== 'string' || answeringUrl === '') return refuse('this City has no endpoint to name for the pushed payload', 503);
-    // AND IT IS PUSHED ON HERE, but NOT from inside this frame's stack: the dispatch call has to RETURN so the
-    // caller can answer at once (a long-lived pipe must not be blocked by one slow payload), and the answer is
-    // settled later by `settle`, which the caller invokes when the target replies.
-    //
-    // TWO KINDS OF WAITING ARE LIVE AT ONCE - the asking peer waiting for its answer, and this City waiting for the
-    // target peer's reply - so they must NOT share an id. `settle` matches on (requestId, peerRef), and the asking
-    // peer's entry is keyed to the ASKING ref: reusing the asking id for the outgoing push settled the wrong entry
-    // (NO_SUCH_REQUEST) while the target was answered correctly, so the caller timed out against a relay whose own
-    // logs said the forward had succeeded.
-    const outboundId = `relay-${clock()}-${Math.random().toString(36).slice(2, 10)}`;
+    if (typeof execute !== 'function') return refuse('this City has no way to run a relayed payload', 503);
+
+    // THE ANSWER GOES BACK DOWN THE PIPE, never through `settle`: the asking peer's wait lives in ITS OWN table
+    // (`relay-dial`'s `inFlight`), so nothing here can settle it - only writing to it can answer it.
     const settleLater = async () => {
       try {
-        const answer = await relay.forward(targetRef, { path, method: verb, body: message.body, url: answeringUrl }, { requestId: outboundId });
-        // The asking peer's wait is ITS OWN, so the answer is written back to it rather than "settled" here.
-        return relay.deliver(peerRef, { kind: 'relay-answer', requestId: message.requestId, ok: true, status: answer?.status ?? 200, response: answer });
+        const result = await execute({ peerRef, path, method: verb, body: message.body ?? {} });
+        const ok = result?.ok === true;
+        const status = Number.isFinite(result?.status) ? result.status : (ok ? 200 : 502);
+        return relay.deliver(peerRef, { kind: 'relay-answer', requestId: message.requestId, ok, status, response: { ok, status, payload: result?.payload ?? null } });
       } catch (error) {
-        return relay.deliver(peerRef, { kind: 'relay-answer', requestId: message.requestId, ok: false, status: Number.isFinite(error?.status) ? error.status : 504, response: { ok: false, status: Number.isFinite(error?.status) ? error.status : 504, payload: null }, error: String(error?.detail ?? error?.message ?? error) });
+        const status = Number.isFinite(error?.status) ? error.status : 500;
+        return relay.deliver(peerRef, { kind: 'relay-answer', requestId: message.requestId, ok: false, status, response: { ok: false, status, payload: null }, error: String(error?.detail ?? error?.message ?? error) });
       }
     };
-    return { handled: true, direction: 'forwarded', targetRef, path, outboundId, settleLater };
+    return { handled: true, direction: 'executed', path, method: verb, settleLater };
   };
 }
 

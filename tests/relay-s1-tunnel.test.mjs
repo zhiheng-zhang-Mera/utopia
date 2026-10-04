@@ -2,17 +2,19 @@
 //
 // WHY THIS FILE EXISTS. `relay.mjs` was already a tested transport and `choosePath` already answered
 // `relay-in-city`, but NOTHING DIALLED IT - the decision could name a mechanism that did not exist. This file
-// covers the two halves that make it real: the City accepting a dialled-in peer and forwarding a payload to it
+// covers the two halves that make it real: the City accepting a dialled-in peer and RUNNING a join payload for it
 // (S1), and the client that dials and forwards an EXISTING join payload over the pipe (S2/S3).
 //
-// WHAT IS PINNED, AND IN WHICH DIRECTION:
-//   * a peer that cannot be dialled registers over an OUTBOUND socket, and the City pushes a join payload to it;
-//   * the payload the peer answers is the EXISTING route (`join/request`), and the owner's approval still happens
-//     on the City's own authenticated surface - the pipe carries the ask, not the authority;
-//   * the pipe is NOT an open proxy: a path outside the payload list is refused, and so is a target ref the City
-//     does not actually hold;
-//   * the ADMISSION policy refuses a credential that was presented and did not resolve, rather than quietly
-//     demoting that peer to anonymous - otherwise revoking a device would not close its pipe.
+// THE EXECUTION MODEL, WHICH THIS FILE PINS: a relayed payload runs ON THE CITY THAT RECEIVED IT. The dialling peer
+// is the machine that cannot be dialled, so asking it to execute a join ask against another City would be asking the
+// one machine with no route to that City to use one - a flow that looks correct and joins nobody. An earlier
+// revision did exactly that ("push it to the target peer"); it is recorded here so the regression cannot come back
+// quietly.
+//
+// WHAT ELSE IS PINNED: the pipe is not an open proxy (a named payload list, checked at both ends); approval still
+// happens on the City's own authenticated surface and the pipe records nothing on the peer's behalf; an
+// unresolvable presented credential is refused rather than demoted to anonymous; and a request that never stops is
+// rate-limited rather than allowed to fill the City's pending table.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -20,6 +22,7 @@ import { resolve } from 'node:path';
 import { createGateway } from '../services/dev-gateway/server.mjs';
 import { RelayDialError, RELAY_PAYLOAD_PATHS, dialRelay } from '../apps/web/relay-dial.mjs';
 import { RELAY_PAYLOAD_PATHS as SERVER_PAYLOAD_PATHS } from '../services/dev-gateway/relay.mjs';
+import { joinCityOverRelay, reachForRow, relayTargetFor } from '../apps/web/relay-join.mjs';
 
 const V = { 'X-City-Api-Version': '0', 'X-City-Schema-Version': '0' };
 const CONTROL = 'relay-s1-control';
@@ -75,41 +78,19 @@ const readAnswer = frame => {
   return { ok, status, payload: nested ? (inner.payload ?? null) : (frame?.payload ?? null) };
 };
 
-/** Run one of the City's own routes, exactly as the pushed payload names it.
- *
- *  THE PUSHED `url` WINS over the City this socket is connected to, and the first version ignored it: the payload
- *  went to the RELAY that carried it instead of the City that owns the peer, so the two-City case recorded the ask
- *  on the wrong City while every status still looked healthy. That is exactly the failure the case exists to catch.
- */
-async function runCityRoute(baseUrl, frame) {
-  const verb = String(frame.method ?? 'POST').toUpperCase() === 'GET' ? 'GET' : 'POST';
-  const base = typeof frame.url === 'string' && frame.url !== '' ? new URL(frame.url).origin : baseUrl;
-  const r = await fetch(new URL(frame.path, base).toString(), {
-    method: verb,
-    headers: { 'Content-Type': 'application/json', ...V },
-    ...(verb === 'GET' ? {} : { body: JSON.stringify(frame.body ?? {}) }),
-  });
-  const payload = await r.json().catch(() => null);
-  // A route that refused is NOT an exception to hide: the pushed payload's own status has to travel back, so a
-  // refusal is recorded here where the test can see it.
-  if (!r.ok) console.warn('relay test: the City refused a pushed payload', JSON.stringify({ path: frame.path, status: r.status, error: payload?.error }).slice(0, 200));
-  return { ok: r.ok, status: r.status, payload, error: r.ok ? null : (payload?.error ?? `the City answered ${r.status}`) };
-}
-
 /**
  * A hand-rolled relay peer: enough to speak the wire contract directly and assert what the City does with it.
  *
- * `answers: true` makes it behave like `relay-dial` does - execute the pushed payload against the City that sent
- * it and answer up the same socket. `answers: false` leaves the pushed requests unanswered on purpose.
+ * `answers: true` makes it behave like `relay-dial` does - execute a payload the City PUSHES down the pipe against
+ * the City that sent it, and answer up the same socket. A relayed REQUEST it sends up needs no answer from it: the
+ * City runs that itself.
  */
 async function manualPeer(url, { credential = null, installationId = 'install-peer-b', label = 'Peer B', query = {}, answers = true, clientUrl = null } = {}) {
   const { WebSocket } = await import('ws');
   // An EMPTY installationId means "declare no ref at all", which is the refusal case - so the parameter is omitted
   // rather than sent empty, because an empty string and a missing ref are not the same fact to the admission policy.
   const params = new URLSearchParams({ ...query, label, ...(installationId ? { installationId } : {}) });
-  // A peer states where ITS City lives, exactly as `relay-dial` does: without it the relay has no address to name
-  // for a pushed payload, and the refusal it answers with is correct-but-useless ("no endpoint to name").
-  if (clientUrl ?? url) params.set('clientUrl', clientUrl ?? url);
+  if (clientUrl) params.set('clientUrl', clientUrl);
   const protocols = ['city-relay-v0', ...(credential ? [`city-token.${Buffer.from(credential).toString('base64url')}`] : [])];
   const socket = new WebSocket(wsUrl(url, `?${params.toString()}`), protocols);
   const frames = [];
@@ -118,11 +99,18 @@ async function manualPeer(url, { credential = null, installationId = 'install-pe
     try { frame = JSON.parse(raw.toString()); } catch { return; }
     frames.push(frame);
     if (!answers || frame?.kind !== 'relay-push') return;
-    const { ok, status, payload } = await runCityRoute(url, frame);
+    const verb = String(frame.method ?? 'POST').toUpperCase() === 'GET' ? 'GET' : 'POST';
+    const base = typeof frame.url === 'string' && frame.url !== '' ? new URL(frame.url).origin : url;
+    const r = await fetch(new URL(frame.path, base).toString(), {
+      method: verb,
+      headers: { 'Content-Type': 'application/json', ...V },
+      ...(verb === 'GET' ? {} : { body: JSON.stringify(frame.body ?? {}) }),
+    });
+    const payload = await r.json().catch(() => null);
     // `error` is NOT echoed, and that omission is deliberate: an answer carrying both a response and an error is
     // read as a TRANSPORT failure by the waiting side, so the City's real status (a 403, a 410) would arrive as
     // "the relay failed". The City's own status is the answer; `relay-dial` omits it for the same reason.
-    try { socket.send(JSON.stringify({ kind: 'relay-answer', requestId: frame.requestId, ok, status, response: { ok, status, payload } })); } catch { /* gone */ }
+    try { socket.send(JSON.stringify({ kind: 'relay-answer', requestId: frame.requestId, ok: r.ok, status: r.status, response: { ok: r.ok, status: r.status, payload } })); } catch { /* gone */ }
   });
   const outcome = await new Promise(resolveOutcome => {
     socket.once('open', () => resolveOutcome({ opened: true }));
@@ -131,12 +119,21 @@ async function manualPeer(url, { credential = null, installationId = 'install-pe
     // status is captured too rather than being flattened into "socket closed".
     socket.once('unexpected-response', (_request, response) => resolveOutcome({ opened: false, status: response.statusCode }));
   });
+  const ready = () => frames.find(f => f?.type === 'RELAY_READY') ?? null;
   return {
     socket,
     frames,
     ...outcome,
-    ready: () => frames.find(f => f?.type === 'RELAY_READY') ?? null,
+    ready,
     pushed: () => frames.filter(f => f?.kind === 'relay-push'),
+    /** Send one request up the pipe, exactly as `relay-dial` does, and return the answer frame it gets back. */
+    request: async (path, body = {}, { method = 'POST', timeoutMs = 4000 } = {}) => {
+      const requestId = `manual-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+      socket.send(JSON.stringify({ kind: 'relay-request', requestId, path, method, body }));
+      const frame = await waitFor(() => frames.find(f => f?.kind === 'relay-answer' && f.requestId === requestId), { timeoutMs });
+      if (!frame) throw new Error(`the City never answered ${path}`);
+      return { ok: frame.ok === true, status: frame.status, payload: frame.response?.payload ?? null, error: frame.error ?? null };
+    },
   };
 }
 
@@ -156,8 +153,7 @@ test('S1: a peer that cannot be dialled registers over an OUTBOUND socket, and t
     assert.equal(app.relay.stats().peers, 1);
 
     peer.socket.close();
-    const gone = await waitFor(() => app.relay.stats().peers === 0);
-    assert.equal(gone, true, 'a closed pipe is unregistered rather than leaked');
+    assert.equal(await waitFor(() => app.relay.stats().peers === 0), true, 'a closed pipe is unregistered rather than leaked');
   } finally { closeQuietly(peer?.socket); await app.close(); await rm(dir, { recursive: true, force: true }); }
 });
 
@@ -197,27 +193,18 @@ test('S1: admission reuses the City’s OWN credentials - a session ref comes fr
   }
 });
 
-test('S3: a real join travels over the pipe - ask, owner approve, collect - and the relay only forwards', async () => {
+test('S3: a real join completes over the pipe - the CITY runs the payload, the owner approves, the claim is spent once', async () => {
   const dir = await mkdtemp(resolve('.scratch-relay-s3-'));
   const app = await createGateway({ host: '127.0.0.1', port: 0, dir, token: CONTROL, nodeToken: NODE });
-  let peer, relay;
+  let relay;
   try {
-    // PC-A: already registered with this City, and reachable only by the pipe it opened itself.
-    peer = await manualPeer(app.url, { installationId: 'install-peer-a' });
-    assert.ok(await waitFor(() => peer.ready()), 'the far side is registered');
-
-    // PC-B: cannot be dialled, dials out, and asks the City to push the join ask to PC-A.
-    relay = await dialRelay({ host: '127.0.0.1', port: Number(new URL(app.url).port), installationId: 'install-peer-b', label: 'Peer B', targetPeerRef: 'install-peer-a' });
+    relay = await dialRelay({ host: '127.0.0.1', port: Number(new URL(app.url).port), installationId: 'install-peer-b', label: 'Peer B' });
     assert.equal(relay.verified, false, 'the dialling peer holds no City credential yet: that is the whole premise');
-    assert.equal(relay.city.sameOrigin, false, 'this page was NOT served by the City being dialled, so the forwarded payload must name that City explicitly');
 
     const claim = 'relay-claim-secret-0123456789';
-    // The payload is the EXISTING join payload, field for field. Nothing about it is relay-specific.
     const asked = await relay.forward('/api/v0/join/request', { displayName: 'Peer B', platform: 'Win32', installationHint: 'install-peer-b', origin: 'relay', claim });
-    assert.equal(asked.ok, true, 'the forward itself succeeded');
-    assert.equal(asked.response.status, 200);
-    assert.equal(asked.response.payload.state, 'PENDING', 'the request was recorded on the City by the peer the relay pushed it to');
-    assert.equal(peer.pushed().length, 1, 'and it really travelled as a pushed payload rather than being answered by the relay itself');
+    assert.equal(asked.response.status, 200, `the City ran the payload itself: ${JSON.stringify(asked).slice(0, 200)}`);
+    assert.equal(asked.response.payload.state, 'PENDING');
 
     // The decision still happens on an AUTHENTICATED surface: the pipe carries the ask, not the authority.
     const pending = await (await fetch(app.url + '/api/v0/join/requests', { headers: { ...V, Authorization: `Bearer ${CONTROL}` } })).json();
@@ -232,21 +219,17 @@ test('S3: a real join travels over the pipe - ask, owner approve, collect - and 
     assert.equal(collected.response.payload.accepted, true, 'and the credential is released only through the approved, one-time claim');
     assert.ok(typeof collected.response.payload.credential === 'string' && collected.response.payload.credential.length > 0);
 
-    // ONE-TIME means one time, through the pipe as much as over HTTP. A refusal from the City travels as its OWN
-    // status inside a successful forward - that is what lets the surface say "already used" instead of "unreachable".
     const spent = await relay.forward('/api/v0/join/exchange', { requestId: asked.response.payload.id, claim });
     assert.equal(spent.response.status, 410, `a spent claim is answered with its own status: ${JSON.stringify(spent).slice(0, 200)}`);
-  } finally { relay?.close(); closeQuietly(peer?.socket); await app.close(); await rm(dir, { recursive: true, force: true }); }
+  } finally { relay?.close(); await app.close(); await rm(dir, { recursive: true, force: true }); }
 });
 
 test('S3: without approval the pipe grants nothing - the City is not joined just because a path exists', async () => {
   const dir = await mkdtemp(resolve('.scratch-relay-s3-'));
   const app = await createGateway({ host: '127.0.0.1', port: 0, dir, token: CONTROL, nodeToken: NODE });
-  let peer, relay;
+  let relay;
   try {
-    peer = await manualPeer(app.url, { installationId: 'install-peer-a' });
-    await waitFor(() => peer.ready());
-    relay = await dialRelay({ host: '127.0.0.1', port: Number(new URL(app.url).port), installationId: 'install-peer-c', targetPeerRef: 'install-peer-a' });
+    relay = await dialRelay({ host: '127.0.0.1', port: Number(new URL(app.url).port), installationId: 'install-peer-c' });
     const claim = 'relay-claim-secret-abcdefghij';
     const asked = await relay.forward('/api/v0/join/request', { displayName: 'Peer C', platform: 'Win32', installationHint: 'install-peer-c', claim });
     const status = await relay.forward('/api/v0/join/status', { requestId: asked.response.payload.id, claim });
@@ -255,17 +238,17 @@ test('S3: without approval the pipe grants nothing - the City is not joined just
     const refused = await relay.forward('/api/v0/join/exchange', { requestId: asked.response.payload.id, claim });
     assert.equal(refused.response.status, 409, 'an unapproved request releases no credential, whatever transport carried the ask');
     assert.equal(refused.response.payload?.credential, undefined, 'and it releases no credential field at all');
-  } finally { relay?.close(); closeQuietly(peer?.socket); await app.close(); await rm(dir, { recursive: true, force: true }); }
+  } finally { relay?.close(); await app.close(); await rm(dir, { recursive: true, force: true }); }
 });
 
-test('S2/S3: the relay refuses to be an open proxy - no path outside the list, and no target the City does not hold', async () => {
+test('S2/S3: the relay refuses to be an open proxy - no path outside the list, and no widening by method', async () => {
   const dir = await mkdtemp(resolve('.scratch-relay-s2-'));
   const app = await createGateway({ host: '127.0.0.1', port: 0, dir, token: CONTROL, nodeToken: NODE });
   let relay, peer;
   try {
     peer = await manualPeer(app.url, { installationId: 'install-peer-a' });
     await waitFor(() => peer.ready());
-    relay = await dialRelay({ host: '127.0.0.1', port: Number(new URL(app.url).port), installationId: 'install-peer-d', targetPeerRef: 'install-peer-a' });
+    relay = await dialRelay({ host: '127.0.0.1', port: Number(new URL(app.url).port), installationId: 'install-peer-d' });
 
     // The client refuses a non-payload path WITHOUT asking anyone: dialling first and being refused later would
     // already have opened a socket the user did not need.
@@ -276,104 +259,163 @@ test('S2/S3: the relay refuses to be an open proxy - no path outside the list, a
     // refuses to dial would become reachable, so drift is a test failure rather than a comment.
     assert.deepEqual([...RELAY_PAYLOAD_PATHS].sort(), [...SERVER_PAYLOAD_PATHS].sort(), 'the client and the City must carry exactly the same payload list');
 
-    // A target ref the City does not hold is refused WITH a reason, rather than forwarded into the void.
-    const foreign = await dialRelay({ host: '127.0.0.1', port: Number(new URL(app.url).port), installationId: 'install-peer-e', targetPeerRef: 'install-peer-nowhere' });
-    const nowhere = await foreign.forward('/api/v0/join/info', {}, { method: 'GET' });
-    assert.equal(nowhere.response.status, 404, 'a peer cannot ask this City to reach a machine of its choosing');
-    assert.match(String(nowhere.response.payload?.error ?? nowhere.error ?? ''), /not connected/, 'and the refusal names the reason');
-    foreign.close();
+    // A hand-rolled peer asking the City DIRECTLY for an owner operation is refused WITH a reason.
+    const offList = await peer.request('/api/v0/tasks', {});
+    assert.equal(offList.ok, false, 'the City does not run a route outside the payload list');
+    assert.equal(offList.status, 403);
+    assert.match(String(offList.error ?? ''), /does not carry/);
   } finally { relay?.close(); closeQuietly(peer?.socket); await app.close(); await rm(dir, { recursive: true, force: true }); }
-});
-
-test('S2/S3 - THE TWO-CITY CASE: a join ask crosses a relay City and is decided on the City that owns the peer', async () => {
-  // THIS IS THE SHAPE THE OWNER ASKED FOR: the PC that joins cannot be dialled and is registered with a REACHABLE
-  // relay City, while the City that must approve it lives somewhere else. The relay pushes the payload to the peer;
-  // the peer executes it against the MAIN City, which is where the owner sees the ask and where the approval happens.
-  const relayDir = await mkdtemp(resolve('.scratch-relay-two-a-'));
-  const mainDir = await mkdtemp(resolve('.scratch-relay-two-b-'));
-  const relayCity = await createGateway({ host: '127.0.0.1', port: 0, dir: relayDir, token: 'relay-city-control', nodeToken: 'relay-city-node' });
-  const mainCity = await createGateway({ host: '127.0.0.1', port: 0, dir: mainDir, token: 'main-city-control', nodeToken: 'main-city-node' });
-  let peer;
-  try {
-    // THE JOINING PC dials the RELAY City (it is the reachable one) and is admitted under its own installation ref.
-    // THE JOINING PC DECLARES WHICH CITY IT BELONGS TO. It is registered with the relay (that is the only reachable
-    // door), but the City that must decide its ask is the MAIN one - so that is the origin it declares, and that is
-    // where the pushed payload is executed. This is the whole point of the two-City case: the relay carries the ask,
-    // and the answer is produced by the City that owns the peer.
-    peer = await manualPeer(relayCity.url, { installationId: 'install-joining-pc', clientUrl: mainCity.url });
-    assert.ok(await waitFor(() => peer.ready()), 'the joining PC is registered with the relay');
-
-    // The relay pushes a join payload at it. The peer executes the payload against the MAIN City - not the relay -
-    // and the ask appears where the owner can approve it.
-    const pushed = await relayCity.relay.forward('install-joining-pc', { requestId: 'two-city-1', path: '/api/v0/join/request', method: 'POST', url: mainCity.url, body: { displayName: 'Joining PC', platform: 'Win32', installationHint: 'install-joining-pc', origin: 'relay', claim: 'two-city-claim-secret-0123456789' } });
-    const pushedAnswer = readAnswer(pushed);
-    assert.equal(pushedAnswer.status, 200, `the relay carried the ask: ${JSON.stringify(pushed).slice(0, 240)}`);
-    const requestId = pushedAnswer.payload?.id;
-    assert.ok(typeof requestId === 'string', `the main City created the join request: ${JSON.stringify(pushed).slice(0, 240)}`);
-
-    const mainPending = await (await fetch(mainCity.url + '/api/v0/join/requests', { headers: { ...V, Authorization: 'Bearer main-city-control' } })).json();
-    assert.ok(mainPending.requests.some(r => r.id === requestId), 'the ask is visible on the City that must decide it, not on the relay');
-    const relayPending = await (await fetch(relayCity.url + '/api/v0/join/requests', { headers: { ...V, Authorization: 'Bearer relay-city-control' } })).json();
-    assert.equal(relayPending.requests.some(r => r.id === requestId), false, 'and the RELAY City did NOT record it: it is a pipe, not a second trust store');
-
-    // The owner approves on the main City, and the credential is collected there.
-    assert.equal((await post(mainCity.url, `/api/v0/join/requests/${requestId}/approve`, {}, 'main-city-control')).status, 200);
-    const collected = readAnswer(await relayCity.relay.forward('install-joining-pc', { requestId: 'two-city-2', path: '/api/v0/join/exchange', method: 'POST', url: mainCity.url, body: { requestId, claim: 'two-city-claim-secret-0123456789' } }));
-    assert.equal(collected.status, 200, 'the approved credential is released');
-    assert.equal(collected.payload.accepted, true);
-    assert.ok(typeof collected.payload.credential === 'string' && collected.payload.credential.length > 0);
-  } finally { closeQuietly(peer?.socket); await relayCity.close(); await mainCity.close(); await rm(relayDir, { recursive: true, force: true }); await rm(mainDir, { recursive: true, force: true }); }
 });
 
 test('S3: a City refusal travels back as its OWN status, so the surface can say why instead of "unreachable"', async () => {
   const dir = await mkdtemp(resolve('.scratch-relay-s3-'));
   const app = await createGateway({ host: '127.0.0.1', port: 0, dir, token: CONTROL, nodeToken: NODE });
-  let peer, relay;
+  let relay;
   try {
-    peer = await manualPeer(app.url, { installationId: 'install-peer-a' });
-    await waitFor(() => peer.ready());
-    relay = await dialRelay({ host: '127.0.0.1', port: Number(new URL(app.url).port), installationId: 'install-peer-f', targetPeerRef: 'install-peer-a' });
+    relay = await dialRelay({ host: '127.0.0.1', port: Number(new URL(app.url).port), installationId: 'install-peer-f' });
     // A join request with no claim is a 400 from the City's own validation. The point is that the FORWARDED status
     // reaches the dialling peer: a flattened "relay failed" would make every refusal look like a network fault.
     const answered = await relay.forward('/api/v0/join/request', { displayName: 'Peer F' });
     assert.equal(answered.response.status, 400, `the City’s own status is what the caller sees: ${JSON.stringify(answered).slice(0, 200)}`);
     assert.match(String(answered.response.payload?.error ?? ''), /claim secret/i);
-  } finally { relay?.close(); closeQuietly(peer?.socket); await app.close(); await rm(dir, { recursive: true, force: true }); }
+  } finally { relay?.close(); await app.close(); await rm(dir, { recursive: true, force: true }); }
 });
 
-test('S2: the dialling peer also SERVES the City - a pushed request runs on the City it belongs to', async () => {
+test('S2: the dialling peer also SERVES the City - a payload the City PUSHES runs on the City it was dialled to', async () => {
   const dir = await mkdtemp(resolve('.scratch-relay-s2-'));
   const app = await createGateway({ host: '127.0.0.1', port: 0, dir, token: CONTROL, nodeToken: NODE });
   let relay;
   try {
     relay = await dialRelay({ host: '127.0.0.1', port: Number(new URL(app.url).port), installationId: 'install-peer-g' });
-    // The City pushes a payload down the pipe; the dialling side runs it against the City it dialled (the same
-    // existing route) and answers up the same socket. This is the half that makes the channel usable in the
-    // direction the City needs, and a pure "client calls server" design would not have it.
+    // The City pushes a payload down the pipe and the dialling side executes it against the City it dialled, then
+    // answers up the same socket. This is the direction a City needs when it has to reach a peer that cannot be
+    // dialled - a pure "client calls server" design would not have it.
+    // NOTE ON THE SHAPE: a DIRECT `relay.forward` resolves with the answering side's own response object
+    // (`{ok, status, payload}`), not with the nested frame `relay-dial` normalises for its callers. Both are the same
+    // fact; this helper states the one shape so the assertion does not depend on which road the answer took.
     const answer = readAnswer(await app.relay.forward(relay.peerRef, { requestId: 'pushed-1', path: '/api/v0/join/info', method: 'GET', body: {} }));
     assert.equal(answer.ok, true, `the peer answered the pushed request: ${JSON.stringify(answer)}`);
     assert.equal(answer.status, 200);
     assert.equal(typeof answer.payload?.cityId, 'string', 'and the answer is the City’s own /join/info payload');
-    // `/join/info` deliberately carries no `grantsTrust` field - it is the City's CAPABILITY, not a candidate row -
-    // so the assertion is that nothing in it claims trust, not that a field this route never had is false.
     assert.equal(answer.payload?.grantsTrust ?? false, false, 'still nothing here reads as trust');
   } finally { relay?.close(); await app.close(); await rm(dir, { recursive: true, force: true }); }
 });
 
-test('S1: the pipe is refused when the City never admitted the peer, and a malformed hello is a typed refusal', async () => {
+test('N2: the whole cross-network join runs over the pipe - capability, ask, decision, credential', async () => {
+  const dir = await mkdtemp(resolve('.scratch-relay-join-'));
+  const app = await createGateway({ host: '127.0.0.1', port: 0, dir, token: CONTROL, nodeToken: NODE });
+  let relay;
+  try {
+    relay = await dialRelay({ host: '127.0.0.1', port: Number(new URL(app.url).port), installationId: 'install-remote-pc', label: 'Remote PC' });
+    const steps = [];
+    const claim = 'flow-claim-secret-0123456789';
+    const flow = joinCityOverRelay({
+      forward: (path, body, options) => relay.forward(path, body, options),
+      claim,
+      displayName: 'Remote PC',
+      platform: 'Win32',
+      hint: 'install-remote-pc',
+      origin: 'relay',
+      pollIntervalMs: 50,
+      onStep: state => steps.push(state),
+    });
+    // The owner approves on the City's authenticated surface while the flow is polling.
+    const approver = (async () => {
+      const seen = await waitFor(async () => {
+        const list = await (await fetch(app.url + '/api/v0/join/requests', { headers: { ...V, Authorization: `Bearer ${CONTROL}` } })).json();
+        return list.requests.find(r => r.state === 'PENDING') ?? null;
+      });
+      assert.ok(seen, 'the ask reached the owner over the relay');
+      await post(app.url, `/api/v0/join/requests/${seen.id}/approve`, {}, CONTROL);
+      return seen.id;
+    })();
+    const result = await flow;
+    const approvedId = await approver;
+
+    assert.equal(result.state, 'APPROVED');
+    assert.equal(result.requestId, approvedId, 'the flow collected the credential for the request the owner approved');
+    assert.ok(typeof result.credential === 'string' && result.credential.length > 0);
+    assert.deepEqual(steps, ['DIALING', 'ASKING', 'PENDING', 'APPROVED'], 'every transition is reported in order, so the surface can show real progress');
+  } finally { relay?.close(); await app.close(); await rm(dir, { recursive: true, force: true }); }
+});
+
+test('N2: a rejection is reported AS a rejection and never retried; the flow stops there', async () => {
+  const dir = await mkdtemp(resolve('.scratch-relay-join-'));
+  const app = await createGateway({ host: '127.0.0.1', port: 0, dir, token: CONTROL, nodeToken: NODE });
+  let relay;
+  try {
+    relay = await dialRelay({ host: '127.0.0.1', port: Number(new URL(app.url).port), installationId: 'install-remote-rejected' });
+    const claim = 'flow-claim-secret-rejected-01';
+    const flow = joinCityOverRelay({
+      forward: (path, body, options) => relay.forward(path, body, options),
+      claim, displayName: 'Remote', platform: 'Win32', hint: 'install-remote-rejected', pollIntervalMs: 50,
+    });
+    const rejecter = (async () => {
+      const seen = await waitFor(async () => {
+        const list = await (await fetch(app.url + '/api/v0/join/requests', { headers: { ...V, Authorization: `Bearer ${CONTROL}` } })).json();
+        return list.requests.find(r => r.state === 'PENDING') ?? null;
+      });
+      // A REJECTED row cannot be rejected twice, so this also proves the flow did not re-ask after the decision.
+      await post(app.url, `/api/v0/join/requests/${seen.id}/reject`, {}, CONTROL);
+      return seen.id;
+    })();
+    await assert.rejects(() => flow, error => error.code === 'RELAY_JOIN_REJECTED' && error.status === 403 && error.fallback === false, 'a city owner saying no is a terminal answer, not a transport failure');
+    await rejecter;
+
+    // AND THE ASK IS NOT RE-CREATED: one row, decided, and the city did not get a second one from the flow.
+    const list = await (await fetch(app.url + '/api/v0/join/requests', { headers: { ...V, Authorization: `Bearer ${CONTROL}` } })).json();
+    assert.equal(list.requests.filter(r => r.installationHint === 'install-remote-rejected').length, 1, 'a rejected installation must not be re-asked by this flow');
+  } finally { relay?.close(); await app.close(); await rm(dir, { recursive: true, force: true }); }
+});
+
+test('N2: a pipe that answers for ANOTHER City is refused before an ask is created', async () => {
+  const dir = await mkdtemp(resolve('.scratch-relay-join-'));
+  const app = await createGateway({ host: '127.0.0.1', port: 0, dir, token: CONTROL, nodeToken: NODE });
+  let relay;
+  try {
+    relay = await dialRelay({ host: '127.0.0.1', port: Number(new URL(app.url).port), installationId: 'install-remote-wrongcity' });
+    await assert.rejects(
+      () => joinCityOverRelay({ forward: (p, b, o) => relay.forward(p, b, o), claim: 'flow-claim-secret-wrongcity-1', cityRef: 'a-city-that-is-not-this-one', displayName: 'X', platform: 'Win32' }),
+      error => error.code === 'RELAY_JOIN_WRONG_CITY',
+      'delivering the ask to the wrong owner is worse than failing',
+    );
+    const list = await (await fetch(app.url + '/api/v0/join/requests', { headers: { ...V, Authorization: `Bearer ${CONTROL}` } })).json();
+    assert.equal(list.requests.length, 0, 'and nothing was recorded on the City either');
+  } finally { relay?.close(); await app.close(); await rm(dir, { recursive: true, force: true }); }
+});
+
+test('N2: the reach decision sends the same link to navigation and the far network to the pipe', () => {
+  assert.equal(reachForRow({ scope: 'local' }), 'self');
+  assert.equal(reachForRow({ scope: 'lan' }), 'navigate');
+  assert.equal(reachForRow({ scope: 'bluetooth' }), 'navigate');
+  assert.equal(reachForRow({ scope: 'remote' }), 'relay');
+  assert.equal(reachForRow({ scope: 'unknown' }), 'relay');
+  // A row with no address cannot produce a relay target, and the surface must not offer a mechanism it cannot act on.
+  assert.equal(relayTargetFor({ cityRef: 'c' }, 'http://here'), null);
+  assert.deepEqual(relayTargetFor({ address: '10.0.0.9', port: 4310, cityRef: 'c' }, 'http://here'), { host: '10.0.0.9', port: 4310, cityRef: 'c', relayOrigin: 'http://here' });
+});
+
+test('S1: a pipe that never stops is rate-limited, and the version check still applies to the handshake', async () => {
   const dir = await mkdtemp(resolve('.scratch-relay-s1-'));
   const app = await createGateway({ host: '127.0.0.1', port: 0, dir, token: CONTROL, nodeToken: NODE });
-  let anonymous, badVersion;
+  let anonymous, badVersion, peer;
   try {
     // No installationId AND no credential: there is no ref to register under, so this is refused rather than
     // admitted under an invented one.
     anonymous = await manualPeer(app.url, { installationId: '' });
-    assert.equal(anonymous.opened, false, `a peer with no ref and no credential must not open a pipe (status=${anonymous.status} peers=${JSON.stringify(app.relay.listPeers())})`);
+    assert.equal(anonymous.opened, false, `a peer with no ref and no credential must not open a pipe (status=${anonymous.status})`);
     assert.equal(String(anonymous.status), '403');
 
     // The version check applies to the relay handshake too: a peer that has not agreed the protocol cannot use it.
     badVersion = await manualPeer(app.url, { installationId: 'install-peer-h', query: { apiVersion: '9', schemaVersion: '9' } });
     assert.equal(badVersion.opened, false);
     assert.equal(String(badVersion.status), '409');
-  } finally { closeQuietly(anonymous?.socket); closeQuietly(badVersion?.socket); await app.close(); await rm(dir, { recursive: true, force: true }); }
+
+    // A peer that sprays requests at the City's routes is slowed down rather than allowed to fill its tables.
+    peer = await manualPeer(app.url, { installationId: 'install-peer-hammer' });
+    await waitFor(() => peer.ready());
+    const results = [];
+    for (let i = 0; i < 30; i += 1) results.push(await peer.request('/api/v0/join/info', {}, { method: 'GET' }));
+    assert.ok(results.some(r => r.status === 429), 'a sustained burst is refused with 429 rather than served');
+  } finally { closeQuietly(anonymous?.socket); closeQuietly(badVersion?.socket); closeQuietly(peer?.socket); await app.close(); await rm(dir, { recursive: true, force: true }); }
 });

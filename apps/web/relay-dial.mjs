@@ -171,14 +171,11 @@ export function dialRelay({
   secure = false,
   scheme = null,
   cityOrigin = null,
-  /** THIS peer's own origin, declared so the City can push a payload that belongs to a City other than itself. */
+  /** THIS peer's own origin, declared for the City's audit trail and for a City-to-City pipe. */
   clientUrl = null,
   installationId = null,
   label = null,
   credential = null,
-  /** WHICH relay peer this pipe asks the City to push to. Named by the dialling side because it is the side that
-   *  knows whom it is trying to reach; the City still checks the ref against peers it actually holds. */
-  targetPeerRef = null,
   WebSocketImpl = null,
   fetchImpl = null,
   handshakeTimeoutMs = RELAY_DIAL_TIMEOUT_MS,
@@ -208,7 +205,9 @@ export function dialRelay({
   const params = [];
   if (installationId) params.push(`installationId=${encodeURIComponent(installationId)}`);
   if (label) params.push(`label=${encodeURIComponent(label)}`);
-  if (targetPeerRef) params.push(`targetPeerRef=${encodeURIComponent(targetPeerRef)}`);
+  // Declared for the City's own audit trail and for a City-to-City pipe: it is where THIS peer's City lives. It is
+  // not an address the City will call - a relayed payload runs on the City that received it, never on the dialling
+  // peer, which is the machine with no route to anything.
   const declaredClientUrl = typeof clientUrl === 'string' && clientUrl !== '' ? clientUrl : pageOrigin;
   if (declaredClientUrl) params.push(`clientUrl=${encodeURIComponent(declaredClientUrl)}`);
   const dialUrl = params.length ? `${url}&${params.join('&')}` : url;
@@ -248,7 +247,7 @@ export function dialRelay({
         }, timeoutMs);
         timer.unref?.();
         inFlight.set(requestId, { resolve: resolveForward, reject: rejectForward, timer, path: parsed.pathname });
-        try { socket.send(JSON.stringify({ kind: 'relay-request', requestId, targetPeerRef: targetPeerRef ?? null, path: parsed.pathname, method: String(method).toUpperCase() === 'GET' ? 'GET' : 'POST', body: body ?? {} })); }
+        try { socket.send(JSON.stringify({ kind: 'relay-request', requestId, path: parsed.pathname, method: String(method).toUpperCase() === 'GET' ? 'GET' : 'POST', body: body ?? {} })); }
         catch (error) {
           clearTimeout(timer);
           inFlight.delete(requestId);

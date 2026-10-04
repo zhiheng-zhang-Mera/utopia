@@ -132,7 +132,7 @@ export const messages = {
   "connect.title": "Your PCs",
   "connect.thisMachine": "this machine",
   "connect.hint": "Every PC you can reach, with the quickest way onto it. The marked one should carry the City for all of them.",
-  "connect.rescan": "Look for PCs",
+  "connect.rescan": "Search this network for PCs",
   "connect.searching": "Looking for PCs on this network…",
   "connect.none": "No PC is reachable yet. Use one of the ways below.",
   "connect.noAddress": "no address yet",

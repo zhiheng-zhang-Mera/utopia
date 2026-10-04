@@ -145,3 +145,5 @@ test('an execution endpoint view states that it is a worker, never a control sur
   assert.equal(row.sharingEnabled, true, 'legacy nodes have no sharing flag and must default to sharing');
   assert.throws(() => executionEndpoint({}), error => error.code === 'INVALID_REQUEST');
 });
+
+test('review: malformed null port is a typed INVALID_BACKEND refusal',()=>{assert.throws(()=>assertExecutionBackendPort(null),e=>e instanceof ExecutionBackendError&&e.code==='INVALID_BACKEND');});

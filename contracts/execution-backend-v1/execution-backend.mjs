@@ -176,7 +176,7 @@ export function executionEndpoint({
  * a port that is missing `report` can never work and is caught here, at wiring time, with a named field.
  */
 export function assertExecutionBackendPort(port, path = 'port') {
-  if (!isPlainObject(port) && typeof port !== 'object') throw new ExecutionBackendError('INVALID_BACKEND', `${path} must be an object`);
+  if (!isPlainObject(port)) throw new ExecutionBackendError('INVALID_BACKEND', `${path} must be an object`);
   assertBackendId(port.backendId);
   if (port.contractVersion !== EXECUTION_BACKEND_CONTRACT_VERSION) {
     throw new ExecutionBackendError('INCOMPATIBLE_CONTRACT', `${path}.contractVersion must be ${EXECUTION_BACKEND_CONTRACT_VERSION}, got ${String(port.contractVersion)}`);

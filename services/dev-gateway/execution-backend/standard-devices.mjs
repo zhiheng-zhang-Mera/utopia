@@ -188,7 +188,8 @@ export function createStandardDevicesBackend({
     if (!row) throw new ExecutionBackendError('UNKNOWN_ENDPOINT', `no execution endpoint ${String(endpointRef)} is registered with this City`, { endpointRef: endpointRef ?? null });
     if (!row.ready) throw new ExecutionBackendError('ENDPOINT_NOT_READY', `execution endpoint ${row.endpointRef} cannot accept work (${row.readinessReason})`, { endpointRef: row.endpointRef, readinessReason: row.readinessReason });
     const task = requireRecord('tasks', taskId);
-    if (isTerminal(task)) throw new ExecutionBackendError('INVALID_TRANSITION', `task ${taskId} is already ${task.state}`, { taskId, state: task.state });
+    if (task.state !== 'QUEUED') throw new ExecutionBackendError('INVALID_TRANSITION', `task ${taskId} is already ${task.state}`, { taskId, state: task.state });
+    if(!claimAllowedByTarget(task,row.endpointRef)||!handoffClaimAllowed({subjectRef:task.id,deviceRef:row.endpointRef,reservedFor:typeof task.handoffTargetRef==='string'&&task.handoffTargetRef.length>0?task.handoffTargetRef:null}))throw new ExecutionBackendError('TASK_NOT_CLAIMABLE','task target or reservation does not permit this endpoint',{taskId,endpointRef:row.endpointRef});
     noteAssignment({ subjectRef: task.id, deviceRef: row.endpointRef });
     return { task: changeTask(task, 'ASSIGNED', { assignedNodeId: row.endpointRef }), endpointRef: row.endpointRef };
   }
@@ -222,8 +223,8 @@ export function createStandardDevicesBackend({
       endpointRef: target.id,
       backendId: STANDARD_DEVICES_BACKEND_ID,
       readiness: describeReadiness({
-        state: ready ? 'READY' : 'UNAVAILABLE',
-        reason: ready ? null : endpointReadinessReason(target) ?? 'ENDPOINT_NOT_ACCEPTING_WORK',
+        state: ready && !busy && target.sharingEnabled !== false ? 'READY' : 'UNAVAILABLE',
+        reason: ready && !busy && target.sharingEnabled !== false ? null : endpointReadinessReason(target) ?? 'ENDPOINT_NOT_ACCEPTING_WORK',
         endpointCount: rows.length,
         readyEndpointCount: rows.filter(row => row.ready).length,
       }),

@@ -104,6 +104,7 @@ export async function enrollWithCity({ endpoint, invite, displayName, platform =
   const body = await response.json().catch(() => null);
   if (!response.ok) throw new Error(`the City refused the enrollment: ${body?.error ?? response.status}`);
   if (!body?.enrollment) throw new Error('the City accepted the invite but did not enroll this installation');
+  if (body.cityId !== invite.cityId) throw Object.assign(new Error('Enrollment answered for a different City'), {code:'CITY_IDENTITY_MISMATCH'});
   const enrollment = body.enrollment;
   return {
     record: {
@@ -160,6 +161,7 @@ export async function openDeviceSession(record, { fetchImpl = fetch, timeoutMs =
       status: response.status,
     });
   }
+  if (body?.cityId !== record.cityId) throw Object.assign(new Error('The endpoint answered for a different City'), {code:'CITY_IDENTITY_MISMATCH', retryable:false});
   return { credential: body.credential, session: body.session, installation: body.installation, cityId: body.cityId };
 }
 
@@ -208,10 +210,20 @@ export function inviteForExchange(raw) {
   if (typeof raw !== 'string') return null;
   try {
     const url = new URL(raw);
+    if (url.protocol === 'http:' || url.protocol === 'https:') {
+      const nested = url.searchParams.get('pair') ?? new URLSearchParams(url.hash.slice(1)).get('pair');
+      if (!nested) return null;
+      return inviteForExchange(nested.startsWith('utopia:') ? nested : `utopia://pair?${nested}`);
+    }
     if (url.protocol !== 'utopia:' || url.hostname !== 'pair') return null;
     const q = url.searchParams;
     const cityId = q.get('city'), sessionId = q.get('session'), secret = q.get('secret');
     if (!cityId || !sessionId) return null;
-    return secret ? { cityId, sessionId, secret, method: 'qr' } : null;
+    const host = q.get('host');
+    if (host) {
+      const endpoint = new URL(host);
+      if (!['http:', 'https:'].includes(endpoint.protocol) || endpoint.username || endpoint.password || endpoint.search || endpoint.hash) return null;
+    }
+    return secret ? { cityId, sessionId, secret, method: 'qr', ...(host ? {host} : {}) } : null;
   } catch { return null; }
 }

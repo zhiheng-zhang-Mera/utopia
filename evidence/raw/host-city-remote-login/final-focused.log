@@ -1,0 +1,23 @@
+✔ two installation launchers share one City across ports and recover the same identity after a crash (48760.9494ms)
+✔ forgetting migrated enrollment cannot import the legacy credential again (1986.9334ms)
+✔ remote short code enrolls and reconnects to its target without launching a host City (3151.1847ms)
+✔ host reservation is atomic across requested ports and retains the canonical data directory (70.9042ms)
+✔ JOIN-503 (1)(2): one join enrolls an installation, and a RESTART reconnects with nothing typed (156.2905ms)
+✔ JOIN-503 (3): an EXPIRED session is replaced by an internal re-auth, with no user-visible token prompt (82.3854ms)
+✔ JOIN-503 (4)(5): REVOKE denies reconnect, and a revoked installation cannot mint new membership (89.1428ms)
+✔ JOIN-503 (6): a REINSTALL mints new identities and is unbound until an explicit rebind (106.6328ms)
+✔ JOIN-503 (7): the secret-exposure sweep - no durable secret in the snapshot, events, records or a URL (65.0666ms)
+✔ JOIN-503: a broken or foreign device file is refused rather than half-used (8.1474ms)
+✔ JOIN-503 (8): the engineering manual fallback still exists and is not the default path (52.3029ms)
+✔ JOIN-503: an invite of either shape is understood, and junk is refused instead of guessed at (0.6344ms)
+✔ JOIN-503: enrollment events are emitted on a CLONE, which is the population-level half of detection (42.1665ms)
+✔ native and browser invites retain the target address rather than falling back to this host (1.0927ms)
+✔ remote reconnect stays on the recorded origin and rejects a different City response (1.9157ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 55008.0182

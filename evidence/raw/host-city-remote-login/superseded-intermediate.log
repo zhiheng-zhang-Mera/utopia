@@ -1,0 +1,43 @@
+✖ two installation launchers share one City across ports and recover the same identity after a crash (59238.2186ms)
+✔ remote short code enrolls and reconnects to its target without launching a host City (3287.7505ms)
+✔ host reservation is atomic across requested ports and retains the canonical data directory (575.5129ms)
+✔ JOIN-503 (1)(2): one join enrolls an installation, and a RESTART reconnects with nothing typed (212.4357ms)
+✔ JOIN-503 (3): an EXPIRED session is replaced by an internal re-auth, with no user-visible token prompt (113.105ms)
+✔ JOIN-503 (4)(5): REVOKE denies reconnect, and a revoked installation cannot mint new membership (152.6454ms)
+✔ JOIN-503 (6): a REINSTALL mints new identities and is unbound until an explicit rebind (172.0458ms)
+✔ JOIN-503 (7): the secret-exposure sweep - no durable secret in the snapshot, events, records or a URL (133.2574ms)
+✔ JOIN-503: a broken or foreign device file is refused rather than half-used (10.2532ms)
+✔ JOIN-503 (8): the engineering manual fallback still exists and is not the default path (117.4667ms)
+✔ JOIN-503: an invite of either shape is understood, and junk is refused instead of guessed at (0.5599ms)
+✔ JOIN-503: enrollment events are emitted on a CLONE, which is the population-level half of detection (100.1247ms)
+✔ native and browser invites retain the target address rather than falling back to this host (1.0837ms)
+✔ remote reconnect stays on the recorded origin and rejects a different City response (1.9088ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 13
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 63632.6693
+
+✖ failing tests:
+
+test at tests\host-city-launcher.test.mjs:13:1
+✖ two installation launchers share one City across ports and recover the same identity after a crash (59238.2186ms)
+  Error: Command failed: C:\Users\15601\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe C:\Users\15601\.codex\worktrees\4b36\A-Utopia\.scratch-host-launch-wTxQgH\b\scripts\utopia-client-launcher.mjs --host 127.0.0.1 --port 0 --no-open --json
+  Utopia: City did not become ready within 20 seconds; inspect .runtime/gateway-launch.log
+  
+      at genericNodeError (node:internal/errors:985:15)
+      at wrappedFn (node:internal/errors:539:14)
+      at ChildProcess.exithandler (node:child_process:417:12)
+      at ChildProcess.emit (node:events:509:28)
+      at maybeClose (node:internal/child_process:1141:16)
+      at ChildProcess._handle.onexit (node:internal/child_process:306:5) {
+    code: 6,
+    killed: false,
+    signal: null,
+    cmd: 'C:\\Users\\15601\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\node\\bin\\node.exe C:\\Users\\15601\\.codex\\worktrees\\4b36\\A-Utopia\\.scratch-host-launch-wTxQgH\\b\\scripts\\utopia-client-launcher.mjs --host 127.0.0.1 --port 0 --no-open --json',
+    stdout: '',
+    stderr: 'Utopia: City did not become ready within 20 seconds; inspect .runtime/gateway-launch.log\n'
+  }

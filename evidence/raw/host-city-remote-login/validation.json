@@ -1,0 +1,51 @@
+{
+  "observedAt": "2026-10-04T08:58:14.251Z",
+  "branch": "codex/single-host-city-remote-login",
+  "fullSuite": {
+    "status": "PASS",
+    "passed": 1189,
+    "total": 1189,
+    "command": "node --test --test-concurrency=4 --test-timeout=120000 tests/*.test.mjs",
+    "scope": "run started before the last identity-pin and forgotten-enrollment repairs; final repairs covered by focused run"
+  },
+  "finalFocused": {
+    "status": "PASS",
+    "passed": 15,
+    "total": 15,
+    "command": "node --test tests/host-city-launcher.test.mjs tests/host-city-registry.test.mjs tests/remote-login-address.test.mjs tests/join503-enrollment.test.mjs"
+  },
+  "bilingual": "PASS",
+  "diffWhitespace": "PASS",
+  "review": "all six actionable findings resolved; follow-up review found no remaining important issues",
+  "observed": [
+    "concurrent launch from two installation directories",
+    "different requested ports reuse one Gateway PID and cityId",
+    "Windows start and restart bypass remote enrollment and preserve startup options",
+    "forced process termination recovers the same canonical City",
+    "mismatched persisted City identity refuses production startup",
+    "forgotten legacy enrollment cannot be imported again",
+    "real HTTP short-code exchange enrolls and reconnects to the target City",
+    "unreachable remote endpoint stops without starting a local City"
+  ],
+  "notRun": [
+    "real cross-region internet/HTTPS routing",
+    "public rendezvous or global short-code lookup",
+    "real two-device same-WiFi acceptance",
+    "real two-device BLE pairing"
+  ],
+  "sourceSha256": {
+    "services/dev-gateway/main.mjs": "5b6b837af578a62bcfccec009753533d69528b0e3e7123f618e3f2cfc1ac3c1e",
+    "services/dev-gateway/host-city.mjs": "c2a77f0524aa8f8f14abacd0f8a9e638dfb80a994e7404cbc3428af7897cb45a",
+    "apps/client/device-enrollment.mjs": "a6d1a24a304f791d453dc54708765c48f502db430475e942e905b1b26aa9d164",
+    "scripts/utopia-client-launcher.mjs": "d4557b5fa39435f4013db81a048b3d3138d0eb058a24aa76f183dd61006a035d",
+    "scripts/start-city.ps1": "ca91f1a94fec5de5af391e09e6fb23f253010364ce956b9a22a1215017e59114",
+    "scripts/stop-city.ps1": "ea4a47835a236fa42a7c5796f6858a4a2133f77cddca28000333ae5bb26e0c23",
+    "scripts/restart-gateway.ps1": "5c3995f107643938998716ff01982fe22b267132599fd72c12cc2873fcd26ccc",
+    "scripts/host-processes.ps1": "fda79871efec50d8c6c3eb9782fd4b9eca5e96cf10e9fd02015077659c1be322",
+    "tests/host-city-launcher.test.mjs": "5f688abeee09fb4904671640f2c42a1359619226f9e1b438965f22d2d3af9645",
+    "tests/host-city-registry.test.mjs": "70ac7f9bfbbf1904eb02b1b3fe08fd301ea2ca92114cec31508576082e3f780d",
+    "tests/remote-login-address.test.mjs": "d4a1df7f9d8f4e49d9270f1dc0c0a5ca0c5d6bafceb13e9a70023d29275c5881",
+    "docs/zh-CN/HOST_CITY_REMOTE_LOGIN.md": "f3956b82865c3cf429f1ef9f316f636bfaa287ba9b5bbbf7928e430e20d8bd50",
+    "docs/en/HOST_CITY_REMOTE_LOGIN.md": "11c74bf0e431a285e4a798f2ee105cbc82e74619be49aa4fcc60b023e52572ce"
+  }
+}

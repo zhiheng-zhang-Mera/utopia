@@ -36,6 +36,16 @@ The next product goal is **not another module wave**. It is the [Universal Perso
 
 ## 本地运行 / Run locally
 
+**只想打开看：双击根目录的 `Utopia.cmd`。** 新主机 clone 之后直接双击即可——不需要预装任何东西，也不需要输入任何东西。
+
+它的顺序是**先启动、需要时才准备**：能找到 node 就直接启动；**找不到 node 时才**下载一份到项目根的 `dependence/` 目录；**依赖缺失时**（`package.json` 里声明的包在 `node_modules/` 里不存在）才在 `dependence/` 下装依赖。依赖齐全时它**不联网、不安装，直接启动**。
+
+两个目录的分工：`node_modules/` 是包本身（标准位置），`dependence/` 是启动器自己的准备物（下载的 node 运行时、npm 缓存、`launcher.log` 日志）。两者都被 Git 忽略，只有真正需要时才会被创建；诊断信息看 `dependence/launcher.log`。
+
+Just open it: **double-click `Utopia.cmd` in the project root.** On a freshly cloned host it needs nothing installed first and nothing typed.
+
+It starts first and prepares only if needed: a healthy checkout never touches the network and never pays an install. `dependence/` (git-ignored) is the launcher's own provisioning — a node runtime it had to fetch, the npm cache, and `launcher.log`; `node_modules/` (git-ignored too) is where the packages live. Diagnostics: `dependence/launcher.log`.
+
 Node.js 24+, pnpm, Java 17+ and Android SDK 36.
 
 ```powershell

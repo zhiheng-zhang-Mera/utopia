@@ -1,5 +1,8 @@
 node_modules/
 .runtime/
+# The launcher's own provisioning (Utopia.cmd): a node runtime it had to fetch, the npm cache it used, and its log.
+# Not source, specific to the host that ran it, and created only when a launch actually needed it.
+dependence/
 .scratch/
 .gradle/
 **/build/

@@ -10,8 +10,8 @@ Storage: bounded in-memory records/queue and bounded JSONL retention, asynchrono
 
 Security: read-only API follows existing authentication; owner sees full research view, member receives explicit owner-required guidance. No raw credentials, fingerprints or arbitrary user payload copied to trace/UI. Full identifiers folded. Exact source/config refs absent from configuration remain NOT_OBSERVABLE; no guessed branch identity.
 
-- [ ] Task1: test-first pure schema/normalization, refs/unknown policy, duplicate/missing/reorder/stale clocks, bounded collector/restart/failure; implement minimal collector and documented contract.
-- [ ] Task2: real Gateway event integration + owner API, fail-safe collector negative product tests, metadata/observability surfaces on Web/Android; browser unit/build and available physical checks.
+- [x] Task1: test-first pure schema/normalization, refs/unknown policy, duplicate/missing/reorder/stale clocks, bounded collector/restart/failure; implement minimal collector and documented contract.
+- [x] Task2: real Gateway event integration + owner API, fail-safe collector negative product tests, metadata/observability surfaces on Web/Android; browser unit/build and available physical checks.
 - [ ] Task3: passive evidence/materials/registry candidate and exact final CI; independent technical critique; handoff opposite physical-host Formal Review. Do not emit terminal marker locally.
 
 Research watchlist inherits latest workbook G3/G4 candidates; collect bounded factual data, no hidden reasoning or novelty/performance claims.

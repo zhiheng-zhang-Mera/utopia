@@ -5,14 +5,17 @@
 // must not be able to release someone else's City, and a stored membership must not divert an ordinary start.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp, rm} from 'node:fs/promises';
+import {mkdtemp, rm, writeFile, readFile} from 'node:fs/promises';
+import {spawn} from 'node:child_process';
 import {resolve} from 'node:path';
 import {WebSocket} from 'ws';
 import {createGateway} from '../services/dev-gateway/server.mjs';
+import {resolveLifecycle} from '../services/dev-gateway/host-lifecycle.mjs';
 import {planStart, followsMembership, pageTied, describeStart, hostsOwnCity, mayFollowStoredMembership} from '../scripts/launcher-plan.mjs';
 
 const V = {'Content-Type': 'application/json', 'X-City-Api-Version': '0', 'X-City-Schema-Version': '0'};
 const auth = token => ({...V, Authorization: 'Bearer ' + token});
+const ROOT = resolve(import.meta.dirname, '..');
 
 async function city(options, fn) {
   const dir = await mkdtemp(resolve('.scratch-standalone-'));
@@ -75,6 +78,29 @@ test('PROBE 9: an explicit hosting start never consults a stored membership, and
     const plan = planStart({args});
     assert.equal(hostsOwnCity(plan) && followsMembership(plan), false, `${args.join(' ')} cannot both host and force a membership`);
   }
+});
+
+test('PROBE 10: a member agent is an online start whatever was declared, so it can never become a host City of its own', () => {
+  // This is the second half of the CI-caught regression: the launcher spawns the member agent with CITY_MEMBER_FILE and
+  // no lifecycle, and a predicate that only read CITY_LIFECYCLE made that process start as a PRIMARY City - a host City
+  // where the caller had deliberately asked for none.
+  const member = resolveLifecycle({CITY_MEMBER_FILE: 'enrollment.json'});
+  assert.equal(member.online, true, 'a member agent is online by construction');
+  assert.equal(member.lifecycle, 'online');
+  assert.equal(member.roleIgnored, false, 'its stored role is the whole point of the start');
+  assert.equal(member.gatewayLifecycle, 'service', 'a member agent has no page, so it must never be page-tied');
+
+  const plain = resolveLifecycle({});
+  assert.equal(plain.lifecycle, 'page', 'the default life is unchanged');
+  assert.equal(plain.roleIgnored, true);
+  assert.equal(plain.gatewayLifecycle, 'page');
+
+  assert.equal(resolveLifecycle({CITY_LIFECYCLE: 'service'}).gatewayLifecycle, 'service');
+  assert.equal(resolveLifecycle({CITY_LIFECYCLE: 'service'}).roleIgnored, true, 'hosting ignores the role');
+  assert.equal(resolveLifecycle({CITY_LIFECYCLE: 'online'}).online, true);
+  assert.equal(resolveLifecycle({CITY_LIFECYCLE: 'nonsense'}).lifecycle, 'page', 'an unknown value falls back to the documented default rather than to a mode nobody asked for');
+  // The declared value can never *remove* the member agent's online-ness.
+  assert.equal(resolveLifecycle({CITY_LIFECYCLE: 'page', CITY_MEMBER_FILE: 'x.json'}).online, true);
 });
 
 test('PROBE 2: closing the last page in page mode closes the City, and says why', () => city({lifecycle: 'page', pageIdleMs: 250}, async ({app, exits}) => {

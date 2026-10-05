@@ -46,11 +46,12 @@
       "command": "pnpm test:acceptance  (node --test tests/acceptance/*.test.mjs)",
       "workdir": "D:\\utopia-launch",
       "head_sha": "473d8e8901c97c0b92f5137ea1b6d70e949a8aae",
-      "result": "pass 2, fail 0",
+      "result": "3 acceptances; verified on hosted CI at head 4b2e701 (run 37288968499: E2E 1 + E2E 2 passed 2/2 after the move, and E2E 3 was added afterwards for the member-agent rule)",
       "serialisation_reason": "This acceptance spawns real Cities, and one City per host is a host-wide rule: main.mjs refuses to start while findRunningCities() sees any other services/dev-gateway/main.mjs process, and that scan reads the process list rather than ports. While this file lived in tests/*.test.mjs it ran in parallel with tests/host-city-launcher.test.mjs, whose launcher then refused to start and failed CI on head 473d8e8 / 4ee0974 (run 37287799751: 3 failures - 'City did not become ready within 45 seconds', an EBUSY cleanup error, and 'Requires a free local host reservation') even though the same tests are SUCCESS at the base commit d3262ce2 (run 37222674520). Classification: real defect introduced by this change, instrument/parallelism rather than product logic. Repair: moved to tests/acceptance/, added the pnpm test:acceptance script, and added a CI step that runs it before pnpm test in the same gateway-web job, so it still gates the pull request while never overlapping another City. Evading the preflight was rejected: hiding the process would have concealed a real violation of the one-City-per-host rule.",
       "acceptances": [
         "closing the last page ends the City process with exit code 0 and a /Utopia City closing/ line on the process output",
-        "a stored MEMBER role is ignored on a single-machine start, role.json is left byte-identical, and the same stored role is honoured when the City is started online"
+        "a stored MEMBER role is ignored on a single-machine start, role.json is left byte-identical, and the same stored role is honoured when the City is started online",
+        "a member agent (CITY_MEMBER_FILE, no declared lifecycle) is an online start: it never reserves this host as a PRIMARY City, never prints 'Utopia Host listening', and never opens this host's City port"
       ],
       "reproduction_constraint": "the acceptance spawns its own isolated City and therefore needs coordination port 4389 free; main.mjs also refuses to start while findRunningCities() sees any City. The resident City on this host was stopped for the recorded run and restored afterwards (cityId 031fdba6-e94c-4298-a095-6ff04a65481d, http://172.31.12.151:4391, coordination ONLINE). The probes were not re-run at the docs-only head because re-running would take that City down again; no code changed between the recorded run and the docs commit."
     },

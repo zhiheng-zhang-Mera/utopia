@@ -121,3 +121,57 @@ test('E2E 2: a stored MEMBER role is ignored on a single-machine start and honou
     assert.equal(honoured, true, 'an online start must follow the stored role instead of silently starting a primary City: ' + log);
   } finally { await online.cleanup(); }
 });
+
+test('E2E 3: a member agent is an online start, so it never becomes a host City of its own', {skip: HOST_BUSY}, async () => {
+  // The rule this pins was caught by hosted CI, not here: the launcher spawns a member agent with CITY_MEMBER_FILE and
+  // no declared lifecycle, and a predicate that only read CITY_LIFECYCLE made that process start as a PRIMARY City - a
+  // host City launched where the caller had deliberately asked for none. The enrollment below names a City that does not
+  // exist, so the member agent is EXPECTED to fail; what is asserted is what it refused to become.
+  const base = await mkdtemp(resolve('.scratch-member-agent-'));
+  const stateDir = resolve(base, 'host');
+  const {mkdir} = await import('node:fs/promises');
+  await mkdir(stateDir, {recursive: true});
+  const enrollmentFile = resolve(base, 'device-enrollment.json');
+  await writeFile(enrollmentFile, JSON.stringify({endpoint: 'http://127.0.0.1:9', cityId: '11111111-2222-3333-4444-555555555555', deviceId: 'dev-x', credential: 'not-a-real-credential'}));
+  const child = spawn(process.execPath, ['services/dev-gateway/main.mjs'], {
+    cwd: ROOT,
+    env: {
+      ...process.env,
+      CITY_MEMBER_FILE: enrollmentFile,          // exactly what the launcher sets for a member agent
+      CITY_COORDINATION_PORT: '4497',
+      CITY_PORT: '4498',
+      CITY_HOST: '127.0.0.1',
+      CITY_ROOMS_DISABLED: '1',
+      CITY_DISCOVERY_DISABLED: '1',
+      CITY_MANAGE_SERVICES: '0',
+      UTOPIA_HOST_STATE_DIR: stateDir,
+      UTOPIA_CLIENT_STATE_DIR: resolve(base, 'client'),
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  const log = [];
+  child.stdout.on('data', d => log.push(String(d)));
+  child.stderr.on('data', d => log.push(String(d)));
+  const exited = new Promise(yes => child.once('exit', code => yes(code)));
+  try {
+    const code = await Promise.race([exited, new Promise(r => setTimeout(() => r('STILL-RUNNING'), 8000))]);
+    const output = log.join('');
+    const record = await readFile(resolve(stateDir, 'role.json'), 'utf8').then(JSON.parse).catch(() => null);
+    assert.notEqual(record?.role, 'PRIMARY', 'a member start must not reserve this host as a PRIMARY City: ' + output);
+    assert.doesNotMatch(output, /Utopia Host listening/, 'it must not start a City on this host: ' + output);
+    if (code === 'STILL-RUNNING') {
+      const listening = await fetch('http://127.0.0.1:4498/api/v0/pairing/info', {headers: {'X-City-Api-Version': '0', 'X-City-Schema-Version': '0'}, signal: AbortSignal.timeout(1500)}).then(() => true).catch(() => false);
+      assert.equal(listening, false, 'a member agent must not open this host\'s City port: ' + output);
+    } else {
+      // It exited. For a City that is not there, exiting is the honest outcome, and the invariant under test is what it
+      // refused to BECOME (the two assertions above). The exact code is recorded rather than asserted: a member start
+      // with an unreachable City currently exits through the uncaught-error path (1) instead of the launcher's
+      // documented 6, which is a real inconsistency noted in the report and not repaired here.
+      assert.ok(Number.isInteger(code), 'the member start must exit with a code, got ' + String(code) + ': ' + output);
+    }
+  } finally {
+    try { child.kill(); } catch {}
+    await Promise.race([exited, new Promise(r => setTimeout(r, 5000))]);
+    for (let i = 0; i < 24; i += 1) { try { await rm(base, {recursive: true, force: true}); break; } catch { await new Promise(r => setTimeout(r, 250)); } }
+  }
+});

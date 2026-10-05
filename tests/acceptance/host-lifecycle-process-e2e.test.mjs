@@ -4,9 +4,18 @@
 // show: that main.mjs actually wires the lifecycle through to a process exit when the page closes, and that a stored
 // host role is ignored unless the start is an online one.
 //
-// It needs the host to itself, because starting a City refuses while another City runs on the same host. When one is
-// already running the file SKIPS with the reason instead of pretending to have checked anything - a green suite that
-// did not run is worse than an honest skip.
+// WHY THIS FILE IS NOT IN tests/*.test.mjs
+// Starting a real City is a HOST-WIDE act: main.mjs refuses to start while findRunningCities() sees any other
+// services/dev-gateway/main.mjs process, and that scan reads the process list, not ports. A file that spawns Cities
+// therefore cannot run in parallel with tests that also start Cities: running it inside `pnpm test` made
+// tests/host-city-launcher.test.mjs fail on CI with "City did not become ready within 45 seconds" and "Requires a free
+// local host reservation", on a runner where those same tests are green at the base commit. The repair is
+// serialisation, not evasion: this acceptance runs as its own CI step (`pnpm test:acceptance`) before `pnpm test` in
+// the same job, so it still gates the pull request while never overlapping another City. Hiding the spawned process
+// from the preflight would have concealed a real violation of the one-City-per-host rule instead of respecting it.
+//
+// It also needs the host to itself locally, so when a City is already running the file SKIPS with the reason instead
+// of pretending to have checked anything - a green suite that did not run is worse than an honest skip.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
@@ -14,9 +23,9 @@ import {mkdtemp, rm, writeFile, readFile} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {WebSocket} from 'ws';
-import {findRunningCities} from '../services/dev-gateway/host-preflight.mjs';
+import {findRunningCities} from '../../services/dev-gateway/host-preflight.mjs';
 
-const ROOT = resolve(import.meta.dirname, '..');
+const ROOT = resolve(import.meta.dirname, '..', '..');
 const running = await findRunningCities();
 const HOST_BUSY = running.length > 0 ? `a City is already running on this host (${running.map(c => c.endpoint).join(', ')})` : false;
 

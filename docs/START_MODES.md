@@ -71,7 +71,9 @@ its own — plus, on a single-machine start, that the stored role was not used a
   the grace window does not, a second surface keeps it alive, a page-less City does not close itself, the owner may
   release and a member may not, a hosting City ignores the release, and the start disclosure says the right words for
   each mode (and invents none where it has no fact).
-- `tests/host-lifecycle-process-e2e.test.mjs` — 2 process-level acceptances against a real isolated City: closing the
-  last page ends the process (exit code 0), and a stored MEMBER role is ignored on a single-machine start while the
-  role file is left intact and is honoured only when going online.
+- `tests/acceptance/host-lifecycle-process-e2e.test.mjs` — 2 process-level acceptances against a real isolated City:
+  closing the last page ends the process (exit code 0), and a stored MEMBER role is ignored on a single-machine start
+  while the role file is left intact and is honoured only when going online. This file is deliberately outside
+  `pnpm test`: starting a real City is a host-wide act (the preflight reads the process list, not ports), so it runs as
+  its own step, `pnpm test:acceptance`, before the parallel suite in the same CI job.
 - `evidence/raw/mission-book/HOST-START-MODES/development-receipt.json` — the recorded runs and their exact numbers.

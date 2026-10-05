@@ -18,6 +18,10 @@ jobs:
       # the city tree owns its own third-party parsers (yaml, fflate, mammoth,
       # pdfjs-dist): a separate install, deliberately not a pnpm workspace
       - run: pnpm --dir city install --frozen-lockfile
+      # Process-level acceptance that starts a real City. It runs as its own step, BEFORE the parallel suite, because
+      # one City per host is a host-wide rule: main.mjs refuses to start while any other gateway process exists, so a
+      # test that spawns a City cannot share a runner with tests that do the same. Same job, so it still gates the PR.
+      - run: pnpm test:acceptance
       - run: pnpm test
       - run: node scripts/verify-promotion-history.mjs
       - run: node --test apps/rooms/tests/*.test.mjs

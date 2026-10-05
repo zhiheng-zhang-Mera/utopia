@@ -49,9 +49,15 @@ export async function reserveHostCity({stateDir = hostStateDir(), requestedDataD
     record = {...record, dataDir};
     return {owner:true, dataDir, expectedCityId, selection, hasRoleSelection:existsSync(roleFile), stateDir, get record() {return record;}, coordinationPort:server.address().port, close,
       publish:async update => {
+        // The RUNNING role and the STORED role selection are two different facts, and an ordinary single-machine
+        // start only knows the first one. `persistRole:false` keeps `role.json` exactly as the person left it, so a
+        // stored membership survives until they actually go online - otherwise starting your own City would silently
+        // destroy the membership you had chosen.
+        const persistRole=update.persistRole!==false;
         record = {...record, ...update, kind, dataDir};
-        if(update.role==='MEMBER'&&record.memberEnrollmentFile){writeFileSync(roleFile+'.tmp',JSON.stringify({role:'MEMBER',cityId:record.cityId,memberEnrollmentFile:record.memberEnrollmentFile}),{mode:0o600});renameSync(roleFile+'.tmp',roleFile);}
-        else if(update.role==='PRIMARY'){writeFileSync(roleFile+'.tmp',JSON.stringify({role:'PRIMARY'}),{mode:0o600});renameSync(roleFile+'.tmp',roleFile);}
+        if(!persistRole)delete record.persistRole;
+        if(persistRole&&update.role==='MEMBER'&&record.memberEnrollmentFile){writeFileSync(roleFile+'.tmp',JSON.stringify({role:'MEMBER',cityId:record.cityId,memberEnrollmentFile:record.memberEnrollmentFile}),{mode:0o600});renameSync(roleFile+'.tmp',roleFile);}
+        else if(persistRole&&update.role==='PRIMARY'){writeFileSync(roleFile+'.tmp',JSON.stringify({role:'PRIMARY'}),{mode:0o600});renameSync(roleFile+'.tmp',roleFile);}
         if (update.state === 'ONLINE' && update.role !== 'MEMBER' && existsSync(resolve(dataDir,'city.sqlite'))) {
           writeFileSync(`${pointer}.tmp`, JSON.stringify({kind,dataDir,cityId:update.cityId}), {mode:0o600});
           renameSync(`${pointer}.tmp`,pointer);

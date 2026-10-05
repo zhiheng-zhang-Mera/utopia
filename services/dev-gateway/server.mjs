@@ -72,7 +72,7 @@ const claimNodeFor=n=>({nodeId:n.id,state:n.online?'READY':'OFFLINE',capabilitie
 // enrollment registry reads the second. Dropping either one produces a ReferenceError at request time rather than
 // at load time, which is why this is stated here: the first attempt at this merge kept only `deviceClock` and every
 // JOIN-502 test failed with "nearbyTimeoutMs is not defined".
-export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',token,nodeToken,heartbeatTimeout=8000,pairingClock=Date.now,pairingTtlMs=300000,discoveryEnabled=false,nearbyTimeoutMs=2000,roomHubUrl=process.env.CITY_ROOMS_URL,roomsDisabled=process.env.CITY_ROOMS_DISABLED==='1',hostId=process.env.CITY_HOST_ID,roomFetch,deviceClock=Date.now,hostDeviceId:requestedHostDeviceId,hostJoin=null}) {
+export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',token,nodeToken,heartbeatTimeout=8000,pairingClock=Date.now,pairingTtlMs=300000,discoveryEnabled=false,nearbyTimeoutMs=2000,roomHubUrl=process.env.CITY_ROOMS_URL,roomsDisabled=process.env.CITY_ROOMS_DISABLED==='1',hostId=process.env.CITY_HOST_ID,roomFetch,deviceClock=Date.now,hostDeviceId:requestedHostDeviceId,hostJoin=null,lifecycle='service',pageIdleMs=8000,onLifecycleExit=null}) {
   if(!token||!nodeToken||token===nodeToken) throw new Error('Separate control and node tokens are required');
   if(host==='0.0.0.0'||host==='::') throw new Error('Configure an explicit loopback or LAN interface');
   const store=new Store(dir); const wss=new WebSocketServer({noServer:true}); let closed=false;
@@ -85,6 +85,33 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // anonymous client is a fact too, and omitting the event would make it invisible to the other surfaces.
   const hostDeviceId=requestedHostDeviceId||'dev-'+store.cityId.replaceAll('-','');
   const controlSurfaces=new Map();
+  // SINGLE-MACHINE PAGE LIFECYCLE. When the single-machine launcher opens this City for one person on this host, the
+  // City's life belongs to the page that opened it: the page releases it on unload, and if the page dies without
+  // saying so (crash, force-close, killed browser) the idle fallback closes the City once the last control surface is
+  // gone. `lifecycle:'service'` - the default, and what the host start script uses when this machine is hosting for
+  // other devices - never exits on its own.
+  //
+  // The rule is stated once, here, because two paths share it: the explicit release and the idle fallback must not be
+  // able to race each other into a second exit, and neither may fire while any control surface is still attached.
+  const pageLifecycle=lifecycle==='page';
+  let pageLifecycleExited=false,sawControlSurface=false,pageIdleTimer=null;
+  const exitPageLifecycle=reason=>{
+    if(!pageLifecycle||pageLifecycleExited||closed)return false;
+    pageLifecycleExited=true;
+    if(pageIdleTimer){clearTimeout(pageIdleTimer);pageIdleTimer=null;}
+    console.log('Utopia City closing: '+reason);
+    if(typeof onLifecycleExit==='function')onLifecycleExit(reason);
+    return true;
+  };
+  const armPageIdleExit=()=>{
+    if(!pageLifecycle||closed||pageLifecycleExited||pageIdleTimer)return;
+    pageIdleTimer=setTimeout(()=>{
+      pageIdleTimer=null;
+      if(controlSurfaces.size===0)exitPageLifecycle('the control page left without releasing the City');
+    },Math.max(200,Number(pageIdleMs)||8000));
+    if(typeof pageIdleTimer.unref==='function')pageIdleTimer.unref();
+  };
+  const cancelPageIdleExit=()=>{if(pageIdleTimer){clearTimeout(pageIdleTimer);pageIdleTimer=null;}};
   // D-R1 (Mech's review finding, reproduced before this was written). `controlSurfaces` is keyed by SOCKET,
   // but the EVENT is a fact about the CLIENT - and the first version emitted a ref-level CLIENT_DISCONNECTED
   // whenever ANY socket for that ref closed. One surface can hold several sockets (a reconnect overlap, a
@@ -411,7 +438,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   const isLocalRequest=req=>{const address=req?.socket?.remoteAddress?.replace(/^::ffff:/,'');return address==='127.0.0.1'||address==='::1'||Object.values(networkInterfaces()).flat().some(n=>n?.address===address);};
   const members=()=>memberSnapshot({store,installations:enrollment.list(),surfaces:liveSurfaces(),hostDeviceId});
   const memberRef=req=>req.citySession?req.citySession.installation.deviceId:hostDeviceId;
-  const snapshot=(req)=>envelope({hostDeviceId,currentMemberRef:req?.citySession?memberRef(req):isLocalRequest(req)?hostDeviceId:null,members:members(),hostJoinAvailable:Boolean(hostJoin)&&!req?.citySession&&isLocalRequest(req),status:'ONLINE',updatedAt:now(),cityId:store.cityId,displayName:store.cityName,descriptor:pairing.descriptor(),discovery:discoveryState,nodes:store.list('nodes'),controlSurfaces:liveSurfaces(),tasks:store.list('tasks'),events:store.events(),capabilities:bridge.registry(),invocations:bridge.list(),joinRequests:join.snapshot(),
+  const snapshot=(req)=>envelope({hostDeviceId,currentMemberRef:req?.citySession?memberRef(req):isLocalRequest(req)?hostDeviceId:null,members:members(),hostJoinAvailable:Boolean(hostJoin)&&!req?.citySession&&isLocalRequest(req),status:'ONLINE',updatedAt:now(),cityId:store.cityId,displayName:store.cityName,lifecycle:pageLifecycle?'page':'service',descriptor:pairing.descriptor(),discovery:discoveryState,nodes:store.list('nodes'),controlSurfaces:liveSurfaces(),tasks:store.list('tasks'),events:store.events(),capabilities:bridge.registry(),invocations:bridge.list(),joinRequests:join.snapshot(),
     // JOIN-503: the surface that is asking is told which INSTALLATION it is. A control-token client gets null
     // (it is the owner, not an enrolled installation), which is exactly what the Settings page needs in order to
     // show an enrollment summary for an enrolled client and the engineering fallback for a control-token one.
@@ -646,6 +673,15 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // Deterministic Ask / Do. There is no model in this path and no BOSS/HNS route.
       else if(req.method==='GET' && path==='/api/v0/ask/targets')out={targets:await askTargets()};
       else if(req.method==='POST' && path==='/api/v0/ask')out={ask:await handleAsk(await body(req),{actions,targets:await askTargets(),roomState:await rooms.probe()})};
+      // SINGLE-MACHINE PAGE LIFECYCLE. The page that opened this City releases it on unload. This is deliberately
+      // narrow: local caller only, owner credential only, and in `service` lifecycle it answers honestly that nothing
+      // was released instead of pretending to act. It never closes a City that is hosting other devices.
+      else if(req.method==='POST' && path==='/api/v0/host/release'){
+        if(!isLocalRequest(req))fail(403,'Only the local page may release this City');
+        if(req.citySession)refuse('OWNER_CREDENTIAL_REQUIRED',403,'Releasing the City requires the owner credential');
+        if(!pageLifecycle)out={apiVersion:0,schemaVersion:0,released:false,lifecycle:'service',reason:'this City is not tied to a page'};
+        else {out={apiVersion:0,schemaVersion:0,released:true,lifecycle:'page'};setImmediate(()=>exitPageLifecycle('the control page released the City'));}
+      }
       else if(req.method==='POST' && path==='/api/v0/host/join'){
         if(req.citySession||!hostJoin||!isLocalRequest(req))fail(403,'Only the local host owner may change its role');out=await hostJoin.start(await body(req));
       }
@@ -826,6 +862,8 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         const liveBefore=surfaceCounts.get(key)??0;
         controlSurfaces.set(ws,{...identity,connectedAt:now()});
         surfaceCounts.set(key,liveBefore+1);
+        // A control surface is present again: a reload that reconnects inside the grace window must NOT close the City.
+        sawControlSurface=true;cancelPageIdleExit();
         if(liveBefore===0){surfaceLabels.set(key,identity.clientLabel);emit('CLIENT_CONNECTED',null,{clientRef:identity.clientRef,clientLabel:identity.clientLabel});}
         ws.send(JSON.stringify(envelope({type:'REFRESH'})));
         ws.on('error',()=>{});
@@ -838,6 +876,9 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
           surfaceCounts.delete(k);
           const label=surfaceLabels.get(k)??gone.clientLabel;surfaceLabels.delete(k);
           if(!closed)emit('CLIENT_DISCONNECTED',null,{clientRef:gone.clientRef,clientLabel:label??null});
+          // Every control surface has left. In page mode the City now owes its life to a page that is gone, so the
+          // idle fallback is armed; a reconnect inside the grace window cancels it.
+          if(sawControlSurface&&controlSurfaces.size===0)armPageIdleExit();
         });
       });
     }catch(e){socket.write('HTTP/1.1 '+(e.status||400)+' Rejected\r\nConnection: close\r\n\r\n');socket.destroy();}
@@ -854,5 +895,5 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // here - recorded so the next reader does not mistake the assignment below for a join fix.
   pairing.endpoint=`http://${host}:${server.address().port}`;
   if(discoveryEnabled)discovery=await startDiscovery({descriptor:pairing.descriptor(),onStatus:s=>{discoveryState=s;}});
-  return {url:pairing.endpoint,store,join,relay,quiesce:value=>{acceptingTasks=!value;},close:async()=>{if(closed)return;closed=true;bridge.close();join.close();relay.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();}};
+  return {url:pairing.endpoint,store,join,relay,lifecycle:pageLifecycle?'page':'service',quiesce:value=>{acceptingTasks=!value;},close:async()=>{if(closed)return;closed=true;cancelPageIdleExit();bridge.close();join.close();relay.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();}};
 }

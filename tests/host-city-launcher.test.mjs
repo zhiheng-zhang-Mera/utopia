@@ -30,6 +30,10 @@ test('two installation launchers share one City across ports and recover the sam
     for(const install of ['a','b']) {
       await mkdir(resolve(dir,install,'scripts'),{recursive:true});
       await copyFile(resolve(root,'scripts/utopia-client-launcher.mjs'),resolve(dir,install,'scripts/utopia-client-launcher.mjs'));
+      // The launcher now imports its start-plan decision from a sibling module. A simulated install has to carry what
+      // a real install carries; copying only the entry file would test a layout the product never ships. No assertion
+      // in this file was changed.
+      await copyFile(resolve(root,'scripts/launcher-plan.mjs'),resolve(dir,install,'scripts/launcher-plan.mjs'));
       for(const script of ['start-city.ps1','stop-city.ps1','restart-gateway.ps1','host-processes.ps1']) await copyFile(resolve(root,'scripts',script),resolve(dir,install,'scripts',script));
       for(const folder of ['apps','services']) await symlink(resolve(root,folder),resolve(dir,install,folder),process.platform==='win32'?'junction':'dir');
     }
@@ -78,6 +82,7 @@ test('forgetting migrated enrollment cannot import the legacy credential again',
   try {
     await mkdir(resolve(dir,'install/scripts'),{recursive:true});
     await copyFile(resolve(root,'scripts/utopia-client-launcher.mjs'),script);
+    await copyFile(resolve(root,'scripts/launcher-plan.mjs'),resolve(dir,'install/scripts/launcher-plan.mjs'));
     for(const folder of ['apps','services']) await symlink(resolve(root,folder),resolve(dir,'install',folder),process.platform==='win32'?'junction':'dir');
     writeDeviceFile(resolve(dir,'install/.runtime/device-enrollment.json'),{endpoint:'http://127.0.0.1:1',cityId:'legacy-city',installationId:'i',instanceId:'n',credentialId:'c',credentialSecret:'s',deviceId:'d'});
     await run(process.execPath,[script,'--forget-device'],{env,timeout:10000});

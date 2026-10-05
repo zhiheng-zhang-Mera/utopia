@@ -2,6 +2,10 @@ param([string]$BindAddress = '127.0.0.1', [int]$Port = 4310, [int]$RoomsPort = 4
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $env:CITY_MANAGE_SERVICES = '1'
+# This script is the deliberate "host this City for other devices" start, so the City must NOT follow a browser page:
+# closing a page here would take the City away from the phones and peer hosts using it. The page-tied lifecycle is the
+# launcher's single-machine default, not this script's.
+$env:CITY_LIFECYCLE = 'service'
 $env:CITY_DISCOVERY_DISABLED = if ($DisableDiscovery) { '1' } else { '0' }
 $env:CITY_TELEMETRY_DISABLED = if ($DisableTelemetry) { '1' } else { '0' }
 $env:CITY_ROOMS_DISABLED = if ($NoRooms) { '1' } else { '0' }

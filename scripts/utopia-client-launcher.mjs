@@ -6,7 +6,11 @@ import {resolve} from 'node:path';
 import {readHostCity} from '../services/dev-gateway/host-city.mjs';
 import {findRunningCities} from '../services/dev-gateway/host-preflight.mjs';
 import {enrollWithCity, forgetDeviceFile, inviteForExchange, openDeviceSession, readDeviceFile, writeDeviceFile} from '../apps/client/device-enrollment.mjs';
+import {planStart, followsMembership} from './launcher-plan.mjs';
 const args = process.argv.slice(2);
+// The starting intention, decided once. The default is the single-machine start: this host's own City, tied to the
+// page that opened it, with any stored membership ignored until the person actually goes online.
+const plan = planStart({args});
 const has = key => args.includes('--'+key);
 const flag = (key, fallback=null) => {const i=args.indexOf('--'+key); return i<0 ? fallback : args[i+1];};
 const root=resolve(import.meta.dirname,'..');
@@ -67,7 +71,9 @@ async function main() {
     return;
   }
   const enrolled=readDeviceFile(deviceFile);
-  if(enrolled && !has('host-only')) {
+  // ONLY 联机 follows a stored membership. The ordinary single-machine start must open THIS host's City even when an
+  // enrollment for some other City is still on disk - that diversion is exactly what the person did not ask for.
+  if(enrolled && followsMembership(plan)) {
     await startSavedMember(enrolled);
     return;
   }
@@ -75,7 +81,7 @@ async function main() {
   try {record=await readHostCity();} catch(error) {
     if(!['ECONNREFUSED'].includes(error.cause?.code)) throw error;
   }
-  if(record?.role==='MEMBER'){const selected=readDeviceFile(record.memberEnrollmentFile||deviceFile);if(!selected)throw new Error('Member credential unavailable; no second City started');await startSavedMember(selected);return;}
+  if(record?.role==='MEMBER'&&followsMembership(plan)){const selected=readDeviceFile(record.memberEnrollmentFile||deviceFile);if(!selected)throw new Error('Member credential unavailable; no second City started');await startSavedMember(selected);return;}
   say('Checking this host for an already running City, including older installations…');
   const existing=await findRunningCities();
   if(record&&existing.some(city=>city.gatewayPid!==record.gatewayPid))throw new Error('Another Gateway is already running alongside the reserved City. No new City started: '+existing.map(city=>city.endpoint).join('; '));
@@ -90,7 +96,7 @@ async function main() {
     const port=flag('port',process.env.CITY_PORT||4391);
     const runtime=resolve(root,'.runtime'); mkdirSync(runtime,{recursive:true});
     const log=openSync(resolve(runtime,'gateway-launch.log'),'a');
-    const child=spawn(process.execPath,['services/dev-gateway/main.mjs'],{cwd:root,env:{...process.env,CITY_MANAGE_SERVICES:process.env.CITY_MANAGE_SERVICES ?? '1',CITY_HOST:host,CITY_PORT:String(port),CITY_DATA:runtime},detached:true,stdio:['ignore',log,log],windowsHide:true});
+    const child=spawn(process.execPath,['services/dev-gateway/main.mjs'],{cwd:root,env:{...process.env,CITY_LIFECYCLE:plan.lifecycle,CITY_MANAGE_SERVICES:process.env.CITY_MANAGE_SERVICES ?? '1',CITY_HOST:host,CITY_PORT:String(port),CITY_DATA:runtime},detached:true,stdio:['ignore',log,log],windowsHide:true});
     child.unref(); closeSync(log);
     child.on('error',error=>console.error('Gateway launch failed: '+error.message));
   }
@@ -99,13 +105,13 @@ async function main() {
     try {record=await readHostCity();} catch(error) {if(error.cause?.code!=='ECONNREFUSED') throw error;}
   }
   if(record?.state!=='ONLINE') throw new Error('City did not become ready within 45 seconds; inspect .runtime/gateway-launch.log');
-  if(record.role==='MEMBER'){const saved=readDeviceFile(record.memberEnrollmentFile||deviceFile);if(!saved)throw new Error('Member credential unavailable; no second City started');await startSavedMember(saved);return;}
-  if(!record.configFile){open(record.endpoint);report({endpoint:record.endpoint,cityId:record.cityId,gatewayPid:record.gatewayPid,dataDir:record.dataDir,requiresPairing:true});return;}
+  if(record.role==='MEMBER'&&followsMembership(plan)){const saved=readDeviceFile(record.memberEnrollmentFile||deviceFile);if(!saved)throw new Error('Member credential unavailable; no second City started');await startSavedMember(saved);return;}
+  if(!record.configFile){open(record.endpoint);report({endpoint:record.endpoint,cityId:record.cityId,gatewayPid:record.gatewayPid,dataDir:record.dataDir,requiresPairing:true,mode:plan.mode,lifecycle:plan.lifecycle});return;}
   const config=JSON.parse(readFileSync(record.configFile,'utf8'));
   const response=await fetch(record.endpoint+'/api/v0/city',{headers:{Authorization:'Bearer '+config.token,'X-City-Api-Version':'0','X-City-Schema-Version':'0'},signal:AbortSignal.timeout(5000)});
   if(!response.ok || (await response.json()).cityId!==record.cityId) throw new Error('Existing host City identity or credential refused');
   open(record.endpoint+'/#token='+encodeURIComponent(config.token)+'&device='+encodeURIComponent(record.deviceId||''));
-  report({endpoint:record.endpoint,cityId:record.cityId,gatewayPid:record.gatewayPid,dataDir:record.dataDir});
+  report({endpoint:record.endpoint,cityId:record.cityId,gatewayPid:record.gatewayPid,dataDir:record.dataDir,mode:plan.mode,lifecycle:record.lifecycle??plan.lifecycle,roleIgnored:!followsMembership(plan)});
 }
 try {await main();} catch(error) {
   console.error('Utopia: '+(error.code ? error.code+': ' : '')+error.message);

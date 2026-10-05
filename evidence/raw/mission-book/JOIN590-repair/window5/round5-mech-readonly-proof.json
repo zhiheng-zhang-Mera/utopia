@@ -1,0 +1,23 @@
+{
+  "at": "2026-10-05T11:07:38.731456+00:00",
+  "cityId": "031fdba6-e94c-4298-a095-6ff04a65481d",
+  "installationCount": 2,
+  "requestStates": [
+    {
+      "id": "ebe42ec7-1fee-457b-a3a7-d24b808b1bf7",
+      "requestId": null,
+      "shortRef": "join-c301d67807",
+      "state": "EXPIRED",
+      "approved": null,
+      "displayName": "Android \u00b7 PERM00"
+    },
+    {
+      "id": "6ef1a08f-eac9-4b42-8192-de785f7c0749",
+      "requestId": null,
+      "shortRef": "join-535174ce61",
+      "state": "CONSUMED",
+      "approved": null,
+      "displayName": "Android \u00b7 PERM00"
+    }
+  ]
+}

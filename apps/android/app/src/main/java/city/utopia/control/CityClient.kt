@@ -90,7 +90,7 @@ class CityClient(context: Context, private val host: String, token: String, priv
     response.close();dropSocket("Renewing device session…");renewSession();return request(path,body,false)
    }
    val raw = response.body?.string() ?: "{}"
-   if (!response.isSuccessful && (path.startsWith("capabilities/") || path.startsWith("capability-invocations/"))) {
+   if (!response.isSuccessful && (path.startsWith("capabilities/") || path.startsWith("capability-invocations/") || path=="research/trace")) {
     val error = runCatching { JSONObject(raw) }.getOrNull()
     throw CapabilityRequestException(error?.optString("errorCode")?.takeIf { it.isNotBlank() } ?: "HTTP_${response.code}",response.code,error?.optString("error")?.takeIf { it.isNotBlank() } ?: "Request failed: ${response.code}")
    }
@@ -221,6 +221,7 @@ class CityClient(context: Context, private val host: String, token: String, priv
  private fun deliver(response: JSONObject, done: (JSONObject) -> Unit) { handler.post { if(!closed) done(response) } }
  /** T1 — GET /api/v0/rooms. The returned hubUrl is loopback-only and is never used by Android. */
  fun rooms(done: (JSONObject) -> Unit) { submit { deliver(row("rooms"),done) } }
+ fun researchTrace(done:(JSONObject)->Unit) { submit { deliver(row("research/trace"),done) } }
  fun actions(limit: Int, done: (JSONObject) -> Unit) { submit { deliver(row("actions?limit="+limit.coerceIn(1,200)),done) } }
  fun actionDetail(actionId: String, done: (JSONObject) -> Unit) { submit { deliver(row("actions/"+java.net.URLEncoder.encode(actionId,"UTF-8")),done) } }
  /**

@@ -1,0 +1,67 @@
+{
+  "task_id": "HOST-START-MODES",
+  "kind": "OWNER_DIRECTED_CHANGE",
+  "workbook": null,
+  "workbook_absence_reason": "No workbook in Digital-City/mission-book owns the host start-mode, page-lifecycle, or stored-role surface. The change was therefore delivered as an owner-directed change and is reported under mission-book/reports/HOST-START-MODES/ with the recommendation that a workbook be allocated for this surface.",
+  "role": "Mech-DS",
+  "development_host": "MEGA-REP",
+  "repository": "zhiheng-zhang-Mera/utopia",
+  "branch": "mech/standalone-city-lifecycle",
+  "pull_request": 26,
+  "base_sha": "d3262ce2",
+  "development_head_sha": "473d8e8901c97c0b92f5137ea1b6d70e949a8aae",
+  "behaviour": {
+    "start_plan": {
+      "default": { "mode": "standalone-page", "lifecycle": "page", "follows_membership": false, "role_persisted": false },
+      "--host-only": { "mode": "standalone-service", "lifecycle": "service", "follows_membership": false, "role_persisted": false },
+      "--online": { "mode": "online-member", "lifecycle": "online", "follows_membership": true, "role_persisted": true }
+    },
+    "page_close": "leaves the page, then the City closes after the last control surface has been absent for the grace window (CITY_PAGE_IDLE_MS, default 8000 ms); a reload inside the window cancels the exit and a second surface keeps it alive",
+    "release_route": "POST /api/v0/host/release (local only); refuses a City session with OWNER_CREDENTIAL_REQUIRED, and answers released:false,reason:'this City is not tied to a page' when lifecycle is service",
+    "role": "a single-machine start runs PRIMARY and leaves role.json exactly as stored (persistRole:false); only an online start rewrites it"
+  },
+  "runs": [
+    {
+      "id": "UNIT-PROBES",
+      "command": "node --test tests/host-standalone-lifecycle.test.mjs",
+      "workdir": "D:\\utopia-launch",
+      "head_sha": "473d8e8901c97c0b92f5137ea1b6d70e949a8aae",
+      "result": "pass 7, fail 0, skipped 0, todo 0, duration_ms 3593.9936",
+      "probes": [
+        "PROBE 1: the start plan defaults to a page-tied single-machine City and only --online follows a membership",
+        "PROBE 2: closing the last page in page mode closes the City, and says why",
+        "PROBE 3: a reload inside the grace window does NOT close the City",
+        "PROBE 4: a second surface keeps the City alive",
+        "PROBE 5: a City that never had a page does not close itself",
+        "PROBE 6: the owner page can release the City explicitly, and only the owner",
+        "PROBE 7: a hosting City ignores the release and never follows a page"
+      ],
+      "stderr_note": "PROBE 2/3/4/6 print the City's own reason line, e.g. 'Utopia City closing: the control page left without releasing the City'"
+    },
+    {
+      "id": "PROCESS-E2E",
+      "command": "node --test tests/host-lifecycle-process-e2e.test.mjs",
+      "workdir": "D:\\utopia-launch",
+      "head_sha": "473d8e8901c97c0b92f5137ea1b6d70e949a8aae",
+      "result": "pass 2, fail 0",
+      "acceptances": [
+        "closing the last page ends the City process with exit code 0 and a /Utopia City closing/ line on the process output",
+        "a stored MEMBER role is ignored on a single-machine start, role.json is left byte-identical, and the same stored role is honoured when the City is started online"
+      ],
+      "reproduction_constraint": "the acceptance spawns its own isolated City and therefore needs coordination port 4389 free; main.mjs also refuses to start while findRunningCities() sees any City. The resident City on this host was stopped for the recorded run and restored afterwards (cityId 031fdba6-e94c-4298-a095-6ff04a65481d, http://172.31.12.151:4391, coordination ONLINE). The probes were not re-run at the docs-only head because re-running would take that City down again; no code changed between the recorded run and the docs commit."
+    },
+    {
+      "id": "BILINGUAL-DOC-CHECK",
+      "command": "node scripts/check-bilingual.mjs (repository check)",
+      "result": "SYNCHRONIZED"
+    },
+    {
+      "id": "REGRESSION-SUBSET",
+      "result": "174 pass / 180; the 3 remaining failures (3x host-city-launcher.test.mjs, relay-s1-tunnel) were reproduced unchanged at the unmodified baseline via git stash, so they are environmental and not attributable to this change"
+    }
+  ],
+  "deviations": [],
+  "open_items": [
+    "the surface has no owning workbook: recommend allocating one so future changes to start modes, page lifecycle, and stored-role persistence are claimed rather than owner-directed"
+  ]
+}

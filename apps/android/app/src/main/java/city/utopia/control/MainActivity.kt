@@ -66,6 +66,11 @@ class MainActivity : ComponentActivity() {
   val online = state.connection == "ONLINE"
   val schedulerChoiceState=remember(client,state.snapshot?.optString("cityId")) { SchedulerChoiceState() }
   DisposableEffect(schedulerChoiceState) { onDispose { schedulerChoiceState.fence.close() } }
+  val ownerCityId=state.snapshot?.optString("cityId")?.takeIf { it.isNotBlank() } ?: prefs.getString("cityId","").orEmpty()
+  val ownerPrefs=remember { getSharedPreferences("owner-pairing-temp",MODE_PRIVATE) }
+  val ownerOnboarding=remember(client,ownerCityId,host,token) { if(ownerCityId.isBlank()) null else OwnerOnboardingState(ownerCityId,host,token,ownerPrefs) }
+  DisposableEffect(ownerOnboarding) { onDispose { ownerOnboarding?.fence?.close() } }
+  LaunchedEffect(ownerOnboarding,online) { ownerOnboarding?.connectivityChanged() }
   val tasks = state.snapshot?.optJSONArray("tasks").objects()
   val nodes = state.snapshot?.optJSONArray("nodes").objects()
   val events = state.snapshot?.optJSONArray("events").objects()
@@ -103,6 +108,7 @@ class MainActivity : ComponentActivity() {
     item { Column { Text(if (selected != null) "Task details" else when (page) { "Home" -> "Digital City"; "Find" -> "Welcome"; "Ask" -> "Ask / Do"; "Rooms" -> "Rooms · local tools"; "Action" -> "Actions"; "Devices" -> if(selectedNode == null) "Devices" else "Device details"; "ResearchTrace" -> "研究记录"; "Services" -> "City services"; "Tasks" -> "Your tasks"; "Activity" -> "City activity"; else -> "Connect your city" }, fontSize = 32.sp, color = Ink, fontWeight = FontWeight.Medium); Text(if (online) "Your devices. One shared view." else "Cached information · connection is not live", fontSize = 12.sp, color = Color.Gray) } }
     if (state.message.isNotBlank()) item { UtFeedback(state.message, kind = "error") }
     if (page == "Find") {
+     item { ownerOnboarding?.let { OwnerOnboardingPanel(it,client,online,state.snapshot?.optString("displayName")?.takeIf { it.isNotBlank() } ?: "当前城市",now) } ?: Text("连接城市后可邀请设备并审批入网。") }
      item { PairingPanel(log, intent?.dataString, host, token, { page="Settings" }, { h,t,id,_ -> host=h; token=t; prefs.edit().putString("host",h).putString("token",t).putString("cityId",id).apply(); state=CityState("RECONNECTING"); settingsRevision++; page="Devices"; intent.data=null }) }
     } else if (page == "Devices") {
      // UXI-301: show WHY things are waiting ahead of the device list, on the overview only - a single

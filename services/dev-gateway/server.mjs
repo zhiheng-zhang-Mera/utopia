@@ -658,7 +658,19 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         // against, and a prefix would make that check fail on a legitimate hand-off.
       }
       else if(req.method==='GET' && path==='/api/v0/pairing/info')out=pairing.info();
-      else if(req.method==='POST' && path==='/api/v0/pairing/session'){if(req.citySession)refuse('SESSION_CANNOT_MINT_PAIRING',403,'Only the City owner may create a pairing code');await body(req);out=await pairing.create();}
+      // UNION (CEX-704 onto the JOIN-590 integration): main's owner-only minting guard and CEX-704's
+      // expectedSessionState precondition belong to the SAME route, so they are composed into one handler rather
+      // than concatenated - the mechanical pass left two bodies and a stray block here.
+      else if(req.method==='POST' && path==='/api/v0/pairing/session'){
+        if(req.citySession)refuse('SESSION_CANNOT_MINT_PAIRING',403,'Only the City owner may create a pairing code');
+        const b=await body(req);
+        if(b.expectedSessionState!==undefined){
+          if(!['IDLE','USED','EXPIRED','LOCKED'].includes(b.expectedSessionState))refuse('PAIRING_STATE_INVALID',400,'A known terminal pairing state is required');
+          const current=pairing.info();
+          if(current.activeSession||current.sessionState!==b.expectedSessionState)refuse('PAIRING_STATE_CHANGED',409,'Pairing state changed; refresh before generating');
+        }
+        out=await pairing.create();
+      }
       else if(req.method==='POST' && path==='/api/v0/pairing/exchange'){
         const b=await body(req);
         assertNewAdmission(b.installation);const exchanged=pairing.exchange(b);

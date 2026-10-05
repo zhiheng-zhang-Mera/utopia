@@ -92,8 +92,7 @@ class CityClient(context: Context, private val host: String, token: String, priv
    val raw = response.body?.string() ?: "{}"
    // UNION (JOIN-590 closeout integration): both sides widened the same typed-refusal path set - the
    // research trace route (REX-802) and the scheduler switch-declined route (CEX-702). Keep both.
-   if (!response.isSuccessful && (path.startsWith("capabilities/") || path.startsWith("capability-invocations/") || path=="research/trace" || path.endsWith("/switch-declined"))) {
-    val error = runCatching { JSONObject(raw) }.getOrNull()
+   if (!response.isSuccessful && (path.startsWith("capabilities/") || path.startsWith("capability-invocations/") || path=="research/trace" || path.endsWith("/switch-declined") || path.startsWith("join/requests") || path.startsWith("pairing/"))) {    val error = runCatching { JSONObject(raw) }.getOrNull()
     throw CapabilityRequestException(error?.optString("errorCode")?.takeIf { it.isNotBlank() } ?: "HTTP_${response.code}",response.code,error?.optString("error")?.takeIf { it.isNotBlank() } ?: "Request failed: ${response.code}")
    }
    val data = JSONObject(raw)
@@ -264,5 +263,15 @@ class CityClient(context: Context, private val host: String, token: String, priv
    refresh()
   }
  }
+ fun ownerOnboarding(done:(JSONObject)->Unit) { submit {
+  deliver(JSONObject().put("pairing",row("pairing/info")).put("joins",row("join/requests")),done)
+ } }
+ fun generateOwnerPairing(expectedState:String,done:(JSONObject)->Unit) { submit {
+  deliver(row("pairing/session",JSONObject().put("expectedSessionState",expectedState)),done)
+ } }
+ fun decideJoin(id:String,approve:Boolean,done:(JSONObject)->Unit) { submit {
+  deliver(row("join/requests/"+java.net.URLEncoder.encode(id,"UTF-8")+if(approve) "/approve" else "/reject",JSONObject()),done)
+  refresh()
+ } }
  fun close() { log.surface("stop", lastServerMaxSeq); closed = true; runCatching { connectivity.unregisterNetworkCallback(callback) }; socket?.cancel(); executor.shutdownNow(); http.dispatcher.cancelAll(); http.connectionPool.evictAll() }
 }

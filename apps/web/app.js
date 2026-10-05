@@ -27,6 +27,8 @@ let enrolledLoading=false,enrolledEpoch=0,recoveryEpoch=0,recoveryCredential=nul
 let enrolledCloneFindings=[],enrolledScope=null,recoveryDrafts=new Map(),recoveryBusy=new Set();
 let selectedMember=null,memberMessages=[],memberDrafts=new Map(),hostJoinPolling=null;
 let token=bootSession||storedSession()||sessionStorage.getItem('city-token')||'',city=null,page=new URLSearchParams(location.hash.slice(1)).get('page')==='Settings'?'Settings':location.pathname==='/pairing'?'Pairing':'Home',selected=null,ws,generation=0,timer,refreshing=false,pending=false,connection='OFFLINE',selectedNode=null,pairingBusy=false,pairingEpoch=0,terminal=null,externalPage=TERMINAL_PAGES.includes(page),homeRoomsData=null,homeRoomsError='',enrolledDevices=null,enrolledError='',enrolledNotice='';
+const schedulerPending=new Map();let schedulerContext='',schedulerEpoch=0;
+// (union) superseded by the richer page= derivation above: this duplicate declaration belonged to the other side
 // JOIN-502 ONBOARDING STATE. `nearby` is what the last browse found; `joinAsk` is the ask this surface
 // has outstanding, if any. They are separate because discovery is repeatable and an ask is a single
 // bounded episode: a fresh browse must never silently replace or re-create an ask that a human on the
@@ -728,6 +730,7 @@ function assistantSlot(){
 function render(){
  if(page!=='ResearchTrace')researchTraceView.reset();
  const recoveryFocus=document.activeElement?.closest('form[data-rebind]');const recoveryField=recoveryFocus?{id:recoveryFocus.dataset.rebind,name:document.activeElement.name}:null;
+ const nextSchedulerContext=token+'|'+(city?.cityId??'');if(nextSchedulerContext!==schedulerContext){schedulerContext=nextSchedulerContext;schedulerEpoch++;schedulerPending.clear();}
  const previousNameForm=$('#city-name-form');
  const nameSelection=document.activeElement?.id==='city-name'?{start:document.activeElement.selectionStart,end:document.activeElement.selectionEnd}:null;
  const focused=document.activeElement;
@@ -766,6 +769,8 @@ function render(){
  // which is why this must not depend on `terminal` already existing.
  if(TERMINAL_PAGES.includes(page)){if(!terminal)mountTerminal();if(terminal)terminal.render($('#view'),city,connection==='ONLINE',api,{page,go,api,credentialContext:token});}
  if(page==='Devices')$('#view').innerHTML=schedulerPanel(schedulerFeed,{isOnline:connection==='ONLINE',advanced:true})+`<section class="panel">${nodeRows()}</section>`;
+ if(TERMINAL_PAGES.includes(page)){if(!terminal)mountTerminal();if(terminal)terminal.render($('#view'),city,connection==='ONLINE',api,{page,go,api});}
+ if(page==='Devices')$('#view').innerHTML=schedulerPanel(schedulerFeed,{isOnline:connection==='ONLINE',advanced:true,busyTasks:new Set(schedulerPending.keys())})+`<section class="panel">${nodeRows()}</section>`;
  if(page==='Tasks')$('#view').innerHTML=`<section class="panel"><h2>${esc(t('section.taskRegistry'))}</h2>${taskRows(tasks)}</section>`;
  if(page==='Activity')$('#view').innerHTML=`<section class="panel"><h2>${esc(t('section.eventTimeline',{count:city.events.length}))}</h2><button data-goto="Actions">${esc(t('nav.actions'))}</button>${events(city.events)}</section>`;
  if(page==='Settings')$('#view').innerHTML=`<section class="panel">${cityNameSection()}${deviceSection()}${languageSection()}<h2>${esc(t('section.connectionDiagnostics'))}</h2><p>${esc(t('settings.cityUrl'))}: ${esc(location.origin)}</p><details><summary>${esc(t('common.runDetails'))}</summary><div class="task-id">apiVersion = 0 · schemaVersion = 0</div></details><p class="muted">${esc(t('settings.tokenNote'))}</p><button id="disconnect">${esc(t('settings.changeToken'))}</button></section>`;
@@ -794,7 +799,7 @@ document.addEventListener('click',async e=>{const nav=e.target.closest('[data-pa
 // UXI-301: a scheduler action the user takes must REALLY RETURN to the backend, which is an acceptance
 // item the independent review checks. The route comes from the shared ACTION_WIRING table, and the
 // task id from the button, so the panel and this dispatcher cannot disagree about what is wired.
-if(schedAction){const token=schedAction.dataset.schedulerAction,taskRef=schedAction.dataset.schedulerTask,route=schedAction.dataset.schedulerRoute,providerRef=schedAction.dataset.schedulerProvider;schedAction.disabled=true;try{if(route==='cancel'){await api('tasks/'+encodeURIComponent(taskRef)+'/cancel',{});}else if(route==='create'){await api('tasks',{type:'CHECKPOINT_DEMO'});}else if(route==='providerChoice'){if(!providerRef)throw new Error('no provider was offered to choose from');await api('tasks/'+encodeURIComponent(taskRef)+'/provider-choice',{providerRef});}else{/* local acknowledgement: nothing to send */}await refresh();}catch(err){$('#error').textContent=err.message;schedAction.disabled=false;}}
+if(schedAction){const taskRef=schedAction.dataset.schedulerTask,route=schedAction.dataset.schedulerRoute,providerRef=schedAction.dataset.schedulerProvider,revision=schedAction.dataset.schedulerRevision;if(schedAction.disabled||connection!=='ONLINE'||schedulerPending.has(taskRef))return;const epoch=schedulerEpoch,credential=token,cityRef=city?.cityId,ticket={};schedulerPending.set(taskRef,ticket);render();const current=()=>epoch===schedulerEpoch&&credential===token&&cityRef===city?.cityId;try{if(route==='cancel'){await api('tasks/'+encodeURIComponent(taskRef)+'/cancel',{});}else if(route==='create'){await api('tasks',{type:'CHECKPOINT_DEMO'});}else if(route==='providerChoice'){if(!providerRef)throw new Error('no provider was offered to choose from');await api('tasks/'+encodeURIComponent(taskRef)+'/provider-choice',{providerRef});}else if(route==='switchDeclined'){await api('tasks/'+encodeURIComponent(taskRef)+'/switch-declined',{decision:'ALTERNATE_DEVICE',expectedUpdatedAt:revision});}if(current())await refresh();}catch(err){if(current())$('#error').textContent=err.message;}finally{if(current()&&schedulerPending.get(taskRef)===ticket){schedulerPending.delete(taskRef);render();}}}
 if(e.target.id==='nearby-browse'||e.target.id==='swap-nearby-browse'){nearbyBrowse();}
 if(e.target.id==='nearby-ble'||e.target.id==='swap-nearby-ble'){nearbyBrowse('ble');}
 if(e.target.closest('[data-member]')&&!node){selectedMember=e.target.closest('[data-member]').dataset.member;selectedNode=null;selected=null;render();}

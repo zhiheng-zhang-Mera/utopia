@@ -9,12 +9,21 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Modifier
 import city.utopia.control.theme.Space
 import city.utopia.control.ui.TechnicalDetails
 import city.utopia.control.ui.UtLabel
 import city.utopia.control.ui.UtPanel
 import org.json.JSONObject
+
+class SchedulerChoiceState {
+ val busy=mutableStateMapOf<String,Boolean>()
+ val notices=mutableStateMapOf<String,String>()
+ val fence=CallbackFence()
+}
 
 /**
  * UTOPIA · Android Control Surface — scheduler status surface (UXI-301 steps 2/3/5/6).
@@ -37,16 +46,28 @@ import org.json.JSONObject
 fun SchedulerStatusPanel(
   feed: JSONObject?,
   online: Boolean,
+  requestScope: Any? = null,
+  choiceState: SchedulerChoiceState? = null,
+  onAlternateDevice: ((String, String, (JSONObject) -> Unit) -> Unit)? = null,
   supportedActions: Set<String> = emptySet(),
   onChooseProvider: ((taskId: String, providerRef: String) -> Unit)? = null,
   onAction: ((taskId: String, token: String, providerRef: String?) -> Unit)? = null,
 ) {
+  val localState=remember(requestScope) { SchedulerChoiceState() }
+  val choices=choiceState ?: localState
+  val busy=choices.busy
+  val notices=choices.notices
+  val fence=choices.fence
+  DisposableEffect(localState) { onDispose { localState.fence.close() } }
   UtPanel {
     Column(Modifier.fillMaxWidth().padding(Space.md), verticalArrangement = Arrangement.spacedBy(Space.sm)) {
       // UXI-390: service identifiers live on the FEED's candidates, NOT in the DTO, whose providers carry only
       // an index into this list. Vars are resolved after dumping the real gateway feed, having first wrongly
       // assumed a providerRefs field inside the DTO.
       val candidateRefs: List<String> = feed?.optJSONArray("candidates")?.let { arr ->
+        (0 until arr.length()).map { i -> arr.optString(i) }
+      } ?: emptyList()
+      val candidateLabels: List<String> = feed?.optJSONArray("candidateLabels")?.let { arr ->
         (0 until arr.length()).map { i -> arr.optString(i) }
       } ?: emptyList()
       UtLabel("Why things are waiting")
@@ -60,7 +81,30 @@ fun SchedulerStatusPanel(
           } else {
             for (i in 0 until tasks.length()) {
               val entry = tasks.optJSONObject(i) ?: continue
-              SchedulerTaskCard(entry, candidateRefs, supportedActions, onAction, onChooseProvider)
+              SchedulerTaskCard(entry, candidateRefs, supportedActions, onAction, onChooseProvider, candidateLabels)
+              val choice=SchedulerChoice.fromEntry(entry)
+              val taskId=entry.optString("taskId")
+              if(choice!=null) {
+                Text("Choose how to continue this service")
+                TextButton(enabled=choice.allowed && onAlternateDevice!=null && busy[taskId]!=true,onClick={
+                  val revision=choice.revision ?: return@TextButton
+                  val ticket=fence.ticket() ?: return@TextButton
+                  busy[taskId]=true
+                  onAlternateDevice?.invoke(taskId,revision) { response ->
+                    if(fence.accepts(ticket)) {
+                      busy.remove(taskId)
+                      notices[taskId]=if(response.has("error")) response.optString("error") else "Device change accepted. Waiting for its result."
+                    }
+                  }
+                }) { Text("Keep this service and use another device") }
+                when(choice.reason) {
+                  "TARGET_DEVICE_BOUND" -> Text("This service is bound to the selected device.")
+                  "ALTERNATE_NOT_AVAILABLE" -> Text("No eligible alternative device is available.")
+                  else -> if(!choice.allowed) Text("Device change is unavailable. Refresh the City status.")
+                }
+                TextButton(enabled=busy[taskId]!=true,onClick={notices[taskId]="Continuing to wait; no device change requested."}) { Text("Keep waiting") }
+              }
+              notices[taskId]?.let { Text(it) }
             }
           }
         }
@@ -70,7 +114,7 @@ fun SchedulerStatusPanel(
 }
 
 @Composable
-private fun SchedulerTaskCard(entry: JSONObject, candidateRefs: List<String>, supportedActions: Set<String>, onAction: ((String, String, String?) -> Unit)?, choose: ((String, String) -> Unit)?) {
+private fun SchedulerTaskCard(entry: JSONObject, candidateRefs: List<String>, supportedActions: Set<String>, onAction: ((String, String, String?) -> Unit)?, choose: ((String, String) -> Unit)?, candidateLabels:List<String>) {
   val taskId = entry.optString("taskId")
   val dto = entry.optJSONObject("dto")
   // A malformed or drifted DTO must not crash the surface. It is rendered as an honest "not reported"
@@ -85,7 +129,6 @@ private fun SchedulerTaskCard(entry: JSONObject, candidateRefs: List<String>, su
   Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(Space.xs)) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
       Text(view.stateLabel, style = MaterialTheme.typography.titleMedium)
-      Text(taskId, style = MaterialTheme.typography.labelSmall)
     }
     if (view.choiceRequired) {
       Text(
@@ -106,6 +149,7 @@ private fun SchedulerTaskCard(entry: JSONObject, candidateRefs: List<String>, su
       // Text only by default: an unavailable provider must not become interactive. A SELECTABLE one gets
       // the choose control, because that is where a choice belongs - see the note below.
       Row {
+        Text(candidateLabels.getOrNull(candidateRefs.indexOf(provider.ref)) ?: "Service")
         Text(
           (if (provider.selectable) "Available · " else "Not available · ") + provider.reason,
           style = MaterialTheme.typography.bodyMedium,
@@ -174,6 +218,7 @@ private fun SchedulerTaskCard(entry: JSONObject, candidateRefs: List<String>, su
     // The Advanced gate: collapsed by default, so raw vocabulary is present but not on the reading
     // path. Rows are built only from the DTO, never invented.
     val rows = listOf(
+      "task" to taskId,
       "state" to (dto?.optString("state") ?: ""),
       "provider terms" to (dto?.optJSONArray("providers")?.let { array ->
         (0 until array.length()).mapNotNull { array.optJSONObject(it)?.optString("term") }.joinToString(", ")

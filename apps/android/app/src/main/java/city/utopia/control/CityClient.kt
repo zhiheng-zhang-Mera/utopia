@@ -90,7 +90,9 @@ class CityClient(context: Context, private val host: String, token: String, priv
     response.close();dropSocket("Renewing device session…");renewSession();return request(path,body,false)
    }
    val raw = response.body?.string() ?: "{}"
-   if (!response.isSuccessful && (path.startsWith("capabilities/") || path.startsWith("capability-invocations/") || path=="research/trace")) {
+   // UNION (JOIN-590 closeout integration): both sides widened the same typed-refusal path set - the
+   // research trace route (REX-802) and the scheduler switch-declined route (CEX-702). Keep both.
+   if (!response.isSuccessful && (path.startsWith("capabilities/") || path.startsWith("capability-invocations/") || path=="research/trace" || path.endsWith("/switch-declined"))) {
     val error = runCatching { JSONObject(raw) }.getOrNull()
     throw CapabilityRequestException(error?.optString("errorCode")?.takeIf { it.isNotBlank() } ?: "HTTP_${response.code}",response.code,error?.optString("error")?.takeIf { it.isNotBlank() } ?: "Request failed: ${response.code}")
    }
@@ -255,5 +257,12 @@ class CityClient(context: Context, private val host: String, token: String, priv
    handler.post { if(!closed)done() }
   } catch(e:Exception) { publish("OFFLINE",e.message ?: "Could not leave City") }
  } }
+ fun alternateDevice(id:String,revision:String,done:(JSONObject)->Unit) {
+  submit {
+   val response=row("tasks/"+java.net.URLEncoder.encode(id,"UTF-8")+"/switch-declined",JSONObject().put("decision","ALTERNATE_DEVICE").put("expectedUpdatedAt",revision))
+   deliver(response,done)
+   refresh()
+  }
+ }
  fun close() { log.surface("stop", lastServerMaxSeq); closed = true; runCatching { connectivity.unregisterNetworkCallback(callback) }; socket?.cancel(); executor.shutdownNow(); http.dispatcher.cancelAll(); http.connectionPool.evictAll() }
 }

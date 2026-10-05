@@ -422,4 +422,5 @@ export const messages = {
 
 Object.assign(messages,{"members.thisDevice":"本机","members.role.PRIMARY":"城市主机","members.role.MEMBER":"成员主机","members.role.CONTROL_ONLY":"仅 Web 控制端","members.role.COMPUTE_NODE":"计算设备","members.sharing":"正在共享计算资源","members.notSharing":"资源共享已暂停","members.noAgent":"未连接计算代理","members.messages":"设备消息","members.message":"消息","members.send":"发送","members.received":"已接收","members.pending":"等待接收","members.stopSharing":"停止共享本机资源","members.startSharing":"共享本机资源"});
 Object.assign(messages,{"catalog.hint":"不知道能做什么？","catalog.open":"查看全部能力","catalog.title":"能力目录 — 选择后再提交操作"});
+Object.assign(messages,{"nav.research":"研究","heading.research":"研究"});
 export default { meta, messages };

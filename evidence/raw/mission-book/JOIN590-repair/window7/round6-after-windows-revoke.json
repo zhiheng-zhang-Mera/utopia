@@ -1,0 +1,50 @@
+{
+  "at": "2026-10-05T11:43:39.749906+00:00",
+  "scope": "Mech canonical member roster after Windows self revoke",
+  "city": {
+    "status": 200,
+    "cityId": "031fdba6-e94c-4298-a095-6ff04a65481d",
+    "topLevelNames": [
+      "apiVersion",
+      "schemaVersion",
+      "hostDeviceId",
+      "currentMemberRef",
+      "members",
+      "hostJoinAvailable",
+      "status",
+      "updatedAt",
+      "cityId",
+      "displayName",
+      "descriptor",
+      "discovery",
+      "nodes",
+      "controlSurfaces",
+      "tasks",
+      "events",
+      "capabilities",
+      "invocations",
+      "joinRequests",
+      "enrolledDevice"
+    ]
+  },
+  "device/installations": {
+    "status": 200,
+    "cityId": "031fdba6-e94c-4298-a095-6ff04a65481d",
+    "installations": [
+      {
+        "installationId": "ins-92893167bd38ba85b43fc527e586ddab",
+        "deviceId": "dev-5bbb22fa7ffa4c45915e86c9085347ef",
+        "displayName": "Android \u00b7 PERM00",
+        "state": "BOUND",
+        "status": null
+      }
+    ]
+  },
+  "pairing/info": {
+    "status": 200,
+    "cityId": "031fdba6-e94c-4298-a095-6ff04a65481d",
+    "sessionState": "IDLE",
+    "activeSession": false,
+    "sessionId": null
+  }
+}

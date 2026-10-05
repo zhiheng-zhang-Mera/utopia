@@ -1,0 +1,28 @@
+{
+  "at": "2026-10-05T11:45:24.788776+00:00",
+  "scope": "physical Android recovery after operator-reported Mech City process restart",
+  "origin": "http://172.31.12.151:4391",
+  "cityId": "031fdba6-e94c-4298-a095-6ff04a65481d",
+  "cityStatus": 200,
+  "nativeOnline": true,
+  "sameInstallation": true,
+  "sameDurableCredential": true,
+  "memberSession": true,
+  "manualCredentialInputRequired": false,
+  "cityStartedEventsSinceBeforeRestart": [
+    {
+      "seq": 172,
+      "type": "CITY_STARTED",
+      "at": null,
+      "createdAt": null
+    }
+  ],
+  "task": {
+    "status": 200,
+    "id": "Q-87818c40-a204-46d6-96e6-7da0077085fa",
+    "state": "COMPLETED",
+    "assignedNodeId": "dev-e1d87b2a0ec5457e822b91d81e40dc67",
+    "sha256": "4150752ac4f326d3d74dd939e31d6abfa3d8055df4a00d7614f7c360353bf71a"
+  },
+  "mechProcessRestartEvidence": "Digital-City ce45 deployment and 33a04b6 PR28_FIX_VERIFICATION section6: PID5092 to22248, deployed0ea9203"
+}

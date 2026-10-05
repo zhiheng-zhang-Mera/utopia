@@ -243,11 +243,25 @@ test('PROBE H (FINDING F1): completeness is a constant PARTIAL for every record 
   // fresh collector does reach COMPLETE. So the defect is REPRESENTATION - the surface cannot distinguish "the
   // recording is trustworthy but the City does not run experiments" from "history is missing" - not a broken computation.
   const dir = await mkdtemp(resolve('.scratch-rex802-review-'));
-  let full;
+  let full, bare;
   try {
     full = createTraceCollector({ directory: dir, storage: { load: async () => [], append: async () => ({}) }, softwareRefs: { softwareSha: '0e9bea3ce739b979e582a428af8fb233045a5e75', configRef: 'config/default.json' } });
     await full.flush();
     full.record({ eventId: 'declared-1', type: 'EXPERIMENT_STEP', timestamp: new Date().toISOString(), sourceSeq: 1, sourceClock: 'HOST_WALL_UTC', dimensions: { experimentRef: 'exp-1', experimentRunRef: 'run-1', providerRef: 'p-1', modelRef: 'm-1', channelRef: 'c-1' }, canonicalRefs: {} });
     assert.equal(full.snapshot().completeness, 'COMPLETE', 'COMPLETE is reachable when every optional identity is declared');
+
+    // The empty-set corner, measured rather than argued. A BARE collector with zero records reports COMPLETE, because
+    // "nothing is missing from an empty set" is vacuously true. This state is NOT reachable through the Gateway - it
+    // emits CITY_STARTED before it can answer any request, which is why the real recording above is PARTIAL - but the
+    // two measurements together show the field is inverted relative to usefulness: empty reads COMPLETE, real activity
+    // reads PARTIAL. Recorded so the corner is not mistaken for a product-visible state.
+    const bareDir = await mkdtemp(resolve('.scratch-rex802-bare-'));
+    try {
+      bare = createTraceCollector({ directory: bareDir, storage: { load: async () => [], append: async () => ({}) } });
+      await bare.flush();
+      assert.equal(bare.snapshot().records.length, 0);
+      assert.equal(bare.snapshot().completeness, 'COMPLETE', 'an empty set is reported as COMPLETE');
+    } finally { await bare?.close(20); await rm(bareDir, { recursive: true, force: true }); }
+    assert.ok(trace.records.some(r => r.type === 'CITY_STARTED'), 'the Gateway always records CITY_STARTED, so the empty state is unreachable in the product');
   } finally { await full?.close(20); await rm(dir, { recursive: true, force: true }); }
 }));

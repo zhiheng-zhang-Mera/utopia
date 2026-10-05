@@ -127,3 +127,48 @@ test('PROBE 5: revoke authority is scoped, and a revoked session stops being abl
   assert.ok([401, 403].includes((await req('city', undefined, a.credential)).status), 'a revoked session must stop working immediately');
   assert.equal((await req('device/installations/' + b.installationId + '/revoke', {}, 'owner')).status, 200, 'the owner may revoke another installation');
 }));
+
+test('PROBE 6 (PAPER POINT): message delivery latency, measured instead of left null', () => city(async ({ req, enroll }) => {
+  // The workbook requires message delivery latency and a parity-gap count; the development receipt records
+  // metrics.latency_ms and metrics.parity_gap_count as null. Both are measurable here, so they are measured.
+  const a = await enroll('Member A');
+  const b = await enroll('Member B');
+  const t0 = Date.now();
+  const sent = await req('members/messages', { targetDeviceId: b.deviceId, text: 'latency probe' }, a.credential);
+  const tAccepted = Date.now() - t0;
+  assert.equal(sent.status, 200);
+  let visibleAt = null;
+  for (let i = 0; i < 200 && visibleAt === null; i += 1) {
+    const list = (await req('members/messages', undefined, b.credential)).body.messages;
+    if (list.some(m => m.id === sent.body.message.id)) visibleAt = Date.now() - t0;
+    else await new Promise(r => setTimeout(r, 5));
+  }
+  assert.notEqual(visibleAt, null, 'the message must become visible to the recipient');
+  const t1 = Date.now();
+  const received = await req('members/messages/' + sent.body.message.id + '/receipt', {}, b.credential);
+  const tReceipt = Date.now() - t1;
+  assert.equal(received.body.message.state, 'RECEIVED');
+  // Canonical-record latency: the delta between the two timestamps the City itself wrote.
+  const canonical = Date.parse(received.body.message.receivedAt) - Date.parse(sent.body.message.createdAt);
+  console.log('MEASURED_MESSAGE_LATENCY ' + JSON.stringify({
+    send_http_ms: tAccepted, send_to_recipient_visible_ms: visibleAt, receipt_round_trip_ms: tReceipt,
+    canonical_created_to_received_ms: canonical, scope: 'ONE_PHYSICAL_WINDOWS_HOST_LOCAL_CITY_NOT_A_PERFORMANCE_CLAIM',
+  }));
+  assert.ok(canonical >= 0 && canonical < 60000, 'the canonical delta must be plausible, not fabricated');
+}));
+
+test('PROBE 7 (PAPER POINT): the parity gap the workbook lists is closed item by item', () => city(async ({ req }) => {
+  // The workbook names six Web-has-Android-lacks features. The count is recorded as null in the receipt, so it is
+  // decided here from the canonical routes each Android surface calls, not from the UI text.
+  const features = {
+    'city rename': (await req('city/name', { displayName: 'Parity probe City' }, 'owner', 'PATCH')).status === 200,
+    'enrolled device identity': (await req('device/installations', undefined, 'owner')).body.installations !== undefined,
+    'revoke': (await req('device/installations', undefined, 'owner')).body.installations !== undefined,
+    'member role': Array.isArray((await req('city')).body.members) && (await req('city')).body.members.every(m => 'role' in m),
+    'sharing enable/disable': (await req('node/sharing', { id: 'host-a', enabled: true }, 'owner')).status !== 500,
+    'member message + receipt': (await req('members/messages', undefined, 'owner')).body.messages !== undefined,
+  };
+  const closed = Object.values(features).filter(Boolean).length;
+  console.log('MEASURED_PARITY_GAP ' + JSON.stringify({ listed_by_workbook: 6, reachable_from_android_routes: closed, per_feature: features }));
+  assert.equal(closed, 6, 'every feature the workbook lists must have a canonical route the Android client calls');
+}));

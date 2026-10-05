@@ -1,0 +1,98 @@
+[
+  {
+    "name": "city.utopia.control.ActionsTest",
+    "tests": "13",
+    "failures": "0",
+    "errors": "0"
+  },
+  {
+    "name": "city.utopia.control.AskTest",
+    "tests": "8",
+    "failures": "0",
+    "errors": "0"
+  },
+  {
+    "name": "city.utopia.control.CallbackFenceTest",
+    "tests": "3",
+    "failures": "0",
+    "errors": "0"
+  },
+  {
+    "name": "city.utopia.control.CapabilityPolicyTest",
+    "tests": "1",
+    "failures": "0",
+    "errors": "0"
+  },
+  {
+    "name": "city.utopia.control.CapabilityRequestExceptionTest",
+    "tests": "4",
+    "failures": "0",
+    "errors": "0"
+  },
+  {
+    "name": "city.utopia.control.FlatEnvelopeTest",
+    "tests": "3",
+    "failures": "0",
+    "errors": "0"
+  },
+  {
+    "name": "city.utopia.control.NativeEnrollmentTest",
+    "tests": "6",
+    "failures": "0",
+    "errors": "0"
+  },
+  {
+    "name": "city.utopia.control.PairingProtocolTest",
+    "tests": "10",
+    "failures": "0",
+    "errors": "0"
+  },
+  {
+    "name": "city.utopia.control.ProtocolTest",
+    "tests": "2",
+    "failures": "0",
+    "errors": "0"
+  },
+  {
+    "name": "city.utopia.control.RelativeAgeTest",
+    "tests": "4",
+    "failures": "0",
+    "errors": "0"
+  },
+  {
+    "name": "city.utopia.control.RelayPairingIdentityTest",
+    "tests": "5",
+    "failures": "0",
+    "errors": "0"
+  },
+  {
+    "name": "city.utopia.control.RoomsTest",
+    "tests": "5",
+    "failures": "0",
+    "errors": "0"
+  },
+  {
+    "name": "city.utopia.control.ScanZoomPolicyTest",
+    "tests": "3",
+    "failures": "0",
+    "errors": "0"
+  },
+  {
+    "name": "city.utopia.control.SchedulerPresentationTest",
+    "tests": "10",
+    "failures": "0",
+    "errors": "0"
+  },
+  {
+    "name": "city.utopia.control.TechnicalFoldingTest",
+    "tests": "6",
+    "failures": "0",
+    "errors": "0"
+  },
+  {
+    "name": "city.utopia.control.ui.UiSizingTest",
+    "tests": "8",
+    "failures": "0",
+    "errors": "0"
+  }
+]

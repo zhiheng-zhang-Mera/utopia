@@ -1,0 +1,86 @@
+{
+  "at": "2026-10-05T11:34:30.190788+00:00",
+  "author": "Alien-codex",
+  "softwareSourceSha": "ec3b6f996240ca71505b3b67af12cc222d1b283a",
+  "previousEvidenceHead": "41e8743d7c49771bcc335add2ee722f73085869e",
+  "previousEvidenceCi": {
+    "run": 37301659943,
+    "conclusion": "success"
+  },
+  "androidAppId": "city.utopia.control.join590review",
+  "apkSha256": "970839d29a3066e01ecee8aab3040f9dc2ac81959727b144ab0694dd3d183800",
+  "mechRuntimeSourceSha": null,
+  "mechUpdateOperatorReported": true,
+  "observedMechCanonicalCity": "031fdba6-e94c-4298-a095-6ff04a65481d",
+  "phoneRequestShortRef": "join-0751220e8f",
+  "windowsRequestId": "a8c47038-1114-421e-a6fa-148d657b65c8",
+  "mergedMainPhysicalAcceptance": "NOT_RUN",
+  "mechCityProcessRestart": "NOT_RUN",
+  "oppositeHostRepairReview": "NOT_RUN",
+  "files": [
+    {
+      "path": "local-native-code-entry.json",
+      "sha256": "ec77298815cc3ae88df109a92f27e5d35d7400eb2f3e7e7fb7947f5031666deb"
+    },
+    {
+      "path": "local-native-joined.json",
+      "sha256": "7ba37804215a33151094a636f6fa41a4aca7c8c1b4a167ae2450b76bc3a4b67d"
+    },
+    {
+      "path": "local-native-joined-ui.xml",
+      "sha256": "94d264177dc3cf6dc1f36a2f864b24cac6497d09daea63ca2e54c90ba8411762"
+    },
+    {
+      "path": "local-native-restart.json",
+      "sha256": "e56c9a4611225333751e3d0e3fe67a7c23c2869c8805b96724cc93d0c14ff74f"
+    },
+    {
+      "path": "local-native-revocation.json",
+      "sha256": "73941e7be4f5097b88e405938819c599eaea9df7f83d637c6afec5af21bde149"
+    },
+    {
+      "path": "round6-request.xml",
+      "sha256": "9018b38777b02b0ff009869abe921d94e28bb6c8c46762e4cdbf814d1b637ccb"
+    },
+    {
+      "path": "round6-native-joined.json",
+      "sha256": "7dc8e8bf2db352543ad4631399b9ef3cf89f10ce167667d227551ce0cf54efc9"
+    },
+    {
+      "path": "round6-native-joined-ui.xml",
+      "sha256": "b6747721ac27e86268b1e2ee9af926b0811d3282dfc910335e7ebfad36f19b9b"
+    },
+    {
+      "path": "round6-native-restart.json",
+      "sha256": "b270d87974b3763b3ebaeaba59802b9d3fce87e27b55719bfcf99477cbbdd7c4"
+    },
+    {
+      "path": "round6-native-task.xml",
+      "sha256": "d10d8650630340b674f287b33e24880a09ee6ac122b6ca63eaddcfa851266d77"
+    },
+    {
+      "path": "round6-web-task-proof.json",
+      "sha256": "fc97c6efe7f024ff5b5ede609560771eb3fd03f2a2bbd7ba740ec6190c3bb35b"
+    },
+    {
+      "path": "round6-web-task.png",
+      "sha256": "25d6a36d63a1cddbfb8b7b46eef693afe502e62822cc7210725e304e1643f759"
+    },
+    {
+      "path": "windows-native-joined.json",
+      "sha256": "b59c12dfa2385601ebc0d8a97f99330a8ea2d35c869f98032c6a5c6e8bb69a62"
+    },
+    {
+      "path": "windows-native-restart.json",
+      "sha256": "32618064ef1ffab7728de3b03ac0cd62d1f1078cd0ae0dcd14503d9637aed9b4"
+    },
+    {
+      "path": "windows-native-revoke.json",
+      "sha256": "33ea3277bc6f11b198e7a0f8722b129ddce150ea03d0264b0b2ecaabe3988851"
+    },
+    {
+      "path": "windows-native-refused-restart.json",
+      "sha256": "15d7ddbf54b6ee6de0cd38146b55e011ab2be4449fc0ead8834aca0b12a5578c"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "at": "2026-10-05T11:25:55.460335+00:00",
+  "scope": "physical Android process restart against patched Alien",
+  "cityId": "e1d87b2a-0ec5-457e-822b-91d81e40dc67",
+  "memberSession": true,
+  "sessionChanged": true,
+  "sameInstallation": true,
+  "sameDurableCredential": true,
+  "cityStatus": 200,
+  "credentialInputRequired": false
+}

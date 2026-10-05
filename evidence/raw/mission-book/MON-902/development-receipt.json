@@ -28,6 +28,14 @@
       "result": "pass 11 / fail 0"
     },
     {
+      "id": "BROWSER-UI-EVIDENCE",
+      "command": "node --test --test-name-pattern \"City monitor renders in the browser\" tests/web.test.mjs",
+      "workdir": "D:\\utopia-mon902",
+      "result": "pass 1 / fail 0",
+      "what_it_proves": "a real Chromium (msedge) renders the page against a real gateway: the primary navigation reaches `City monitor`, the overview panel renders and states the standing limitation of the observation model, a real .monitor-row opens the inspector with What/Why/Who/What next, the Technical details disclosure exists, and no raw risk code or NOT_OBSERVABLE string is readable on the page",
+      "note": "this is the exact-head runtime/UI evidence the workbook's completion gate asks for; the string-level probes alone would not have been enough"
+    },
+    {
       "id": "DEPENDENCY-SMOKE",
       "command": "node --test tests/mon901-observation.test.mjs",
       "result": "pass 8 / fail 0 at the union baseline, run BEFORE any MON-902 product change",

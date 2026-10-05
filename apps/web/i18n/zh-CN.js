@@ -421,4 +421,15 @@ export const messages = {
 };
 
 Object.assign(messages,{"members.thisDevice":"本机","members.role.PRIMARY":"城市主机","members.role.MEMBER":"成员主机","members.role.CONTROL_ONLY":"仅 Web 控制端","members.role.COMPUTE_NODE":"计算设备","members.sharing":"正在共享计算资源","members.notSharing":"资源共享已暂停","members.noAgent":"未连接计算代理","members.messages":"设备消息","members.message":"消息","members.send":"发送","members.received":"已接收","members.pending":"等待接收","members.stopSharing":"停止共享本机资源","members.startSharing":"共享本机资源"});
-export default { meta, messages };
+Object.assign(messages, {
+"recovery.conflict":"设备身份冲突",
+"recovery.conflictHint":"多个安装实例可能共享凭据。请核对这些安装实例后再决定是否移除设备，系统不会自动删除。",
+"recovery.ownerGuidance":"恢复需要主城所有者批准。请在主城所有者的 Web 设置中确认重新安装；此成员会话只能查看或移除自身。",
+"recovery.required":"此安装实例需要恢复绑定才能重新连接。",
+"recovery.choose":"原有设备",
+"recovery.choosePlaceholder":"选择原有设备",
+"recovery.confirm":"我是主城所有者，确认此安装实例属于所选设备。",
+"recovery.rebind":"恢复设备绑定",
+"recovery.done":"设备绑定已恢复，请重新连接已安装的应用。",
+});
+export default {meta,messages};

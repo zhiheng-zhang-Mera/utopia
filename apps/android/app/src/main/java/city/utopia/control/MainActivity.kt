@@ -143,6 +143,7 @@ class MainActivity : ComponentActivity() {
      item { memberManagement?.let { CityManagementSettings(it,client,state.snapshot,online) {
       client?.close();prefs.edit().remove("host").remove("token").remove("cityId").apply();host="http://";token="";state=CityState();settingsRevision++;page="Find";selectedNode=null;selected=null
      } } ?: Text("连接城市后可管理城市名称和设备身份。") }
+     item { DeviceRecoveryPanel(client,host,state.message) { page="Find" } }
      item { OutlinedButton(onClick={ client?.close(); prefs.edit().clear().apply(); token=""; host="http://"; state=CityState(); settingsRevision++; page="Find"; log.event("clearPairing") }) { Text("Clear pairing / Find your City") } }
      item { OutlinedTextField(host, { host = it }, label = { Text("City URL") }, singleLine = true, modifier = Modifier.fillMaxWidth()) }
      item { OutlinedTextField(token, { token = it }, label = { Text("Pairing token") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth()) }

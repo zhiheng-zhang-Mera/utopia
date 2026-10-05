@@ -34,6 +34,9 @@ import kotlinx.coroutines.delay
  // editable field on purpose: a short code minted on ANOTHER City (a remote host, or the far side of a network)
  // cannot be submitted by guessing the local address.
  var codeAddress by remember { mutableStateOf("") }
+ // Cross-network mode. When on, the join is carried INSIDE an outbound relay pipe instead of by an inbound HTTP
+ // call, which is the only direction that works when both ends are behind NAT.
+ var relayMode by remember { mutableStateOf(false) }
  val api=remember { PairingApi(log) }; val discoveryFence=remember { CallbackFence() }
  // Defined AFTER `api`/`identities` exist: a local function may only capture declarations that are already in
  // scope at its own position, and the first version of this fix was placed above them (compile error, recorded).
@@ -45,6 +48,20 @@ import kotlinx.coroutines.delay
   api.descriptor(known) { result -> result.onSuccess { d -> runCatching { identities[d.cityId]=d; onReady(d) }.onFailure { pairingError=it.message?:"City identity conflict" } }.onFailure { pairingError=it.message?:"City unreachable" } }
  }
  fun generateOwnerCode() { pairingError=null; ownerCode=""; if(credential.isBlank()) { pairingError="No owner credential on this device · sign in with a token first (TOKEN)"; return }; resolveOwnerTarget { d -> api.session(d,credential) { result -> result.onSuccess { ownerSession=it }.onFailure { pairingError=it.message?:"Could not create a pairing session" } } } }
+ /** The address pair the City is remembered by, in the same canonical `http://host:port` shape every other path
+  *  stores. Declared before its first use: a local function may only capture declarations already in scope. */
+ fun codeEndpoint(address:String):String {
+  val trimmed=address.trim().removePrefix("ws://").removePrefix("wss://")
+  val withScheme=if(trimmed.startsWith("http://")||trimmed.startsWith("https://")) trimmed else "http://$trimmed"
+  return runCatching { endpoint(withScheme) }.getOrDefault(withScheme)
+ }
+ /** The descriptor a relay join can honestly record: the City that answered, reachable at the dialled address. */
+ fun descriptorForRelay(outcome:RelayPairing.Outcome,address:String) = PairDescriptor(outcome.cityId,codeEndpoint(address),outcome.peerRef?:"", "", displayName=outcome.cityId)
+ val deviceLabel=android.os.Build.MODEL?.takeIf { it.isNotBlank() }?.let { "Android · $it" } ?: "Android device"
+ /** The identity this installation DECLARES when it dials a City it cannot be dialled by. It is stable per device
+  *  and grants no trust: the City answers with `role: joining-peer, verified: false`, and the short code is still
+  *  what authorises the join. */
+ val deviceInstallationId="android-" + (android.os.Build.MODEL?.replace(Regex("[^A-Za-z0-9-]"), "")?.takeIf { it.isNotBlank() } ?: "device")
  /** Submit a TYPED code to the address in the field. No local mint, no owner credential: the code was minted
   *  somewhere else, which is the normal case for a joining device (including one on another network). */
  fun connectWithTypedCode() {
@@ -52,6 +69,30 @@ import kotlinx.coroutines.delay
   if(address.isBlank()) { pairingError="Enter the City address the code belongs to"; return }
   if(ownerCode.isBlank()) { pairingError="Enter the short code"; return }
   pairingError=null; phase=pairingTransition(phase,"submit")
+  if(relayMode) {
+   // CROSS-NETWORK: the City cannot be dialled directly, so this device dials OUT and the join travels inside the
+   // pipe using the City's own routes. The typed code is not used on this path — the City's relay carries the
+   // `join/*` family, not `pairing/*` — so the action is "ask, then wait for the owner's approval", which needs no
+   // credential here at all.
+   pairingError=null
+   message="Asking the City over the relay pipe…"
+   RelayPairing.joinViaApproval(
+    address = address,
+    installationId = deviceInstallationId,
+    displayName = deviceLabel,
+    onProgress = { stage, detail -> message=detail; log.event("relay"+stage.lowercase()) },
+    onSuccess = { outcome ->
+     phase=pairingTransition(phase,"authenticated")
+     message="Joined over relay · ${outcome.cityId}"
+     paired(codeEndpoint(address),outcome.credential,outcome.cityId,descriptorForRelay(outcome,address))
+     log.event("relayJoin")
+    },
+    onFailure = { error ->
+     phase=pairingTransition(phase,"error"); pairingError=error.message?:"Relay join failed"; log.event("retry")
+    },
+   )
+   return
+  }
   api.pairWithCode(address,ownerCode) { result ->
    phase=pairingTransition(phase,if(result.isSuccess) "authenticated" else "error")
    result.onSuccess { (h,t,descriptor) -> paired(h,t,descriptor.cityId,descriptor) }
@@ -114,10 +155,17 @@ import kotlinx.coroutines.delay
    Text("Short-code join · the code may have been created on another surface, or on a City on another network.")
    OutlinedTextField(codeAddress,{codeAddress=it},label={Text("City address (host:port or http://host:port)")},singleLine=true,placeholder={Text(host.ifBlank { "http://192.168.1.20:4391" })},modifier=Modifier.fillMaxWidth())
    OutlinedTextField(ownerCode,{ownerCode=it},label={Text("Short pairing code")},visualTransformation=PasswordVisualTransformation(),singleLine=true,keyboardOptions=KeyboardOptions(imeAction=ImeAction.Done),keyboardActions=KeyboardActions(onDone={ connectWithTypedCode() }),modifier=Modifier.fillMaxWidth())
-   Button(onClick={ connectWithTypedCode() },enabled=!busy && ownerCode.isNotBlank()) { Text(if(busy) "Connecting…" else "Connect with short code") }
+   Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
+    Checkbox(checked=relayMode,onCheckedChange={ relayMode=it })
+    Text("Remote / cross-network (relay pipe)",style=MaterialTheme.typography.labelMedium)
+   }
+   Text(if(relayMode) "This device dials OUT to the City and the join travels inside the pipe · works when neither side can be dialled (both behind NAT)."
+        else "Direct connection · the City must be reachable from this network. Turn on the relay for a City on another network.",
+        style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+   Button(onClick={ connectWithTypedCode() },enabled=!busy && ownerCode.isNotBlank()) { Text(if(busy) "Connecting…" else if(relayMode) "Connect over relay" else "Connect with short code") }
    OutlinedButton(onClick={ generateOwnerCode() },enabled=!busy && credential.isNotBlank()) { Text(if(ownerSession==null) "Generate a code on the known City (owner)" else "Generate a new code") }
    ownerSession?.let { d -> Text(if(d.session.isBlank()) "Session ready" else "Code active · expires ${d.expires}",style=MaterialTheme.typography.labelSmall) }
-   Text("Codes created on the City this device knows are consumed here directly. A code from a City you cannot reach from this network needs the remote path · the app has no relay transport yet.",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+   Text("The code is minted on the City you are joining. Direct works when this network can reach it; the relay pipe is the path for a City on another network.",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
   }
   cities.values.forEach { d -> Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Text(d.displayName); Text(d.endpoint); Text(d.cityId,style=MaterialTheme.typography.labelSmall); Button(onClick={ pairingError=null; chosen=d; code=""; log.event("action") },enabled=!busy) { Text("Pair") } } } }
   if(chosen!=null) { Text("Create a pairing session on the City host, then enter its short code. Connect refreshes the current session."); OutlinedTextField(code,{code=it},label={Text("Short pairing code")},visualTransformation=PasswordVisualTransformation(),singleLine=true); Button(onClick={ exchange(chosen!!,mode) },enabled=!busy && code.isNotBlank()) { Text(if(busy) "Pairing…" else "Connect") } }

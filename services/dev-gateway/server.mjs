@@ -508,7 +508,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         // against, and a prefix would make that check fail on a legitimate hand-off.
       }
       else if(req.method==='GET' && path==='/api/v0/pairing/info')out=pairing.info();
-      else if(req.method==='POST' && path==='/api/v0/pairing/session'){await body(req);out=await pairing.create();}
+      else if(req.method==='POST' && path==='/api/v0/pairing/session'){if(req.citySession)refuse('SESSION_CANNOT_MINT_PAIRING',403,'Only the City owner may create a pairing code');await body(req);out=await pairing.create();}
       else if(req.method==='POST' && path==='/api/v0/pairing/exchange'){
         const b=await body(req);
         assertNewAdmission(b.installation);const exchanged=pairing.exchange(b);
@@ -530,7 +530,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
             credentialId:enrolled.credential.credentialId,
             credentialSecret:enrolled.credential.credentialSecret,
           });
-          out={...exchanged,apiVersion:0,schemaVersion:0,enrollment:{
+          out={...exchanged,credential:sessionCredential(opened.session.sessionId),apiVersion:0,schemaVersion:0,enrollment:{
             installationId:enrolled.installation.installationId,
             instanceId:enrolled.installation.instanceId,
             deviceId:enrolled.installation.deviceId,

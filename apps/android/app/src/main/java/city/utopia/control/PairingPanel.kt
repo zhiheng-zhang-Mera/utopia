@@ -3,25 +3,105 @@ import android.Manifest
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.delay
 
-@Composable fun PairingPanel(log:PilotLog, incoming:String?, manual:()->Unit, paired:(String,String,String)->Unit) {
+@Composable fun PairingPanel(log:PilotLog, incoming:String?, host:String, credential:String, manual:()->Unit, paired:(String,String,String,PairDescriptor)->Unit) {
  val context=LocalContext.current
  var mode by remember { mutableStateOf("") }; var message by remember { mutableStateOf("LAN DEVELOPMENT ONLY · NOT FOR PUBLIC INTERNET") }
  var pairingError by remember { mutableStateOf<String?>(null) }
  var cities by remember { mutableStateOf<Map<String,PairDescriptor>>(emptyMap()) }; val seen=remember { mutableMapOf<String,Long>() }; val identities=remember { mutableMapOf<String,PairDescriptor>() }
  var chosen by remember { mutableStateOf<PairDescriptor?>(null) }; var code by remember { mutableStateOf("") }; var phase by remember { mutableStateOf("UNPAIRED") }; val busy = phase == "PAIRING"
- val api=remember { PairingApi(log) }; val discoveryFence=remember { CallbackFence() }
- fun exchange(d:PairDescriptor,m:String) { pairingError=null; phase=pairingTransition(phase,"submit"); api.pair(d,m,code) { result -> phase=pairingTransition(phase,if(result.isSuccess) "authenticated" else "error"); result.onSuccess { (host,token) -> paired(host,token,d.cityId) }.onFailure { pairingError=it.message?:"Pairing failed"; log.event("retry") } } }
+ // SHORT-CODE is its own mode, not a step that requires choosing a City first (it is the fifth button in the
+ // row below). It still pairs through the one canonical path: the City descriptor is resolved from the address
+ // this installation already knows, then the exchange is the same `pairing/exchange` call every other mode uses.
+ var ownerCode by remember { mutableStateOf("") }; var ownerSession by remember { mutableStateOf<PairDescriptor?>(null) }
+ // The address the typed code belongs to. Defaults to the City this installation already knows, but it is an
+ // editable field on purpose: a short code minted on ANOTHER City (a remote host, or the far side of a network)
+ // cannot be submitted by guessing the local address.
+ var codeAddress by remember { mutableStateOf("") }
+ // Cross-network mode. When on, the join is carried INSIDE an outbound relay pipe instead of by an inbound HTTP
+ // call, which requires a reachable City endpoint.
+ var relayMode by remember { mutableStateOf(false) }
+ val enrollmentStore=remember { NativeEnrollmentStore(context) }; val identity=remember { enrollmentStore.pendingIdentity() }
+ var deviceName by remember { mutableStateOf("Android · ${Build.MODEL}") }
+ fun installation()=org.json.JSONObject().put("deviceId",identity.first).put("instanceId",identity.second).put("displayName",deviceName.trim()).put("platform","android")
+ val relayHandle=remember { arrayOfNulls<java.io.Closeable>(1) }
+ val api=remember { PairingApi(log,enrollmentStore,{ installation() }) }; val discoveryFence=remember { CallbackFence() }
+ // Defined AFTER `api`/`identities` exist: a local function may only capture declarations that are already in
+ // scope at its own position, and the first version of this fix was placed above them (compile error, recorded).
+ fun resolveOwnerTarget(onReady:(PairDescriptor)->Unit) {
+  val known=runCatching { endpoint(host) }.getOrNull()?.takeIf { it.isNotBlank() }
+  if(known==null) { pairingError="Set the City address first (Settings)"; return }
+  val direct=chosen ?: cities.values.firstOrNull { it.endpoint==known }
+  if(direct!=null) { onReady(direct); return }
+  api.descriptor(known) { result -> result.onSuccess { d -> runCatching { identities[d.cityId]=d; onReady(d) }.onFailure { pairingError=it.message?:"City identity conflict" } }.onFailure { pairingError=it.message?:"City unreachable" } }
+ }
+ fun generateOwnerCode() { pairingError=null; ownerCode=""; if(credential.isBlank()) { pairingError="No owner credential on this device · sign in with a token first (TOKEN)"; return }; resolveOwnerTarget { d -> api.session(d,credential) { result -> result.onSuccess { ownerSession=it }.onFailure { pairingError=it.message?:"Could not create a pairing session" } } } }
+ /** The address pair the City is remembered by, in the same canonical `http://host:port` shape every other path
+  *  stores. Declared before its first use: a local function may only capture declarations already in scope. */
+ fun codeEndpoint(address:String):String {
+  val trimmed=address.trim().replaceFirst("ws://","http://").replaceFirst("wss://","https://")
+  val withScheme=if(trimmed.startsWith("http://")||trimmed.startsWith("https://")) trimmed else "http://$trimmed"
+  return runCatching { endpoint(withScheme) }.getOrDefault(withScheme)
+ }
+ /** The descriptor a relay join can honestly record: the City that answered, reachable at the dialled address. */
+ fun descriptorForRelay(outcome:RelayPairing.Outcome,address:String) = PairDescriptor(outcome.cityId,codeEndpoint(address),outcome.peerRef?:"", "", displayName=outcome.cityId)
+ /** Submit a TYPED code to the address in the field. No local mint, no owner credential: the code was minted
+  *  somewhere else, which is the normal case for a joining device (including one on another network). */
+ fun connectWithTypedCode() {
+  val address=if(codeAddress.isBlank()) host else codeAddress.trim()
+  if(address.isBlank()) { pairingError="Enter the City address the code belongs to"; return }
+  if(!joinInputReady(relayMode,address,ownerCode,deviceName,busy)) { pairingError="Enter a valid City address, device name and (for direct join) six-digit code"; return }
+  pairingError=null; phase=pairingTransition(phase,"submit")
+  if(relayMode) {
+   // APPROVAL: this device dials a reachable City and the join travels inside the
+   // pipe using the City's own routes. The typed code is not used on this path — the City's relay carries the
+   // `join/*` family, not `pairing/*` — so the action is "ask, then wait for the owner's approval", which needs no
+   // credential here at all.
+   pairingError=null
+   message="Asking the City over the relay pipe…"
+   relayHandle[0]?.close()
+   relayHandle[0]=RelayPairing.joinViaApproval(
+    address = address,
+    installationId = identity.first,
+    displayName = deviceName.trim(),
+    installation = installation(),
+    progressCallback = { stage, detail -> message=detail; log.event("relay"+stage.lowercase()) },
+    successCallback = { outcome ->
+     enrollmentStore.save(codeEndpoint(address),outcome.enrollment)
+     phase=pairingTransition(phase,"authenticated")
+     message="Joined over relay · ${outcome.cityId}"
+     paired(codeEndpoint(address),outcome.credential,outcome.cityId,descriptorForRelay(outcome,address))
+     log.event("relayJoin")
+    },
+    failureCallback = { error ->
+     message="Join failed · retry when ready"; phase=pairingTransition(phase,"error"); pairingError=error.message?:"Relay join failed"; log.event("retry")
+    },
+   )
+   return
+  }
+  api.pairWithCode(address,ownerCode) { result ->
+   phase=pairingTransition(phase,if(result.isSuccess) "authenticated" else "error")
+   result.onSuccess { (h,t,descriptor) -> paired(h,t,descriptor.cityId,descriptor) }
+   result.onFailure { error -> pairingError=error.message?:"Short-code join failed"; log.event("retry") }
+  }
+ }
+ fun exchange(d:PairDescriptor,m:String) { pairingError=null; phase=pairingTransition(phase,"submit"); api.pair(d,m,code) { result -> phase=pairingTransition(phase,if(result.isSuccess) "authenticated" else "error"); result.onSuccess { (h,t) -> paired(h,t,d.cityId,d) }.onFailure { pairingError=it.message?:"Pairing failed"; log.event("retry") } } }
  val discovery=remember { CityDiscovery(context,{ origin,expected ->
   val ticket=discoveryFence.ticket(); val sighted=System.currentTimeMillis()
   if(ticket!=null) api.discover(origin,expected) { result -> if(discoveryFence.accepts(ticket)) {
@@ -31,7 +111,7 @@ import kotlinx.coroutines.delay
  fun qr(value:String) { mode="qr"; runCatching { parseQr(value).also { mergeCity(identities,it) } }.onSuccess { log.event("discovery"); exchange(it,"qr") }.onFailure { pairingError="Invalid or expired pairing QR"; log.event("descriptorError") } }
  val scan=rememberLauncherForActivityResult(ScanContract()) { result -> result.contents?.let { qr(it) } ?: run { message="Scan cancelled" } }
  val permission=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results -> if(results.values.all { it }) discovery.ble() else { message="Nearby devices permission denied. Manual connection remains available."; log.event("permissionDenied") } }
- DisposableEffect(Unit) { val lifecycle=(context as androidx.lifecycle.LifecycleOwner).lifecycle; val observer=androidx.lifecycle.LifecycleEventObserver { _,event -> if(event==androidx.lifecycle.Lifecycle.Event.ON_STOP) { discoveryFence.invalidate(); discovery.stop(); cities=emptyMap(); message="Discovery paused while app is in the background" }; if(event==androidx.lifecycle.Lifecycle.Event.ON_START) { if(mode=="mdns") discovery.lan() else if(mode=="ble") discovery.ble() } }; lifecycle.addObserver(observer); onDispose { lifecycle.removeObserver(observer); discoveryFence.close(); discovery.close(); api.close() } }
+ DisposableEffect(Unit) { val lifecycle=(context as androidx.lifecycle.LifecycleOwner).lifecycle; val observer=androidx.lifecycle.LifecycleEventObserver { _,event -> if(event==androidx.lifecycle.Lifecycle.Event.ON_STOP) { discoveryFence.invalidate(); discovery.stop(); cities=emptyMap(); message="Discovery paused while app is in the background" }; if(event==androidx.lifecycle.Lifecycle.Event.ON_START) { if(mode=="mdns") discovery.lan() else if(mode=="ble") discovery.ble() } }; lifecycle.addObserver(observer); onDispose { relayHandle[0]?.close(); lifecycle.removeObserver(observer); discoveryFence.close(); discovery.close(); api.close() } }
  LaunchedEffect(incoming) { if(incoming!=null) { log.start("qr"); qr(incoming) } }
  LaunchedEffect(mode) { while(true) { delay(3000); val now=System.currentTimeMillis()
   if(mode=="ble") cities=cities.filter { discoveryFresh(seen[it.key],now) }
@@ -39,12 +119,57 @@ import kotlinx.coroutines.delay
  } }
  Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
   Text("Find your City / 找到你的城市",style=MaterialTheme.typography.headlineMedium)
+  OutlinedTextField(deviceName,{deviceName=it},enabled=!busy,label={Text("Device name / 入网名称")},singleLine=true,modifier=Modifier.fillMaxWidth())
   Text(message)
   pairingError?.let { Text(it, color=MaterialTheme.colorScheme.error) }
-  Button(onClick={ pairingError=null; discoveryFence.invalidate(); discovery.stop(); mode="qr"; cities=emptyMap(); chosen=null; log.start("qr"); log.event("action"); scan.launch(ScanOptions().setCaptureActivity(AutoZoomCaptureActivity::class.java).setDesiredBarcodeFormats(ScanOptions.QR_CODE).setPrompt("Keep the whole QR in view · Auto zoom 1–2×").setBeepEnabled(false).setOrientationLocked(false)) },enabled=!busy,modifier=Modifier.fillMaxWidth()) { Text("Scan QR") }
-  OutlinedButton(onClick={ pairingError=null; discoveryFence.invalidate(); mode="mdns"; chosen=null; log.start(mode); log.event("action"); cities=emptyMap(); discovery.lan() },enabled=!busy,modifier=Modifier.fillMaxWidth()) { Text("Nearby Cities (LAN)") }
-  OutlinedButton(onClick={ pairingError=null; discoveryFence.invalidate(); discovery.stop(); mode="ble"; chosen=null; log.start(mode); log.event("action"); cities=emptyMap(); permission.launch(if(Build.VERSION.SDK_INT>=31) arrayOf(Manifest.permission.BLUETOOTH_SCAN,Manifest.permission.BLUETOOTH_CONNECT) else arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)) },enabled=!busy,modifier=Modifier.fillMaxWidth()) { Text("Nearby via Bluetooth") }
-  OutlinedButton(onClick={ pairingError=null; discovery.stop(); log.start("manual"); manual() },enabled=!busy,modifier=Modifier.fillMaxWidth()) { Text("Manual connection") }
+  // FIVE SHORT ACTIONS IN ONE ROW. The two entry methods that need text input (short code, manual token) are
+  // reached by tapping their button, which reveals the input inline BELOW the row - so the primary actions stay
+  // in one line while the inputs remain reachable without hunting for content laid out past the fold.
+  val compact=ButtonDefaults.buttonColors(containerColor=MaterialTheme.colorScheme.surfaceVariant,contentColor=MaterialTheme.colorScheme.onSurfaceVariant)
+  val compactText=MaterialTheme.typography.labelSmall
+  val pickRow=rememberScrollState()
+  @Composable fun ActionButton(label:String,primary:Boolean=false,enabled:Boolean,onClick:()->Unit) {
+   // ZERO horizontal content padding AND no Material default minimum width: five buttons share one 1080 px row, and
+   // with the library's 58 dp ButtonDefaults.MinWidth the widest two-letter label ("QR") was still clipped to "R".
+   // Compose's own minimum touch target stays intact; only the button's inner minimum is released.
+   val shape=RoundedCornerShape(10.dp)
+   val mod=Modifier.weight(1f).height(34.dp).defaultMinSize(minWidth=0.dp)
+   val text=@Composable { Text(label,style=compactText,maxLines=1,softWrap=false) }
+   if(primary) Button(onClick=onClick,enabled=enabled,shape=shape,contentPadding=PaddingValues(0.dp),modifier=mod) { text() }
+   else OutlinedButton(onClick=onClick,enabled=enabled,colors=compact,shape=shape,contentPadding=PaddingValues(0.dp),modifier=mod) { text() }
+  }
+  Row(Modifier.fillMaxWidth().horizontalScroll(pickRow),horizontalArrangement=Arrangement.spacedBy(2.dp)) {
+   ActionButton("QR",primary=true,enabled=!busy) { pairingError=null; discoveryFence.invalidate(); discovery.stop(); mode="qr"; cities=emptyMap(); chosen=null; log.start("qr"); log.event("action"); scan.launch(ScanOptions().setCaptureActivity(AutoZoomCaptureActivity::class.java).setDesiredBarcodeFormats(ScanOptions.QR_CODE).setPrompt("Keep the whole QR in view · Auto zoom 1–2×").setBeepEnabled(false).setOrientationLocked(false)) }
+   ActionButton("LAN",enabled=!busy) { pairingError=null; discoveryFence.invalidate(); mode="mdns"; chosen=null; log.start(mode); log.event("action"); cities=emptyMap(); discovery.lan() }
+   ActionButton("BLE",enabled=!busy) { pairingError=null; discoveryFence.invalidate(); discovery.stop(); mode="ble"; chosen=null; log.start(mode); log.event("action"); cities=emptyMap(); permission.launch(if(Build.VERSION.SDK_INT>=31) arrayOf(Manifest.permission.BLUETOOTH_SCAN,Manifest.permission.BLUETOOTH_CONNECT) else arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)) }
+   ActionButton("CODE",enabled=!busy) { pairingError=null; ownerSession=null; discovery.stop(); codeAddress=if(host.isBlank()) codeAddress else host; mode="owner-code"; log.start("owner-code"); log.event("action") }
+   ActionButton("TOKEN",enabled=!busy) { pairingError=null; discovery.stop(); log.start("manual"); manual() }
+  }
+  when(mode) {
+   "qr" -> Text("Point the camera at the City's temporary pairing QR.")
+   "mdns" -> Text("Pick a City found on this LAN.")
+   "ble" -> Text("Bluetooth bootstrap: pick a City once it appears.")
+   "owner-code" -> Text("Short-code join · connect to the City address in Settings using a one-time code.")
+   "manual" -> Text("Manual connection: City URL and pairing token.")
+   else -> Text("LAN DEVELOPMENT ONLY · NOT FOR PUBLIC INTERNET")
+  }
+  if(mode=="owner-code") {
+   LaunchedEffect(Unit) { if(codeAddress.isBlank() && host.isNotBlank()) codeAddress=host }
+   Text("Short-code join · the code may have been created on another surface, or on a City on another network.")
+   OutlinedTextField(codeAddress,{codeAddress=it},label={Text("City address (host:port or http://host:port)")},enabled=!busy,singleLine=true,placeholder={Text(host.ifBlank { "http://192.168.1.20:4391" })},modifier=Modifier.fillMaxWidth())
+   if(!relayMode) OutlinedTextField(ownerCode,{ownerCode=it},label={Text("Short pairing code")},visualTransformation=PasswordVisualTransformation(),singleLine=true,keyboardOptions=KeyboardOptions(imeAction=ImeAction.Done),keyboardActions=KeyboardActions(onDone={ connectWithTypedCode() }),modifier=Modifier.fillMaxWidth())
+   Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
+    Checkbox(checked=relayMode,enabled=!busy,onCheckedChange={ relayMode=it })
+    Text("Request owner approval / 申请入网",style=MaterialTheme.typography.labelMedium)
+   }
+   Text(if(relayMode) "The City address must be reachable. If it is behind a router, use a published secure City address."
+        else "Enter a code created by the City owner. The City address must be reachable.",
+        style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+   Button(onClick={ connectWithTypedCode() },enabled=joinInputReady(relayMode,codeAddress.ifBlank { host },ownerCode,deviceName,busy)) { Text(if(busy) "Connecting…" else if(relayMode) "Connect over relay" else "Connect with short code") }
+   OutlinedButton(onClick={ generateOwnerCode() },enabled=!busy && credential.isNotBlank()) { Text(if(ownerSession==null) "Generate a code on the known City (owner)" else "Generate a new code") }
+   ownerSession?.let { d -> Text(if(d.session.isBlank()) "Session ready" else "Code active · expires ${d.expires}",style=MaterialTheme.typography.labelSmall) }
+   Text("The code is minted on the City you are joining. Direct works when this network can reach it; the relay pipe is the path for a City on another network.",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+  }
   cities.values.forEach { d -> Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Text(d.displayName); Text(d.endpoint); Text(d.cityId,style=MaterialTheme.typography.labelSmall); Button(onClick={ pairingError=null; chosen=d; code=""; log.event("action") },enabled=!busy) { Text("Pair") } } } }
   if(chosen!=null) { Text("Create a pairing session on the City host, then enter its short code. Connect refreshes the current session."); OutlinedTextField(code,{code=it},label={Text("Short pairing code")},visualTransformation=PasswordVisualTransformation(),singleLine=true); Button(onClick={ exchange(chosen!!,mode) },enabled=!busy && code.isNotBlank()) { Text(if(busy) "Pairing…" else "Connect") } }
  }

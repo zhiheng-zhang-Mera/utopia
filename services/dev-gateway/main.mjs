@@ -9,7 +9,7 @@ import {hostname} from 'node:os';
 import {createHostJoin} from './host-join.mjs';
 import {startMemberAgent,demoteLocalHost} from './member-runtime.mjs';
 import {readDeviceFile} from '../../apps/client/device-enrollment.mjs';
-import {resolveLifecycle} from './host-lifecycle.mjs';
+import {resolveLifecycle, selectMemberFile} from './host-lifecycle.mjs';
 async function main() {
 process.env.CITY_MANAGE_SERVICES ??= '1';
 const reservation = await reserveHostCity({requestedDataDir:process.env.CITY_DATA || '.runtime',coordinationPort:Number(process.env.CITY_COORDINATION_PORT||4389)});
@@ -61,14 +61,20 @@ try {
   config.token ||= process.env.CITY_TOKEN || randomBytes(24).toString('base64url');
   config.nodeToken ||= process.env.CITY_NODE_TOKEN || randomBytes(24).toString('base64url');
   writeFileSync(configFile, JSON.stringify(config), {mode:0o600});
-  // ROLE IS IGNORED UNLESS WE ARE GOING ONLINE. A stored member selection (`role.json`) or a leftover device
-  // enrollment used to divert an ordinary single-machine start into a member agent for some other City: the person
-  // opened Utopia on their own machine and got a client for a City that was not running here. Both diversion paths
-  // are therefore gated on 联机 - the role is adjusted when entering online mode and nowhere else.
-  const selection=onlineLifecycle?reservation.selection:{role:'PRIMARY'};
-  const selectedMemberFile=onlineLifecycle?(memberAgentFile||(selection.role==='MEMBER'?selection.memberEnrollmentFile:!reservation.hasRoleSelection&&readDeviceFile(deviceFile)?deviceFile:null)):null;
+  // WHICH ROLE DOES THIS START TAKE? The owner's rule - starting a City ignores the role, only going online adjusts it -
+  // is refined by the accepted contracts into four cases, all of them decided in selectMemberFile() so they can be
+  // tested without spawning anything (see host-lifecycle.mjs for the four and why each matters):
+  //   a member agent is online by construction; a STORED MEMBER SELECTION is followed (a restart resumes the membership
+  //   rather than promoting itself to PRIMARY); a LEFTOVER enrollment with no stored selection no longer diverts an
+  //   ordinary start (that was the reported defect); and a stored selection whose credential is gone refuses honestly.
+  // WHAT THIS KEEPS FROM BEFORE: role.json is written only by an online start (persistRole below), so a single-machine
+  // start leaves the person's stored selection exactly as they left it.
+  const deviceEnrollment=readDeviceFile(deviceFile);
+  const chosen=selectMemberFile({env:process.env,selection:reservation.selection,hasRoleSelection:reservation.hasRoleSelection,deviceFile,deviceEnrollment,online:onlineLifecycle});
+  if(chosen.refuse)throw new Error(chosen.refuse);
+  const selectedMemberFile=chosen.file;
   const enrolled=selectedMemberFile?readDeviceFile(selectedMemberFile):null;
-  if(enrolled&&selection.role==='MEMBER'&&selection.cityId&&enrolled.cityId!==selection.cityId)throw new Error('Saved member City identity mismatch; no PRIMARY fallback started');
+  if(enrolled&&reservation.selection?.role==='MEMBER'&&reservation.selection.cityId&&enrolled.cityId!==reservation.selection.cityId)throw new Error('Saved member City identity mismatch; no PRIMARY fallback started');
   if(selectedMemberFile&&!enrolled)throw new Error('Selected member credential unavailable; no PRIMARY fallback started');
   if(enrolled){
     agent=await startMemberAgent({record:enrolled,workspace:resolve(clientDir,'workspace')});

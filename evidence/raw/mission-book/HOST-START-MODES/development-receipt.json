@@ -37,7 +37,9 @@
         "PROBE 6: the owner page can release the City explicitly, and only the owner",
         "PROBE 7: a hosting City ignores the release and never follows a page",
         "PROBE 8: the person starting a City is told which life it got, and told why their stored role was ignored",
-        "PROBE 9: an explicit hosting start never consults a stored membership, and no other start turns a member host into a second City"
+        "PROBE 9: an explicit hosting start never consults a stored membership, and no other start turns a member host into a second City",
+        "PROBE 10: a member agent is an online start whatever was declared, so it can never become a host City of its own",
+        "PROBE 12: which membership a start may use - member agent, stored selection resumed, stored selection refused when its credential is gone, leftover enrollment not diverting a plain start, and the leftover allowed only online"
       ],
       "stderr_note": "PROBE 2/3/4/6 print the City's own reason line, e.g. 'Utopia City closing: the control page left without releasing the City'"
     },

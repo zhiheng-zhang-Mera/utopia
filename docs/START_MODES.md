@@ -64,10 +64,17 @@ still on disk: that host is already a member of a City, and pointing at that Cit
 that membership cannot be honoured (the enrollment is gone, or the City is down) the start says so and refuses; it never
 quietly becomes a different City in the same state directory.
 
+What a plain start no longer does is the thing that was actually reported: a **leftover device enrollment with no stored
+selection** used to turn every ordinary start into a member agent for somebody else's City. That fallback now belongs to
+online starts only.
+
 现在"运行角色"与"已存储选择"是两个独立事实。`role.json` **只**会被联机启动写入（其余情况 `persistRole: false`），
 而显式的托管启动根本不会去读它。普通启动仍可能做的一件事——也是已接受的 JOIN-503 契约要求它做的——是**重连**磁盘上
 仍然存在的成员身份：该主机本就是某城的成员，指向那座城市就是它"在线"的含义。如果这个成员身份无法兑现（入网文件已丢
 失，或那座城市不在线），启动会如实说明并拒绝，绝不会悄悄在同一个状态目录里变成另一座城市。
+
+普通启动不再做的那件事，才是真正被报告的问题：**存在遗留的入网文件但没有已存储的角色选择**时，过去每一次普通启动都会
+变成别人城市的成员代理。现在这个回退路径只属于联机启动。
 
 ## What you are told when it starts / 启动时会告诉你什么
 

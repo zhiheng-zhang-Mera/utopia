@@ -10,7 +10,7 @@ import {spawn} from 'node:child_process';
 import {resolve} from 'node:path';
 import {WebSocket} from 'ws';
 import {createGateway} from '../services/dev-gateway/server.mjs';
-import {resolveLifecycle} from '../services/dev-gateway/host-lifecycle.mjs';
+import {resolveLifecycle, selectMemberFile} from '../services/dev-gateway/host-lifecycle.mjs';
 import {planStart, followsMembership, pageTied, describeStart, hostsOwnCity, mayFollowStoredMembership} from '../scripts/launcher-plan.mjs';
 
 const V = {'Content-Type': 'application/json', 'X-City-Api-Version': '0', 'X-City-Schema-Version': '0'};
@@ -101,6 +101,31 @@ test('PROBE 10: a member agent is an online start whatever was declared, so it c
   assert.equal(resolveLifecycle({CITY_LIFECYCLE: 'nonsense'}).lifecycle, 'page', 'an unknown value falls back to the documented default rather than to a mode nobody asked for');
   // The declared value can never *remove* the member agent's online-ness.
   assert.equal(resolveLifecycle({CITY_LIFECYCLE: 'page', CITY_MEMBER_FILE: 'x.json'}).online, true);
+});
+
+test('PROBE 12: which membership a start may use - the four cases hosted CI forced into the open', () => {
+  const enrollment = {cityId: '11111111-2222-3333-4444-555555555555'};
+  const memberSelection = {role: 'MEMBER', cityId: enrollment.cityId, memberEnrollmentFile: 'member.json'};
+
+  // 1. A member agent is followed no matter what else is on disk.
+  assert.deepEqual(selectMemberFile({env: {CITY_MEMBER_FILE: 'agent.json'}, selection: memberSelection, hasRoleSelection: true, deviceFile: 'device.json', deviceEnrollment: enrollment, online: false}), {file: 'agent.json', source: 'MEMBER_AGENT', refuse: null});
+
+  // 2. A STORED MEMBER SELECTION is resumed - including on a plain start, because that is this host continuing to be a
+  //    member of a City it already belongs to (tests/host-city-launcher.test.mjs asserts the reachable half).
+  assert.deepEqual(selectMemberFile({selection: memberSelection, hasRoleSelection: true, deviceFile: 'device.json', deviceEnrollment: enrollment, online: false}), {file: 'member.json', source: 'STORED_MEMBER_SELECTION', refuse: null});
+
+  // 3. ...but a selection whose credential is gone REFUSES. It must never quietly become a PRIMARY City in its place.
+  const refused = selectMemberFile({selection: memberSelection, hasRoleSelection: true, deviceFile: 'device.json', deviceEnrollment: null, online: false});
+  assert.equal(refused.file, null);
+  assert.match(refused.refuse, /credential unavailable/);
+  assert.doesNotMatch(String(refused.file), /device\.json/, 'the leftover device file must not be used to paper over a lost member credential');
+
+  // 4. A LEFTOVER enrollment with NO stored selection must NOT divert an ordinary start. This is the reported defect.
+  assert.deepEqual(selectMemberFile({selection: {role: 'PRIMARY'}, hasRoleSelection: false, deviceFile: 'device.json', deviceEnrollment: enrollment, online: false}), {file: null, source: 'NONE', refuse: null});
+  // ...and going online is exactly when that leftover enrollment may be used.
+  assert.deepEqual(selectMemberFile({selection: {role: 'PRIMARY'}, hasRoleSelection: false, deviceFile: 'device.json', deviceEnrollment: enrollment, online: true}), {file: 'device.json', source: 'LEFTOVER_ENROLLMENT', refuse: null});
+  // Nothing at all is still a host start.
+  assert.deepEqual(selectMemberFile({}), {file: null, source: 'NONE', refuse: null});
 });
 
 test('PROBE 2: closing the last page in page mode closes the City, and says why', () => city({lifecycle: 'page', pageIdleMs: 250}, async ({app, exits}) => {

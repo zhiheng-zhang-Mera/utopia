@@ -29,13 +29,17 @@ const ROOT = resolve(import.meta.dirname, '..', '..');
 const running = await findRunningCities();
 const HOST_BUSY = running.length > 0 ? `a City is already running on this host (${running.map(c => c.endpoint).join(', ')})` : false;
 
-async function startIsolated({lifecycle, coordPort, httpPort, role}) {
+async function startIsolated({lifecycle, coordPort, httpPort, role, deviceEnrollment}) {
   const base = await mkdtemp(resolve('.scratch-lifecycle-e2e-'));
   const stateDir = resolve(base, 'host');
   await writeFile(resolve(base, '.keep'), '');
   const {mkdir} = await import('node:fs/promises');
   await mkdir(stateDir, {recursive: true});
   if (role) await writeFile(resolve(stateDir, 'role.json'), JSON.stringify(role));
+  if (deviceEnrollment) {
+    await mkdir(resolve(base, 'client'), {recursive: true});
+    await writeFile(resolve(base, 'client', 'device-enrollment.json'), JSON.stringify(deviceEnrollment));
+  }
   const child = spawn(process.execPath, ['services/dev-gateway/main.mjs'], {
     cwd: ROOT,
     env: {
@@ -70,8 +74,8 @@ async function startIsolated({lifecycle, coordPort, httpPort, role}) {
   return {child, exited, log, base, stateDir, coordPort, httpPort, cleanup};
 }
 
-async function waitForOnline(coordPort) {
-  for (let i = 0; i < 240; i += 1) {
+async function waitForOnline(coordPort, attempts = 240) {
+  for (let i = 0; i < attempts; i += 1) {
     try {
       const r = await fetch(`http://127.0.0.1:${coordPort}/`, {signal: AbortSignal.timeout(500)});
       const record = await r.json();
@@ -100,20 +104,42 @@ test('E2E 1: the page-tied City process exits when its last page closes', {skip:
   } finally { await c.cleanup(); }
 });
 
-test('E2E 2: a stored MEMBER role is ignored on a single-machine start and honoured only when going online', {skip: HOST_BUSY}, async () => {
-  // A role file that selects membership of a City that is not running here. In single-machine mode this must NOT
-  // divert the start: the person asked for their own City.
-  const role = {role: 'MEMBER', cityId: '11111111-2222-3333-4444-555555555555', memberEnrollmentFile: resolve(import.meta.dirname, 'no-such-enrollment.json')};
-  const offline = await startIsolated({lifecycle: 'page', coordPort: 4391, httpPort: 4403, role});
+test('E2E 2: a leftover enrollment no longer diverts a single-machine start, a stored member selection is still resumed, and only an online start writes the role', {skip: HOST_BUSY}, async () => {
+  // CASE 1 - the reported defect. A device enrollment left on this machine, with NO stored role selection, used to turn
+  // every ordinary start into a member agent for somebody else's City. It must now start THIS host's own City.
+  const enrollment = {endpoint: 'http://127.0.0.1:9', cityId: '11111111-2222-3333-4444-555555555555', deviceId: 'dev-x', credential: 'not-a-real-credential'};
+  const plain = await startIsolated({lifecycle: 'page', coordPort: 4391, httpPort: 4403, deviceEnrollment: enrollment});
   try {
     const record = await waitForOnline(4391);
-    assert.ok(record, 'the single-machine start must still bring up the LOCAL City: ' + offline.log.join(''));
-    assert.equal(record.role, 'PRIMARY', 'the stored MEMBER role must not have been honoured');
-    assert.equal(JSON.parse(await readFile(resolve(offline.stateDir, 'role.json'), 'utf8')).role, 'MEMBER', 'the stored role file itself is left alone, not rewritten');
-  } finally { await offline.cleanup(); }
+    assert.ok(record, 'a plain start must bring up the LOCAL City even with a leftover enrollment on disk: ' + plain.log.join(''));
+    assert.equal(record.role, 'PRIMARY', 'the leftover enrollment must not divert an ordinary start');
+    assert.equal(record.endpoint, 'http://127.0.0.1:4403');
+    assert.equal(existsSync(resolve(plain.stateDir, 'role.json')), false, 'and no role may be written by a non-online start');
+  } finally { await plain.cleanup(); }
 
-  // The same role, going online, must be honoured - that is the act that adjusts the role.
-  const online = await startIsolated({lifecycle: 'online', coordPort: 4392, httpPort: 4404, role});
+  // CASE 2 - a STORED MEMBER SELECTION is this host resuming a membership it already has. It must be followed rather
+  // than promoted to a PRIMARY City of its own; with an unreachable City the honest outcome is that it does not become a
+  // City at all. (tests/host-city-launcher.test.mjs asserts the reachable half of this: a restart preserves the role.)
+  const role = {role: 'MEMBER', cityId: '11111111-2222-3333-4444-555555555555', memberEnrollmentFile: resolve(import.meta.dirname, 'no-such-enrollment.json')};
+  const member = await startIsolated({lifecycle: 'page', coordPort: 4392, httpPort: 4404, role});
+  try {
+    const code = await Promise.race([member.exited, new Promise(r => setTimeout(() => r('STILL-RUNNING'), 6000))]);
+    const log = member.log.join('');
+    if (code !== 'STILL-RUNNING') {
+      assert.ok(code !== 0 || /credential unavailable|identity mismatch/i.test(log), 'a member start with a missing credential must refuse rather than start a City: ' + log);
+    }
+    assert.doesNotMatch(log, /Utopia Gateway http/, 'a stored member selection must never come up as a PRIMARY City: ' + log);
+    if (code === 'STILL-RUNNING') {
+      const record = await waitForOnline(4392);
+      assert.equal(record?.role, 'MEMBER', 'a member start that survives must be a MEMBER, never PRIMARY: ' + log);
+    } else {
+      // It refused and exited, which is the honest outcome for a missing credential. Nothing may have been reserved.
+      assert.equal(await waitForOnline(4392, 8).then(r => r?.role ?? null), null, 'a refused member start must leave no City behind');
+    }
+  } finally { await member.cleanup(); }
+
+  // CASE 3 - the same state, going online, is the act that consults and adjusts the stored role.
+  const online = await startIsolated({lifecycle: 'online', coordPort: 4393, httpPort: 4405, role});
   try {
     const code = await Promise.race([online.exited, new Promise(r => setTimeout(() => r('STILL-RUNNING'), 5000))]);
     const log = online.log.join('');

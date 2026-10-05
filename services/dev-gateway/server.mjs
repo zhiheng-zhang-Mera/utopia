@@ -508,7 +508,15 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         // against, and a prefix would make that check fail on a legitimate hand-off.
       }
       else if(req.method==='GET' && path==='/api/v0/pairing/info')out=pairing.info();
-      else if(req.method==='POST' && path==='/api/v0/pairing/session'){await body(req);out=await pairing.create();}
+      else if(req.method==='POST' && path==='/api/v0/pairing/session'){
+        const b=await body(req);
+        if(b.expectedSessionState!==undefined){
+          if(!['IDLE','USED','EXPIRED','LOCKED'].includes(b.expectedSessionState))refuse('PAIRING_STATE_INVALID',400,'A known terminal pairing state is required');
+          const current=pairing.info();
+          if(current.activeSession||current.sessionState!==b.expectedSessionState)refuse('PAIRING_STATE_CHANGED',409,'Pairing state changed; refresh before generating');
+        }
+        out=await pairing.create();
+      }
       else if(req.method==='POST' && path==='/api/v0/pairing/exchange'){
         const b=await body(req);
         assertNewAdmission(b.installation);const exchanged=pairing.exchange(b);

@@ -17,9 +17,8 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * JOIN-590 · the DIAL side of the relay, for Android.
  *
- * WHY THIS EXISTS. Two machines on different networks are both behind NAT, so neither can accept an inbound
- * connection — which is why a short code minted on a City the handset cannot route to could not be used from this
- * app. The City end already exists (`services/dev-gateway/server.mjs` accepts a peer that dials `/api/v0/relay`);
+ * WHY THIS EXISTS. A handset can carry the existing join protocol over a reachable City socket.
+ * This transport does not create a route to a City hidden behind unreachable NAT. The City end already exists (`services/dev-gateway/server.mjs` accepts a peer that dials `/api/v0/relay`);
  * this file is the Android client that DIALS it. It is a port of the Web layer's `apps/web/relay-dial.mjs` and
  * deliberately keeps the same wire shape instead of inventing a second one:
  *
@@ -45,6 +44,9 @@ class RelayDialError(code: String, detail: String, val status: Int? = null, val 
 }
 
 data class RelayCity(val host: String, val port: Int, val secure: Boolean)
+data class RelayTarget(val host:String,val port:Int?,val secure:Boolean) {
+ val origin:String get()=(if(secure) "https" else "http")+"://"+host+(port?.let { ":$it" }?:"")
+}
 
 /** Mirrors the City's own `RELAY_PAYLOAD_PATHS`. A literal on purpose: the client must refuse BEFORE it dials. */
 val RELAY_PAYLOAD_PATHS: Set<String> = setOf(
@@ -100,7 +102,7 @@ internal class PendingForward(val path: String, val timer: Runnable, val onAnswe
 object RelayDial {
 
   val client: OkHttpClient by lazy {
-    OkHttpClient.Builder()
+    OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
       .connectTimeout(8, TimeUnit.SECONDS)
       .readTimeout(0, TimeUnit.MILLISECONDS)   // a relay pipe is long-lived; each forwarded request carries its own timeout
       .pingInterval(20, TimeUnit.SECONDS)
@@ -120,13 +122,14 @@ object RelayDial {
   }
 
   /** Parse `host[:port]` (or a URL) into the host/port a dial needs. Returns null when there is no host at all. */
-  fun target(address: String): Pair<String, Int?>? {
+  fun target(address: String): RelayTarget? {
     val trimmed = address.trim()
     if (trimmed.isEmpty()) return null
     val withScheme = if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("ws://") || trimmed.startsWith("wss://")) trimmed else "http://$trimmed"
     val uri = runCatching { URI(withScheme) }.getOrNull() ?: return null
     val host = uri.host ?: return null
-    return host to uri.port.takeIf { it > 0 }
+    if(uri.scheme !in listOf("http","https","ws","wss") || uri.userInfo!=null || uri.query!=null || uri.fragment!=null || (uri.path.isNotBlank() && uri.path!="/") || (uri.port!=-1 && uri.port !in 1..65535))return null
+    return RelayTarget(host,uri.port.takeIf { it > 0 },uri.scheme in listOf("https","wss"))
   }
 
   /**

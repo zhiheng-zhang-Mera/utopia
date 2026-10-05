@@ -15,10 +15,15 @@ import java.util.concurrent.TimeUnit
 
 data class CityState(val connection: String = "OFFLINE", val snapshot: JSONObject? = null, val message: String = "Choose Scan QR, Nearby Cities (LAN), Nearby via Bluetooth, or Manual connection.", val feed: JSONObject? = null)
 
-class CityClient(context: Context, private val host: String, private val token: String, private val log: PilotLog, private val expectedCity: String?, private val changed: (CityState) -> Unit) {
+class CityClient(context: Context, private val host: String, token: String, private val log: PilotLog, private val expectedCity: String?, private val changed: (CityState) -> Unit) {
+ @Volatile private var token = token
+ private val enrollmentStore = NativeEnrollmentStore(context)
+ private val enrollment = enrollmentStore.read(host,expectedCity)
+ @Volatile private var retired = enrollment != null && enrollmentStore.retired()
+ private var sessionReady = false
  private val handler = Handler(Looper.getMainLooper())
  private val executor = Executors.newSingleThreadScheduledExecutor()
- private val http = OkHttpClient.Builder().connectTimeout(3, TimeUnit.SECONDS).readTimeout(5, TimeUnit.SECONDS).callTimeout(6, TimeUnit.SECONDS).pingInterval(3, TimeUnit.SECONDS).build()
+ private val http = OkHttpClient.Builder().followRedirects(false).followSslRedirects(false).connectTimeout(3, TimeUnit.SECONDS).readTimeout(5, TimeUnit.SECONDS).callTimeout(6, TimeUnit.SECONDS).pingInterval(3, TimeUnit.SECONDS).build()
  private val connectivity = context.getSystemService(ConnectivityManager::class.java)
  /**
   * MESH-301: this control surface declares ITSELF on the event-stream handshake, so the City records which
@@ -30,7 +35,7 @@ class CityClient(context: Context, private val host: String, private val token: 
   */
  private val identityPrefs = context.getSharedPreferences("city-connection", Context.MODE_PRIVATE)
  private val clientRef: String = identityPrefs.getString("clientRef", null) ?: ("android-" + Build.MODEL.replace(Regex("[^A-Za-z0-9-]"), "-")).also { identityPrefs.edit().putString("clientRef", it).apply() }
- private val clientLabel: String = Build.MODEL.ifBlank { "android-device" }
+ private val clientLabel: String = enrollment?.displayName ?: Build.MODEL.ifBlank { "android-device" }
  @Volatile private var closed = false
  @Volatile private var socket: WebSocket? = null
  @Volatile private var socketOnline = false
@@ -60,10 +65,30 @@ class CityClient(context: Context, private val host: String, private val token: 
  private fun maxEventSeq(snapshot: JSONObject): Int { val arr = snapshot.optJSONArray("events") ?: return 0; var max = 0; for (i in 0 until arr.length()) max = maxOf(max, arr.optJSONObject(i)?.optInt("seq", 0) ?: 0); return max }
  private var lastPublishedConnection = ""
  private fun publish(connection: String, message: String = "") { val value = CityState(connection, snapshot, message, feed); handler.post { if (!closed) { if (connection != lastPublishedConnection) { android.util.Log.i("UtopiaConnection", connection); log.event("connection_" + connection); if(connection == "ONLINE") log.event("websocketOnline"); lastPublishedConnection = connection }; changed(value) } } }
- private fun request(path: String, body: JSONObject? = null): JSONObject {
+ private fun renewSession() {
+  val record=enrollment ?: return
+  check(!retired) { "Device enrollment retired; ask the City owner to admit this device again" }
+  val req=Request.Builder().url(endpoint(host)+"/api/v0/device/session")
+   .header("X-City-Api-Version","0").header("X-City-Schema-Version","0")
+   .post(record.sessionBody().toString().toRequestBody("application/json".toMediaType())).build()
+  http.newCall(req).execute().use { response ->
+   val data=JSONObject(response.body?.string() ?: "{}")
+   if(!response.isSuccessful) {
+    if(response.code in listOf(403,404)) { retired=true;enrollmentStore.markRetired();token="";dropSocket("Device enrollment refused · join again with owner approval") }
+    error("Device session refused (HTTP ${response.code})")
+   }
+   check(data.optString("cityId")==expectedCity && compatible(data.optInt("apiVersion",-1),data.optInt("schemaVersion",-1))) { "City session identity or protocol conflict" }
+   val next=data.getString("credential");check(next.startsWith("sess:") && next.length>5) { "Member session required" }
+   enrollmentStore.saveSession(next);token=next;sessionReady=true;log.event("deviceSessionRenewed")
+  }
+ }
+ private fun request(path: String, body: JSONObject? = null, allowRenew:Boolean=true): JSONObject {
   val builder = Request.Builder().url(host.trimEnd('/') + "/api/v0/" + path).header("Authorization", "Bearer $token").header("X-City-Api-Version", "0").header("X-City-Schema-Version", "0")
   if (body != null) builder.post(body.toString().toRequestBody("application/json".toMediaType()))
   (if(path.startsWith("capabilities/")) http.newBuilder().readTimeout(25, TimeUnit.SECONDS).callTimeout(26, TimeUnit.SECONDS).build() else http).newCall(builder.build()).execute().use { response ->
+   if(response.code in listOf(401,403) && enrollment!=null && allowRenew && !retired) {
+    response.close();dropSocket("Renewing device session…");renewSession();return request(path,body,false)
+   }
    val raw = response.body?.string() ?: "{}"
    if (!response.isSuccessful && (path.startsWith("capabilities/") || path.startsWith("capability-invocations/"))) {
     val error = runCatching { JSONObject(raw) }.getOrNull()
@@ -96,8 +121,11 @@ class CityClient(context: Context, private val host: String, private val token: 
   publish("OFFLINE", message)
  }
  private fun refresh() {
-  if (closed || host.isBlank() || token.isBlank()) return
+  if (closed || host.isBlank()) return
+  if(retired) { publish("OFFLINE","Device enrollment retired · join again with owner approval");return }
+  if(token.isBlank() && enrollment==null)return
   try {
+   if(enrollment!=null && !sessionReady)renewSession()
    if (!socketOnline) publish("RECONNECTING", "Fetching the latest city snapshot…")
    val generationAtFetch = openGeneration
    val fresh = request("city")
@@ -217,5 +245,13 @@ class CityClient(context: Context, private val host: String, private val token: 
   if (providerRef.isBlank()) { publish(if (socketOnline) "ONLINE" else "OFFLINE", "No service named for the choice"); return }
   submit { try { request("tasks/$id/provider-choice", JSONObject().put("providerRef", providerRef)); refresh() } catch (e: Exception) { publish(if (socketOnline) "ONLINE" else "OFFLINE", e.message ?: "Choice failed") } }
  }
+ fun leaveCity(done:()->Unit) { submit {
+  val record=enrollment ?: return@submit
+  try {
+   request("device/installations/${java.net.URLEncoder.encode(record.installationId,"UTF-8")}/revoke",JSONObject().put("reason","left_by_device"))
+   retired=true;enrollmentStore.markRetired();token="";dropSocket("This device left the City")
+   handler.post { if(!closed)done() }
+  } catch(e:Exception) { publish("OFFLINE",e.message ?: "Could not leave City") }
+ } }
  fun close() { log.surface("stop", lastServerMaxSeq); closed = true; runCatching { connectivity.unregisterNetworkCallback(callback) }; socket?.cancel(); executor.shutdownNow(); http.dispatcher.cancelAll(); http.connectionPool.evictAll() }
 }

@@ -40,8 +40,8 @@ class PilotLog(private val context: Context) {
   }
  }
 }
-class PairingApi(private val log: PilotLog) {
- private val http=OkHttpClient.Builder().callTimeout(6,java.util.concurrent.TimeUnit.SECONDS).build()
+class PairingApi(private val log: PilotLog, private val enrollmentStore: NativeEnrollmentStore? = null, private val installation: (() -> JSONObject)? = null) {
+ private val http=OkHttpClient.Builder().followRedirects(false).followSslRedirects(false).callTimeout(6,java.util.concurrent.TimeUnit.SECONDS).build()
  private val executor=Executors.newSingleThreadExecutor(); private val main=Handler(Looper.getMainLooper())
  private val fence=CallbackFence()
  private fun submit(action:(Long)->Unit) { val ticket=fence.ticket()?:return; try { executor.execute { if(fence.accepts(ticket)) action(ticket) } } catch(_:java.util.concurrent.RejectedExecutionException) { /* disposal raced submission */ } }
@@ -78,7 +78,7 @@ class PairingApi(private val log: PilotLog) {
  fun pairWithCode(rawAddress: String, code: String, done: (Result<Triple<String,String,PairDescriptor>>)->Unit) {
   submit { ticket -> log.event("action"); log.event("pairingSubmitted")
    val prepared=runCatching {
-    val origin=endpoint(rawAddress); val descriptor=descriptorSync(origin); val method=if(descriptor.secret.isNullOrBlank()) "mdns" else "qr"
+    val origin=endpoint(RelayDial.target(rawAddress)?.origin ?: error("Invalid City address")); val descriptor=descriptorSync(origin); val method=if(descriptor.secret.isNullOrBlank()) "mdns" else "qr"
     if(method=="qr" && code.isBlank()) error("This City issued a QR session; scan the QR or use a short code")
     descriptor to method
    }
@@ -92,10 +92,11 @@ class PairingApi(private val log: PilotLog) {
  // refreshed descriptor, whose session id and expiry are what the UI shows.
  fun session(d: PairDescriptor, credential: String, done: (Result<PairDescriptor>)->Unit) { submit { ticket -> val result=runCatching { val body=request(d.endpoint,"session",null,credential); val desc=body.optJSONObject("descriptor"); val mine=if(desc==null) d else run { val e=desc.getJSONObject("endpoint"); PairDescriptor(desc.getString("cityId"),endpoint("${e.getString("scheme")}://${e.getString("host")}:${e.getInt("port")}"),desc.optString("pairingSessionId",""),desc.optString("expiresAt",""),displayName=desc.optString("displayName")) }; log.event("pairingSession"); mine }; main.post { if(fence.accepts(ticket)) done(result) } } }
  fun discover(origin: String, expectedCity: String?=null, done: (Result<PairDescriptor>)->Unit) { submit { ticket -> val result=runCatching { descriptorSync(endpoint(origin)).also { check(expectedCity==null || expectedCity==it.cityId) { "City identity conflict" }; log.event("discovery") } }; main.post { if(fence.accepts(ticket)) done(result) } } }
- fun pair(d: PairDescriptor,mode: String,code: String,done: (Result<Triple<String,String,PairDescriptor>>)->Unit) { submit { ticket -> log.event("action"); log.event("pairingSubmitted"); val result=runCatching {
+ fun pair(d: PairDescriptor,mode: String,code: String,done: (Result<Triple<String,String,PairDescriptor>>)->Unit) { submit { ticket -> log.event("action"); log.event("pairingSubmitted"); var enrolled:NativeEnrollment?=null; val result=runCatching {
   val active=exchangeDescriptor(d,descriptorSync(d.endpoint),mode)
   val body=JSONObject().put("cityId",d.cityId).put("sessionId",active.session).put("method",mode); if(mode=="qr") body.put("secret",d.secret) else body.put("shortCode",code)
-  val reply=request(d.endpoint,"exchange",body); check(reply.getString("cityId")==d.cityId) { "City identity conflict" }; val e=reply.getJSONObject("endpoint"); check(endpoint("${e.getString("scheme")}://${e.getString("host")}:${e.getInt("port")}")==d.endpoint) { "Endpoint identity conflict" }; log.event("authenticated"); Triple(d.endpoint,reply.getString("credential"),active)
- }; if(result.isFailure) log.event("pairingError"); main.post { if(fence.accepts(ticket)) done(result) } } }
+  installation?.invoke()?.let { body.put("installation",it) }
+  val reply=request(d.endpoint,"exchange",body); check(reply.getString("cityId")==d.cityId) { "City identity conflict" }; val e=reply.getJSONObject("endpoint"); check(endpoint("${e.getString("scheme")}://${e.getString("host")}:${e.getInt("port")}")==d.endpoint) { "Endpoint identity conflict" }; val credential=if(installation!=null) { val record=parseNativeEnrollment(reply,d.cityId,body.getJSONObject("installation").getString("instanceId")); enrolled=record; record.sessionCredential } else reply.getString("credential"); log.event("authenticated"); Triple(d.endpoint,credential,active)
+ }; if(result.isFailure) log.event("pairingError"); main.post { if(fence.accepts(ticket)) { val saved=runCatching { enrolled?.let { enrollmentStore?.save(d.endpoint,it) };result.getOrThrow() }; done(saved) } } } }
  fun close() { fence.close(); main.removeCallbacksAndMessages(null); executor.shutdownNow(); http.dispatcher.cancelAll() }
 }

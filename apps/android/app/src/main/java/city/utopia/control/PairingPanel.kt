@@ -35,9 +35,13 @@ import kotlinx.coroutines.delay
  // cannot be submitted by guessing the local address.
  var codeAddress by remember { mutableStateOf("") }
  // Cross-network mode. When on, the join is carried INSIDE an outbound relay pipe instead of by an inbound HTTP
- // call, which is the only direction that works when both ends are behind NAT.
+ // call, which requires a reachable City endpoint.
  var relayMode by remember { mutableStateOf(false) }
- val api=remember { PairingApi(log) }; val discoveryFence=remember { CallbackFence() }
+ val enrollmentStore=remember { NativeEnrollmentStore(context) }; val identity=remember { enrollmentStore.pendingIdentity() }
+ var deviceName by remember { mutableStateOf("Android · ${Build.MODEL}") }
+ fun installation()=org.json.JSONObject().put("deviceId",identity.first).put("instanceId",identity.second).put("displayName",deviceName.trim()).put("platform","android")
+ val relayHandle=remember { arrayOfNulls<java.io.Closeable>(1) }
+ val api=remember { PairingApi(log,enrollmentStore,{ installation() }) }; val discoveryFence=remember { CallbackFence() }
  // Defined AFTER `api`/`identities` exist: a local function may only capture declarations that are already in
  // scope at its own position, and the first version of this fix was placed above them (compile error, recorded).
  fun resolveOwnerTarget(onReady:(PairDescriptor)->Unit) {
@@ -51,44 +55,42 @@ import kotlinx.coroutines.delay
  /** The address pair the City is remembered by, in the same canonical `http://host:port` shape every other path
   *  stores. Declared before its first use: a local function may only capture declarations already in scope. */
  fun codeEndpoint(address:String):String {
-  val trimmed=address.trim().removePrefix("ws://").removePrefix("wss://")
+  val trimmed=address.trim().replaceFirst("ws://","http://").replaceFirst("wss://","https://")
   val withScheme=if(trimmed.startsWith("http://")||trimmed.startsWith("https://")) trimmed else "http://$trimmed"
   return runCatching { endpoint(withScheme) }.getOrDefault(withScheme)
  }
  /** The descriptor a relay join can honestly record: the City that answered, reachable at the dialled address. */
  fun descriptorForRelay(outcome:RelayPairing.Outcome,address:String) = PairDescriptor(outcome.cityId,codeEndpoint(address),outcome.peerRef?:"", "", displayName=outcome.cityId)
- val deviceLabel=android.os.Build.MODEL?.takeIf { it.isNotBlank() }?.let { "Android · $it" } ?: "Android device"
- /** The identity this installation DECLARES when it dials a City it cannot be dialled by. It is stable per device
-  *  and grants no trust: the City answers with `role: joining-peer, verified: false`, and the short code is still
-  *  what authorises the join. */
- val deviceInstallationId="android-" + (android.os.Build.MODEL?.replace(Regex("[^A-Za-z0-9-]"), "")?.takeIf { it.isNotBlank() } ?: "device")
  /** Submit a TYPED code to the address in the field. No local mint, no owner credential: the code was minted
   *  somewhere else, which is the normal case for a joining device (including one on another network). */
  fun connectWithTypedCode() {
   val address=if(codeAddress.isBlank()) host else codeAddress.trim()
   if(address.isBlank()) { pairingError="Enter the City address the code belongs to"; return }
-  if(ownerCode.isBlank()) { pairingError="Enter the short code"; return }
+  if(!joinInputReady(relayMode,address,ownerCode,deviceName,busy)) { pairingError="Enter a valid City address, device name and (for direct join) six-digit code"; return }
   pairingError=null; phase=pairingTransition(phase,"submit")
   if(relayMode) {
-   // CROSS-NETWORK: the City cannot be dialled directly, so this device dials OUT and the join travels inside the
+   // APPROVAL: this device dials a reachable City and the join travels inside the
    // pipe using the City's own routes. The typed code is not used on this path — the City's relay carries the
    // `join/*` family, not `pairing/*` — so the action is "ask, then wait for the owner's approval", which needs no
    // credential here at all.
    pairingError=null
    message="Asking the City over the relay pipe…"
-   RelayPairing.joinViaApproval(
+   relayHandle[0]?.close()
+   relayHandle[0]=RelayPairing.joinViaApproval(
     address = address,
-    installationId = deviceInstallationId,
-    displayName = deviceLabel,
-    onProgress = { stage, detail -> message=detail; log.event("relay"+stage.lowercase()) },
-    onSuccess = { outcome ->
+    installationId = identity.first,
+    displayName = deviceName.trim(),
+    installation = installation(),
+    progressCallback = { stage, detail -> message=detail; log.event("relay"+stage.lowercase()) },
+    successCallback = { outcome ->
+     enrollmentStore.save(codeEndpoint(address),outcome.enrollment)
      phase=pairingTransition(phase,"authenticated")
      message="Joined over relay · ${outcome.cityId}"
      paired(codeEndpoint(address),outcome.credential,outcome.cityId,descriptorForRelay(outcome,address))
      log.event("relayJoin")
     },
-    onFailure = { error ->
-     phase=pairingTransition(phase,"error"); pairingError=error.message?:"Relay join failed"; log.event("retry")
+    failureCallback = { error ->
+     message="Join failed · retry when ready"; phase=pairingTransition(phase,"error"); pairingError=error.message?:"Relay join failed"; log.event("retry")
     },
    )
    return
@@ -109,7 +111,7 @@ import kotlinx.coroutines.delay
  fun qr(value:String) { mode="qr"; runCatching { parseQr(value).also { mergeCity(identities,it) } }.onSuccess { log.event("discovery"); exchange(it,"qr") }.onFailure { pairingError="Invalid or expired pairing QR"; log.event("descriptorError") } }
  val scan=rememberLauncherForActivityResult(ScanContract()) { result -> result.contents?.let { qr(it) } ?: run { message="Scan cancelled" } }
  val permission=rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results -> if(results.values.all { it }) discovery.ble() else { message="Nearby devices permission denied. Manual connection remains available."; log.event("permissionDenied") } }
- DisposableEffect(Unit) { val lifecycle=(context as androidx.lifecycle.LifecycleOwner).lifecycle; val observer=androidx.lifecycle.LifecycleEventObserver { _,event -> if(event==androidx.lifecycle.Lifecycle.Event.ON_STOP) { discoveryFence.invalidate(); discovery.stop(); cities=emptyMap(); message="Discovery paused while app is in the background" }; if(event==androidx.lifecycle.Lifecycle.Event.ON_START) { if(mode=="mdns") discovery.lan() else if(mode=="ble") discovery.ble() } }; lifecycle.addObserver(observer); onDispose { lifecycle.removeObserver(observer); discoveryFence.close(); discovery.close(); api.close() } }
+ DisposableEffect(Unit) { val lifecycle=(context as androidx.lifecycle.LifecycleOwner).lifecycle; val observer=androidx.lifecycle.LifecycleEventObserver { _,event -> if(event==androidx.lifecycle.Lifecycle.Event.ON_STOP) { discoveryFence.invalidate(); discovery.stop(); cities=emptyMap(); message="Discovery paused while app is in the background" }; if(event==androidx.lifecycle.Lifecycle.Event.ON_START) { if(mode=="mdns") discovery.lan() else if(mode=="ble") discovery.ble() } }; lifecycle.addObserver(observer); onDispose { relayHandle[0]?.close(); lifecycle.removeObserver(observer); discoveryFence.close(); discovery.close(); api.close() } }
  LaunchedEffect(incoming) { if(incoming!=null) { log.start("qr"); qr(incoming) } }
  LaunchedEffect(mode) { while(true) { delay(3000); val now=System.currentTimeMillis()
   if(mode=="ble") cities=cities.filter { discoveryFresh(seen[it.key],now) }
@@ -117,6 +119,7 @@ import kotlinx.coroutines.delay
  } }
  Column(verticalArrangement=Arrangement.spacedBy(12.dp)) {
   Text("Find your City / 找到你的城市",style=MaterialTheme.typography.headlineMedium)
+  OutlinedTextField(deviceName,{deviceName=it},enabled=!busy,label={Text("Device name / 入网名称")},singleLine=true,modifier=Modifier.fillMaxWidth())
   Text(message)
   pairingError?.let { Text(it, color=MaterialTheme.colorScheme.error) }
   // FIVE SHORT ACTIONS IN ONE ROW. The two entry methods that need text input (short code, manual token) are
@@ -153,16 +156,16 @@ import kotlinx.coroutines.delay
   if(mode=="owner-code") {
    LaunchedEffect(Unit) { if(codeAddress.isBlank() && host.isNotBlank()) codeAddress=host }
    Text("Short-code join · the code may have been created on another surface, or on a City on another network.")
-   OutlinedTextField(codeAddress,{codeAddress=it},label={Text("City address (host:port or http://host:port)")},singleLine=true,placeholder={Text(host.ifBlank { "http://192.168.1.20:4391" })},modifier=Modifier.fillMaxWidth())
-   OutlinedTextField(ownerCode,{ownerCode=it},label={Text("Short pairing code")},visualTransformation=PasswordVisualTransformation(),singleLine=true,keyboardOptions=KeyboardOptions(imeAction=ImeAction.Done),keyboardActions=KeyboardActions(onDone={ connectWithTypedCode() }),modifier=Modifier.fillMaxWidth())
+   OutlinedTextField(codeAddress,{codeAddress=it},label={Text("City address (host:port or http://host:port)")},enabled=!busy,singleLine=true,placeholder={Text(host.ifBlank { "http://192.168.1.20:4391" })},modifier=Modifier.fillMaxWidth())
+   if(!relayMode) OutlinedTextField(ownerCode,{ownerCode=it},label={Text("Short pairing code")},visualTransformation=PasswordVisualTransformation(),singleLine=true,keyboardOptions=KeyboardOptions(imeAction=ImeAction.Done),keyboardActions=KeyboardActions(onDone={ connectWithTypedCode() }),modifier=Modifier.fillMaxWidth())
    Row(verticalAlignment=androidx.compose.ui.Alignment.CenterVertically) {
-    Checkbox(checked=relayMode,onCheckedChange={ relayMode=it })
-    Text("Remote / cross-network (relay pipe)",style=MaterialTheme.typography.labelMedium)
+    Checkbox(checked=relayMode,enabled=!busy,onCheckedChange={ relayMode=it })
+    Text("Request owner approval / 申请入网",style=MaterialTheme.typography.labelMedium)
    }
-   Text(if(relayMode) "This device dials OUT to the City and the join travels inside the pipe · works when neither side can be dialled (both behind NAT)."
-        else "Direct connection · the City must be reachable from this network. Turn on the relay for a City on another network.",
+   Text(if(relayMode) "The City address must be reachable. If it is behind a router, use a published secure City address."
+        else "Enter a code created by the City owner. The City address must be reachable.",
         style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-   Button(onClick={ connectWithTypedCode() },enabled=!busy && ownerCode.isNotBlank()) { Text(if(busy) "Connecting…" else if(relayMode) "Connect over relay" else "Connect with short code") }
+   Button(onClick={ connectWithTypedCode() },enabled=joinInputReady(relayMode,codeAddress.ifBlank { host },ownerCode,deviceName,busy)) { Text(if(busy) "Connecting…" else if(relayMode) "Connect over relay" else "Connect with short code") }
    OutlinedButton(onClick={ generateOwnerCode() },enabled=!busy && credential.isNotBlank()) { Text(if(ownerSession==null) "Generate a code on the known City (owner)" else "Generate a new code") }
    ownerSession?.let { d -> Text(if(d.session.isBlank()) "Session ready" else "Code active · expires ${d.expires}",style=MaterialTheme.typography.labelSmall) }
    Text("The code is minted on the City you are joining. Direct works when this network can reach it; the relay pipe is the path for a City on another network.",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)

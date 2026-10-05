@@ -1,0 +1,11 @@
+# City Work Monitor observation foundation
+
+MON-901 adds GET `/api/v0/monitor` under existing control/session authorization. It returns a schemaVersion1 `monitor` object with Node, Edge, Event, Evidence and an empty Decision seam. Worker tokens cannot read it; POST has no mutation route.
+
+A demand-driven JEV sidecar reads coherent, bounded canonical SQLite windows, after persistence. It creates no task/device tables, scheduler decisions, subscriptions or timers. Task execution never calls or waits for it. The endpoint returns the projection to authenticated consumers; graph/inspector UI belongs to MON-902. Observation disconnect/exception/stall is independent of task creation, claim, report and cancellation.
+
+Each population is limited to128 records (internal reader accepts1..256). FAILED/RUNNING/QUEUED tasks are preferred; omitted populations and event sequence gaps are explicit. `health=COMPLETE` means only the sampled canonical window is complete, not a safe City summary. `safeSummaryAvailable=false`, `continuous=false`; unsupported canonical sources and unknown task owner are explicit. Host binding is canonical assignedNodeId; missing host rows remain visible as targetPresent=false. Raw event payloads, task result/error, credentials and hidden reasoning are never copied. Exact canonical event ID/sequence/City/source and `/api/v0/events` pointer support reconciliation. Projection latency measures sample-to-projection only, not end-to-end event ingestion.
+
+Observation failure returns UNAVAILABLE with retained stale data for a reused observer. Disconnect fences an outstanding read; refresh single-flight prevents an internal queue. The Gateway reuses one observer: simultaneous reads share one in-flight read, failures preserve the last view as stale, and shutdown disconnects it. SQLite event high-watermark plus sequence range expose deleted history prefixes/tails; unknown watermarks remain partial. No claim of cross-device acceptance, continuous telemetry, model decisions, user-primary migration or measured speedup.
+
+Validation: `node --test tests/mon901-observation.test.mjs tests/gateway.test.mjs`. Controlled API task lifecycle plus deliberately stalled HTTP observation and failing reader verify canonical runtime progress; no physical-worker performance inference.

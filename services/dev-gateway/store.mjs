@@ -42,6 +42,20 @@ export class Store {
     return {...event,seq:Number(r.lastInsertRowid)};
   }
   events(after=0) { return this.db.prepare('SELECT seq,json FROM events WHERE seq>? ORDER BY seq').all(after).map(r=>({...JSON.parse(r.json),seq:r.seq})); }
+  // A bounded, coherent read of canonical tables; no observation persistence or callbacks.
+  observationWindow({limit=128}={}) {
+    if(!Number.isInteger(limit)||limit<1||limit>256)throw new RangeError('Observation limit must be 1..256');
+    this.db.exec('BEGIN');
+    try {
+      const tasks=this.db.prepare("SELECT json FROM tasks ORDER BY CASE json_extract(json,'$.state') WHEN 'FAILED' THEN 0 WHEN 'RUNNING' THEN 1 WHEN 'QUEUED' THEN 2 ELSE 3 END,rowid LIMIT ?").all(limit).map(r=>JSON.parse(r.json));
+      const nodes=this.db.prepare('SELECT json FROM nodes ORDER BY rowid LIMIT ?').all(limit).map(r=>JSON.parse(r.json));
+      const events=this.db.prepare('SELECT seq,json FROM events ORDER BY seq DESC LIMIT ?').all(limit).reverse().map(r=>({...JSON.parse(r.json),seq:r.seq}));
+      const counts={tasks:Number(this.db.prepare('SELECT count(*) AS n FROM tasks').get().n),nodes:Number(this.db.prepare('SELECT count(*) AS n FROM nodes').get().n),events:Number(this.db.prepare('SELECT count(*) AS n FROM events').get().n)};
+      const eventHighWatermark=Number(this.db.prepare("SELECT seq FROM sqlite_sequence WHERE name='events'").get()?.seq??0);
+      const result={cityId:this.cityId,observedAt:new Date().toISOString(),tasks,nodes,events,counts,limit,eventHighWatermark};
+      this.db.exec('COMMIT');return result;
+    }catch(e){this.db.exec('ROLLBACK');throw e;}
+  }
   atomic(fn) { this.db.exec('BEGIN IMMEDIATE'); try {const r=fn();this.db.exec('COMMIT');return r;}catch(e){this.db.exec('ROLLBACK');throw e;} }
   close(){this.db.close();}
 }

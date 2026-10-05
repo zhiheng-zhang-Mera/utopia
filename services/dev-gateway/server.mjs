@@ -7,6 +7,7 @@ import { readFile } from 'node:fs/promises';
 import { randomUUID, randomBytes as randomBytesBytes, timingSafeEqual } from 'node:crypto';
 import { WebSocketServer } from 'ws';
 import { Store } from './store.mjs';
+import {createObservation} from './observation.mjs';
 import { Pairing } from './pairing.mjs';
 // JOIN-503: device enrollment and tokenless routine reconnect. The registrar is a seam over the City's own
 // RF-001 identity lifecycle (see services/dev-gateway/enrollment.mjs) - it mints installation credentials, issues
@@ -92,6 +93,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   if(!token||!nodeToken||token===nodeToken) throw new Error('Separate control and node tokens are required');
   if(host==='0.0.0.0'||host==='::') throw new Error('Configure an explicit loopback or LAN interface');
   const store=new Store(dir); const wss=new WebSocketServer({noServer:true}); let closed=false;
+  const observation=createObservation({read:()=>store.observationWindow()});
   // MESH-301: WHICH control surfaces are attached to this City, and what each of them calls itself.
   //
   // The identity is declared on the event-stream handshake and travels in the CLIENT_CONNECTED /
@@ -721,6 +723,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         out={cityId:store.cityId,displayName:store.cityName};
       }
       else if(req.method==='GET' && path==='/api/v0/city')out=snapshot(req);
+      else if(req.method==='GET' && path==='/api/v0/monitor')out={monitor:await observation.refresh()};
       else if(req.method==='POST' && path==='/api/v0/node/sharing'){
         const b=await body(req);if(memberRef(req)!==b.id)fail(403,'Only this device may change its resource sharing');if(typeof b.enabled!=='boolean')fail(400,'Sharing requires enabled boolean');const n=required('nodes',b.id);out=store.put('nodes',{...n,sharingEnabled:b.enabled});emit('NODE_SHARING_CHANGED',null,{nodeId:b.id,enabled:b.enabled});
       }
@@ -948,5 +951,5 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // here - recorded so the next reader does not mistake the assignment below for a join fix.
   pairing.endpoint=`http://${host}:${server.address().port}`;
   if(discoveryEnabled)discovery=await startDiscovery({descriptor:pairing.descriptor(),onStatus:s=>{discoveryState=s;}});
-  return {url:pairing.endpoint,store,join,relay,executionProfile,executionBackends,executionBackend,quiesce:value=>{acceptingTasks=!value;},close:async()=>{if(closed)return;closed=true;bridge.close();join.close();relay.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();}};
+  return {url:pairing.endpoint,store,join,relay,executionProfile,executionBackends,executionBackend,quiesce:value=>{acceptingTasks=!value;},close:async()=>{if(closed)return;closed=true;observation.disconnect();bridge.close();join.close();relay.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();}};
 }

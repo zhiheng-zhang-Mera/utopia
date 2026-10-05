@@ -1,0 +1,25 @@
+{
+  "baseline_sha": "d3262ce2dd81e51a53e39e6f9add8dee650a7682",
+  "claim_identity": "Alien-codex",
+  "focused_pass": 23,
+  "independent_technical_review_pass": 8,
+  "initial_root": {
+    "fail": 2,
+    "tests": 1253,
+    "pass": 1251,
+    "cause": "Separate city dependency directory absent in isolated worktree; retained; final rerun pending"
+  },
+  "physical_formal": "NOT_RUN",
+  "ui": "MON-902_NOT_RUN",
+  "decisions": "MON-903_NOT_APPLICABLE",
+  "raw_sha256": {
+    "root-green.log": "4a99e94fb521f38bd359a75072ee31ade7a3febbd5cae873cc8b327694f6e8f5",
+    "review-red2.log": "1027df423946e2528eed900088e94183429f30af45ebc77f9ac1ff379793cc1d",
+    "review-green.log": "6dc74c8ec2e67fa6ef9b4d2b3b2b50e409b4f79fa9789aa97275717ff21fd22d",
+    "red.log": "d8df2320b32bde2f303bebd5c7f8db2bad0766274ee9f204a85569822627b04d",
+    "canary-receipt.json": "18003d74374c869ea9325d5a77bcf51b8ec88df0831cdda1d6b68f14df43514a",
+    "final-focused-green.log": "0ef1a23d78a684cafa340cd00ed0d71d241a747a54f38a88847e08b96daf7dcb"
+  },
+  "latency_scope": "SAMPLE_TO_PROJECTION_ONLY",
+  "performance_claim": false
+}

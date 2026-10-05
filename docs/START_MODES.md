@@ -36,8 +36,20 @@ a City that is not its own.
 尝试释放时会如实回 `released: false`。城市在自身快照中声明自己属于哪种（`lifecycle: 'page' | 'service'`），因此页面
 无需猜测，成员页面也永远无法释放不属于它的城市。
 
-## Why the role is ignored until online / 为什么进入联机前忽略角色
+## A member agent is an online start / 成员代理本身就是联机启动
 
+One case is not a declared mode but an implication of what the process *is*: a member agent runs with
+`CITY_MEMBER_FILE` set, has no page, and hosts nothing — it exists to be online inside another City. It is therefore an
+`online` start whatever `CITY_LIFECYCLE` says, and it can never be page-tied. That rule lives in
+`services/dev-gateway/host-lifecycle.mjs` where it can be tested without spawning anything, because getting it wrong is
+not theoretical: reading only `CITY_LIFECYCLE` made a member agent start as a PRIMARY City of its own.
+
+有一种情况不属于"声明的模式"，而是"这个进程本来是什么"的推论：成员代理带着 `CITY_MEMBER_FILE` 运行，没有页面，也不托管
+任何东西——它存在的意义就是在另一座城市里保持联机。因此无论 `CITY_LIFECYCLE` 说什么，它都是 `online` 启动，并且永远
+不能与页面绑定。这条规则位于 `services/dev-gateway/host-lifecycle.mjs`，无需启动任何进程即可测试，因为搞错它并非理论
+问题：只读 `CITY_LIFECYCLE` 曾让成员代理把自己启动成了一座 PRIMARY 城市。
+
+## Why the role is ignored until online / 为什么进入联机前忽略角色
 A host records the role it was last told to take in `role.json` (PRIMARY, or MEMBER of another City with an enrollment
 file). That selection used to decide what an ordinary start did — and `publish()` rewrote the file to PRIMARY on every
 start, so starting your own City silently destroyed the membership you had chosen.

@@ -6,7 +6,7 @@ import {resolve} from 'node:path';
 import {readHostCity} from '../services/dev-gateway/host-city.mjs';
 import {findRunningCities} from '../services/dev-gateway/host-preflight.mjs';
 import {enrollWithCity, forgetDeviceFile, inviteForExchange, openDeviceSession, readDeviceFile, writeDeviceFile} from '../apps/client/device-enrollment.mjs';
-import {planStart, followsMembership} from './launcher-plan.mjs';
+import {planStart, followsMembership, describeStart} from './launcher-plan.mjs';
 const args = process.argv.slice(2);
 // The starting intention, decided once. The default is the single-machine start: this host's own City, tied to the
 // page that opened it, with any stored membership ignored until the person actually goes online.
@@ -21,7 +21,13 @@ const migrationMarker=resolve(clientDir,'legacy-enrollment-handled');
 if (!existsSync(deviceFile) && !existsSync(migrationMarker)) {const old=readDeviceFile(legacyFile); if(old) writeDeviceFile(deviceFile,old);}
 const say=message=>{if(!has('json')) console.log(message);};
 function open(url) {if(!has('no-open')) spawn('cmd.exe',['/c','start','',url],{detached:true,stdio:'ignore',windowsHide:true}).unref();}
-const report=record=>console.log(has('json') ? JSON.stringify(record) : 'City: '+record.endpoint+' ('+record.cityId+')');
+const report=record=>{
+  if(has('json')) {console.log(JSON.stringify(record)); return;}
+  console.log('City: '+record.endpoint+' ('+record.cityId+')');
+  // §14A: say which life this City got while the person is still standing at the start, not by having the City vanish
+  // on them later. JSON mode must stay a single parseable line, so the disclosure is human-mode only.
+  for(const line of describeStart(record)) console.log(line);
+};
 const apiHeaders=credential=>({Authorization:'Bearer '+credential,'Content-Type':'application/json','X-City-Api-Version':'0','X-City-Schema-Version':'0'});
 async function joinThroughHost(hostRecord,input){
  if(!hostRecord.configFile)throw new Error('Upgrade the local City before changing its role');

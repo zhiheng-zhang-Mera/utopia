@@ -52,11 +52,25 @@ that adjusts the role, and it is the only one.
 现在"运行角色"与"已存储选择"是两个独立事实。单机启动以 PRIMARY 运行城市，但原样保留 `role.json`
 （`persistRole: false`）；只有联机启动才会写入。联机才是调整角色的动作，也是唯一的那个。
 
+## What you are told when it starts / 启动时会告诉你什么
+
+A start that decides how long a process lives should say so while the person is still standing at the start, rather
+than let them infer it later from a City that disappeared. In human mode the launcher prints the endpoint and then one
+line for the mode it chose — "This City follows this page: closing it closes the City.", or that it keeps running on
+its own — plus, on a single-machine start, that the stored role was not used and that going online is what changes it.
+`--json` stays a single parseable line and carries the same facts as fields (`mode`, `lifecycle`, `roleIgnored`).
+
+一个决定"进程活多久"的启动动作，应当在用户还站在起点时就说清楚，而不是让他事后从"城市消失了"去猜。人类可读模式下，
+启动器先打印地址，再打印一行当前模式——"This City follows this page: closing it closes the City."，或说明它会自行
+继续运行；单机启动时还会说明已存储的角色未被采用、联机才是改变角色的动作。`--json` 保持单行可解析，并以字段
+（`mode`、`lifecycle`、`roleIgnored`）承载同样的事实。
+
 ## Evidence / 证据
 
-- `tests/host-standalone-lifecycle.test.mjs` — 7 probes: the plan defaults, page close closes the City, a reload
-  inside the grace window does not, a second surface keeps it alive, a page-less City does not close itself, the owner
-  may release and a member may not, and a hosting City ignores the release.
+- `tests/host-standalone-lifecycle.test.mjs` — 8 probes: the plan defaults, page close closes the City, a reload inside
+  the grace window does not, a second surface keeps it alive, a page-less City does not close itself, the owner may
+  release and a member may not, a hosting City ignores the release, and the start disclosure says the right words for
+  each mode (and invents none where it has no fact).
 - `tests/host-lifecycle-process-e2e.test.mjs` — 2 process-level acceptances against a real isolated City: closing the
   last page ends the process (exit code 0), and a stored MEMBER role is ignored on a single-machine start while the
   role file is left intact and is honoured only when going online.

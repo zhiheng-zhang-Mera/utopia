@@ -9,7 +9,7 @@ import {mkdtemp, rm} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {WebSocket} from 'ws';
 import {createGateway} from '../services/dev-gateway/server.mjs';
-import {planStart, followsMembership, pageTied} from '../scripts/launcher-plan.mjs';
+import {planStart, followsMembership, pageTied, describeStart} from '../scripts/launcher-plan.mjs';
 
 const V = {'Content-Type': 'application/json', 'X-City-Api-Version': '0', 'X-City-Schema-Version': '0'};
 const auth = token => ({...V, Authorization: 'Bearer ' + token});
@@ -116,3 +116,23 @@ test('PROBE 7: a hosting City ignores the release and never follows a page', () 
   await new Promise(r => setTimeout(r, 200));
   assert.equal(exits.length, 0);
 }));
+
+test('PROBE 8: the person starting a City is told which life it got, and told why their stored role was ignored', () => {
+  // §14A: a start that changes long-running background behaviour must disclose itself rather than let the person infer
+  // it from the City vanishing later. These are the exact words the launcher prints in human mode.
+  const page = describeStart({lifecycle: 'page', roleIgnored: true});
+  assert.equal(page.length, 2);
+  assert.match(page[0], /follows this page: closing it closes the City/);
+  assert.match(page[1], /does not use the stored role; going online is what changes the role/);
+
+  const service = describeStart({lifecycle: 'service', roleIgnored: true});
+  assert.match(service[0], /keeps running on its own/);
+  assert.equal(describeStart({lifecycle: 'online', roleIgnored: false}).length, 1);
+  assert.match(describeStart({lifecycle: 'online'})[0], /online/);
+
+  // An enrolment report carries no lifecycle and no ignored role: it must not invent a disclosure it cannot support.
+  assert.deepEqual(describeStart({role: 'MEMBER'}), []);
+  assert.deepEqual(describeStart(), []);
+  // And a mode that keeps its own life must never claim to close with the page.
+  assert.equal(describeStart({lifecycle: 'service'}).some(line => /closing it closes/.test(line)), false);
+});

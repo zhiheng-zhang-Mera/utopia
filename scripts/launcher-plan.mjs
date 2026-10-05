@@ -24,3 +24,19 @@ export const followsMembership = plan => plan.mode === 'online-member';
 
 /** Does this mode tie the City's life to the page that opened it? */
 export const pageTied = plan => plan.lifecycle === 'page';
+
+/**
+ * What the person who just started a City should be told about the life they got.
+ *
+ * The start mode is a fact about their own machine, and the honest place to disclose it is the moment the City starts -
+ * not later, when the City disappears because a page closed. Returned as plain lines so the launcher and its tests read
+ * the same words instead of two drifting copies.
+ */
+export function describeStart({ lifecycle, roleIgnored } = {}) {
+  const lines = [];
+  if (lifecycle === 'page') lines.push('This City follows this page: closing it closes the City.');
+  else if (lifecycle === 'service') lines.push('This City keeps running on its own: close this page whenever you like.');
+  else if (lifecycle === 'online') lines.push('This City is online and keeps running on its own.');
+  if (roleIgnored) lines.push('A single-machine start does not use the stored role; going online is what changes the role.');
+  return lines;
+}

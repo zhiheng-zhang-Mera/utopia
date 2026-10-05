@@ -68,10 +68,16 @@ import kotlinx.coroutines.delay
   val compactText=MaterialTheme.typography.labelSmall
   val pickRow=rememberScrollState()
   @Composable fun ActionButton(label:String,primary:Boolean=false,enabled:Boolean,onClick:()->Unit) {
-   if(primary) Button(onClick=onClick,enabled=enabled,shape=RoundedCornerShape(10.dp),contentPadding=PaddingValues(horizontal=2.dp,vertical=0.dp),modifier=Modifier.weight(1f).height(36.dp)) { Text(label,style=compactText,maxLines=1) }
-   else OutlinedButton(onClick=onClick,enabled=enabled,colors=compact,shape=RoundedCornerShape(10.dp),contentPadding=PaddingValues(horizontal=2.dp,vertical=0.dp),modifier=Modifier.weight(1f).height(36.dp)) { Text(label,style=compactText,maxLines=1) }
+   // ZERO horizontal content padding AND no Material default minimum width: five buttons share one 1080 px row, and
+   // with the library's 58 dp ButtonDefaults.MinWidth the widest two-letter label ("QR") was still clipped to "R".
+   // Compose's own minimum touch target stays intact; only the button's inner minimum is released.
+   val shape=RoundedCornerShape(10.dp)
+   val mod=Modifier.weight(1f).height(34.dp).defaultMinSize(minWidth=0.dp)
+   val text=@Composable { Text(label,style=compactText,maxLines=1,softWrap=false) }
+   if(primary) Button(onClick=onClick,enabled=enabled,shape=shape,contentPadding=PaddingValues(0.dp),modifier=mod) { text() }
+   else OutlinedButton(onClick=onClick,enabled=enabled,colors=compact,shape=shape,contentPadding=PaddingValues(0.dp),modifier=mod) { text() }
   }
-  Row(Modifier.fillMaxWidth().horizontalScroll(pickRow),horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+  Row(Modifier.fillMaxWidth().horizontalScroll(pickRow),horizontalArrangement=Arrangement.spacedBy(2.dp)) {
    ActionButton("QR",primary=true,enabled=!busy) { pairingError=null; discoveryFence.invalidate(); discovery.stop(); mode="qr"; cities=emptyMap(); chosen=null; log.start("qr"); log.event("action"); scan.launch(ScanOptions().setCaptureActivity(AutoZoomCaptureActivity::class.java).setDesiredBarcodeFormats(ScanOptions.QR_CODE).setPrompt("Keep the whole QR in view · Auto zoom 1–2×").setBeepEnabled(false).setOrientationLocked(false)) }
    ActionButton("LAN",enabled=!busy) { pairingError=null; discoveryFence.invalidate(); mode="mdns"; chosen=null; log.start(mode); log.event("action"); cities=emptyMap(); discovery.lan() }
    ActionButton("BLE",enabled=!busy) { pairingError=null; discoveryFence.invalidate(); discovery.stop(); mode="ble"; chosen=null; log.start(mode); log.event("action"); cities=emptyMap(); permission.launch(if(Build.VERSION.SDK_INT>=31) arrayOf(Manifest.permission.BLUETOOTH_SCAN,Manifest.permission.BLUETOOTH_CONNECT) else arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)) }

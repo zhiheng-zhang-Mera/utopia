@@ -1,0 +1,17 @@
+{
+  "observedAt": "2026-10-05T10:12:27.162565+00:00",
+  "host": "http://172.31.12.151:4391",
+  "cityId": "031fdba6-e94c-4298-a095-6ff04a65481d",
+  "credentialPresent": true,
+  "isMemberSession": false,
+  "durableFieldNames": [],
+  "city": {
+    "status": 200,
+    "cityId": "031fdba6-e94c-4298-a095-6ff04a65481d"
+  },
+  "device/installations": {
+    "status": 200,
+    "cityId": "031fdba6-e94c-4298-a095-6ff04a65481d",
+    "installationCount": 2
+  }
+}

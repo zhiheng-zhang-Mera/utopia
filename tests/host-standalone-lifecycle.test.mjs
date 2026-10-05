@@ -9,7 +9,7 @@ import {mkdtemp, rm} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {WebSocket} from 'ws';
 import {createGateway} from '../services/dev-gateway/server.mjs';
-import {planStart, followsMembership, pageTied, describeStart} from '../scripts/launcher-plan.mjs';
+import {planStart, followsMembership, pageTied, describeStart, hostsOwnCity, mayFollowStoredMembership} from '../scripts/launcher-plan.mjs';
 
 const V = {'Content-Type': 'application/json', 'X-City-Api-Version': '0', 'X-City-Schema-Version': '0'};
 const auth = token => ({...V, Authorization: 'Bearer ' + token});
@@ -36,21 +36,45 @@ const openSurface = (app, clientRef = 'page-1') => new Promise((yes, no) => {
 const closeSurface = ws => new Promise(yes => { ws.once('close', yes); ws.close(); });
 const waitFor = async (predicate, ms = 3000) => { const until = Date.now() + ms; while (Date.now() < until) { if (predicate()) return true; await new Promise(r => setTimeout(r, 25)); } return predicate(); };
 
-test('PROBE 1: the start plan defaults to a page-tied single-machine City and only --online follows a membership', () => {
+test('PROBE 1: the start plan defaults to a page-tied single-machine City, and only --online forces a membership', () => {
   const plain = planStart({args: []});
   assert.equal(plain.mode, 'standalone-page', 'the default start is the single-machine one');
   assert.equal(plain.lifecycle, 'page', 'and it is tied to the page that opened it');
-  assert.equal(followsMembership(plain), false, 'the default never follows a stored membership');
+  assert.equal(followsMembership(plain), false, 'the default does not ASK to follow a stored membership');
   assert.equal(pageTied(plain), true);
+  assert.equal(hostsOwnCity(plain), false, 'but it is also not an explicit hosting start');
 
   const hosting = planStart({args: ['--host-only', '--json']});
   assert.equal(hosting.mode, 'standalone-service');
   assert.equal(pageTied(hosting), false, 'a host serving other devices must not follow a page');
+  assert.equal(hostsOwnCity(hosting), true, 'hosting says so explicitly');
 
   const online = planStart({args: ['--online']});
   assert.equal(online.mode, 'online-member');
   assert.equal(followsMembership(online), true, 'going online is the act that honours the stored role');
   assert.equal(pageTied(online), false);
+});
+
+test('PROBE 9: an explicit hosting start never consults a stored membership, and no other start turns a member host into a second City', () => {
+  // This rule was caught by hosted CI, not by this host: gating the membership path on --online alone made a plain
+  // start (the `--port` reconnect case JOIN-503 accepts) ignore its enrollment and launch a SECOND City in the member's
+  // state directory. The test that covers it is tests/host-city-launcher.test.mjs:95, which fails here for an unrelated
+  // environmental reason (a City is already reserved on this host), so the rule is pinned in the plan as well.
+  const plain = planStart({args: ['--port', '4998']});
+  assert.equal(mayFollowStoredMembership(plain), true, 'a plain start may reconnect to the membership still on disk');
+  assert.equal(followsMembership(plain), false, 'a reconnect is not a role ADJUSTMENT');
+
+  const hosting = planStart({args: ['--host-only']});
+  assert.equal(mayFollowStoredMembership(hosting), false, 'hosting this host\'s own City ignores whatever membership is on disk');
+
+  const online = planStart({args: ['--online']});
+  assert.equal(mayFollowStoredMembership(online), true);
+
+  // The three modes are exhaustive: a plan cannot be both hosting and membership-forced.
+  for (const args of [[], ['--port', '4998'], ['--host-only'], ['--online'], ['--enroll-code', '123456']]) {
+    const plan = planStart({args});
+    assert.equal(hostsOwnCity(plan) && followsMembership(plan), false, `${args.join(' ')} cannot both host and force a membership`);
+  }
 });
 
 test('PROBE 2: closing the last page in page mode closes the City, and says why', () => city({lifecycle: 'page', pageIdleMs: 250}, async ({app, exits}) => {

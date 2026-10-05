@@ -6,15 +6,15 @@ Utopia 有三种启动模式，默认是单机模式。
 
 | Mode | How it starts | The City's life | Stored role |
 |---|---|---|---|
-| `standalone` + `page` | the default: `utopia-client-launcher.mjs` with no mode flag | tied to the page that opened it — closing the page closes the City | ignored |
-| `standalone` + `service` | `--host-only`, or `scripts/start-city.ps1` | independent: it keeps running for phones and peer hosts | ignored |
-| `online` | `--online`, or enrolling (`--enroll` / `--enroll-code`) | independent | honoured, and adjusted |
+| `standalone` + `page` | the default: `utopia-client-launcher.mjs` with no mode flag | tied to the page that opened it — closing the page closes the City | not adjusted; a membership still on disk is reconnected, not overwritten |
+| `standalone` + `service` | `--host-only`, or `scripts/start-city.ps1` | independent: it keeps running for phones and peer hosts | ignored entirely |
+| `online` | `--online`, or enrolling (`--enroll` / `--enroll-code`) | independent | honoured, and adjusted (this is the only mode that writes it) |
 
 | 模式 | 如何进入 | 城市生命周期 | 已存储角色 |
 |---|---|---|---|
-| `standalone` + `page` | 默认：`utopia-client-launcher.mjs` 不带模式参数 | 与打开它的页面同生共死——关页面即关城市 | 忽略 |
-| `standalone` + `service` | `--host-only`，或 `scripts/start-city.ps1` | 独立运行：为手机与对等主机持续提供服务 | 忽略 |
-| `online` | `--online`，或入网（`--enroll` / `--enroll-code`） | 独立运行 | 被采用，并进行角色调整 |
+| `standalone` + `page` | 默认：`utopia-client-launcher.mjs` 不带模式参数 | 与打开它的页面同生共死——关页面即关城市 | 不调整；磁盘上仍存在的成员身份会被重连，而不会被覆盖 |
+| `standalone` + `service` | `--host-only`，或 `scripts/start-city.ps1` | 独立运行：为手机与对等主机持续提供服务 | 完全忽略 |
+| `online` | `--online`，或入网（`--enroll` / `--enroll-code`） | 独立运行 | 被采用，并进行角色调整（唯一会写入它的模式） |
 
 ## Why the default is page-tied / 为什么默认与页面同生共死
 
@@ -45,12 +45,17 @@ start, so starting your own City silently destroyed the membership you had chose
 主机会把上次被指定的角色记录在 `role.json`（PRIMARY，或"某城的 MEMBER + 入网文件"）。过去这个选择会决定一次普通启动
 做什么，而且 `publish()` 会在每次启动时把该文件改写成 PRIMARY——于是"启动自己的城市"会悄悄毁掉你选好的成员身份。
 
-Now the running role and the stored selection are two separate facts. A single-machine start runs a PRIMARY City but
-leaves `role.json` exactly as it was (`persistRole: false`); only an online start writes it. Going online is the act
-that adjusts the role, and it is the only one.
+Now the running role and the stored selection are two separate facts. `role.json` is rewritten **only** by an online
+start (`persistRole: false` everywhere else), and an explicit hosting start never consults it at all. What a plain start
+may still do — and what the accepted JOIN-503 contract requires it to do — is **reconnect** to a membership that is
+still on disk: that host is already a member of a City, and pointing at that City is what being online means for it. If
+that membership cannot be honoured (the enrollment is gone, or the City is down) the start says so and refuses; it never
+quietly becomes a different City in the same state directory.
 
-现在"运行角色"与"已存储选择"是两个独立事实。单机启动以 PRIMARY 运行城市，但原样保留 `role.json`
-（`persistRole: false`）；只有联机启动才会写入。联机才是调整角色的动作，也是唯一的那个。
+现在"运行角色"与"已存储选择"是两个独立事实。`role.json` **只**会被联机启动写入（其余情况 `persistRole: false`），
+而显式的托管启动根本不会去读它。普通启动仍可能做的一件事——也是已接受的 JOIN-503 契约要求它做的——是**重连**磁盘上
+仍然存在的成员身份：该主机本就是某城的成员，指向那座城市就是它"在线"的含义。如果这个成员身份无法兑现（入网文件已丢
+失，或那座城市不在线），启动会如实说明并拒绝，绝不会悄悄在同一个状态目录里变成另一座城市。
 
 ## What you are told when it starts / 启动时会告诉你什么
 
@@ -67,10 +72,11 @@ its own — plus, on a single-machine start, that the stored role was not used a
 
 ## Evidence / 证据
 
-- `tests/host-standalone-lifecycle.test.mjs` — 8 probes: the plan defaults, page close closes the City, a reload inside
+- `tests/host-standalone-lifecycle.test.mjs` — 9 probes: the plan defaults, page close closes the City, a reload inside
   the grace window does not, a second surface keeps it alive, a page-less City does not close itself, the owner may
-  release and a member may not, a hosting City ignores the release, and the start disclosure says the right words for
-  each mode (and invents none where it has no fact).
+  release and a member may not, a hosting City ignores the release, the start disclosure says the right words for each
+  mode (and invents none where it has no fact), and an explicit hosting start never consults a stored membership while no
+  other start may turn a member host into a second City.
 - `tests/acceptance/host-lifecycle-process-e2e.test.mjs` — 2 process-level acceptances against a real isolated City:
   closing the last page ends the process (exit code 0), and a stored MEMBER role is ignored on a single-machine start
   while the role file is left intact and is honoured only when going online. This file is deliberately outside

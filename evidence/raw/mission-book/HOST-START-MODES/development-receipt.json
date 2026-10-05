@@ -12,10 +12,11 @@
   "development_head_sha": "473d8e8901c97c0b92f5137ea1b6d70e949a8aae",
   "behaviour": {
     "start_plan": {
-      "default": { "mode": "standalone-page", "lifecycle": "page", "follows_membership": false, "role_persisted": false },
-      "--host-only": { "mode": "standalone-service", "lifecycle": "service", "follows_membership": false, "role_persisted": false },
-      "--online": { "mode": "online-member", "lifecycle": "online", "follows_membership": true, "role_persisted": true }
+      "default": { "mode": "standalone-page", "lifecycle": "page", "hosting": false, "follows_membership": false, "may_reconnect_membership": true, "role_persisted": false },
+      "--host-only": { "mode": "standalone-service", "lifecycle": "service", "hosting": true, "follows_membership": false, "may_reconnect_membership": false, "role_persisted": false },
+      "--online": { "mode": "online-member", "lifecycle": "online", "hosting": false, "follows_membership": true, "may_reconnect_membership": true, "role_persisted": true }
     },
+    "reconciled_role_rule": "A start that is explicitly HOSTING never consults a stored membership. Any other start may RECONNECT to a membership still on disk, because that host is already a member of a City and pointing at it is what being online means for it - this is the accepted JOIN-503 contract (tests/host-city-launcher.test.mjs). Only an online start WRITES role.json. If the membership cannot be honoured (no enrollment file, or the City is down) the start refuses honestly instead of quietly becoming a different City in the same state directory.",
     "page_close": "leaves the page, then the City closes after the last control surface has been absent for the grace window (CITY_PAGE_IDLE_MS, default 8000 ms); a reload inside the window cancels the exit and a second surface keeps it alive",
     "release_route": "POST /api/v0/host/release (local only); refuses a City session with OWNER_CREDENTIAL_REQUIRED, and answers released:false,reason:'this City is not tied to a page' when lifecycle is service",
     "role": "a single-machine start runs PRIMARY and leaves role.json exactly as stored (persistRole:false); only an online start rewrites it"
@@ -26,16 +27,17 @@
       "command": "node --test tests/host-standalone-lifecycle.test.mjs",
       "workdir": "D:\\utopia-launch",
       "head_sha": "473d8e8901c97c0b92f5137ea1b6d70e949a8aae",
-      "result": "pass 8, fail 0, skipped 0, todo 0, duration_ms 3602.9581",
+      "result": "pass 9, fail 0, skipped 0, todo 0",
       "probes": [
-        "PROBE 1: the start plan defaults to a page-tied single-machine City and only --online follows a membership",
+        "PROBE 1: the start plan defaults to a page-tied single-machine City, and only --online forces a membership",
         "PROBE 2: closing the last page in page mode closes the City, and says why",
         "PROBE 3: a reload inside the grace window does NOT close the City",
         "PROBE 4: a second surface keeps the City alive",
         "PROBE 5: a City that never had a page does not close itself",
         "PROBE 6: the owner page can release the City explicitly, and only the owner",
         "PROBE 7: a hosting City ignores the release and never follows a page",
-        "PROBE 8: the person starting a City is told which life it got, and told why their stored role was ignored"
+        "PROBE 8: the person starting a City is told which life it got, and told why their stored role was ignored",
+        "PROBE 9: an explicit hosting start never consults a stored membership, and no other start turns a member host into a second City"
       ],
       "stderr_note": "PROBE 2/3/4/6 print the City's own reason line, e.g. 'Utopia City closing: the control page left without releasing the City'"
     },

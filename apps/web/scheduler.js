@@ -49,7 +49,7 @@ export const ACTION_WIRING = Object.freeze({
 });
 
 /** One task's card: user language, then the reasons, then the actions. */
-function taskCard(entry, {advanced, candidateRefs}) {
+function taskCard(entry, {advanced, candidateRefs,candidateLabels,busyTasks}) {
   const view = toSchedulerViewModel(entry.dto, {t, advanced});
   const providers = view.providers.length === 0
     ? `<p class="muted">${esc(t('scheduler.panel.noCandidates'))}</p>`
@@ -60,11 +60,12 @@ function taskCard(entry, {advanced, candidateRefs}) {
       // The user's choice lives HERE, on the row for the service they are choosing. An unavailable
       // provider gets no control at all, which is what "visible but forced unselectable" means.
       const ref = candidateRefs[p.index];
+      const label=candidateLabels[p.index]??ref??'';
       const choose = p.selectable && typeof ref === 'string' && ref.length > 0
         ? ` <button class="scheduler-provider-choose" data-scheduler-action="CHOOSE_PROVIDER" data-scheduler-route="providerChoice" data-scheduler-task="${esc(entry.taskId ?? '')}" data-scheduler-provider="${esc(ref)}">${esc(t('scheduler.panel.useThis'))}</button>`
         : '';
       return `<li class="scheduler-provider ${esc(p.severity)}" data-selectable="${p.selectable ? 'true' : 'false'}">`
-        + `<span class="scheduler-provider-state">${esc(state)}</span> `
+        + `<span class="scheduler-provider-label">${esc(label)}</span> · <span class="scheduler-provider-state">${esc(state)}</span> `
         + `<span class="scheduler-provider-reason">${esc(p.reason)}</span>${choose}</li>`;
     }).join('')}</ul>`;
 
@@ -96,15 +97,20 @@ function taskCard(entry, {advanced, candidateRefs}) {
 
   // The only place raw vocabulary is allowed, and only when the caller asked for it.
   const technical = advanced && view.technical
-    ? `<details class="scheduler-technical"><summary>${esc(t('scheduler.advanced.summary'))}</summary><pre>${esc(JSON.stringify(view.technical, null, 2))}</pre></details>`
+    ? `<details class="scheduler-technical"><summary>${esc(t('scheduler.advanced.summary'))}</summary><pre>${esc(JSON.stringify({taskId:entry.taskId,...view.technical}, null, 2))}</pre></details>`
     : '';
+  const choices=entry.userChoices;
+  const decision=choices?.version===1&&choices.decisionRequired===true;
+  const alternate=choices?.alternateDevice;
+  const busy=busyTasks.has(entry.taskId);
+  const alternateChoice=decision?`<div class="scheduler-choice"><p>${esc(t('scheduler.choice.explicitPrompt'))}</p><button data-scheduler-action="ALTERNATE_DEVICE" data-scheduler-route="switchDeclined" data-scheduler-task="${esc(entry.taskId)}" data-scheduler-revision="${esc(alternate?.expectedUpdatedAt)}" ${!alternate?.allowed||busy?'disabled':''}>${esc(t('scheduler.choice.alternateDevice'))}</button>${alternate?.reason?`<p class="muted">${esc(t('scheduler.choice.reason.'+alternate.reason))}</p>`:''}<button data-scheduler-action="KEEP_WAITING" data-scheduler-route="local" data-scheduler-task="${esc(entry.taskId)}" ${busy?'disabled':''}>${esc(t('scheduler.action.keep_waiting'))}</button></div>`:'';
 
   return `<article class="scheduler-task ${esc(view.severity)}" data-task-ref="${esc(entry.taskId ?? '')}">`
     + `<header class="scheduler-task-head"><span class="scheduler-task-state">${esc(view.stateLabel)}</span>`
-    + `<span class="task-id">${esc(entry.taskId ?? '')}</span></header>`
+    + `</header>`
     + (view.choiceRequired ? `<p class="scheduler-question">${esc(t('scheduler.choice.prompt'))}</p>` : '')
     + (view.degraded ? `<p class="muted scheduler-degraded">${esc(t('scheduler.panel.degradedNote'))}</p>` : '')
-    + providers + actions + technical
+    + providers + alternateChoice + actions + technical
     + '</article>';
 }
 
@@ -114,13 +120,13 @@ function taskCard(entry, {advanced, candidateRefs}) {
  * `feed` is the producer's response. A missing or malformed feed renders an honest "not available"
  * line rather than an invented status: an empty scheduler surface must never look like a healthy one.
  */
-export function schedulerPanel(feed, {isOnline = true, advanced = false} = {}) {
+export function schedulerPanel(feed, {isOnline = true, advanced = false,busyTasks=new Set()} = {}) {
   const title = `<h2>${esc(t('scheduler.panel.title'))}</h2>`;
   if (!isOnline) return `<section class="panel scheduler-panel">${title}<p class="muted">${esc(t('scheduler.panel.offline'))}</p></section>`;
   const entries = Array.isArray(feed?.tasks) ? feed.tasks : null;
   if (entries === null) return `<section class="panel scheduler-panel">${title}<p class="muted">${esc(t('scheduler.panel.feedUnavailable'))}</p></section>`;
   if (entries.length === 0) return `<section class="panel scheduler-panel">${title}<p class="muted">${esc(t('scheduler.panel.idle'))}</p></section>`;
-  return `<section class="panel scheduler-panel">${title}${entries.map((e) => taskCard(e, {advanced, candidateRefs: Array.isArray(feed?.candidates) ? feed.candidates : []})).join('')}</section>`;
+  return `<section class="panel scheduler-panel">${title}${entries.map((e) => taskCard(e, {advanced,busyTasks,candidateRefs:Array.isArray(feed?.candidates)?feed.candidates:[],candidateLabels:Array.isArray(feed?.candidateLabels)?feed.candidateLabels:[]})).join('')}</section>`;
 }
 
 export default {schedulerPanel, esc, ACTION_WIRING};

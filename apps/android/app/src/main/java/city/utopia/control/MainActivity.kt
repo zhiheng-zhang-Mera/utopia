@@ -68,6 +68,8 @@ class MainActivity : ComponentActivity() {
   val memberManagement=remember(client,managementCity) { managementCity?.let { MemberManagementState(it) } }
   DisposableEffect(memberManagement) { onDispose { memberManagement?.fence?.close() } }
   LaunchedEffect(memberManagement,online) { memberManagement?.connectivityChanged() }
+  val schedulerChoiceState=remember(client,state.snapshot?.optString("cityId")) { SchedulerChoiceState() }
+  DisposableEffect(schedulerChoiceState) { onDispose { schedulerChoiceState.fence.close() } }
   val tasks = state.snapshot?.optJSONArray("tasks").objects()
   val nodes = state.snapshot?.optJSONArray("nodes").objects()
   val events = state.snapshot?.optJSONArray("events").objects()
@@ -115,6 +117,9 @@ class MainActivity : ComponentActivity() {
      if(selectedNode==null) item {
        SchedulerStatusPanel(
          state.feed, online,
+         requestScope = client,
+         choiceState = schedulerChoiceState,
+         onAlternateDevice = { taskId, revision, done -> client?.alternateDevice(taskId, revision, done) },
          supportedActions = setOf("CANCEL"),
          onChooseProvider = { taskId, providerRef -> client?.providerChoice(taskId, providerRef) },
          onAction = { taskId, token, providerRef ->

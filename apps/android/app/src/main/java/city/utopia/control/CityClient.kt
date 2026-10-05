@@ -65,7 +65,7 @@ class CityClient(context: Context, private val host: String, private val token: 
   if (body != null) builder.method(method,body.toString().toRequestBody("application/json".toMediaType()))
   (if(path.startsWith("capabilities/")) http.newBuilder().readTimeout(25, TimeUnit.SECONDS).callTimeout(26, TimeUnit.SECONDS).build() else http).newCall(builder.build()).execute().use { response ->
    val raw = response.body?.string() ?: "{}"
-   if (!response.isSuccessful && (path.startsWith("capabilities/") || path.startsWith("capability-invocations/") || path.startsWith("device/installations") || path.startsWith("members/messages") || path=="node/sharing" || path=="city/name")) {
+   if (!response.isSuccessful && (path.startsWith("capabilities/") || path.startsWith("capability-invocations/") || path.startsWith("device/installations") || path.startsWith("members/messages") || path=="node/sharing" || path=="city/name" || path.endsWith("/switch-declined"))) {
     val error = runCatching { JSONObject(raw) }.getOrNull()
     throw CapabilityRequestException(error?.optString("errorCode")?.takeIf { it.isNotBlank() } ?: "HTTP_${response.code}",response.code,error?.optString("error")?.takeIf { it.isNotBlank() } ?: "Request failed: ${response.code}")
    }
@@ -226,5 +226,12 @@ class CityClient(context: Context, private val host: String, private val token: 
  fun setSharing(id:String,enabled:Boolean,done:(JSONObject)->Unit) { submit { deliver(row("node/sharing",JSONObject().put("id",id).put("enabled",enabled)),done);refresh() } }
  fun sendMemberMessage(target:String,text:String,done:(JSONObject)->Unit) { submit { deliver(row("members/messages",JSONObject().put("targetDeviceId",target).put("text",text)),done);refresh() } }
  fun receiveMemberMessage(id:String,done:(JSONObject)->Unit) { submit { deliver(row("members/messages/"+java.net.URLEncoder.encode(id,"UTF-8")+"/receipt",JSONObject()),done);refresh() } }
+ fun alternateDevice(id:String,revision:String,done:(JSONObject)->Unit) {
+  submit {
+   val response=row("tasks/"+java.net.URLEncoder.encode(id,"UTF-8")+"/switch-declined",JSONObject().put("decision","ALTERNATE_DEVICE").put("expectedUpdatedAt",revision))
+   deliver(response,done)
+   refresh()
+  }
+ }
  fun close() { log.surface("stop", lastServerMaxSeq); closed = true; runCatching { connectivity.unregisterNetworkCallback(callback) }; socket?.cancel(); executor.shutdownNow(); http.dispatcher.cancelAll(); http.connectionPool.evictAll() }
 }

@@ -8,8 +8,8 @@ import java.security.SecureRandom
 /**
  * JOIN-590 · cross-network joining over the relay pipe.
  *
- * THE PROBLEM THIS SOLVES. A City behind NAT cannot be dialled, and neither can the device. The one direction that
- * works is OUTBOUND: this app opens a socket to the City and keeps it. Everything the join needs then travels
+ * THE PROBLEM THIS SOLVES. The device opens an outbound socket to a reachable City and keeps it.
+ * A private City behind unreachable NAT still needs a public forwarding endpoint. Everything the join needs then travels
  * inside that pipe using the City's OWN routes — no second protocol and no second trust decision.
  *
  * WHY APPROVAL AND NOT A SHORT CODE. The City's relay carries a NAMED list of routes and it does not include the
@@ -30,7 +30,7 @@ import java.security.SecureRandom
  */
 object RelayPairing {
 
-  data class Outcome(val cityId: String, val credential: String, val peerRef: String?, val role: String)
+  data class Outcome(val cityId: String, val credential: String, val peerRef: String?, val role: String, val enrollment: NativeEnrollment)
 
   const val APPROVAL_POLL_MS = 2000L
   const val APPROVAL_WAIT_MS = 180_000L
@@ -73,24 +73,34 @@ object RelayPairing {
     address: String,
     installationId: String,
     displayName: String,
-    onProgress: (stage: String, detail: String) -> Unit,
-    onSuccess: (Outcome) -> Unit,
-    onFailure: (RelayDialError) -> Unit,
-  ) {
-    val target = RelayDial.target(address)
-    if (target == null) { onFailure(RelayDialError("RELAY_NO_TARGET", "enter the City address to ask", fallback = false)); return }
-    val host = target.first
-    val port = target.second
-    val claim = newClaim()
+    installation: JSONObject,
+    progressCallback: (stage: String, detail: String) -> Unit,
+    successCallback: (Outcome) -> Unit,
+    failureCallback: (RelayDialError) -> Unit,
+  ): java.io.Closeable {
     val main = Handler(Looper.getMainLooper())
+    val active = java.util.concurrent.atomic.AtomicBoolean(true)
+    var held: RelayConnection? = null
+    val handle = java.io.Closeable { active.set(false); main.removeCallbacksAndMessages(null); held?.close() }
+    val onProgress: (String,String)->Unit = { stage,detail -> main.post { if(active.get())progressCallback(stage,detail) } }
+    val onSuccess: (Outcome)->Unit = { value -> main.post { if(active.compareAndSet(true,false)) { main.removeCallbacksAndMessages(null); successCallback(value) } } }
+    val onFailure: (RelayDialError)->Unit = { error -> main.post { if(active.compareAndSet(true,false)) { held?.close();main.removeCallbacksAndMessages(null);failureCallback(error) } } }
+    val target = RelayDial.target(address)
+    if (target == null) { onFailure(RelayDialError("RELAY_NO_TARGET", "enter the City address to ask", fallback = false)); return handle }
+    val host = target.host
+    val port = target.port
+    val claim = newClaim()
 
     RelayDial.dial(
-      host = host, port = port, label = displayName, installationId = installationId,
+      host = host, port = port, secure = target.secure, label = displayName, installationId = installationId,
       onReady = { connection ->
+        held=connection
+        if(!active.get()) { connection.close();return@dial }
         onProgress("ASKING", "Asking the City to let this device join…")
         // FIRST ask the City who it is. The identity the app must remember afterwards is the one the CITY declared
         // over this very pipe, so the join never adopts an identity from a row that legitimately omits it.
         connection.forward("/api/v0/join/info", JSONObject()) { info ->
+          if(!active.get())return@forward
           if (info.isFailure) {
             abandon(connection, info, "the City did not describe itself over the relay", onFailure)
           } else {
@@ -99,13 +109,14 @@ object RelayPairing {
               connection.close()
               onFailure(RelayDialError("RELAY_JOIN_INFO_REFUSED", "the City did not declare its identity over the relay"))
             } else {
-              requestJoin(connection, dialedCityId, claim, installationId, displayName, main, onProgress, onSuccess, onFailure)
+              requestJoin(connection, dialedCityId, claim, installationId, displayName, installation, main, active, onProgress, onSuccess, onFailure)
             }
           }
         }
       },
       onFailure = onFailure,
     )
+    return handle
   }
 
   private fun requestJoin(
@@ -114,7 +125,9 @@ object RelayPairing {
     claim: String,
     installationId: String,
     displayName: String,
+    installation: JSONObject,
     main: Handler,
+    active: java.util.concurrent.atomic.AtomicBoolean,
     onProgress: (String, String) -> Unit,
     onSuccess: (Outcome) -> Unit,
     onFailure: (RelayDialError) -> Unit,
@@ -125,6 +138,7 @@ object RelayPairing {
       .put("installationHint", installationId)
       .put("claim", claim)
     connection.forward("/api/v0/join/request", ask) { asked ->
+      if(!active.get())return@forward
       if (asked.isFailure) {
         abandon(connection, asked, "the City did not accept the join request", onFailure)
       } else {
@@ -138,7 +152,7 @@ object RelayPairing {
         } else {
           val shortRef = textOrNull(payload, "shortRef") ?: requestId
           onProgress("WAITING", "Waiting for the owner to approve on the City ($shortRef)…")
-          pollForDecision(main, connection, requestId, claim, dialedCityId, System.currentTimeMillis(), onProgress, onSuccess, onFailure)
+          pollForDecision(main, connection, requestId, claim, dialedCityId, installation, active, System.currentTimeMillis(), onProgress, onSuccess, onFailure)
         }
       }
     }
@@ -151,17 +165,21 @@ object RelayPairing {
     requestId: String,
     claim: String,
     dialedCityId: String,
+    installation: JSONObject,
+    active: java.util.concurrent.atomic.AtomicBoolean,
     started: Long,
     onProgress: (String, String) -> Unit,
     onSuccess: (Outcome) -> Unit,
     onFailure: (RelayDialError) -> Unit,
   ) {
+    if(!active.get())return
     if (System.currentTimeMillis() - started > APPROVAL_WAIT_MS) {
       connection.close()
       onFailure(RelayDialError("RELAY_APPROVAL_TIMEOUT", "the owner did not decide within ${APPROVAL_WAIT_MS / 1000}s", status = 504))
       return
     }
     connection.forward("/api/v0/join/status", JSONObject().put("requestId", requestId).put("claim", claim)) { status ->
+      if(!active.get())return@forward
       if (status.isFailure) {
         abandon(connection, status, "the City stopped answering while waiting for approval", onFailure)
       } else {
@@ -171,12 +189,12 @@ object RelayPairing {
           connection.close()
           onFailure(RelayDialError("RELAY_JOIN_STATUS_REFUSED", "the City did not report the request state", status = answer?.optInt("status")))
         } else if (payload.optBoolean("approved", false)) {
-          exchangeNow(connection, requestId, claim, dialedCityId, onProgress, onSuccess, onFailure)
+          exchangeNow(connection, requestId, claim, dialedCityId, installation, onProgress, onSuccess, onFailure)
         } else if (payload.optBoolean("terminal", false)) {
           connection.close()
           onFailure(RelayDialError("RELAY_JOIN_REJECTED", "the City refused this join request", status = 403))
         } else {
-          main.postDelayed({ pollForDecision(main, connection, requestId, claim, dialedCityId, started, onProgress, onSuccess, onFailure) }, APPROVAL_POLL_MS)
+          main.postDelayed({ pollForDecision(main, connection, requestId, claim, dialedCityId, installation, active, started, onProgress, onSuccess, onFailure) }, APPROVAL_POLL_MS)
         }
       }
     }
@@ -188,12 +206,13 @@ object RelayPairing {
     requestId: String,
     claim: String,
     dialedCityId: String,
+    installation: JSONObject,
     onProgress: (String, String) -> Unit,
     onSuccess: (Outcome) -> Unit,
     onFailure: (RelayDialError) -> Unit,
   ) {
     onProgress("APPROVED", "Approved · collecting this device's credential…")
-    connection.forward("/api/v0/join/exchange", JSONObject().put("requestId", requestId).put("claim", claim)) { exchanged ->
+    connection.forward("/api/v0/join/exchange", JSONObject().put("requestId", requestId).put("claim", claim).put("installation", installation)) { exchanged ->
       if (exchanged.isFailure) {
         abandon(connection, exchanged, "the City did not answer the exchange", onFailure)
       } else {
@@ -211,7 +230,9 @@ object RelayPairing {
           onFailure(RelayDialError("RELAY_JOIN_EXCHANGE_REFUSED", detail, status = answer?.optInt("status")))
         } else {
           connection.close()
-          onSuccess(Outcome(cityId = dialedCityId, credential = credential, peerRef = connection.peerRef, role = connection.role))
+          runCatching { parseNativeEnrollment(payload!!, dialedCityId, installation.getString("instanceId")) }.fold({ record ->
+            onSuccess(Outcome(cityId = dialedCityId, credential = record.sessionCredential, peerRef = connection.peerRef, role = connection.role, enrollment = record))
+          }, { onFailure(RelayDialError("RELAY_ENROLLMENT_REFUSED", it.message ?: "Member enrollment required")) })
         }
       }
     }

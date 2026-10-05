@@ -240,6 +240,7 @@ class CityClient(context: Context, private val host: String, token: String, priv
    deliver(row("ask",body),done)
   }
  }
+ fun installations(done: (JSONObject) -> Unit) { submit { deliver(row("device/installations"),done) } }
  fun askTargets(done: (JSONObject) -> Unit) { submit { deliver(row("ask/targets"),done) } }
  fun cancel(id: String) { submit { try { request("tasks/$id/cancel", JSONObject()); refresh() } catch (e: Exception) { publish(if (socketOnline) "ONLINE" else "OFFLINE", e.message ?: "Cancel failed") } } }
  fun providerChoice(id: String, providerRef: String) {

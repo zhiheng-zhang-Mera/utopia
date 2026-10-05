@@ -429,4 +429,16 @@ Object.assign(messages,{"members.thisDevice":"This device","members.role.PRIMARY
 Object.assign(messages,{"catalog.hint":"Not sure what you can do?","catalog.open":"View all capabilities","catalog.title":"Available targets — select, then submit your action"});
 Object.assign(messages,{"nav.research":"Research","heading.research":"Research"});
 Object.assign(messages,{"nav.researchTrace":"Research trace","heading.researchtrace":"Research trace","trace.title":"Research recording","trace.hint":"Read-only observations from this City. Recording does not create or execute an experiment.","trace.refresh":"Refresh","trace.offline":"Reconnect to view current research records.","trace.recording":"Recording","trace.stopped":"Recording stopped","trace.types":"Recorded event types","trace.none":"None observed","trace.experiment":"Experiment run","trace.metrics":"Measurement availability","trace.available":"Measured","trace.failures":"Collector failures","trace.dropped":"Dropped records","trace.retention":"Retention truncated","trace.declared":"Software identities are declared references; external verification is required. Missing measurements remain NOT_OBSERVABLE.","trace.ownerRequired":"Only the City owner can view research records. Ask the owner to open Research trace.","trace.unavailable":"Research records are unavailable. Refresh or reconnect."});
-export default { meta, messages };
+// (union) duplicate export default removed: the earlier one belonged to a side that also appended its keys above
+Object.assign(messages, {
+"recovery.conflict":"Device identity conflict",
+"recovery.conflictHint":"Credentials appear to be shared between installations. Verify the named installations before removing any device. Nothing is removed automatically.",
+"recovery.ownerGuidance":"Recovery requires the City owner. Open this City in the owner’s Web Settings to approve a reinstall; this member session can only inspect or remove itself.",
+"recovery.required":"This installation needs recovery before it can reconnect.",
+"recovery.choose":"Original device",
+"recovery.choosePlaceholder":"Choose the original device",
+"recovery.confirm":"I am the City owner and confirm this installation belongs to the selected device.",
+"recovery.rebind":"Restore device binding",
+"recovery.done":"Device binding restored. Reconnect the reinstalled application.",
+});
+export default {meta,messages};

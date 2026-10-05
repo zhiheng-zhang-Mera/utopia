@@ -136,6 +136,7 @@ class MainActivity : ComponentActivity() {
      item { ActionsPanel(state,client) }
     } else if (page == "Settings") {
      item { if(NativeEnrollmentStore(this@MainActivity).read(host,prefs.getString("cityId",null))!=null) OutlinedButton(onClick={ client?.leaveCity { token="";settingsRevision++;page="Find" } }) { Text("Leave City / 退出城市（仅本机）") } }
+     item { DeviceRecoveryPanel(client,host,state.message) { page="Find" } }
      item { OutlinedButton(onClick={ client?.close(); prefs.edit().clear().apply(); token=""; host="http://"; state=CityState(); settingsRevision++; page="Find"; log.event("clearPairing") }) { Text("Clear pairing / Find your City") } }
      item { OutlinedTextField(host, { host = it }, label = { Text("City URL") }, singleLine = true, modifier = Modifier.fillMaxWidth()) }
      item { OutlinedTextField(token, { token = it }, label = { Text("Pairing token") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth()) }

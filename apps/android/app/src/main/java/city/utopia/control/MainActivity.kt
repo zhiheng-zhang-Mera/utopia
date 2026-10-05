@@ -100,7 +100,7 @@ class MainActivity : ComponentActivity() {
     item { Column { Text(if (selected != null) "Task details" else when (page) { "Home" -> "Digital City"; "Find" -> "Welcome"; "Ask" -> "Ask / Do"; "Rooms" -> "Rooms · local tools"; "Action" -> "Actions"; "Devices" -> if(selectedNode == null) "Devices" else "Device details"; "Services" -> "City services"; "Tasks" -> "Your tasks"; "Activity" -> "City activity"; else -> "Connect your city" }, fontSize = 32.sp, color = Ink, fontWeight = FontWeight.Medium); Text(if (online) "Your devices. One shared view." else "Cached information · connection is not live", fontSize = 12.sp, color = Color.Gray) } }
     if (state.message.isNotBlank()) item { UtFeedback(state.message, kind = "error") }
     if (page == "Find") {
-     item { PairingPanel(log, intent?.dataString, { page="Settings" }, { h,t,id -> host=h; token=t; prefs.edit().putString("host",h).putString("token",t).putString("cityId",id).apply(); state=CityState("RECONNECTING"); settingsRevision++; page="Devices"; intent.data=null }) }
+     item { PairingPanel(log, intent?.dataString, host, token, { page="Settings" }, { h,t,id,_ -> host=h; token=t; prefs.edit().putString("host",h).putString("token",t).putString("cityId",id).apply(); state=CityState("RECONNECTING"); settingsRevision++; page="Devices"; intent.data=null }) }
     } else if (page == "Devices") {
      // UXI-301: show WHY things are waiting ahead of the device list, on the overview only - a single
      // device's detail view is about that device, and repeating the fleet-wide panel there would bury it.

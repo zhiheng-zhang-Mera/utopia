@@ -45,21 +45,32 @@ class PairingApi(private val log: PilotLog) {
  private val executor=Executors.newSingleThreadExecutor(); private val main=Handler(Looper.getMainLooper())
  private val fence=CallbackFence()
  private fun submit(action:(Long)->Unit) { val ticket=fence.ticket()?:return; try { executor.execute { if(fence.accepts(ticket)) action(ticket) } } catch(_:java.util.concurrent.RejectedExecutionException) { /* disposal raced submission */ } }
- private fun request(origin: String,path: String, body: JSONObject?=null): JSONObject {
+ private fun request(origin: String,path: String, body: JSONObject?=null, credential: String?=null): JSONObject {
   val r=Request.Builder().url(origin+"/api/v0/pairing/"+path).header("X-City-Api-Version","0").header("X-City-Schema-Version","0")
+  // The pairing family is split: `info`/`exchange` are public by design (a joining client has no credential yet),
+  // while `session` MINTS a one-time code and is therefore an owner action the City authenticates. The first
+  // version sent no credential at all, so tapping the short-code entry in this app answered 401 and looked like a
+  // broken feature. The credential is only attached where the route requires it.
+  if(credential!=null && credential.isNotBlank()) r.header("Authorization","Bearer $credential")
   if(body!=null) r.post(body.toString().toRequestBody("application/json".toMediaType()))
   return http.newCall(r.build()).execute().use { response -> check(response.isSuccessful) { "Pairing rejected (HTTP ${response.code}); refresh session or check code" }; val data=JSONObject(response.body!!.string()); check(compatible(data.optInt("apiVersion",-1),data.optInt("schemaVersion",-1))) { "Protocol version mismatch" }; data }
  }
- private fun descriptor(origin: String): PairDescriptor {
+ private fun descriptorSync(origin: String): PairDescriptor {
   val data=request(origin,"info"); val d=data.getJSONObject("descriptor"); check(d.getInt("descriptorVersion")==1 && compatible(d.getInt("apiVersion"),d.getInt("schemaVersion"))) { "Descriptor version mismatch" }
   val e=d.getJSONObject("endpoint"); val actual=endpoint("${e.getString("scheme")}://${e.getString("host")}:${e.getInt("port")}"); check(actual==origin) { "Endpoint identity conflict" }
   return PairDescriptor(d.getString("cityId"),actual,if(d.isNull("pairingSessionId")) "" else d.optString("pairingSessionId",""),if(d.isNull("expiresAt")) "" else d.optString("expiresAt",""),displayName=d.optString("displayName"))
  }
- fun discover(origin: String, expectedCity: String?=null, done: (Result<PairDescriptor>)->Unit) { submit { ticket -> val result=runCatching { descriptor(endpoint(origin)).also { check(expectedCity==null || expectedCity==it.cityId) { "City identity conflict" }; log.event("discovery") } }; main.post { if(fence.accepts(ticket)) done(result) } } }
- fun pair(d: PairDescriptor,mode: String,code: String,done: (Result<Pair<String,String>>)->Unit) { submit { ticket -> log.event("action"); log.event("pairingSubmitted"); val result=runCatching {
-  val active=exchangeDescriptor(d,descriptor(d.endpoint),mode)
+ // Public, callback-shaped descriptor read. The short-code entry resolves the City from the address this
+ // installation already knows, so it does not need discovery or a previously chosen City.
+ fun descriptor(origin: String, done: (Result<PairDescriptor>)->Unit) { submit { ticket -> val result=runCatching { descriptorSync(endpoint(origin)) }; main.post { if(fence.accepts(ticket)) done(result) } } }
+ // Mint a one-time pairing session on the City: the owner action every normal join consumes. Returns the
+ // refreshed descriptor, whose session id and expiry are what the UI shows.
+ fun session(d: PairDescriptor, credential: String, done: (Result<PairDescriptor>)->Unit) { submit { ticket -> val result=runCatching { val body=request(d.endpoint,"session",null,credential); val desc=body.optJSONObject("descriptor"); val mine=if(desc==null) d else run { val e=desc.getJSONObject("endpoint"); PairDescriptor(desc.getString("cityId"),endpoint("${e.getString("scheme")}://${e.getString("host")}:${e.getInt("port")}"),desc.optString("pairingSessionId",""),desc.optString("expiresAt",""),displayName=desc.optString("displayName")) }; log.event("pairingSession"); mine }; main.post { if(fence.accepts(ticket)) done(result) } } }
+ fun discover(origin: String, expectedCity: String?=null, done: (Result<PairDescriptor>)->Unit) { submit { ticket -> val result=runCatching { descriptorSync(endpoint(origin)).also { check(expectedCity==null || expectedCity==it.cityId) { "City identity conflict" }; log.event("discovery") } }; main.post { if(fence.accepts(ticket)) done(result) } } }
+ fun pair(d: PairDescriptor,mode: String,code: String,done: (Result<Triple<String,String,PairDescriptor>>)->Unit) { submit { ticket -> log.event("action"); log.event("pairingSubmitted"); val result=runCatching {
+  val active=exchangeDescriptor(d,descriptorSync(d.endpoint),mode)
   val body=JSONObject().put("cityId",d.cityId).put("sessionId",active.session).put("method",mode); if(mode=="qr") body.put("secret",d.secret) else body.put("shortCode",code)
-  val reply=request(d.endpoint,"exchange",body); check(reply.getString("cityId")==d.cityId) { "City identity conflict" }; val e=reply.getJSONObject("endpoint"); check(endpoint("${e.getString("scheme")}://${e.getString("host")}:${e.getInt("port")}")==d.endpoint) { "Endpoint identity conflict" }; log.event("authenticated"); d.endpoint to reply.getString("credential")
+  val reply=request(d.endpoint,"exchange",body); check(reply.getString("cityId")==d.cityId) { "City identity conflict" }; val e=reply.getJSONObject("endpoint"); check(endpoint("${e.getString("scheme")}://${e.getString("host")}:${e.getInt("port")}")==d.endpoint) { "Endpoint identity conflict" }; log.event("authenticated"); Triple(d.endpoint,reply.getString("credential"),active)
  }; if(result.isFailure) log.event("pairingError"); main.post { if(fence.accepts(ticket)) done(result) } } }
  fun close() { fence.close(); main.removeCallbacksAndMessages(null); executor.shutdownNow(); http.dispatcher.cancelAll() }
 }

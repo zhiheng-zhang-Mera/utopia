@@ -1,0 +1,52 @@
+{
+  "role": "Alien-codex",
+  "status": "COMPONENT_PASS",
+  "baselineSha": "0e9bea3ce739b979e582a428af8fb233045a5e75",
+  "backendSnapshot": {
+    "targetCount": 16,
+    "categoryCounts": {
+      "ROOM": 5,
+      "CAPABILITY": 6,
+      "CITY_TASK": 5
+    },
+    "unavailableCount": 5
+  },
+  "webTests": {
+    "pass": 9,
+    "fail": 0,
+    "scenarios": [
+      "fresh entry without Ask failure",
+      "catalog count and identity parity",
+      "unavailable disabled and reason",
+      "live backend fixture propagation",
+      "selection does not execute",
+      "City side effects still require confirmation",
+      "uncertain selected request retry retains selection and idempotency key"
+    ]
+  },
+  "android": {
+    "unitTests": 80,
+    "failures": 0,
+    "build": "PASS",
+    "physical": "OPPO PERM00 offline Ask entry observed; online catalog NOT_RUN",
+    "restoredApk": "CEX701 prior test APK restored; preferences retained",
+    "offlineCatalogDisabled": true
+  },
+  "userSteps": {
+    "web": 2,
+    "android": "2 designed; step1 observed, step2 disabled while offline",
+    "before": "Ask submission and unmatched result required; exact historical count NOT_OBSERVABLE"
+  },
+  "formalOppositeHostReview": "NOT_RUN",
+  "failedRefs": [
+    ".runtime/evidence/mission-book/CEX-703/web-red.log (invalid test navigation selector)",
+    ".runtime/evidence/mission-book/CEX-703/web-functional-red.log (missing catalog control)",
+    ".runtime/evidence/mission-book/CEX-703/retry-red.log"
+  ],
+  "rawRefs": [
+    ".runtime/evidence/mission-book/CEX-703/web-green3.log",
+    ".runtime/evidence/mission-book/CEX-703/android-green2.log",
+    ".runtime/evidence/mission-book/CEX-703/physical-ask.xml",
+    ".runtime/evidence/mission-book/CEX-703/retry-green.log"
+  ]
+}

@@ -61,6 +61,17 @@ test('PROBE 1: the projection is not task truth — reading it changes nothing c
   assert.equal(live.body.state, 'RUNNING');
   assert.equal(live.body.progress, 40);
   assert.equal(app.store.get('tasks', task.id).assignedNodeId, 'n1');
+
+  // The docs claim this endpoint "reuses existing control/session authorization" and that "worker tokens cannot read
+  // it". Both halves are checked here rather than taken from the doc.
+  const anonymous = await fetch(app.url + '/api/v0/monitor', { headers: V });
+  assert.equal(anonymous.status, 401, 'the monitor must not be readable without a credential');
+  const asWorker = await fetch(app.url + '/api/v0/monitor', { headers: auth('node') });
+  assert.equal(asWorker.status, 401, 'a worker/node token must not read the monitor');
+  const asOwner = await fetch(app.url + '/api/v0/monitor', { headers: auth('owner') });
+  assert.equal(asOwner.status, 200, 'the control token must read the monitor');
+  const withoutVersion = await fetch(app.url + '/api/v0/monitor', { headers: { Authorization: 'Bearer owner' } });
+  assert.equal(withoutVersion.status, 409, 'the monitor must still demand the api/schema version handshake');
 }));
 
 test('PROBE 2: an observer that fails is honest and does not freeze the task path', () => city(async ({ app, get, post, createTask }) => {
@@ -172,6 +183,44 @@ test('PROBE 4: an omitted population is exposed as a gap rather than smoothed ov
   const canonical = app.store.events();
   assert.ok(canonical.some(e => e.id === view.evidence.at(-1).canonicalEventId), 'the last evidence pointer must resolve to a canonical event');
   app.store.observationWindow = original;
+}));
+
+test('PROBE 6: raw canonical payload, task result/error and credentials are never copied into the projection', () => city(async ({ app, get, post, createTask }) => {
+  // The workbook forbids copying raw high-frequency telemetry, and the author's docs claim raw event payloads, task
+  // result/error, credentials and hidden reasoning are never copied. That is an ABSENCE claim, so no positive test
+  // can establish it: the only honest instrument is to plant unique markers in canonical truth and then search the
+  // whole serialized projection for them.
+  const SECRET = 'MECH-PROBE-LEAK-CANARY-7f3a91';
+  await post('node/register', { id: 'n1', displayName: 'n1', metadata: { platform: 'win32', secretMetadata: SECRET }, capabilities: [...REQUIRED_TASK_CAPABILITIES] });
+  const task = await createTask();
+  const claimed = await post('node/claim', { id: 'n1' });
+  await post('node/report', { id: 'n1', taskId: claimed.task.id, state: 'RUNNING', progress: 20 });
+  await post('node/report', { id: 'n1', taskId: claimed.task.id, state: 'FAILED', progress: 100, error: { message: SECRET }, result: { secret: SECRET } });
+
+  const canonical = JSON.stringify(app.store.events());
+  assert.ok(canonical.includes(SECRET), 'the marker really is present in canonical truth (otherwise this probe proves nothing)');
+  assert.ok(JSON.stringify(app.store.list('tasks')).includes(SECRET), 'the marker really is present in the canonical task row');
+
+  const view = (await get('monitor')).body.monitor;
+  const serialized = JSON.stringify(view);
+  assert.equal(serialized.includes(SECRET), false, 'the projection must not carry canonical payload/result/error material');
+  // The event the marker travelled in IS projected - by identity, not by content. (The canonical type is
+  // TASK_FAILED; an earlier draft of this probe guessed TASK_REPORTED and failed on its own wrong assumption, not on
+  // a product defect - recorded so the probe's history is not mistaken for a finding.)
+  assert.ok(view.events.some(e => e.type === 'TASK_FAILED'), 'the event is still observable by type');
+  for (const e of view.events) {
+    assert.equal(Object.hasOwn(e, 'payload'), false);
+    assert.equal(Object.hasOwn(e, 'result'), false);
+    assert.equal(Object.hasOwn(e, 'error'), false);
+  }
+  for (const n of view.nodes.filter(n => n.kind === 'TASK')) {
+    assert.equal(Object.hasOwn(n, 'result'), false);
+    assert.equal(Object.hasOwn(n, 'error'), false);
+  }
+  // The task state and its canonical identity DO survive, so this is redaction and not omission of the fact.
+  const projected = view.nodes.find(n => n.kind === 'TASK' && n.id === task.id);
+  assert.equal(projected.state, 'FAILED', 'the failure must remain visible as state');
+  assert.equal(app.store.get('tasks', task.id).state, 'FAILED');
 }));
 
 test('PROBE 5 (FINDING F1): a complete contiguous window reports historyGap=false together with continuous=false', () => city(async ({ app, get, post, createTask }) => {

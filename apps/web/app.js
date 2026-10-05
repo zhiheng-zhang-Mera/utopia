@@ -1,4 +1,5 @@
 import {renderServices} from './services.js';
+import {monitorOverview, monitorNodePanel, monitorPathPanel} from './monitor-graph.js';
 import {schedulerPanel} from './scheduler.js';
 // UXI-301: the scheduler presentation feed, refreshed alongside the snapshot. When it is missing the
 // panel says it is not being reported rather than rendering a healthy or idle surface.
@@ -249,7 +250,7 @@ async function generatePairing(){
 // JOIN-501: navigation is NOT a reason to destroy a temporary pairing code. The old implementation cleared on
 // every `go()`, which is exactly the "code disappears early" behaviour the Owner rule forbids. The session now
 // outlives page navigation and is only ended by consumption, expiry, or an explicit action.
-function go(next){page=next;selected=null;selectedNode=null;externalPage=TERMINAL_PAGES.includes(next);if(terminal&&externalPage)terminal.onNav();document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('selected',b.dataset.page===page));if(!externalPage)homeRoomsData=null;render();if(next==='Pairing'&&nearby===null&&!nearbyBusy)nearbyBrowse();window.scrollTo({top:0});}
+function go(next){page=next;selected=null;selectedNode=null;if(next==='Monitor'){monitorSelected=null;monitorFor='';monitorDrawn='';}$('#view').dataset.monitorDrawn='';externalPage=TERMINAL_PAGES.includes(next);if(terminal&&externalPage)terminal.onNav();document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('selected',b.dataset.page===page));if(!externalPage)homeRoomsData=null;render();if(next==='Pairing'&&nearby===null&&!nearbyBusy)nearbyBrowse();window.scrollTo({top:0});}
 // JOIN-502: the joining surface holds no City credential yet - that is what it is asking for - so these
 // three calls authenticate with the CLAIM it generated instead. The envelope carries apiVersion 0 like
 // every other call, and an error message is passed through rather than flattened, because "not approved
@@ -718,9 +719,35 @@ function assistantSlot(){
   const online=city.nodes.filter(n=>n.online);
   return `<section class="operator"><div class="op-frame"><span class="op-side"></span><span class="op-tag">${esc(t('assistant.role'))}</span><div class="op-art">${ASSISTANT_ART}</div><span class="op-slot">SLOT 01</span></div><div class="op-body"><p class="op-role">${esc(t('assistant.role'))} · ASSISTANT</p><p class="op-name">${esc(t('assistant.unassigned'))}</p><p class="op-sub">${esc(t('assistant.note'))}</p><dl class="kv"><dt>${esc(t('assistant.boundDevice'))}</dt><dd>${esc(online[0]?.displayName||t('assistant.pending'))}</dd><dt>${esc(t('assistant.appearance'))}</dt><dd>${esc(t('assistant.placeholderValue'))}</dd><dt>${esc(t('assistant.voice'))}</dt><dd>${esc(t('assistant.disabled'))}</dd><dt>${esc(t('assistant.duty'))}</dt><dd>${esc(t('assistant.pending'))}</dd></dl></div></section>`;
 }
+// MON-902: the City Work Monitor page. The graph is fetched from the same single-flight projection the gateway already
+// exposes, so opening this page adds no second source of truth and no background poll of its own: it reloads when the
+// city snapshot moves. The DOM is rebuilt only when the projection actually changed, and the ROW ORDER comes from the
+// projection's deterministic layout, so a live event cannot reshuffle the graph under the pointer.
+let monitorGraph=null,monitorBusy=false,monitorError='',monitorFor='',monitorSelected=null,monitorDrawn='';
+async function loadMonitor(snapshotAt){
+ if(monitorBusy||!token)return;
+ monitorBusy=true;
+ try{const result=await api('monitor/graph');monitorGraph=result?.graph??null;monitorError=monitorGraph?'':t('monitor.error');}
+ catch(error){monitorGraph=null;monitorError=t('monitor.error');}
+ finally{monitorBusy=false;monitorFor=snapshotAt??monitorFor;render();}
+}
+function renderMonitor(){
+ const host=$('#view');
+ // The reload is keyed on the snapshot, not on every render, so a render caused by this load cannot start another.
+ if(city&&city.updatedAt!==monitorFor&&!monitorBusy){const at=city.updatedAt;monitorFor=at;void loadMonitor(at);}
+ const inspector=!monitorGraph||!monitorSelected?'':
+  monitorSelected.kind==='node'?monitorNodePanel(monitorGraph,monitorSelected.id):
+  monitorPathPanel(monitorGraph,monitorSelected.id);
+ const drawn=[monitorError,monitorGraph?.projectionOf?.projectedAt??'none',monitorGraph?.summary?.activeRiskCount??'',monitorGraph?.layout?.reflowKey??'',monitorSelected?monitorSelected.kind+':'+monitorSelected.id:'none'].join('|');
+ if(host.dataset.monitorDrawn===drawn){monitorDrawn=drawn;return;}
+ monitorDrawn=drawn;host.dataset.monitorDrawn=drawn;
+ const body=monitorError
+  ? `<section class="panel monitor-panel"><h2>${esc(t('monitor.title'))}</h2><p class="monitor-banner alert" role="status">${esc(monitorError)}</p><button data-monitor-refresh>${esc(t('monitor.refresh'))}</button></section>`
+  : monitorGraph?monitorOverview(monitorGraph):`<section class="panel monitor-panel"><h2>${esc(t('monitor.title'))}</h2><p class="muted">${esc(t('terminal.loading'))}</p></section>`;
+ host.innerHTML=body+(inspector?`<section class="panel">${inspector}</section>`:'');
+}
 function render(){
- const previousNameForm=$('#city-name-form');
- const nameSelection=document.activeElement?.id==='city-name'?{start:document.activeElement.selectionStart,end:document.activeElement.selectionEnd}:null;
+ const previousNameForm=$('#city-name-form'); const nameSelection=document.activeElement?.id==='city-name'?{start:document.activeElement.selectionStart,end:document.activeElement.selectionEnd}:null;
  const focused=document.activeElement;
  const typing=focused?.id==='swap-code'?{start:focused.selectionStart,end:focused.selectionEnd}:null;
  const oldPairCard=$('#pairing-card');
@@ -754,6 +781,7 @@ function render(){
  if(page==='Devices')$('#view').innerHTML=schedulerPanel(schedulerFeed,{isOnline:connection==='ONLINE',advanced:true})+`<section class="panel">${nodeRows()}</section>`;
  if(page==='Tasks')$('#view').innerHTML=`<section class="panel"><h2>${esc(t('section.taskRegistry'))}</h2>${taskRows(tasks)}</section>`;
  if(page==='Activity')$('#view').innerHTML=`<section class="panel"><h2>${esc(t('section.eventTimeline',{count:city.events.length}))}</h2><button data-goto="Actions">${esc(t('nav.actions'))}</button>${events(city.events)}</section>`;
+ if(page==='Monitor')renderMonitor();
  if(page==='Settings')$('#view').innerHTML=`<section class="panel">${cityNameSection()}${deviceSection()}${languageSection()}<h2>${esc(t('section.connectionDiagnostics'))}</h2><p>${esc(t('settings.cityUrl'))}: ${esc(location.origin)}</p><details><summary>${esc(t('common.runDetails'))}</summary><div class="task-id">apiVersion = 0 · schemaVersion = 0</div></details><p class="muted">${esc(t('settings.tokenNote'))}</p><button id="disconnect">${esc(t('settings.changeToken'))}</button></section>`;
  if(previousNameForm&&nameSelection&&page==='Settings'){$('#city-name-form')?.replaceWith(previousNameForm);const input=$('#city-name');input.focus({preventScroll:true});input.setSelectionRange(nameSelection.start,nameSelection.end);}
  if(page==='Pairing'){
@@ -775,7 +803,7 @@ function render(){
  const member=city.members?.find(m=>m.deviceId===(selectedMember||selectedNode));if(member){$('#detail').hidden=false;if(!selectedNode)$('#detail').innerHTML='';$('#detail').insertAdjacentHTML('beforeend',memberDetail(member));if(messageFocus){const field=$('#member-message-text');field?.focus({preventScroll:true});field?.setSelectionRange(messageFocus.start,messageFocus.end);}}
 
 }
-document.addEventListener('click',async e=>{const nav=e.target.closest('[data-page]'),task=e.target.closest('[data-task]'),node=e.target.closest('[data-node]'),locale=e.target.closest('[data-locale]'),goto=e.target.closest('[data-goto]'),room=e.target.closest('[data-home-room]'),schedAction=e.target.closest('[data-scheduler-action]');if(locale)setLocale(locale.dataset.locale);if(goto)go(goto.dataset.goto);if(nav)go(nav.dataset.page);if(room)go('Rooms');if(node){selectedMember=null;selectedNode=node.dataset.node;selected=null;render();$('#detail').scrollIntoView({behavior:'smooth'});}if(task){selectedMember=null;selectedNode=null;selected=task.dataset.task;render();$('#detail').scrollIntoView({behavior:'smooth'});}
+document.addEventListener('click',async e=>{const nav=e.target.closest('[data-page]'),task=e.target.closest('[data-task]'),node=e.target.closest('[data-node]'),locale=e.target.closest('[data-locale]'),goto=e.target.closest('[data-goto]'),room=e.target.closest('[data-home-room]'),schedAction=e.target.closest('[data-scheduler-action]'),mNode=e.target.closest('[data-monitor-node]'),mEdge=e.target.closest('[data-monitor-edge]'),mRefresh=e.target.closest('[data-monitor-refresh]');if(locale)setLocale(locale.dataset.locale);if(goto)go(goto.dataset.goto);if(nav)go(nav.dataset.page);if(room)go('Rooms');if(mRefresh){monitorFor='';monitorDrawn='';$('#view').dataset.monitorDrawn='';render();return;}if(mNode){monitorSelected={kind:'node',id:mNode.dataset.monitorNode};render();return;}if(mEdge){monitorSelected={kind:'edge',id:mEdge.dataset.monitorEdge};render();return;}if(node){selectedMember=null;selectedNode=node.dataset.node;selected=null;render();$('#detail').scrollIntoView({behavior:'smooth'});}if(task){selectedMember=null;selectedNode=null;selected=task.dataset.task;render();$('#detail').scrollIntoView({behavior:'smooth'});}
 // UXI-301: a scheduler action the user takes must REALLY RETURN to the backend, which is an acceptance
 // item the independent review checks. The route comes from the shared ACTION_WIRING table, and the
 // task id from the button, so the panel and this dispatcher cannot disagree about what is wired.

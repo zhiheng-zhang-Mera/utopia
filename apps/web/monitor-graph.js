@@ -1,0 +1,187 @@
+/**
+ * MON-902 — Web control surface for the City Work Monitor.
+ *
+ * Renders the graph returned by `GET /api/v0/monitor/graph` for a person: what is happening in the city, why, who owns
+ * it, and what happens next. Pure string builders with no DOM access, so the rendering rules are testable in Node
+ * against the real projection rather than only in a browser.
+ *
+ * THE RULES THIS FILE EXISTS TO KEEP:
+ *
+ *   - The overview may collapse work but never hide risk: every node carrying ACTIVE risk is listed as a row with its
+ *     own count, and clusters report the risk they contain. A person must never have to open something to discover
+ *     that something is wrong.
+ *   - A monitor that cannot see does not look calm. When the projection is partial, gapped, unavailable or stale, the
+ *     overview says so at the top and says which claim it cannot make.
+ *   - Raw projection vocabulary does not render by default. Risk codes, state tokens, exact refs, completeness numbers
+ *     and the reflow key live in the explicit Technical details disclosure, which is built from one gate.
+ *   - The monitor decides nothing. It offers no control that would change the city, because MON-902 is an observation
+ *     surface; the decision overlay is MON-903.
+ */
+
+import {t} from './i18n/index.js';
+
+const ESCAPES = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'};
+export const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ESCAPES[c]);
+
+/** The risk codes the projection may emit. Kept here so a new code without copy fails the locale test instead of leaking. */
+export const RISK_CODES = Object.freeze([
+  'TASK_FAILED', 'TASK_REFUSED', 'TASK_UNAVAILABLE', 'OWNER_CONFIRMATION_REQUIRED', 'DEVICE_ROUTE_WAITING',
+  'PATH_REPEATED', 'RETRY_HISTORY_NOT_OBSERVABLE', 'DEVICE_OFFLINE', 'DEVICE_OFFLINE_HOLDING_WORK',
+  'DEVICE_STATE_UNKNOWN', 'WINDOW_INCOMPLETE', 'HISTORY_GAP', 'EDGE_CAUSALITY_MISSING',
+  'MONITOR_PARTIAL', 'MONITOR_UNAVAILABLE', 'MONITOR_DISCONNECTED', 'MONITOR_STALE',
+]);
+
+/** What a person can do about a risk. The monitor states the next step; it does not take it. */
+export const NEXT_STEP = Object.freeze({
+  TASK_FAILED: 'next.inspectFailure', TASK_REFUSED: 'next.inspectFailure', TASK_UNAVAILABLE: 'next.inspectFailure',
+  OWNER_CONFIRMATION_REQUIRED: 'next.confirmIt', DEVICE_ROUTE_WAITING: 'next.waitForDevice',
+  PATH_REPEATED: 'next.breakTheLoop', RETRY_HISTORY_NOT_OBSERVABLE: 'next.cannotTell',
+  DEVICE_OFFLINE: 'next.deviceOffline', DEVICE_OFFLINE_HOLDING_WORK: 'next.deviceOffline',
+  DEVICE_STATE_UNKNOWN: 'next.cannotTell', WINDOW_INCOMPLETE: 'next.cannotTell', HISTORY_GAP: 'next.cannotTell',
+  EDGE_CAUSALITY_MISSING: 'next.cannotTell', MONITOR_PARTIAL: 'next.cannotTell', MONITOR_UNAVAILABLE: 'next.cannotTell',
+  MONITOR_DISCONNECTED: 'next.cannotTell', MONITOR_STALE: 'next.cannotTell',
+});
+
+const label = (key, fallback) => { const value = t(key); return value === key ? fallback : value; };
+const riskLabel = code => (code ? label('monitor.risk.' + code, code.replaceAll('_', ' ').toLowerCase()) : '');
+const stateLabel = state => label('monitor.state.' + String(state), String(state ?? '').replaceAll('_', ' ').toLowerCase());
+const kindLabel = kind => label('monitor.kind.' + kind, kind.toLowerCase());
+
+const riskOf = node => node.riskReasons.slice().sort((a, b) => ({ACTIVE: 3, WATCH: 2, NOT_OBSERVABLE: 1, NONE: 0}[b.level] - {ACTIVE: 3, WATCH: 2, NOT_OBSERVABLE: 1, NONE: 0}[a.level]))[0] ?? null;
+const activeRisks = graph => graph.nodes.flatMap(node => node.riskReasons.filter(entry => entry.level === 'ACTIVE').map(entry => ({node, entry})));
+
+/**
+ * Is this projection able to support the calm reading a person will otherwise make?
+ *
+ * When it is not, the overview must lead with that instead of with a reassuring count of zero risks. This is the
+ * difference between "nothing is wrong" and "I could not see everything".
+ */
+export function blindSpots(graph) {
+  const lines = [];
+  if (graph.projectionOf.health !== 'COMPLETE') lines.push(label('monitor.blind.health', 'The observation source is not complete:') + ' ' + stateLabel(graph.projectionOf.health));
+  if (graph.summary.unobserved.historyGap) lines.push(label('monitor.blind.gap', 'Part of the city history is missing from this window.'));
+  if (graph.summary.unobserved.tasks > 0) lines.push(label('monitor.blind.tasks', 'Some tasks exist that this picture does not contain:') + ' ' + graph.summary.unobserved.tasks);
+  if (graph.summary.retryHistory !== 'OBSERVED') lines.push(label('monitor.blind.retry', 'Whether anything has been retrying cannot be told from this window.'));
+  if (graph.summary.incompleteEdges > 0) lines.push(label('monitor.blind.edges', 'Some paths point at something this picture does not contain:') + ' ' + graph.summary.incompleteEdges);
+  return lines;
+}
+
+/**
+ * What this monitor never covers, by design, even when everything above is complete.
+ *
+ * This is deliberately NOT mixed into `blindSpots`: a permanent limitation of the observation model is not an incident,
+ * and a caveat that cries wolf on every healthy city is one a person learns to ignore. It is stated anyway, quietly and
+ * always, because "no owner action is required" is a claim this projection cannot make - canonical tasks show a waiting
+ * confirmation, but Mission Book Owner gates and escalations are not part of MON-901.
+ */
+export function scopeCaveats(graph) {
+  const lines = [];
+  if (graph.summary.ownerRequired.state !== 'OBSERVED') lines.push(label('monitor.blind.owner', 'Whether the owner is needed cannot be told from here.'));
+  if (graph.summary.ownerRequired.state === 'OBSERVED') lines.push(label('monitor.scope.ownerObserved', 'Owner action is visible only where a task is waiting for confirmation.'));
+  return lines;
+}
+
+/** One inspectable row. The whole row is the control, and it carries the node id so the caller can open the inspector. */
+function riskRow(node, entry) {
+  return `<li class="monitor-row risk-${esc(entry.level.toLowerCase())}" data-monitor-node="${esc(node.id)}"><span class="monitor-dot" aria-hidden="true"></span>`
+    + `<span class="monitor-row-label">${esc(node.label ?? node.id)}</span>`
+    + `<span class="monitor-row-why">${esc(riskLabel(entry.code))}</span>`
+    + `<span class="monitor-row-state">${esc(stateLabel(node.state))}</span></li>`;
+}
+
+/** Level 0: the city overview. Risk first, then the work, then what the picture cannot see. */
+export function monitorOverview(graph) {
+  if (!graph || !Array.isArray(graph.nodes)) throw new TypeError('A monitor graph is required');
+  const active = activeRisks(graph);
+  const blind = blindSpots(graph);
+  const banner = active.length
+    ? `<p class="monitor-banner alert" role="status">${esc(t('monitor.overview.needsAttention'))} <strong>${active.length}</strong></p>`
+    : `<p class="monitor-banner calm" role="status">${esc(t('monitor.overview.nothingActive'))}</p>`;
+  const blindBlock = blind.length
+    ? `<div class="monitor-blind" role="status"><p><strong>${esc(t('monitor.overview.cannotSee'))}</strong></p><ul>${blind.map(line => `<li>${esc(line)}</li>`).join('')}</ul></div>`
+    : '';
+  const watch = graph.nodes.flatMap(node => node.riskReasons.filter(entry => entry.level === 'WATCH').map(entry => ({node, entry})));
+  const notObservable = graph.nodes.flatMap(node => node.riskReasons.filter(entry => entry.level === 'NOT_OBSERVABLE').map(entry => ({node, entry})));
+  const rows = (items, empty) => items.length
+    ? `<ul class="monitor-rows">${items.map(({node, entry}) => riskRow(node, entry)).join('')}</ul>`
+    : `<p class="muted">${esc(empty)}</p>`;
+  const work = graph.nodes.filter(node => node.kind === 'TASK' && !active.some(item => item.node.id === node.id));
+  const clusters = graph.clusters.map(cluster => `<li class="monitor-cluster" data-monitor-cluster="${esc(cluster.id)}">${esc(label('monitor.overview.collapsed', 'Collapsed'))} <strong>${cluster.count}</strong> ${esc(stateLabel(cluster.state))}${cluster.activeRiskCount ? ` <span class="risk-active">${esc(t('monitor.overview.containsRisk'))} ${cluster.activeRiskCount}</span>` : ''}</li>`).join('');
+  return `<section class="panel monitor-panel" aria-labelledby="monitor-title">`
+    + `<h2 id="monitor-title">${esc(t('monitor.title'))}</h2>`
+    + `<p class="muted">${esc(t('monitor.subtitle'))}</p>`
+    + banner + blindBlock
+    + `<h3>${esc(t('monitor.overview.riskTitle'))}</h3>` + rows(active, t('monitor.overview.noActiveRisk'))
+    + `<h3>${esc(t('monitor.overview.watchTitle'))}</h3>` + rows(watch, t('monitor.overview.noWatch'))
+    + (notObservable.length ? `<h3>${esc(t('monitor.overview.unknownTitle'))}</h3>` + rows(notObservable, '') : '')
+    + `<h3>${esc(t('monitor.overview.workTitle'))}</h3>`
+    + (work.length ? `<ul class="monitor-rows">${work.map(node => riskRow(node, {level: 'NONE', code: null})).join('')}</ul>` : `<p class="muted">${esc(t('monitor.overview.noWork'))}</p>`)
+    + (clusters ? `<ul class="monitor-clusters">${clusters}</ul>` : '')
+    + `<p class="muted monitor-scope">${esc(t('monitor.overview.scope'))} ${scopeCaveats(graph).map(esc).join(' ')}</p>`
+    + `<p class="muted">${esc(t('monitor.overview.budget'))}</p>`
+    + monitorTechnical(graph)
+    + `</section>`;
+}
+
+/** Level 1: what / why / who / what next for one node, plus the exact canonical reference behind every claim. */
+export function monitorNodePanel(graph, id) {
+  const node = graph.nodes.find(candidate => candidate.id === id);
+  if (!node) return `<section class="monitor-inspector"><p class="muted">${esc(t('monitor.inspector.gone'))}</p></section>`;
+  const top = riskOf(node);
+  const what = node.kind === 'TASK'
+    ? `${kindLabel('TASK')} ${node.label ?? node.id} — ${stateLabel(node.state)}`
+    : node.kind === 'HOST' ? `${kindLabel('HOST')} ${node.label ?? node.id} — ${stateLabel(node.state)}` : `${kindLabel('OBSERVATION')}`;
+  const who = node.kind === 'TASK' ? (node.hostRef ? `${t('monitor.inspector.assignedTo')} ${node.hostRef}` : t('monitor.inspector.unassigned')) : t('monitor.inspector.notApplicable');
+  const why = node.riskReasons.length
+    ? `<ul class="monitor-why">${node.riskReasons.map(entry => `<li><span class="monitor-why-label">${esc(riskLabel(entry.code))}</span> <span class="muted">${esc(entry.detail ?? '')}</span>${entry.evidenceRef ? ` <button class="link" data-evidence="${esc(entry.evidenceRef)}">${esc(t('monitor.inspector.evidence'))}</button>` : ''}</li>`).join('')}</ul>`
+    : `<p class="muted">${esc(t('monitor.inspector.noReason'))}</p>`;
+  const next = top ? label('monitor.' + (NEXT_STEP[top.code] ?? 'next.cannotTell'), t('monitor.next.cannotTell')) : t('monitor.next.none');
+  // A node's paths are reachable from the node itself, which is what keeps a route explanation inside the interaction
+  // budget: overview row (1) -> this panel (2) -> the path's own explanation and evidence (3).
+  const paths = graph.edges.filter(edge => edge.from === node.id || edge.to === node.id);
+  const pathList = paths.length
+    ? `<ul class="monitor-rows">${paths.map(edge => `<li class="monitor-row${edge.incomplete ? ' risk-watch' : ''}" data-monitor-edge="${esc(edge.id)}"><span class="monitor-row-label">${esc(edge.type)}</span><span class="monitor-row-why">${esc(edge.reason ?? t('monitor.path.noTrigger'))}</span></li>`).join('')}</ul>`
+    : `<p class="muted">${esc(t('monitor.inspector.noPaths'))}</p>`;
+  return `<section class="monitor-inspector" data-inspector="${esc(node.id)}">`
+    + `<h3>${esc(t('monitor.inspector.title'))}</h3>`
+    + `<dl class="monitor-facts">`
+    + `<dt>${esc(t('monitor.inspector.what'))}</dt><dd>${esc(what)}</dd>`
+    + `<dt>${esc(t('monitor.inspector.why'))}</dt><dd>${why}</dd>`
+    + `<dt>${esc(t('monitor.inspector.who'))}</dt><dd>${esc(who)}</dd>`
+    + `<dt>${esc(t('monitor.inspector.next'))}</dt><dd>${esc(next)}</dd>`
+    + `<dt>${esc(t('monitor.inspector.paths'))}</dt><dd>${pathList}</dd>`
+    + `</dl>`
+    + `<details class="monitor-technical"><summary>${esc(t('monitor.technical.disclosure'))}</summary><pre>${esc(JSON.stringify(node, null, 2))}</pre></details>`
+    + `</section>`;
+}
+
+/** Level 1: one path. An edge with no stated trigger is shown as an unexplained path, not as a silent one. */
+export function monitorPathPanel(graph, edgeId) {
+  const edge = graph.edges.find(candidate => candidate.id === edgeId);
+  if (!edge) return `<section class="monitor-inspector"><p class="muted">${esc(t('monitor.inspector.gone'))}</p></section>`;
+  const from = graph.nodes.find(node => node.id === edge.from);
+  const to = graph.nodes.find(node => node.id === edge.to);
+  return `<section class="monitor-inspector" data-path="${esc(edge.id)}">`
+    + `<h3>${esc(t('monitor.path.title'))}</h3>`
+    + `<dl class="monitor-facts">`
+    + `<dt>${esc(t('monitor.path.type'))}</dt><dd>${esc(edge.type)}</dd>`
+    + `<dt>${esc(t('monitor.path.source'))}</dt><dd>${esc(from?.label ?? edge.from)}</dd>`
+    + `<dt>${esc(t('monitor.path.destination'))}</dt><dd>${esc(to?.label ?? edge.to)}${edge.targetPresent ? '' : ` — <span class="risk-active">${esc(t('monitor.path.absent'))}</span>`}</dd>`
+    + `<dt>${esc(t('monitor.path.trigger'))}</dt><dd>${edge.reason ? esc(edge.reason) : `<span class="risk-watch">${esc(t('monitor.path.noTrigger'))}</span>`}</dd>`
+    + `</dl>`
+    + (edge.incomplete ? `<p class="monitor-blind" role="status">${esc(t('monitor.path.incomplete'))}</p>` : '')
+    + `<details class="monitor-technical"><summary>${esc(t('monitor.technical.disclosure'))}</summary><pre>${esc(JSON.stringify(edge, null, 2))}</pre></details>`
+    + `</section>`;
+}
+
+/** Level 2: the projection's own provenance. One explicit gate, so raw vocabulary cannot leak by accident. */
+export function monitorTechnical(graph) {
+  const meta = {
+    authoritative: graph.authoritative, schemaVersion: graph.schemaVersion,
+    projectionOf: graph.projectionOf, summary: graph.summary, navigation: graph.navigation, layout: graph.layout,
+    completeness: graph.summary.unobserved, clusters: graph.clusters.map(cluster => ({id: cluster.id, count: cluster.count, state: cluster.state, activeRiskCount: cluster.activeRiskCount})),
+    counts: {nodes: graph.nodes.length, edges: graph.edges.length},
+  };
+  return `<details class="monitor-technical"><summary>${esc(t('monitor.technical.disclosure'))}</summary>`
+    + `<p class="muted">${esc(t('monitor.technical.note'))}</p><pre>${esc(JSON.stringify(meta, null, 2))}</pre></details>`;
+}

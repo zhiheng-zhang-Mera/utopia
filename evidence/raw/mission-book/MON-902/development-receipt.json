@@ -1,0 +1,57 @@
+{
+  "task_id": "MON-902",
+  "workbook": "mission-book/city-work-monitor-dashboard/MON-902-overview-graph-and-node-path-inspector.md",
+  "role": "Mech (Mech-DS)",
+  "development_host": "MEGA-REP",
+  "repository": "zhiheng-zhang-Mera/utopia",
+  "branch": "mon/MON-902-mech-overview-graph",
+  "baseline_anchor_mode": "DEPENDENCY_SHA_UNION_AT_CLAIM",
+  "dependency_source_shas": ["7eb38f1b930dfe6cc13dab0e17dedee467b1254b"],
+  "development_baseline_sha": "7eb38f1b930dfe6cc13dab0e17dedee467b1254b",
+  "deliverables": {
+    "projection": "services/dev-gateway/monitor-graph.mjs — pure buildGraph(view, options); no state, no timer, no decision",
+    "route": "GET /api/v0/monitor/graph?edges=&collapse= — built from the SAME single-flight observation as /api/v0/monitor",
+    "surface": "apps/web/monitor-graph.js + nav page `Monitor` in apps/web/index.html wired in apps/web/app.js",
+    "docs": "docs/CITY_WORK_MONITOR_GRAPH.md (bilingual), docs/plans/MON-902-overview-graph-plan.md"
+  },
+  "runs": [
+    {
+      "id": "PROJECTION-PROBES",
+      "command": "node --test tests/mon902-monitor-graph.test.mjs",
+      "workdir": "D:\\utopia-mon902",
+      "result": "pass 14 / fail 0"
+    },
+    {
+      "id": "SURFACE-PROBES",
+      "command": "node --test tests/mon902-monitor-panel.test.mjs",
+      "workdir": "D:\\utopia-mon902",
+      "result": "pass 11 / fail 0"
+    },
+    {
+      "id": "DEPENDENCY-SMOKE",
+      "command": "node --test tests/mon901-observation.test.mjs",
+      "result": "pass 8 / fail 0 at the union baseline, run BEFORE any MON-902 product change",
+      "instrument_failure_recorded": "the first run failed with ERR_MODULE_NOT_FOUND for 'ws' because a fresh worktree has no node_modules; after npm ci the same command passed 8/8"
+    }
+  ],
+  "exposure_decision": {
+    "rule": "CONSTRUCTION_RULES.md §14A",
+    "user_exposure_class": "OBSERVABLE_ADVANCED",
+    "user_exposure_surface": "Web nav page `City monitor` (page id Monitor)",
+    "user_exposure_nesting": "L1_PRIMARY for the overview, L2_CONTEXTUAL for the node/path inspector, L4_TECHNICAL for the disclosure",
+    "backend_wiring": "VERIFIED end to end by tests/mon902-monitor-panel.test.mjs: it creates a real canonical task through POST /api/v0/tasks, reads GET /api/v0/monitor/graph from the real gateway, asserts the graph describes that task, and asserts the surface renders THAT payload",
+    "controls": "none — the monitor is an observation surface and offers no action; direct control remains on the pages that own it",
+    "reachability_gap": "Android has no City monitor surface yet: the parity decision, its reason and the future seam are recorded in the development report",
+    "capability_registry_action": "CREATE",
+    "capability_ids": ["CAP-MON-002"],
+    "capability_registry_refs": ["capability-registry/records/CAP-MON-002.yaml"],
+    "capability_registry_sync_status": "CANDIDATE_RECONCILED_PENDING_FORMAL_REVIEW"
+  },
+  "research_evidence_applicability": "APPLICABLE",
+  "deviations": [],
+  "known_gaps": [
+    "Android parity deferred with a recorded reason and seam (see the development report)",
+    "Owner-required state is only observable where a canonical task is WAITING_CONFIRMATION; Mission Book Owner gates are outside MON-901 and the surface says so on every render rather than showing none",
+    "Repeated-path detection is bounded by the observation window and by the two canonical refusal event types; the surface reports NOT_OBSERVABLE rather than NONE whenever the window is not continuous"
+  ]
+}

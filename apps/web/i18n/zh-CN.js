@@ -433,4 +433,5 @@ Object.assign(messages, {
 "recovery.done":"设备绑定已恢复，请重新连接已安装的应用。",
 });
 Object.assign(messages,{'scheduler.choice.explicitPrompt':'选择如何继续这项服务','scheduler.choice.alternateDevice':'保留这项服务，换另一台设备执行','scheduler.choice.reason.TARGET_DEVICE_BOUND':'这项服务绑定了指定设备。','scheduler.choice.reason.ALTERNATE_NOT_AVAILABLE':'目前没有符合条件的替代设备。','scheduler.choice.reason.NO_SWITCH_DECISION':'目前无需选择设备切换。'});
+Object.assign(messages,{"catalog.hint":"不知道能做什么？","catalog.open":"查看全部能力","catalog.title":"能力目录 — 选择后再提交操作"});
 export default { meta, messages };

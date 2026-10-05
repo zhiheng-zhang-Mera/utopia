@@ -438,4 +438,5 @@ Object.assign(messages, {
 "recovery.done":"Device binding restored. Reconnect the reinstalled application.",
 });
 Object.assign(messages,{'scheduler.choice.explicitPrompt':'Choose how to continue this service','scheduler.choice.alternateDevice':'Keep this service and use another device','scheduler.choice.reason.TARGET_DEVICE_BOUND':'This service is bound to the selected device.','scheduler.choice.reason.ALTERNATE_NOT_AVAILABLE':'No eligible alternative device is available.','scheduler.choice.reason.NO_SWITCH_DECISION':'No device change is currently offered.'});
+Object.assign(messages,{"catalog.hint":"Not sure what you can do?","catalog.open":"View all capabilities","catalog.title":"Available targets — select, then submit your action"});
 export default { meta, messages };

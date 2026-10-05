@@ -68,6 +68,7 @@ import {
   describeExecutionBackend,
 } from '../../contracts/execution-backend-v1/execution-backend.mjs';
 import { createStandardDevicesBackend } from './execution-backend/standard-devices.mjs';
+import { createWorkerPoolBackend } from './execution-backend/worker-pool.mjs';
 
 const now=()=>new Date().toISOString();
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
@@ -488,6 +489,8 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
     fail,
   });
   executionBackends.register(standardDevices);
+  // Registration is inert: no adapter, discovery, credentials or startup probe.
+  executionBackends.register(createWorkerPoolBackend());
   // Read at request time through the registry, never captured as the raw port: a later backend registration
   // must be able to take effect without every route holding a stale reference.
   const executionBackend=()=>executionBackends.active(executionProfile);

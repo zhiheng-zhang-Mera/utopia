@@ -30,6 +30,10 @@ import kotlinx.coroutines.delay
  // row below). It still pairs through the one canonical path: the City descriptor is resolved from the address
  // this installation already knows, then the exchange is the same `pairing/exchange` call every other mode uses.
  var ownerCode by remember { mutableStateOf("") }; var ownerSession by remember { mutableStateOf<PairDescriptor?>(null) }
+ // The address the typed code belongs to. Defaults to the City this installation already knows, but it is an
+ // editable field on purpose: a short code minted on ANOTHER City (a remote host, or the far side of a network)
+ // cannot be submitted by guessing the local address.
+ var codeAddress by remember { mutableStateOf("") }
  val api=remember { PairingApi(log) }; val discoveryFence=remember { CallbackFence() }
  // Defined AFTER `api`/`identities` exist: a local function may only capture declarations that are already in
  // scope at its own position, and the first version of this fix was placed above them (compile error, recorded).
@@ -41,6 +45,19 @@ import kotlinx.coroutines.delay
   api.descriptor(known) { result -> result.onSuccess { d -> runCatching { identities[d.cityId]=d; onReady(d) }.onFailure { pairingError=it.message?:"City identity conflict" } }.onFailure { pairingError=it.message?:"City unreachable" } }
  }
  fun generateOwnerCode() { pairingError=null; ownerCode=""; if(credential.isBlank()) { pairingError="No owner credential on this device · sign in with a token first (TOKEN)"; return }; resolveOwnerTarget { d -> api.session(d,credential) { result -> result.onSuccess { ownerSession=it }.onFailure { pairingError=it.message?:"Could not create a pairing session" } } } }
+ /** Submit a TYPED code to the address in the field. No local mint, no owner credential: the code was minted
+  *  somewhere else, which is the normal case for a joining device (including one on another network). */
+ fun connectWithTypedCode() {
+  val address=if(codeAddress.isBlank()) host else codeAddress.trim()
+  if(address.isBlank()) { pairingError="Enter the City address the code belongs to"; return }
+  if(ownerCode.isBlank()) { pairingError="Enter the short code"; return }
+  pairingError=null; phase=pairingTransition(phase,"submit")
+  api.pairWithCode(address,ownerCode) { result ->
+   phase=pairingTransition(phase,if(result.isSuccess) "authenticated" else "error")
+   result.onSuccess { (h,t,descriptor) -> paired(h,t,descriptor.cityId,descriptor) }
+   result.onFailure { error -> pairingError=error.message?:"Short-code join failed"; log.event("retry") }
+  }
+ }
  fun exchange(d:PairDescriptor,m:String) { pairingError=null; phase=pairingTransition(phase,"submit"); api.pair(d,m,code) { result -> phase=pairingTransition(phase,if(result.isSuccess) "authenticated" else "error"); result.onSuccess { (h,t) -> paired(h,t,d.cityId,d) }.onFailure { pairingError=it.message?:"Pairing failed"; log.event("retry") } } }
  val discovery=remember { CityDiscovery(context,{ origin,expected ->
   val ticket=discoveryFence.ticket(); val sighted=System.currentTimeMillis()
@@ -81,7 +98,7 @@ import kotlinx.coroutines.delay
    ActionButton("QR",primary=true,enabled=!busy) { pairingError=null; discoveryFence.invalidate(); discovery.stop(); mode="qr"; cities=emptyMap(); chosen=null; log.start("qr"); log.event("action"); scan.launch(ScanOptions().setCaptureActivity(AutoZoomCaptureActivity::class.java).setDesiredBarcodeFormats(ScanOptions.QR_CODE).setPrompt("Keep the whole QR in view · Auto zoom 1–2×").setBeepEnabled(false).setOrientationLocked(false)) }
    ActionButton("LAN",enabled=!busy) { pairingError=null; discoveryFence.invalidate(); mode="mdns"; chosen=null; log.start(mode); log.event("action"); cities=emptyMap(); discovery.lan() }
    ActionButton("BLE",enabled=!busy) { pairingError=null; discoveryFence.invalidate(); discovery.stop(); mode="ble"; chosen=null; log.start(mode); log.event("action"); cities=emptyMap(); permission.launch(if(Build.VERSION.SDK_INT>=31) arrayOf(Manifest.permission.BLUETOOTH_SCAN,Manifest.permission.BLUETOOTH_CONNECT) else arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)) }
-   ActionButton("CODE",enabled=!busy) { pairingError=null; discovery.stop(); log.start("owner-code"); log.event("action"); generateOwnerCode() }
+   ActionButton("CODE",enabled=!busy) { pairingError=null; ownerSession=null; discovery.stop(); codeAddress=if(host.isBlank()) codeAddress else host; mode="owner-code"; log.start("owner-code"); log.event("action") }
    ActionButton("TOKEN",enabled=!busy) { pairingError=null; discovery.stop(); log.start("manual"); manual() }
   }
   when(mode) {
@@ -93,9 +110,14 @@ import kotlinx.coroutines.delay
    else -> Text("LAN DEVELOPMENT ONLY · NOT FOR PUBLIC INTERNET")
   }
   if(mode=="owner-code") {
-   if(ownerSession==null) Text("Tap CODE to create a session on the City host (Settings address).")
-   else { OutlinedTextField(ownerCode,{ownerCode=it},label={Text("Short pairing code")},visualTransformation=PasswordVisualTransformation(),singleLine=true,keyboardOptions=KeyboardOptions(imeAction=ImeAction.Done),keyboardActions=KeyboardActions(onDone={ val d=ownerSession; if(!busy && ownerCode.isNotBlank() && d!=null) exchange(d,"owner-code") }),modifier=Modifier.fillMaxWidth())
-    Button(onClick={ val d=ownerSession; if(ownerCode.isNotBlank() && d!=null) exchange(d,"owner-code") },enabled=!busy && ownerCode.isNotBlank()) { Text(if(busy) "Pairing…" else "Connect with short code") } }
+   LaunchedEffect(Unit) { if(codeAddress.isBlank() && host.isNotBlank()) codeAddress=host }
+   Text("Short-code join · the code may have been created on another surface, or on a City on another network.")
+   OutlinedTextField(codeAddress,{codeAddress=it},label={Text("City address (host:port or http://host:port)")},singleLine=true,placeholder={Text(host.ifBlank { "http://192.168.1.20:4391" })},modifier=Modifier.fillMaxWidth())
+   OutlinedTextField(ownerCode,{ownerCode=it},label={Text("Short pairing code")},visualTransformation=PasswordVisualTransformation(),singleLine=true,keyboardOptions=KeyboardOptions(imeAction=ImeAction.Done),keyboardActions=KeyboardActions(onDone={ connectWithTypedCode() }),modifier=Modifier.fillMaxWidth())
+   Button(onClick={ connectWithTypedCode() },enabled=!busy && ownerCode.isNotBlank()) { Text(if(busy) "Connecting…" else "Connect with short code") }
+   OutlinedButton(onClick={ generateOwnerCode() },enabled=!busy && credential.isNotBlank()) { Text(if(ownerSession==null) "Generate a code on the known City (owner)" else "Generate a new code") }
+   ownerSession?.let { d -> Text(if(d.session.isBlank()) "Session ready" else "Code active · expires ${d.expires}",style=MaterialTheme.typography.labelSmall) }
+   Text("Codes created on the City this device knows are consumed here directly. A code from a City you cannot reach from this network needs the remote path · the app has no relay transport yet.",style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
   }
   cities.values.forEach { d -> Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) { Text(d.displayName); Text(d.endpoint); Text(d.cityId,style=MaterialTheme.typography.labelSmall); Button(onClick={ pairingError=null; chosen=d; code=""; log.event("action") },enabled=!busy) { Text("Pair") } } } }
   if(chosen!=null) { Text("Create a pairing session on the City host, then enter its short code. Connect refreshes the current session."); OutlinedTextField(code,{code=it},label={Text("Short pairing code")},visualTransformation=PasswordVisualTransformation(),singleLine=true); Button(onClick={ exchange(chosen!!,mode) },enabled=!busy && code.isNotBlank()) { Text(if(busy) "Pairing…" else "Connect") } }

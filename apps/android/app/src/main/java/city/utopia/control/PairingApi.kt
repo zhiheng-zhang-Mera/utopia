@@ -63,6 +63,31 @@ class PairingApi(private val log: PilotLog) {
  // Public, callback-shaped descriptor read. The short-code entry resolves the City from the address this
  // installation already knows, so it does not need discovery or a previously chosen City.
  fun descriptor(origin: String, done: (Result<PairDescriptor>)->Unit) { submit { ticket -> val result=runCatching { descriptorSync(endpoint(origin)) }; main.post { if(fence.accepts(ticket)) done(result) } } }
+ /**
+  * PAIR BY SHORT CODE WITHOUT MINTING ONE.
+  *
+  * The common case is the one this shape exists for: the code was created on ANOTHER surface (the City's Web
+  * page, another trusted device, or an owner on the far side of the network), and this device only has to type it.
+  * Minting requires the owner credential for that City, which a joining device by definition does not hold, so
+  * requiring a local mint before accepting a code would make the normal join impossible.
+  *
+  * The method label is resolved from what the City is asked next: `pair` performs the descriptor read first and
+  * chooses the QR method only when the descriptor carries a session secret, so a typed code is submitted as
+  * `mdns` (the City's short-code path) and never as a malformed QR secret.
+  */
+ fun pairWithCode(rawAddress: String, code: String, done: (Result<Triple<String,String,PairDescriptor>>)->Unit) {
+  submit { ticket -> log.event("action"); log.event("pairingSubmitted")
+   val prepared=runCatching {
+    val origin=endpoint(rawAddress); val descriptor=descriptorSync(origin); val method=if(descriptor.secret.isNullOrBlank()) "mdns" else "qr"
+    if(method=="qr" && code.isBlank()) error("This City issued a QR session; scan the QR or use a short code")
+    descriptor to method
+   }
+   prepared.onFailure { failure -> log.event("pairingError"); main.post { if(fence.accepts(ticket)) done(Result.failure(failure)) } }
+   prepared.onSuccess { (descriptor,method) ->
+    pair(descriptor,method,code) { inner -> main.post { if(fence.accepts(ticket)) done(inner) } }
+   }
+  }
+ }
  // Mint a one-time pairing session on the City: the owner action every normal join consumes. Returns the
  // refreshed descriptor, whose session id and expiry are what the UI shows.
  fun session(d: PairDescriptor, credential: String, done: (Result<PairDescriptor>)->Unit) { submit { ticket -> val result=runCatching { val body=request(d.endpoint,"session",null,credential); val desc=body.optJSONObject("descriptor"); val mine=if(desc==null) d else run { val e=desc.getJSONObject("endpoint"); PairDescriptor(desc.getString("cityId"),endpoint("${e.getString("scheme")}://${e.getString("host")}:${e.getInt("port")}"),desc.optString("pairingSessionId",""),desc.optString("expiresAt",""),displayName=desc.optString("displayName")) }; log.event("pairingSession"); mine }; main.post { if(fence.accepts(ticket)) done(result) } } }

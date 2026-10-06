@@ -566,7 +566,14 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
     scenarios:campaignScenarios,
     readiness:campaignReadiness,
     runOnce:async({scenario,campaignId,index,seed,control,context})=>{
-      const workers=context?.workers??[];
+      // THE DECLARED WORKERS COME FROM THE MANIFEST, AND THIS READ USED TO MISS THEM. The campaign context carries the
+      // topology under `context.manifest.workers`; the first version read only `context.workers`, which the route never
+      // sets, so the array was ALWAYS empty and the placement rule below never executed. Every run was created
+      // untargeted and the assignment the receipt recorded was whichever able worker claimed first. With ONE worker -
+      // every fixture in this task's suite, and both physical campaigns, because the Android handset was a control
+      // surface rather than a worker - that is indistinguishable from the rule working. The two-worker rehearsal found
+      // it on its first run: "6 of 6 campaign task(s) were created with no targetDeviceRef".
+      const workers=context?.manifest?.workers??context?.workers??[];
       // The seed is USED, not decorative. With no explicit target the repetition's own derived seed selects among the
       // experiment's declared workers, so the same campaign places the same repetition on the same device, on any
       // host. With an explicit target the operator's choice wins, and the run says which rule was applied.

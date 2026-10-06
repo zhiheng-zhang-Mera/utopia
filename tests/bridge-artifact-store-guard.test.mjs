@@ -15,6 +15,11 @@ const roomFetch=async url=>({ok:true,status:200,text:async()=>JSON.stringify(url
 // createGateway can leave the store handle open - so a throwing rmSync inside `finally` would report EPERM and
 // hide the EEXIST that is the actual finding. Removal is best-effort; the real error is left to surface.
 const cleanup=dir=>{try{fs.rmSync(dir,{recursive:true,force:true,maxRetries:3,retryDelay:50});}catch{}};
+// The reason must be the filesystem's own code, never a placeholder. Which code differs by how the path is broken and
+// by platform: creating a root that is an existing FILE gives EEXIST, addressing a directory THROUGH a file gives
+// ENOTDIR on Linux and ENOENT on Windows (ERROR_PATH_NOT_FOUND), and a vanished root gives ENOENT. All three are
+// measured here, so the assertion names the set rather than pretending one code is universal.
+const ERRNO=/^(EEXIST|ENOTDIR|ENOENT)$/;
 
 // The merged defect this file guards: createThemeArtifacts ran mkdirSync and realpathSync UNGUARDED, and
 // createBridge calls it during createGateway. One file where <runtime>/theme-packages belongs therefore threw
@@ -28,13 +33,31 @@ test('theme artifact store degrades on an uncreatable root and refuses typed ins
   const root=path.join(dir,'theme-packages');fs.writeFileSync(root,'a file, not a directory');
   const artifacts=createThemeArtifacts(root);
   assert.equal(artifacts.state(),'UNAVAILABLE');
-  assert.match(artifacts.reason(),/EEXIST|ENOTDIR/,'the reason is the filesystem truth, not a placeholder');
+  assert.match(artifacts.reason(),ERRNO,'the reason is the filesystem truth, not a placeholder');
   assert.throws(()=>artifacts.allocate('I-00000000-0000-0000-0000-000000000001'),error=>error.code==='BUILD_STORAGE_UNAVAILABLE','a degraded store refuses with the same typed code the bridge already maps');
   // finish() has no sandbox to close and must not throw away the caller's outcome by exploding here.
   assert.equal(artifacts.finish('I-00000000-0000-0000-0000-000000000001',true),undefined);
   // A healthy root keeps working, so the guard is not a blanket disable.
   const good=createThemeArtifacts(path.join(dir,'healthy'));
   assert.equal(good.state(),'READY');assert.equal(good.reason(),null);
+ }finally{cleanup(dir);}
+});
+
+test('a store that breaks after startup is recorded, and losing it cannot erase a finished build',()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'utopia-artifact-runtime-'));
+ try{
+  const root=path.join(dir,'theme-packages'),artifacts=createThemeArtifacts(root);
+  const id='I-00000000-0000-0000-0000-000000000002';
+  assert.equal(artifacts.state(),'READY');
+  const sandbox=artifacts.allocate(id);fs.mkdirSync(path.join(sandbox,'package'));
+  // The root disappears between allocate() and finish() - the package is already built and digested by then.
+  fs.rmSync(root,{recursive:true,force:true});
+  assert.equal(artifacts.finish(id,true),undefined,'bookkeeping must not throw away a result the caller already has');
+  assert.equal(artifacts.state(),'UNAVAILABLE','the store flips to UNAVAILABLE the moment it is known to be broken');
+  assert.match(artifacts.reason(),ERRNO);
+  // The gateway's own catch turns any throw out of this path into a failed invocation, so a bookkeeping fault here
+  // would have reported a real, verified build as BUILD_STORAGE_UNAVAILABLE. That is the defect this asymmetry closes.
+  assert.throws(()=>artifacts.allocate('I-00000000-0000-0000-0000-000000000003'),error=>error.code==='BUILD_STORAGE_UNAVAILABLE');
  }finally{cleanup(dir);}
 });
 
@@ -49,7 +72,7 @@ test('a file at the theme-packages path leaves the City serving and the theme la
   assert.equal(health.components.gateway.state,'READY');
   assert.equal(health.components.rooms.state,'READY','the control: rooms are up, so nothing else can explain a degraded word');
   assert.equal(health.components.artifacts.state,'UNAVAILABLE');
-  assert.match(health.components.artifacts.reason,/EEXIST|ENOTDIR/);
+  assert.match(health.components.artifacts.reason,ERRNO);
   // 2. The rest of the City really works, not just its health route.
   const created=await(await fetch(g.url+'/api/v0/tasks',{method:'POST',headers,body:JSON.stringify({type:'WAIT'})})).json();
   assert.ok(created.id);assert.equal(g.store.get('tasks',created.id).state,'QUEUED');
@@ -84,5 +107,26 @@ test('degrading the artifact store blocks only the theme lab, never the capabili
   assert.ok(Array.isArray(invocations.invocations));
   const unknown=await fetch(g.url+'/api/v0/capabilities/does.not.exist/invoke',{method:'POST',headers,body:JSON.stringify({operationId:'build',input})});
   assert.equal(unknown.status,404,'the degraded store must not turn every capability call into a storage error');
+ }finally{await g?.close();cleanup(dir);}
+});
+
+test('a store that breaks while the City runs is reported in health, not only after a restart',async()=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'utopia-artifact-live-'));let g;
+ try{
+  g=await createGateway({dir,port:0,token:'store-guard',nodeToken:'store-guard-node',roomFetch});
+  const root=path.join(dir,'theme-packages');
+  assert.equal((await(await fetch(g.url+'/api/v0/health',{headers})).json()).components.artifacts.state,'READY');
+  assert.equal((await build(g)).status,'COMPLETED','the control: the capability really works before the store breaks');
+  fs.rmSync(root,{recursive:true,force:true});fs.writeFileSync(root,'a file, not a directory');
+  const failed=await build(g);
+  assert.equal(failed.status,'FAILED');assert.equal(failed.errorCode,'BUILD_STORAGE_UNAVAILABLE');
+  // The store is only known to be broken at this instant, and health must say so at this instant: a supervisor that
+  // has to restart the City to learn that a capability stopped persisting has been told too late.
+  const health=await(await fetch(g.url+'/api/v0/health',{headers})).json();
+  assert.equal(health.status,'healthy','the City itself is still serving');
+  assert.equal(health.components.artifacts.state,'UNAVAILABLE');
+  assert.match(health.components.artifacts.reason,ERRNO);
+  const created=await(await fetch(g.url+'/api/v0/tasks',{method:'POST',headers,body:JSON.stringify({type:'WAIT'})})).json();
+  assert.ok(created.id);
  }finally{await g?.close();cleanup(dir);}
 });

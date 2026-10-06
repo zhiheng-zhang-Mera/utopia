@@ -16,10 +16,10 @@ export function renderResearch(container,online,api,contextKey){
    if(!current())return;
    root.querySelector('#research-error').textContent=state.error;
    const result=state.result;
-   const compact=result?.validation?{validation:result.validation}:result?.experiment?{experiment:result.experiment}:result?.registered?{registered:result.registered,experimentId:result.experimentId,status:result.status,replayed:result.replayed}:result?.experiments?{experiments:result.experiments,broken:result.broken}:result;
+   const compact=result?.validation?{validation:result.validation}:result?.experiment?{experiment:result.experiment}:result?.registered?{registered:result.registered,experimentId:result.experimentId,status:result.status,replayed:result.replayed,persisted:result.persisted,persistFailure:result.persistFailure}:result?.experiments?{experiments:result.experiments,broken:result.broken,storeState:result.storeState,storeReason:result.storeReason}:result;
    root.querySelector('#research-result').textContent=compact?JSON.stringify(compact,null,2):'';
    root.querySelector('#research-vocabulary').textContent=state.data?.research?JSON.stringify(state.data.research,null,2):'';
-   root.querySelector('#research-list').innerHTML=(state.data?.experiments??[]).map(e=>`<button data-experiment="${esc(e.experimentId)}">${esc(e.experimentId)} · ${esc(e.status)}</button>`).join('');
+   root.querySelector('#research-list').innerHTML=(state.data?.storeState==='UNAVAILABLE'?`<p role="alert">${L('Experiment storage is unavailable. Validated manifests cannot be filed.','实验存储不可用。验证后的清单无法保存。')} ${esc(state.data.storeReason)}</p>`:'')+(state.data?.experiments??[]).map(e=>`<button data-experiment="${esc(e.experimentId)}">${esc(e.experimentId)} · ${esc(e.status)}</button>`).join('');
    for(const button of root.querySelectorAll('button'))button.disabled=state.busy||!state.online;
    root.querySelector('#research-import').disabled=state.busy||!state.online;
    root.querySelector('#research-manifest').disabled=state.busy;

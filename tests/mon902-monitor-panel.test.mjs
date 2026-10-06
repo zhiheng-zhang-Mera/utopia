@@ -168,7 +168,8 @@ test('MON-902 panel: the shell exposes the page and fetches the real route', () 
   assert.match(shell, /data-i18n="nav.monitor"/);
   const app = readFileSync(resolve(import.meta.dirname, '..', 'apps', 'web', 'app.js'), 'utf8');
   assert.match(app, /from '\.\/monitor-graph\.js'/);
-  assert.match(app, /api\('monitor\/graph'\)/, 'the page reads the canonical projection route, not a local copy');
+  const monitor=readFileSync(resolve(import.meta.dirname, '..', 'apps', 'web', 'monitor-graph.js'),'utf8');
+  assert.match(monitor, /api\(filter==='ALL'\?'monitor\/graph'/, 'the page controller reads the canonical projection route, not a local copy');
   assert.match(app, /if\(page==='Monitor'\)renderMonitor\(\)/);
   // No id may be duplicated in the shell document: a second #view would silently split the page.
   const ids = [...shell.matchAll(/\sid="([^"]+)"/g)].map(match => match[1]);

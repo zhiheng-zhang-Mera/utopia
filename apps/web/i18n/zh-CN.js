@@ -534,3 +534,5 @@ Object.assign(messages, {
   "monitor.technical.note": "投影的原始字段、精确引用与计数。这是监视器自身的来源，不是第二套事实来源。",
 });
 export default { meta, messages };
+
+Object.assign(messages,{"monitor.state.COMPLETED":"已完成","monitor.expand":"展开","monitor.collapse":"折叠","monitor.filter":"路径类型","monitor.filter.all":"所有已观测路径","monitor.filter.none":"隐藏路径","monitor.offline":"重新连接后查看当前城市监视器。","monitor.evidence.title":"规范证据","monitor.path.related":"已观测的相关事件（不推断为分配原因）","monitor.path.unobserved":"该投影无法观测："});

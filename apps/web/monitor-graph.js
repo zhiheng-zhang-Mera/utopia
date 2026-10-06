@@ -18,7 +18,7 @@
  *     surface; the decision overlay is MON-903.
  */
 
-import {t} from './i18n/index.js';
+import {t,getLocale} from './i18n/index.js';
 
 const ESCAPES = {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'};
 export const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ESCAPES[c]);
@@ -90,9 +90,11 @@ function riskRow(node, entry) {
 }
 
 /** Level 0: the city overview. Risk first, then the work, then what the picture cannot see. */
-export function monitorOverview(graph) {
+export function monitorOverview(graph, {expandedClusters=new Set()}={}) {
   if (!graph || !Array.isArray(graph.nodes)) throw new TypeError('A monitor graph is required');
-  const active = activeRisks(graph);
+  const shown=new Set(graph.visibleNodeIds??graph.nodes.map(n=>n.id));
+  const visibleNodes=graph.nodes.filter(n=>shown.has(n.id)||expandedClusters.has(n.clusterRef)).sort((a,b)=>String(a.id).localeCompare(String(b.id)));
+  const active = visibleNodes.flatMap(node=>node.riskReasons.filter(entry=>entry.level==='ACTIVE').map(entry=>({node,entry})));
   const blind = blindSpots(graph);
   const banner = active.length
     ? `<p class="monitor-banner alert" role="status">${esc(t('monitor.overview.needsAttention'))} <strong>${active.length}</strong></p>`
@@ -100,13 +102,13 @@ export function monitorOverview(graph) {
   const blindBlock = blind.length
     ? `<div class="monitor-blind" role="status"><p><strong>${esc(t('monitor.overview.cannotSee'))}</strong></p><ul>${blind.map(line => `<li>${esc(line)}</li>`).join('')}</ul></div>`
     : '';
-  const watch = graph.nodes.flatMap(node => node.riskReasons.filter(entry => entry.level === 'WATCH').map(entry => ({node, entry})));
-  const notObservable = graph.nodes.flatMap(node => node.riskReasons.filter(entry => entry.level === 'NOT_OBSERVABLE').map(entry => ({node, entry})));
+  const watch = visibleNodes.flatMap(node => node.riskReasons.filter(entry => entry.level === 'WATCH').map(entry => ({node, entry})));
+  const notObservable = visibleNodes.flatMap(node => node.riskReasons.filter(entry => entry.level === 'NOT_OBSERVABLE').map(entry => ({node, entry})));
   const rows = (items, empty) => items.length
     ? `<ul class="monitor-rows">${items.map(({node, entry}) => riskRow(node, entry)).join('')}</ul>`
     : `<p class="muted">${esc(empty)}</p>`;
-  const work = graph.nodes.filter(node => node.kind === 'TASK' && !active.some(item => item.node.id === node.id));
-  const clusters = graph.clusters.map(cluster => `<li class="monitor-cluster" data-monitor-cluster="${esc(cluster.id)}">${esc(label('monitor.overview.collapsed', 'Collapsed'))} <strong>${cluster.count}</strong> ${esc(stateLabel(cluster.state))}${cluster.activeRiskCount ? ` <span class="risk-active">${esc(t('monitor.overview.containsRisk'))} ${cluster.activeRiskCount}</span>` : ''}</li>`).join('');
+  const work = visibleNodes.filter(node => node.kind === 'TASK' && !node.riskReasons.length);
+  const clusters = graph.clusters.map(cluster => `<li class="monitor-cluster"><button data-monitor-cluster="${esc(cluster.id)}" aria-expanded="${expandedClusters.has(cluster.id)}">${esc(t(expandedClusters.has(cluster.id)?'monitor.collapse':'monitor.overview.collapsed'))} <strong>${cluster.count}</strong> ${esc(stateLabel(cluster.state))} · ${esc(t(expandedClusters.has(cluster.id)?'monitor.collapse':'monitor.expand'))}</button>${cluster.worstRisk==='NOT_OBSERVABLE'?` <span>${esc(t('monitor.blind.retry'))}</span>`:''}${cluster.activeRiskCount ? ` <span class="risk-active">${esc(t('monitor.overview.containsRisk'))} ${cluster.activeRiskCount}</span>` : ''}</li>`).join('');
   // `data-loaded` makes the page's own state machine-readable, so a reader (and a test) can tell the difference between
   // "the panel exists" and "the projection has arrived". The first version of this panel had no such marker, and the
   // browser test asserted loaded-state copy as soon as the shell appeared: it passed locally and in one CI run, then
@@ -156,6 +158,7 @@ export function monitorNodePanel(graph, id) {
     + `<dt>${esc(t('monitor.inspector.next'))}</dt><dd>${esc(next)}</dd>`
     + `<dt>${esc(t('monitor.inspector.paths'))}</dt><dd>${pathList}</dd>`
     + `</dl>`
+    + `<button data-evidence="${esc(node.id)}">${esc(t('monitor.inspector.evidence'))}</button>`
     + `<details class="monitor-technical"><summary>${esc(t('monitor.technical.disclosure'))}</summary><pre>${esc(JSON.stringify(node, null, 2))}</pre></details>`
     + `</section>`;
 }
@@ -174,19 +177,85 @@ export function monitorPathPanel(graph, edgeId) {
     + `<dt>${esc(t('monitor.path.destination'))}</dt><dd>${esc(to?.label ?? edge.to)}${edge.targetPresent ? '' : ` — <span class="risk-active">${esc(t('monitor.path.absent'))}</span>`}</dd>`
     + `<dt>${esc(t('monitor.path.trigger'))}</dt><dd>${edge.reason ? esc(edge.reason) : `<span class="risk-watch">${esc(t('monitor.path.noTrigger'))}</span>`}</dd>`
     + `</dl>`
+    + `<p>${esc(t('monitor.path.related'))}</p>${(edge.evidenceRefs??[]).map(ref=>`<button data-evidence="${esc(ref)}">${esc(ref)}</button>`).join('')}`
+    + `<p>${esc(t('monitor.path.unobserved'))} ${esc((edge.metadataNotObservable??[]).join(', '))}</p>`
     + (edge.incomplete ? `<p class="monitor-blind" role="status">${esc(t('monitor.path.incomplete'))}</p>` : '')
     + `<details class="monitor-technical"><summary>${esc(t('monitor.technical.disclosure'))}</summary><pre>${esc(JSON.stringify(edge, null, 2))}</pre></details>`
     + `</section>`;
 }
 
+/** Read-only exact reference from the bounded projection; never a second task store. */
+export function monitorEvidencePanel(graph,ref){
+ const event=(graph.events??[]).find(e=>e.canonicalEventId===ref||e.evidenceRef===ref);
+ const pointer=(graph.evidence??[]).find(e=>e.canonicalEventId===ref);
+ const node=graph.nodes.find(n=>n.id===ref);
+ const record=event?{source:'CANONICAL_GATEWAY_STORE',reference:ref,pointer,event}:node?{source:'CANONICAL_NODE_PROJECTION',reference:ref,node,events:(graph.events??[]).filter(e=>e.taskRef===ref)}:ref.startsWith('observation:')?{source:'CANONICAL_OBSERVATION_PROJECTION',reference:ref,projection:graph.projectionOf,summary:graph.summary}:{source:'NOT_OBSERVABLE',reference:ref,reason:'Reference is outside this bounded projection; no record was invented.'};
+ return `<section id="monitor-evidence" class="panel" tabindex="-1"><h3>${esc(t('monitor.evidence.title'))}</h3><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(JSON.stringify(record,null,2))}</pre></section>`;
+}
+
+/** Page-local lifecycle; late responses must not cross credential, City, navigation or connectivity boundaries. */
+export function createMonitorGraphView(){
+ let context=null,epoch=0,graph=null,pending=false,error='',loadedAt=null,currentSnapshotAt=null,selected=null,evidence=null,filter='ALL',expanded=new Set(),signature='';
+ function reset(){context=null;epoch++;graph=null;pending=false;error='';loadedAt=null;selected=null;evidence=null;filter='ALL';expanded.clear();signature='';}
+ function render(host,{contextKey,cityId,online,snapshotAt,api,isCurrent}){
+  const key=contextKey+'|'+online;
+  if(context!==key){reset();context=key;}
+  currentSnapshotAt=snapshotAt;
+  const current=()=>context===key&&isCurrent();
+  function draw(){
+   if(!current())return;
+   const semanticGraph=graph?{...graph,projectionOf:{...graph.projectionOf,observedAt:null,projectedAt:null},events:[],evidence:[]}:null;
+   const renderKey=JSON.stringify([getLocale(),online,error,filter,selected,evidence,[...expanded],semanticGraph]);
+   const refresh=host.querySelector('#monitor-refresh');if(refresh)refresh.disabled=pending||!online;
+   if(renderKey===signature&&host.querySelector('#monitor-edge-filter')){
+    const technical=host.querySelector('.monitor-panel > .monitor-technical pre');if(technical&&graph)technical.textContent=JSON.stringify(monitorTechnicalData(graph),null,2);
+    if(graph&&evidence){const pane=host.querySelector('#monitor-evidence pre');if(pane){const template=host.ownerDocument.createElement('template');template.innerHTML=monitorEvidencePanel(graph,evidence);pane.textContent=template.content.querySelector('pre').textContent;}}
+    return;
+   }
+   const controls=`<div class="monitor-controls"><label for="monitor-edge-filter">${esc(t('monitor.filter'))}</label><select id="monitor-edge-filter">${['ALL','NONE','ASSIGNED_TO','HANDOFF','RETRY','REVIEW','DEVICE_ROUTE','MODEL_ROUTE'].map(type=>`<option value="${type}" ${filter===type?'selected':''}>${esc(type==='ALL'?t('monitor.filter.all'):type==='NONE'?t('monitor.filter.none'):type)}</option>`).join('')}</select><button id="monitor-refresh" ${pending||!online?'disabled':''}>${esc(t('monitor.refresh'))}</button></div>`;
+   const body=!online?`<section class="panel monitor-panel" data-loaded="false"><p role="status">${esc(t('monitor.offline'))}</p></section>`:error?`<section class="panel monitor-panel" data-loaded="error"><p role="alert">${esc(error)}</p></section>`:graph?monitorOverview(graph,{expandedClusters:expanded}):`<section class="panel monitor-panel" data-loaded="false"><p>${esc(t('terminal.loading'))}</p></section>`;
+   const inspector=graph&&selected?(selected.kind==='node'?monitorNodePanel(graph,selected.id):monitorPathPanel(graph,selected.id)):'';
+   const html=controls+body+inspector+(graph&&evidence?monitorEvidencePanel(graph,evidence):'');
+   signature=renderKey;
+   const open=[...host.querySelectorAll('details')].map(d=>d.open);
+   const focus=host.contains(host.ownerDocument.activeElement)?host.ownerDocument.activeElement.id:null;
+   host.innerHTML=html;
+   [...host.querySelectorAll('details')].forEach((d,i)=>{if(open[i])d.open=true;});
+   if(focus)host.querySelector('#'+focus)?.focus({preventScroll:true});
+   host.querySelector('#monitor-refresh').onclick=()=>{loadedAt=null;void load();};
+   host.querySelector('#monitor-edge-filter').onchange=e=>{filter=e.target.value;epoch++;pending=false;graph=null;selected=null;evidence=null;loadedAt=null;void load();};
+   host.querySelectorAll('[data-monitor-cluster]').forEach(button=>button.onclick=()=>{const id=button.dataset.monitorCluster;if(expanded.has(id))expanded.delete(id);else expanded.add(id);draw();});
+   host.querySelectorAll('[data-monitor-node]').forEach(button=>{button.setAttribute('role','button');button.tabIndex=0;button.onclick=()=>{selected={kind:'node',id:button.dataset.monitorNode};evidence=null;draw();};button.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();button.click();}};});
+   host.querySelectorAll('[data-monitor-edge]').forEach(button=>{button.setAttribute('role','button');button.tabIndex=0;button.onclick=()=>{selected={kind:'edge',id:button.dataset.monitorEdge};evidence=null;draw();};button.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();button.click();}};});
+   host.querySelectorAll('[data-evidence]').forEach(button=>button.onclick=()=>{evidence=button.dataset.evidence;draw();host.querySelector('#monitor-evidence')?.focus();});
+  }
+  async function load(){
+   if(pending||!online||!current())return;
+   const ticket=++epoch,requestedAt=currentSnapshotAt;pending=true;draw();
+   try{
+    const result=await api(filter==='ALL'?'monitor/graph':'monitor/graph?edges='+encodeURIComponent(filter==='NONE'?'NOT_A_TYPE':filter));
+    if(!current()||ticket!==epoch)return;
+    if(!result?.graph||result.graph.projectionOf?.cityId!==cityId)throw Error('Monitor City identity mismatch');
+    graph=result.graph;error='';
+   }catch(reason){if(current()&&ticket===epoch){graph=null;error=t('monitor.error');}}
+   finally{if(current()&&ticket===epoch){pending=false;loadedAt=requestedAt;draw();if(currentSnapshotAt!==loadedAt)void load();}}
+  }
+  draw();if(online&&loadedAt!==snapshotAt&&!pending)void load();
+ }
+ return {render,reset};
+}
+
 /** Level 2: the projection's own provenance. One explicit gate, so raw vocabulary cannot leak by accident. */
-export function monitorTechnical(graph) {
-  const meta = {
+function monitorTechnicalData(graph){
+  return {
     authoritative: graph.authoritative, schemaVersion: graph.schemaVersion,
     projectionOf: graph.projectionOf, summary: graph.summary, navigation: graph.navigation, layout: graph.layout,
     completeness: graph.summary.unobserved, clusters: graph.clusters.map(cluster => ({id: cluster.id, count: cluster.count, state: cluster.state, activeRiskCount: cluster.activeRiskCount})),
     counts: {nodes: graph.nodes.length, edges: graph.edges.length},
   };
+}
+export function monitorTechnical(graph) {
+  const meta = monitorTechnicalData(graph);
   return `<details class="monitor-technical"><summary>${esc(t('monitor.technical.disclosure'))}</summary>`
     + `<p class="muted">${esc(t('monitor.technical.note'))}</p><pre>${esc(JSON.stringify(meta, null, 2))}</pre></details>`;
 }

@@ -539,3 +539,5 @@ Object.assign(messages, {
   "monitor.technical.note": "Raw projection fields, exact references and counts. This is the monitor's own provenance, not a second source of truth.",
 });
 export default { meta, messages };
+
+Object.assign(messages,{"monitor.state.COMPLETED":"done","monitor.expand":"Expand","monitor.collapse":"Collapse","monitor.filter":"Path type","monitor.filter.all":"All observed paths","monitor.filter.none":"Hide paths","monitor.offline":"Reconnect to view a current City monitor.","monitor.evidence.title":"Canonical evidence","monitor.path.related":"Observed related events (not inferred assignment causes)","monitor.path.unobserved":"Not observable from this projection:"});

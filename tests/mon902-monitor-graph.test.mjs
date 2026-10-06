@@ -33,7 +33,7 @@ test('MON-902 graph: every risk level is one of the declared vocabulary and neve
 });
 
 test('MON-902 graph: a failed task and an offline device holding work are ACTIVE risks that reach the summary', () => {
-  const graph = buildGraph(view({nodes: [task('t1', 'FAILED', {hostRef: 'h1'}), host('h1', false)], edges: [{from: 't1', to: 'h1', type: 'ASSIGNED_TO', reason: 'Canonical task.assignedNodeId', targetPresent: true}]}));
+  const graph = buildGraph(view({nodes: [task('t1', 'FAILED', {hostRef: 'h1'}), task('holding', 'RUNNING', {hostRef: 'h1'}), host('h1', false)], edges: [{from: 't1', to: 'h1', type: 'ASSIGNED_TO', reason: 'Canonical task.assignedNodeId', targetPresent: true}]}));
   assert.deepEqual(codesOf(graph, 't1'), ['TASK_FAILED']);
   assert.ok(codesOf(graph, 'h1').includes('DEVICE_OFFLINE_HOLDING_WORK'), 'a device offline with canonical work assigned is not a mild warning');
   assert.equal(graph.summary.activeRiskPresent, true);
@@ -153,7 +153,8 @@ test('MON-902 graph: the layout does not reshuffle because an event arrived', ()
 test('MON-902 graph: the interaction budget from overview to a risk is stated and small', () => {
   const graph = buildGraph(view({nodes: [task('t1', 'FAILED')]}));
   assert.equal(graph.navigation.budgetSteps, 3);
-  assert.ok(graph.navigation.worstSteps <= graph.navigation.budgetSteps);
+  assert.ok(graph.navigation.designedMaxSteps <= graph.navigation.budgetSteps);
+  assert.equal(graph.navigation.worstSteps,null,'a design budget is not a runtime measurement');
   // Every active risk is either drawn on the overview or inside a cluster that reports it, so none is unreachable.
   const drawn = new Set(graph.visibleNodeIds);
   const clustered = new Set(graph.clusters.flatMap(cluster => cluster.nodeIds));

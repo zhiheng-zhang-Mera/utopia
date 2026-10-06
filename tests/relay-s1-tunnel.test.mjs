@@ -415,8 +415,21 @@ test('S1: a pipe that never stops is rate-limited, and the version check still a
     // A peer that sprays requests at the City's routes is slowed down rather than allowed to fill its tables.
     peer = await manualPeer(app.url, { installationId: 'install-peer-hammer' });
     await waitFor(() => peer.ready());
-    const results = [];
-    for (let i = 0; i < 30; i += 1) results.push(await peer.request('/api/v0/join/info', {}, { method: 'GET' }));
-    assert.ok(results.some(r => r.status === 429), 'a sustained burst is refused with 429 rather than served');
+    // The burst is sent AS a burst: every request is written to the pipe before any answer is awaited, so all of them
+    // reach the City's 1000 ms window together.
+    //
+    // The previous version awaited each round-trip before sending the next, which made this a host-speed assertion in
+    // disguise: the limiter refuses the 21st request inside a 1000 ms window (services/dev-gateway/server.mjs:93,225),
+    // so a sequential loop only trips it while the first 21 round-trips average under roughly 48 ms. On a loaded host -
+    // a full-suite run, a busy CI box - the window refills between requests and the probe failed while the limiter was
+    // working perfectly. That is a false red about the product, produced by the instrument, and it was observed doing
+    // exactly that during the REX integration preflight. Measuring the send span makes the premise visible instead of
+    // assumed: if the requests themselves took a second to write, the test says so rather than blaming the limiter.
+    const sendStartedAt = Date.now();
+    const pendingAnswers = Array.from({ length: 30 }, () => peer.request('/api/v0/join/info', {}, { method: 'GET' }));
+    const sendSpanMs = Date.now() - sendStartedAt;
+    const results = await Promise.all(pendingAnswers);
+    assert.ok(results.some(r => r.status === 429),
+      `a burst of 30 concurrent relay requests is refused with 429 rather than served (the 30 requests were written in ${sendSpanMs} ms)`);
   } finally { closeQuietly(anonymous?.socket); closeQuietly(badVersion?.socket); closeQuietly(peer?.socket); await app.close(); await rm(dir, { recursive: true, force: true }); }
 });

@@ -100,12 +100,32 @@ export function createScenarioRunner({dir = '.runtime/research', scenarios = [],
   /** True while a drive loop is draining. A campaign is not replaceable until its own loop has written its last row. */
   let driving = false;
 
+  /**
+   * THE RUNNER MUST NOT BE ABLE TO BREAK ITS OWN SURFACE. A receipt store that cannot be written (or read) is reported
+   * as a degraded store, never thrown at a reader: finding R-1 of this task's own adversarial pass showed that one file
+   * sitting where `campaigns/` belongs made the campaign LIST route throw ENOTDIR, so an operator watching a running
+   * campaign lost sight of it. The same lesson arrived twice in this programme - REX-804's review blocked on a sibling
+   * module whose unreadable receipt made the City refuse to start, and MON-903's own pass found the same shape.
+   */
+  let storeState = 'READY';
+  let storeReason = null;
+  const noteStoreFailure = error => {
+    storeState = 'UNAVAILABLE';
+    storeReason = String(error?.code ?? error?.message ?? 'CAMPAIGN_STORE_UNAVAILABLE').slice(0, 120);
+    return storeReason;
+  };
+
   const persist = () => {
     if (!campaign) return;
-    mkdirSync(dir, {recursive: true});
-    const temporary = `${file}.tmp`;
-    writeFileSync(temporary, JSON.stringify(campaign), {mode: 0o600});
-    renameSync(temporary, file);
+    try {
+      mkdirSync(dir, {recursive: true});
+      const temporary = `${file}.tmp`;
+      writeFileSync(temporary, JSON.stringify(campaign), {mode: 0o600});
+      renameSync(temporary, file);
+    } catch (error) {
+      // The campaign keeps running in memory and says why its state file is missing.
+      campaign.stateStoreFailure = noteStoreFailure(error);
+    }
   };
 
   /** One finished campaign, written once under its own name so the next campaign cannot overwrite the evidence. */
@@ -152,7 +172,7 @@ export function createScenarioRunner({dir = '.runtime/research', scenarios = [],
       // A campaign that ran but could not be filed is still reported as run: the failure to file is stated on the
       // record rather than substituted for the outcome.
       campaign.receipt = null;
-      campaign.receiptFailure = String(error?.code ?? 'RECEIPT_WRITE_FAILED');
+      campaign.receiptFailure = noteStoreFailure(error);
     }
     persist();
     return campaign;
@@ -406,6 +426,12 @@ export function createScenarioRunner({dir = '.runtime/research', scenarios = [],
       notMeasured,
       reason: campaign.reason,
       receipt: campaign.receipt ?? null,
+      // The state of the receipt store is part of the campaign's observable state: a reader must be able to tell
+      // "no campaign has finished" from "finished campaigns cannot be listed right now".
+      storeState,
+      storeReason,
+      stateStoreFailure: campaign.stateStoreFailure ?? null,
+      receiptFailure: campaign.receiptFailure ?? null,
     };
   };
 
@@ -428,8 +454,12 @@ export function createScenarioRunner({dir = '.runtime/research', scenarios = [],
 
   /** Finished campaigns, newest by name order, read from their receipts. Nothing here is inferred from memory. */
   function receipts() {
+    // A store that cannot be listed is REPORTED as unavailable, not thrown at the caller (finding R-1).
     if (!existsSync(receiptDir)) return [];
-    return readdirSync(receiptDir).filter(name => RECEIPT_FILE.test(name)).sort().slice(-receiptLimit).map(name => {
+    let names = [];
+    try { names = readdirSync(receiptDir); }
+    catch (error) { noteStoreFailure(error); return []; }
+    return names.filter(name => RECEIPT_FILE.test(name)).sort().slice(-receiptLimit).map(name => {
       try {
         const record = JSON.parse(readFileSync(resolve(receiptDir, name), 'utf8'));
         return {campaignId: record.campaignId, scenarioId: record.scenarioId, state: record.state, reason: record.reason, startedAt: record.startedAt, finishedAt: record.finishedAt, summary: record.summary ?? summaryOf(record), experimentRef: record.context?.experimentId ?? null};
@@ -462,5 +492,5 @@ export function createScenarioRunner({dir = '.runtime/research', scenarios = [],
     return {drained: !driving, state: campaign?.state ?? 'IDLE'};
   }
 
-  return {start, stop, progress, state: () => campaign, unfinished, receipts, receipt, scenarios: () => [...scenarioById.values()], file, receiptDir, close};
+  return {start, stop, progress, state: () => campaign, unfinished, receipts, receipt, scenarios: () => [...scenarioById.values()], file, receiptDir, storeState: () => storeState, storeReason: () => storeReason, close};
 }

@@ -585,6 +585,11 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         const current=store.get('tasks',task.id);
         if(!current)return {state:'FAILED',reason:'the canonical task disappeared while its campaign was running',result:{taskRef:task.id}};
         if(terminal.includes(current.state)){
+          // AN OUTSIDE CANCELLATION IS A CANCELLATION, NOT A FAILURE (finding R-2). When an operator cancels the run's
+          // canonical task from outside the campaign, the work did not fail - it was cancelled - and recording that as
+          // FAILED mis-attributed the cause. The reason still names exactly what happened, so a reader can tell a
+          // campaign-stop cancellation from someone else's cancellation.
+          if(current.state==='CANCELLED')return {state:'CANCELLED',reason:'the canonical task was cancelled outside the campaign',result:{taskRef:current.id,state:current.state,assignedNodeId:current.assignedNodeId??null}};
           return current.state==='COMPLETED'
             ? {state:'MEASURED',result:{taskRef:current.id,state:current.state,assignedNodeId:current.assignedNodeId??null,result:current.result??null}}
             : {state:'FAILED',reason:`the canonical task ended ${current.state}${current.error?`: ${current.error}`:''}`,result:{taskRef:current.id,state:current.state,assignedNodeId:current.assignedNodeId??null}};
@@ -1100,7 +1105,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         // declare them and the only honest place to read them is the City. Without it an owner writing a manifest
         // guesses at the control-surface ref of their own browser (this surface's first browser test did exactly
         // that and was refused), and a guessed identity produces a campaign that can never start.
-        out={scenarios:campaigns.scenarios(),topology:{workers:campaignWorkers(),surfaces:liveSurfaces().map(surface=>({ref:surface.clientRef,label:surface.clientLabel})).filter(surface=>surface.ref)},live:campaigns.progress(),unfinished:campaigns.unfinished()!==null,receipts:campaigns.receipts(),experiments:experiments.list({status:'VALIDATED'}).experiments,research:researchFacts()};
+        out={scenarios:campaigns.scenarios(),topology:{workers:campaignWorkers(),surfaces:liveSurfaces().map(surface=>({ref:surface.clientRef,label:surface.clientLabel})).filter(surface=>surface.ref)},live:campaigns.progress(),unfinished:campaigns.unfinished()!==null,receipts:campaigns.receipts(),storeState:campaigns.storeState(),storeReason:campaigns.storeReason(),experiments:experiments.list({status:'VALIDATED'}).experiments,research:researchFacts()};
       } else if(path==='/api/v0/research/campaigns'&&req.method==='POST'){
         const b=await body(req);
         // The experiment must exist and be VALIDATED: an experiment that was rejected has no seed sequence and no

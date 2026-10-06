@@ -77,8 +77,10 @@ test('REX803 campaigns: every repetition is a real canonical task, and the recei
     const started = await ask(app, 'research/campaigns', {experimentId: 'campaign-fixture', scenarioId: 'WAIT'});
     assert.equal(started.status, 200);
     assert.equal(started.body.started.totalRuns, 3);
-    const described = (await ask(app, 'research/experiments/campaign-fixture')).body.experiment;
-    assert.equal(started.body.started.campaignSeed, 'campaign-fixture@' + described.digest, 'the campaign seed IS the experiment identity, so two hosts derive the same sequence');
+    // The campaign seed is a SHORT identity derived from the registered manifest, not the manifest itself. The first
+    // physical campaign used the registry's `digest` field directly, which is a canonical serialisation rather than a
+    // hash, so the seed contained the whole document (defect D-7).
+    assert.match(started.body.started.campaignSeed, /^campaign-fixture@[0-9a-f]{32}$/);
     const campaignId = started.body.started.campaignId;
 
     const done = await workUntilSettled(app);
@@ -116,9 +118,16 @@ test('REX803 campaigns: every repetition is a real canonical task, and the recei
     assert.equal(filed.status, 200);
     assert.equal(filed.body.campaign.summary.measured, 3);
     assert.equal(filed.body.campaign.context.manifest.softwareRefs[0].component, 'utopia');
+    assert.match(filed.body.campaign.context.manifestIdentity, /^[0-9a-f]{32}$/, 'the receipt carries a short manifest identity, not the manifest');
     assert.equal((await ask(app, 'research/campaigns')).body.receipts.length, 1);
     // This surface never becomes a second task database: the tasks it created are ordinary City tasks.
     assert.equal(app.store.list('tasks').every(task => task.domain === 'system'), true);
+    // REPRODUCIBILITY ON THE SAME MANIFEST: a second campaign of the same registered experiment derives the same seed
+    // sequence, so the two campaigns are the same experiment rather than two experiment-shaped runs.
+    const again = await ask(app, 'research/campaigns', {experimentId: 'campaign-fixture', scenarioId: 'WAIT', repetitions: 1});
+    assert.equal(again.status, 200);
+    assert.equal(again.body.started.campaignSeed, started.body.started.campaignSeed);
+    await workUntilSettled(app);
   });
 });
 

@@ -4,7 +4,7 @@ import {hostname,networkInterfaces} from 'node:os';
 import {createBridge} from '../capability-bridge/bridge.mjs';
 import {MAX_REQUEST_BYTES,refuse} from '../../contracts/capability-bridge-v1/protocol.mjs';
 import { readFile } from 'node:fs/promises';
-import { randomUUID, randomBytes as randomBytesBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomUUID, randomBytes as randomBytesBytes, timingSafeEqual } from 'node:crypto';
 import { WebSocketServer } from 'ws';
 import { Store } from './store.mjs';
 import {createObservation} from './observation.mjs';
@@ -646,7 +646,14 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // The receipt has to be readable without the registry, so the experiment's declared facts travel WITH the campaign.
   // It is a copy of a frozen document, not a second source of truth: the registry remains the only thing that can
   // answer what the experiment was.
-  const campaignContext=(described,targetDeviceRef)=>Object.freeze({experimentId:described.experimentId,digest:described.digest,manifest:Object.freeze({topology:described.manifest.topology,hosts:described.manifest.hosts,workers:described.manifest.workers,controlSurfaces:described.manifest.controlSurfaces,repetitions:described.manifest.repetitions,seedPolicy:described.manifest.seedPolicy,baseSeed:described.manifest.baseSeed,stopConditions:described.manifest.stopConditions,acceptance:described.manifest.acceptance,softwareRefs:described.manifest.softwareRefs}),targetDeviceRef:targetDeviceRef??null});
+  //
+  // A SHORT, STABLE IDENTITY RATHER THAN THE REGISTRY'S `digest` FIELD. REX-801's record exposes `digest` as the
+  // CANONICAL SERIALISATION of the manifest, not a hash of it, so using that value directly made every campaign seed
+  // `experimentId@<the entire manifest as JSON>` - found by running the first campaign on real hardware (defect D-7).
+  // Hashing it here gives a 32-character identity that is still a pure function of the registered document, so two
+  // hosts running the same manifest still derive the same seed sequence.
+  const experimentIdentity=record=>createHash('sha256').update(typeof record?.digest==='string'?record.digest:JSON.stringify(record?.manifest??null)).digest('hex').slice(0,32);
+  const campaignContext=(described,targetDeviceRef)=>Object.freeze({experimentId:described.experimentId,manifestIdentity:experimentIdentity(described),manifest:Object.freeze({topology:described.manifest.topology,hosts:described.manifest.hosts,workers:described.manifest.workers,controlSurfaces:described.manifest.controlSurfaces,repetitions:described.manifest.repetitions,seedPolicy:described.manifest.seedPolicy,baseSeed:described.manifest.baseSeed,stopConditions:described.manifest.stopConditions,acceptance:described.manifest.acceptance,softwareRefs:described.manifest.softwareRefs}),targetDeviceRef:targetDeviceRef??null});
   // What a research surface needs in order to build a valid manifest, published with every research response so
   // the contract is discoverable from the contract itself: the topologies this release can describe, the seed
   // policies, the stop-condition kinds, the retention levels, and the LIVE capability vocabulary that the
@@ -1114,7 +1121,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         if(b.limits!==undefined&&b.limits!==null&&(typeof b.limits!=='object'||Array.isArray(b.limits)))refuse('LIMITS_INVALID',422);
         // The campaign seed is the experiment's IMMUTABLE IDENTITY unless the operator names one, so two runs of the
         // same registered manifest on two hosts derive the same seed sequence without anyone passing a number around.
-        const seed=typeof b.seed==='string'&&b.seed.trim().length>0?b.seed.trim().slice(0,120):`${described.experimentId}@${described.digest}`;
+        const seed=typeof b.seed==='string'&&b.seed.trim().length>0?b.seed.trim().slice(0,120):`${described.experimentId}@${experimentIdentity(described)}`;
         const started=campaigns.start({
           scenarioId,
           repetitions,

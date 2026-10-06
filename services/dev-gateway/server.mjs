@@ -8,6 +8,9 @@ import { randomUUID, randomBytes as randomBytesBytes, timingSafeEqual } from 'no
 import { WebSocketServer } from 'ws';
 import { Store } from './store.mjs';
 import {createObservation} from './observation.mjs';
+// MON-902: the overview graph builder. It is a pure function of ONE observation view, so the graph route reuses the
+// monitor's single-flight projection instead of inventing a second canonical read path.
+import {buildGraph} from './monitor-graph.mjs';
 import {createExecutionProfileController} from './execution-profile.mjs';
 import {createTraceCollector} from '../research-trace/index.mjs';
 import { Pairing } from './pairing.mjs';
@@ -806,6 +809,17 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         }catch(error){refuse(error.code??'PROFILE_CHANGE_REFUSED',409,error.message);}
       }
       else if(req.method==='GET' && path==='/api/v0/monitor')out={monitor:await observation.refresh()};
+      // MON-902: the overview graph, built from the SAME single-flight observation as /monitor. No second canonical read
+      // path, no cache of its own, no timer, no lock: a graph request that arrives while a projection is in flight
+      // joins it, and a graph request when the source is down returns the same honest UNAVAILABLE view the monitor does.
+      else if(req.method==='GET' && path==='/api/v0/monitor/graph'){
+        const query=new URL(req.url,'http://city').searchParams;
+        const requested=query.get('edges');
+        const edgeTypes=requested===null?undefined:requested.split(',').map(value=>value.trim()).filter(Boolean);
+        const collapse=query.get('collapse');
+        if(collapse!==null&&(!/^\d+$/.test(collapse)||Number(collapse)<1||Number(collapse)>4096))fail(400,'collapse must be 1..4096');
+        out={graph:buildGraph(await observation.refresh(),{...(edgeTypes?.length?{edgeTypes}:{}),...(collapse!==null?{maxVisibleNodes:Number(collapse)}:{})})};
+      }
       else if(req.method==='POST' && path==='/api/v0/node/sharing'){
         const b=await body(req);if(memberRef(req)!==b.id)fail(403,'Only this device may change its resource sharing');if(typeof b.enabled!=='boolean')fail(400,'Sharing requires enabled boolean');const n=required('nodes',b.id);out=store.put('nodes',{...n,sharingEnabled:b.enabled});emit('NODE_SHARING_CHANGED',null,{nodeId:b.id,enabled:b.enabled});
       }

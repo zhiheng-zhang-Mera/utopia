@@ -38,8 +38,9 @@ export class ProfileChangeError extends Error {
 const stateOf = readiness => (typeof readiness === 'string' ? readiness : readiness?.state ?? 'UNKNOWN');
 const reasonOf = readiness => (typeof readiness === 'string' ? null : readiness?.reason ?? null);
 
-export function createExecutionProfileController({dir, registry, initial = DEFAULT_EXECUTION_PROFILE, clock = () => Date.now()} = {}) {
-  if (!registry || typeof registry.readiness !== 'function') throw new TypeError('An execution backend registry is required');
+export function createExecutionProfileController({dir, registry = null, readinessOf = null, initial = DEFAULT_EXECUTION_PROFILE, clock = () => Date.now()} = {}) {
+  const readProfile = readinessOf ?? (candidate => registry?.readiness?.(candidate));
+  if (typeof readProfile !== 'function') throw new TypeError('An execution backend registry or a readinessOf function is required');
   const file = resolve(dir, 'execution-profile.json');
 
   // --- how this City's profile was decided, and why ---------------------------------------------------------------
@@ -82,7 +83,7 @@ export function createExecutionProfileController({dir, registry, initial = DEFAU
       let state = 'UNKNOWN';
       let reason = null;
       try {
-        const report = registry.readiness(candidate);
+        const report = readProfile(candidate);
         state = stateOf(report);
         reason = reasonOf(report);
       } catch (error) {

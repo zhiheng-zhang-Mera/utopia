@@ -8,6 +8,7 @@ import { randomUUID, randomBytes as randomBytesBytes, timingSafeEqual } from 'no
 import { WebSocketServer } from 'ws';
 import { Store } from './store.mjs';
 import {createObservation} from './observation.mjs';
+import {createExecutionProfileController} from './execution-profile.mjs';
 import {createTraceCollector} from '../research-trace/index.mjs';
 import { Pairing } from './pairing.mjs';
 // JOIN-503: device enrollment and tokenless routine reconnect. The registrar is a seam over the City's own
@@ -483,6 +484,12 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   const executionProfile=process.env.CITY_EXECUTION_PROFILE??DEFAULT_EXECUTION_PROFILE;
   if(executionProfile!==DEFAULT_EXECUTION_PROFILE)throw new Error(`Execution profile ${executionProfile} is not enabled by this release; supported profiles: ${DEFAULT_EXECUTION_PROFILE}`);
   const executionBackends=createExecutionBackendRegistry({defaultProfile:DEFAULT_EXECUTION_PROFILE});
+  // WBC-604: the profile becomes a RUNTIME decision. The startup value is only an initial seed; from here on the
+  // controller owns it, persists it, and gates every switch on the registry's own readiness answer. A dormant backend
+  // reports ABSENT rather than throwing at the caller, which is what keeps "the pool is not there yet" from becoming a
+  // City that will not start.
+  const profileController=createExecutionProfileController({dir, initial:executionProfile, readinessOf:profile=>{try{return executionBackends.forProfile(profile).readiness();}catch(error){return {state:error?.code==='BACKEND_DORMANT'?'ABSENT':'UNAVAILABLE',reason:error?.message??'backend unavailable'};}}});
+  const currentProfile=()=>profileController.profile();
   // The port is built over the gateway's OWN primitives - its node liveness shape, its strict-target guard, its
   // handoff reservation guard, its canonical transition writer - so the backend cannot grow a second opinion
   // about any of them. `claimNodeFor`/`acceptsWork` are the very functions the Core is asked through elsewhere
@@ -505,7 +512,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   executionBackends.register(createWorkerPoolBackend());
   // Read at request time through the registry, never captured as the raw port: a later backend registration
   // must be able to take effect without every route holding a stale reference.
-  const executionBackend=()=>executionBackends.active(executionProfile);
+  const executionBackend=()=>executionBackends.active(currentProfile());
   // REX-801: the research experiment registry.
   //
   // The capability vocabulary is taken from the LIVE bridge rather than from a constant, so "this manifest
@@ -784,6 +791,20 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         out={cityId:store.cityId,displayName:store.cityName};
       }
       else if(req.method==='GET' && path==='/api/v0/city')out=snapshot(req);
+      // WBC-604 control surface. Owner-only: the execution profile decides where work runs, which is a
+      // user/permission-level decision, so a member session may read nothing and change nothing here.
+      else if(req.method==='GET' && path==='/api/v0/execution-profile'){
+        if(req.citySession)fail(403,'Only the City owner may read the execution profile control surface');
+        out={executionProfile:profileController.state()};
+      }
+      else if(req.method==='POST' && path==='/api/v0/execution-profile'){
+        if(req.citySession)fail(403,'Only the City owner may change the execution profile');
+        const b=await body(req);
+        try{
+          const receipt=b.action==='ROLLBACK'?profileController.rollback():profileController.change(b.profile);
+          out={receipt,executionProfile:profileController.state()};
+        }catch(error){refuse(error.code??'PROFILE_CHANGE_REFUSED',409,error.message);}
+      }
       else if(req.method==='GET' && path==='/api/v0/monitor')out={monitor:await observation.refresh()};
       else if(req.method==='POST' && path==='/api/v0/node/sharing'){
         const b=await body(req);if(memberRef(req)!==b.id)fail(403,'Only this device may change its resource sharing');if(typeof b.enabled!=='boolean')fail(400,'Sharing requires enabled boolean');const n=required('nodes',b.id);out=store.put('nodes',{...n,sharingEnabled:b.enabled});emit('NODE_SHARING_CHANGED',null,{nodeId:b.id,enabled:b.enabled});

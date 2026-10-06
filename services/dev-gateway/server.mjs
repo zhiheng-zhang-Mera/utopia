@@ -728,10 +728,13 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         // a peer-to-peer City, not a broken gateway, and making it degrade the whole City would recreate exactly
         // the kind of global blocker this programme forbids. Readiness is stated so a supervisor can see it.
         const backendState=executionBackend().readiness();
-        const components={gateway:{state:'READY'},rooms:{state:roomState.available?'READY':'UNAVAILABLE',reason:roomState.available?null:roomState.reason,hubUrl:roomState.hubUrl},execution:{state:backendState.state,reason:backendState.reason,detail:backendState.detail,profile:executionProfile,backendId:standardDevices.backendId,ready:backendState.ready,endpointCount:backendState.endpointCount,readyEndpointCount:backendState.readyEndpointCount}};
+        const components={gateway:{state:'READY'},rooms:{state:roomState.available?'READY':'UNAVAILABLE',reason:roomState.available?null:roomState.reason,hubUrl:roomState.hubUrl},execution:{state:backendState.state,reason:backendState.reason,detail:backendState.detail,profile:executionProfile,backendId:standardDevices.backendId,ready:backendState.ready,endpointCount:backendState.endpointCount,readyEndpointCount:backendState.readyEndpointCount},artifacts:bridge.artifactStore()};
         // `execution` is deliberately excluded from the degraded calculation: having no device online at this
         // instant is a normal state of a peer-to-peer City, not a broken gateway, and folding it in would make a
         // supervisor unable to tell the two apart. The word is still reported, so it is visible where it matters.
+        // `artifacts` is excluded for the same reason: the theme lab is ONE capability, and a City that cannot
+        // persist theme builds is still a City that runs tasks, rooms and execution paths. Folding it in would let
+        // one stray file at <runtime>/theme-packages make every "is the process up?" probe call a live City dead.
         const degraded=components.gateway.state!=='READY'||components.rooms.state!=='READY';
         res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
         res.end(JSON.stringify(envelope({status:degraded?'degraded':'healthy',components})));
@@ -1185,7 +1188,9 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
           throw new ExperimentManifestError('REJECTED',`${result.record.issues.length} issue(s) in the submitted manifest`,result.record.issues);
         }
         if(!result.replayed)emit('RESEARCH_EXPERIMENT_REGISTERED',null,{experimentId:result.record.experimentId,topology:result.record.manifest.topology,repetitions:result.record.manifest.repetitions},'user');
-        out={registered:true,replayed:result.replayed,persisted:result.persisted,...result.record,research:researchFacts()};
+        // A manifest that was validated but could not be FILED says so: the refusal reason travels with the response
+        // instead of being dropped between the registry and the caller (found by this repair's own guard).
+        out={registered:true,replayed:result.replayed,persisted:result.persisted,...(result.persistFailure?{persistFailure:result.persistFailure}:{}),...result.record,research:researchFacts()};
       } else if(req.method==='POST'&&path==='/api/v0/research/experiments/validate'){
         const b=await body(req,65536);
         const verdict=experiments.validate(b.manifest??b);

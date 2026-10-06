@@ -8,7 +8,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DIMENSIONS, FACETS, FRESHNESS, OBSERVATION_SCHEMA_VERSION, PRESENCE, SAMPLE_REASONS, dimensionKeys, observeResources, freshnessAt, valueOrNull} from '../contracts/personal-compute-fabric-v1/observations.mjs';
 import {COLLECT_STATUS, createTelemetryCollector} from '../services/personal-compute-fabric/telemetry.mjs';
-import {ADAPTER_KINDS, UNSUPPORTED_ON_THIS_ADAPTER, createAdapterRegistry, createSystemAdapter} from '../services/personal-compute-fabric/adapters.mjs';
+import {ADAPTER_KINDS, UNSUPPORTED_ON_THIS_ADAPTER, createAdapterRegistry, createQueueAdapter, createRuntimeOccupancyAdapter, createSystemAdapter} from '../services/personal-compute-fabric/adapters.mjs';
 import {PROBE_REASONS, PROBE_STATUS, createPathProbe} from '../services/personal-compute-fabric/network-probe.mjs';
 
 const CONTEXT = {receivedAt: 1_000_000, bootId: 'boot-A', ttlMs: 1000, staleAfterMs: 3000, source: 'unit-test'};
@@ -335,6 +335,98 @@ test('PCF-701 T19: a probe that hangs or lies becomes a bounded failure with gro
   assert.equal(probe.paths()[0].consecutiveFailures, 0);
   // And the history is visible rather than overwritten.
   assert.ok(probe.paths()[0].failures >= 4, `failures must stay countable, saw ${probe.paths()[0].failures}`);
+});
+
+test('PCF-701 T20: throughput is measured by moving bytes, never inferred from latency', async () => {
+  const ticks = {t: 0};
+  const clock = {t: CONTEXT.receivedAt};
+  // 1 MiB in 100 monotonic ms = 10_485 760 B/s. The transfer reports its own elapsed time here.
+  const probe = createPathProbe({measure: async () => 5, transfer: async () => ({bytes: 1_048_576, elapsedMs: 100}), now: () => clock.t, monotonic: () => ticks.t, minIntervalMs: 0});
+  const measured = await probe.measureThroughput({from: 'mech', to: 'alien'}, {bytes: 1_048_576});
+  assert.equal(measured.status, PROBE_STATUS.MEASURED);
+  assert.equal(Math.round(measured.bytesPerSecond), 10_485_760);
+  assert.equal(measured.sample.networkThroughput.unit, 'bytes_per_second');
+  assert.equal(measured.sample.networkThroughput.source, 'path:mech->alien#throughput');
+  // Latency and throughput are SEPARATE facts: measuring one must not answer the other.
+  assert.equal(probe.rttOrNull({from: 'mech', to: 'alien'}), null, 'an unmeasured path has no latency even after a throughput run');
+  // A transfer that moves nothing, or a hang, is a FAILED measurement - never a 0 B/s path.
+  const empty = createPathProbe({measure: async () => 5, transfer: async () => ({bytes: 0, elapsedMs: 100}), now: () => clock.t, monotonic: () => ticks.t, minIntervalMs: 0});
+  const zero = await empty.measureThroughput({from: 'a', to: 'b'}, {bytes: 0});
+  assert.equal(zero.status, PROBE_STATUS.FAILED);
+  assert.equal(zero.reason, PROBE_REASONS.INVALID_RESULT);
+  assert.equal(zero.bytesPerSecond, null);
+  const hanging = createPathProbe({measure: async () => 5, transfer: async () => new Promise(() => {}), now: () => clock.t, monotonic: () => ticks.t, budgetMs: 20, minIntervalMs: 0});
+  const timedOut = await hanging.measureThroughput({from: 'a', to: 'b'}, {bytes: 1024});
+  assert.equal(timedOut.status, PROBE_STATUS.FAILED);
+  assert.equal(timedOut.reason, PROBE_REASONS.BUDGET_EXCEEDED);
+  assert.equal(timedOut.bytesPerSecond, null);
+  assert.ok(timedOut.backoffMs >= 1000, 'a failed throughput run must back off like any other failure');
+  // The measured value reaches the resource contract as its own dimension.
+  const observation = observeResources(measured.sample, CONTEXT);
+  assert.equal(Math.round(valueOrNull(observation, 'networkThroughput')), 10_485_760);
+});
+
+test('PCF-701 T21: a queue with no declared source is UNSUPPORTED, never zero', async () => {
+  const withoutSource = createQueueAdapter();
+  // Directly, because the registry skips an unavailable adapter's sample(): the branch that refuses to invent a count
+  // still has to be reachable, and the falsification set proved it was not (mutation M13 stayed green until this line).
+  const direct = await withoutSource.sample(CONTEXT.receivedAt);
+  assert.equal(direct.sample.queue, undefined, 'the adapter itself must refuse to invent a queue count');
+  assert.ok(direct.notes.some(note => /no queue source/i.test(note)));
+  const registry = createAdapterRegistry({adapters: [withoutSource], now: () => CONTEXT.receivedAt});
+  const collected = await registry.collect();
+  assert.equal(collected.sample.queue, undefined, 'no source means no value, not 0');
+  assert.ok(collected.unsupported.includes('queue'));
+  const observation = observeResources(collected.sample, {...CONTEXT, unsupported: collected.unsupported});
+  assert.equal(state(observation, 'queue').presence, PRESENCE.UNSUPPORTED);
+  assert.equal(valueOrNull(observation, 'queue'), null);
+  // With a declared source the same dimension carries a real count, and a nonsense count is refused rather than stored.
+  const withSource = createQueueAdapter({source: async () => 7});
+  const measured = await createAdapterRegistry({adapters: [withSource], now: () => CONTEXT.receivedAt}).collect();
+  assert.equal(measured.sample.queue.value, 7);
+  const lying = createQueueAdapter({source: async () => Number.NaN});
+  const refused = await createAdapterRegistry({adapters: [lying], now: () => CONTEXT.receivedAt}).collect();
+  assert.equal(refused.sample.queue, undefined, 'a NaN queue count must not become a value');
+  assert.ok(refused.unsupported.includes('queue'));
+});
+
+test('PCF-701 T22: occupancy is the runtime\u2019s own responsiveness, measured or declared unsupported', async () => {
+  const perf = await import('node:perf_hooks');
+  const adapter = createRuntimeOccupancyAdapter({perf});
+  const registry = createAdapterRegistry({adapters: [adapter], now: () => CONTEXT.receivedAt});
+  const collected = await registry.collect();
+  // Either the histogram has produced a real mean by now, or the dimension must be reported unsupported. What is
+  // forbidden is a fabricated 0 ms, which would claim perfect responsiveness from a window that never ran.
+  if (collected.sample.occupancy !== undefined) {
+    assert.ok(Number.isFinite(collected.sample.occupancy.value) && collected.sample.occupancy.value >= 0, 'a readable histogram yields a real delay');
+    const observation = observeResources(collected.sample, {...CONTEXT, unsupported: collected.unsupported});
+    assert.equal(state(observation, 'occupancy').unit, 'milliseconds');
+    assert.notEqual(state(observation, 'occupancy').value, undefined);
+  } else {
+    assert.ok(collected.unsupported.includes('occupancy'), 'a histogram with no readable mean must be named unsupported');
+    assert.ok(collected.notes.some(note => /not readable yet|unavailable/.test(note)), `the gap must carry a reason, saw ${JSON.stringify(collected.notes)}`);
+  }
+  adapter.stop();
+  // Without a histogram at all the adapter is unavailable, and the dimension is named rather than answered with 0 ms.
+  const blind = createRuntimeOccupancyAdapter({perf: {}});
+  assert.equal(blind.available(), false);
+  const blindCollected = await createAdapterRegistry({adapters: [blind], now: () => CONTEXT.receivedAt}).collect();
+  assert.equal(blindCollected.sample.occupancy, undefined);
+  assert.ok(blindCollected.unsupported.includes('occupancy'));
+  const observation = observeResources(blindCollected.sample, {...CONTEXT, unsupported: blindCollected.unsupported});
+  assert.equal(valueOrNull(observation, 'occupancy'), null, 'and the contract must not turn that gap into 0');
+  // A histogram that exists but cannot produce a mean yet is the case where a fabricated 0 ms would be most tempting
+  // ("responsive!"). Whatever the adapter does there, it may not hand on a number it did not measure.
+  const unreadable = createRuntimeOccupancyAdapter({perf: {monitorEventLoopDelay: () => ({mean: Number.NaN, enable() {}, disable() {}})}});
+  // Called directly for the same reason as T21's queue branch: the registry short-circuits an unavailable adapter, so
+  // only a direct call proves the branch that refuses to report a number it did not read (mutation M14 stayed green
+  // until this assertion existed).
+  const unreadableDirect = await unreadable.sample(CONTEXT.receivedAt);
+  assert.equal(unreadableDirect.sample.occupancy, undefined, 'an unreadable histogram must not yield 0 ms');
+  assert.ok(unreadableDirect.notes.some(note => /not readable|unavailable/i.test(note)));
+  const unreadableCollected = await createAdapterRegistry({adapters: [unreadable], now: () => CONTEXT.receivedAt}).collect();
+  assert.ok(unreadableCollected.sample.occupancy === undefined || unreadableCollected.unsupported.includes('occupancy'),
+    `an unreadable histogram must not yield a number it did not measure, saw ${JSON.stringify(unreadableCollected.sample.occupancy)}`);
 });
 
 test('PCF-701 T13: the same sample and context always produce the same observation (replayable)', () => {

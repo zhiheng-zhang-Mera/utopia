@@ -27,6 +27,10 @@ export const DIMENSIONS = Object.freeze({
   networkThroughput: {unit: 'bytes_per_second', min: 0},
   battery: {unit: 'ratio', min: 0, max: 1},
   thermal: {unit: 'celsius'},
+  /** OCCUPANCY is the runtime's own responsiveness, measured as event-loop delay in milliseconds. It is a real,
+   *  honest signal the executor can read about itself, and it is deliberately NOT a stand-in for a queue length:
+   *  a queue only exists once somebody defines what is in it (see adapters.mjs). */
+  occupancy: {unit: 'milliseconds', min: 0},
 });
 
 /** OBSERVED = a number we read; ESTIMATED = derived from other measurements; DECLARED = the user or config said so;

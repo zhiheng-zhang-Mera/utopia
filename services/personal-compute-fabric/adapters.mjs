@@ -64,6 +64,53 @@ export const createSystemAdapter = ({os = {totalmem, freemem, cpus, loadavg, pla
 });
 
 /**
+ * QUEUE HAS NO DEFAULT SOURCE, ON PURPOSE. "The queue" only means something once somebody says what is queued, so this
+ * factory requires an explicit `source` and is UNAVAILABLE without one - which makes `queue` report UNSUPPORTED rather
+ * than a fabricated 0. A collector that guessed "queue: 0" would tell a placement decision the device is idle.
+ */
+export const createQueueAdapter = ({source, id = 'queue-source'} = {}) => ({
+  id,
+  kind: ADAPTER_KINDS.OPTIONAL,
+  dimensions: ['queue'],
+  unsupported: [],
+  available: () => typeof source === 'function',
+  async sample(receivedAt) {
+    if (typeof source !== 'function') return {sample: {}, notes: ['no queue source declared']};
+    const value = await source();
+    if (!Number.isFinite(value) || value < 0) return {sample: {}, notes: [`queue source returned ${JSON.stringify(value)}`]};
+    return {sample: {queue: {value, unit: 'count', observedAt: receivedAt, source: id}}, notes: []};
+  },
+});
+
+/**
+ * OCCUPANCY IS THE RUNTIME'S OWN RESPONSIVENESS, read from the event-loop delay histogram the platform provides. It is
+ * measured, not inferred; when the platform cannot provide it the dimension stays unsupported instead of being
+ * reported as 0 ms, because 0 ms means "perfectly responsive" - a claim, not a gap.
+ */
+export const createRuntimeOccupancyAdapter = ({perf, id = 'node-event-loop'} = {}) => {
+  const histogram = perf?.monitorEventLoopDelay ? perf.monitorEventLoopDelay({resolution: 10}) : null;
+  let enabled = false;
+  // Enabled eagerly: a histogram reads NaN until it has been running, and a dimension whose window has not started yet
+  // must be reported unsupported rather than as 0 ms (which would claim perfect responsiveness).
+  if (histogram?.enable) { try { histogram.enable(); enabled = true; } catch { /* left disabled; available() then answers false */ } }
+  return {
+    id,
+    kind: ADAPTER_KINDS.SYSTEM,
+    dimensions: ['occupancy'],
+    unsupported: [],
+    available: () => Boolean(histogram) && Number.isFinite(histogram.mean),
+    async sample(receivedAt) {
+      if (!histogram) return {sample: {}, notes: ['event-loop delay histogram unavailable on this runtime']};
+      if (!enabled && histogram.enable) { try { histogram.enable(); enabled = true; } catch { /* report the gap instead */ } }
+      const meanMs = histogram.mean / 1e6; // nanoseconds -> milliseconds
+      if (!Number.isFinite(meanMs) || meanMs < 0) return {sample: {}, notes: [`event-loop delay not readable yet: ${meanMs}`]};
+      return {sample: {occupancy: {value: meanMs, unit: 'milliseconds', observedAt: receivedAt, source: id}}, notes: []};
+    },
+    stop: () => { if (enabled && histogram?.disable) { histogram.disable(); enabled = false; } },
+  };
+};
+
+/**
  * @param adapters available adapters; an adapter whose `available()` answers false is not sampled but its dimensions
  *                 are still reported as unsupported, so the gap keeps its name.
  */

@@ -51,7 +51,11 @@ test('MON990 review R1: an unusable decision store is STATED on the surface, nev
     await page.locator('.monitor-panel[data-loaded="true"]').waitFor();
     const link = page.locator('#view [data-page="Decisions"]');
     await link.click({timeout: 4000});
-    await page.locator('#monitor-decisions').waitFor();
+    // WAIT FOR THE PROJECTION, NOT FOR THE SHELL. The first version of this probe waited for `#monitor-decisions`,
+    // which exists as soon as the page mounts with `data-loaded="false"`; on this reviewer's machine the fetch had
+    // already resolved by then so the probe passed, and in CI it had not so the probe failed. That is the same
+    // measurement defect MON-902's own browser probe had, found the same way - by CI disagreeing with a local pass.
+    await page.locator('#monitor-decisions[data-loaded="true"]').waitFor();
     const text = await page.locator('#monitor-decisions').innerText();
     assert.match(text, /unavailable|not available|NOT_MEASURED|cannot/i,
       `the decision store is unusable and the surface says only: ${text.slice(0, 240)}`);

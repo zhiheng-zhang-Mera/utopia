@@ -36,6 +36,18 @@ export const PRESENCE = Object.freeze({OBSERVED: 'OBSERVED', ESTIMATED: 'ESTIMAT
 /** FRESH/STALE/EXPIRED come from age against the TTL; UNKNOWN means the age itself could not be established. */
 export const FRESHNESS = Object.freeze({FRESH: 'FRESH', STALE: 'STALE', EXPIRED: 'EXPIRED', UNKNOWN: 'UNKNOWN'});
 
+/** TOTAL, FREE, RESERVED and IN-USE are different facts about one resource, so they travel as separate facets
+ *  (`memory.free`) instead of being folded into a single number: one "memory: 8" would let a placement decision read
+ *  reserved capacity as available, which is exactly what the workbook's "distinguish total/free/reserved/in-use"
+ *  requirement forbids. Each facet is validated on its own, so an unreadable `free` cannot invalidate a good `total`. */
+export const FACETS = Object.freeze({memory: ['total', 'free', 'reserved', 'inUse'], disk: ['total', 'free', 'reserved', 'inUse']});
+export const FACET_SEPARATOR = '.';
+/** The full key set a sample may carry: the nine base dimensions plus every declared facet key. */
+export const dimensionKeys = () => [
+  ...Object.keys(DIMENSIONS),
+  ...Object.entries(FACETS).flatMap(([base, facets]) => facets.map(facet => `${base}${FACET_SEPARATOR}${facet}`)),
+].sort();
+
 export const SAMPLE_REASONS = Object.freeze({
   MISSING_VALUE: 'MISSING_VALUE',
   NOT_A_NUMBER: 'NOT_A_NUMBER',
@@ -47,6 +59,7 @@ export const SAMPLE_REASONS = Object.freeze({
   UNKNOWN_DIMENSION: 'UNKNOWN_DIMENSION',
   CLOCK_ROLLBACK: 'CLOCK_ROLLBACK',
   NO_ADAPTER: 'NO_ADAPTER',
+  FACET_INCONSISTENT: 'FACET_INCONSISTENT',
 });
 
 export class ObservationError extends Error {
@@ -167,9 +180,75 @@ export const observeResources = (sample = {}, context = {}) => {
     };
   }
 
+  // FACETS. `memory.total`, `memory.free`, `memory.reserved`, `memory.inUse` (and the same for disk) are first-class
+  // states with their own value, age, sequence and reason. They are accepted either as explicit `memory.total` keys
+  // or inside a `memory.facets` object; both spellings are validated identically, and each facet fails alone.
+  for (const [base, facetNames] of Object.entries(FACETS)) {
+    const spec = DIMENSIONS[base];
+    const container = sample[base];
+    const declared = container && typeof container === 'object' && container.facets && typeof container.facets === 'object' ? container.facets : {};
+    for (const facet of facetNames) {
+      const key = `${base}${FACET_SEPARATOR}${facet}`;
+      const prev = previous?.dimensions?.[key] ?? null;
+      const previousAgeMs = prev && isFiniteNumber(prev.ageMs) ? prev.ageMs : null;
+      const explicit = sample[key];
+      const source = explicit !== undefined
+        ? (typeof explicit === 'number' ? {value: explicit, unit: spec.unit} : explicit)
+        : (facet in declared ? {value: declared[facet], unit: container.unit, observedAt: container.observedAt, sequence: container.sequence, bootId: container.bootId, source: container.source} : null);
+      if (source === null || source === undefined) {
+        // An absent facet is UNKNOWN, never 0, and never silently equal to the base reading.
+        dimensions[key] = blankState(spec, {dimension: key, presence: PRESENCE.UNKNOWN, reason: SAMPLE_REASONS.MISSING_VALUE, receivedAt, ttlMs});
+        counters.unknown += 1;
+        continue;
+      }
+      const value = source.value;
+      const unit = source.unit ?? spec.unit;
+      const observedAt = isFiniteNumber(source.observedAt) ? source.observedAt : receivedAt;
+      const seq = isFiniteNumber(source.sequence) ? source.sequence : null;
+      const recordBootId = source.bootId ?? bootId;
+      const rejectFacet = reason => {
+        counters.rejected += 1;
+        dimensions[key] = blankState(spec, {dimension: key, reason, presence: PRESENCE.UNKNOWN, observedAt, seq, receivedAt, ttlMs, ageMs: ageOf(observedAt, receivedAt, previousAgeMs)});
+      };
+      if (bootId !== null && recordBootId !== null && recordBootId !== bootId) { rejectFacet(SAMPLE_REASONS.REBOOT_EPOCH); continue; }
+      if (value === undefined || value === null) { rejectFacet(SAMPLE_REASONS.MISSING_VALUE); continue; }
+      if (!isFiniteNumber(value)) { rejectFacet(SAMPLE_REASONS.NOT_A_NUMBER); continue; }
+      if (value < 0) { rejectFacet(SAMPLE_REASONS.NEGATIVE); continue; }
+      if (unit !== spec.unit) { rejectFacet(SAMPLE_REASONS.WRONG_UNIT); continue; }
+      if (seq !== null && prev && isFiniteNumber(prev.sequence) && seq < prev.sequence) { counters.outOfOrder += 1; rejectFacet(SAMPLE_REASONS.OUT_OF_ORDER); continue; }
+      if (observedAt > receivedAt) { rejectFacet(SAMPLE_REASONS.CLOCK_ROLLBACK); continue; }
+      const ageMs = ageOf(observedAt, receivedAt, previousAgeMs);
+      counters.accepted += 1;
+      latestObservedAt = latestObservedAt === null ? observedAt : Math.max(latestObservedAt, observedAt);
+      dimensions[key] = {
+        dimension: key, value, unit,
+        presence: PRESENCE.OBSERVED,
+        freshness: freshnessOf(ageMs, ttlMs, staleAfterMs, clockRollback),
+        ageMs, observedAt, receivedAt, sequence: seq,
+        source: source.source ?? context.source ?? null,
+        ttlMs,
+        reason: clockRollback ? SAMPLE_REASONS.CLOCK_ROLLBACK : undefined,
+      };
+    }
+    // A free figure larger than its own total is not two usable numbers: both lose their value and carry the
+    // contradiction, with the raw pair kept for diagnosis. Handing them on would let a caller compute a negative
+    // "used" and place work on a full device.
+    const totalState = dimensions[`${base}${FACET_SEPARATOR}total`];
+    const freeState = dimensions[`${base}${FACET_SEPARATOR}free`];
+    if (isFiniteNumber(totalState?.value) && isFiniteNumber(freeState?.value) && freeState.value > totalState.value) {
+      const raw = {total: totalState.value, free: freeState.value};
+      for (const key of [`${base}${FACET_SEPARATOR}total`, `${base}${FACET_SEPARATOR}free`]) {
+        dimensions[key] = {...dimensions[key], value: null, presence: PRESENCE.UNKNOWN, reason: SAMPLE_REASONS.FACET_INCONSISTENT, raw};
+      }
+      counters.accepted -= 2;
+      counters.rejected += 2;
+    }
+  }
+
   // A dimension the sample carries that this contract does not know: recorded as UNSUPPORTED, never silently dropped.
+  const declaredFacetKeys = new Set(Object.entries(FACETS).flatMap(([base, facets]) => facets.map(facet => `${base}${FACET_SEPARATOR}${facet}`)));
   for (const [dimension, record] of Object.entries(sample)) {
-    if (DIMENSIONS[dimension]) continue;
+    if (DIMENSIONS[dimension] || declaredFacetKeys.has(dimension)) continue;
     counters.unsupported += 1;
     dimensions[dimension] = {
       dimension, value: null, unit: typeof record === 'object' && record ? record.unit ?? null : null,

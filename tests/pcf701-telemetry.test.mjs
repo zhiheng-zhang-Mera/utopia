@@ -6,8 +6,10 @@
 // buffered samples without saying so. Every test here is written so that it FAILS if the corresponding lie comes back.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {DIMENSIONS, FRESHNESS, OBSERVATION_SCHEMA_VERSION, PRESENCE, SAMPLE_REASONS, observeResources, freshnessAt, valueOrNull} from '../contracts/personal-compute-fabric-v1/observations.mjs';
+import {DIMENSIONS, FACETS, FRESHNESS, OBSERVATION_SCHEMA_VERSION, PRESENCE, SAMPLE_REASONS, dimensionKeys, observeResources, freshnessAt, valueOrNull} from '../contracts/personal-compute-fabric-v1/observations.mjs';
 import {COLLECT_STATUS, createTelemetryCollector} from '../services/personal-compute-fabric/telemetry.mjs';
+import {ADAPTER_KINDS, UNSUPPORTED_ON_THIS_ADAPTER, createAdapterRegistry, createSystemAdapter} from '../services/personal-compute-fabric/adapters.mjs';
+import {PROBE_REASONS, PROBE_STATUS, createPathProbe} from '../services/personal-compute-fabric/network-probe.mjs';
 
 const CONTEXT = {receivedAt: 1_000_000, bootId: 'boot-A', ttlMs: 1000, staleAfterMs: 3000, source: 'unit-test'};
 const state = (observation, dimension) => observation.dimensions[dimension];
@@ -93,8 +95,9 @@ test('PCF-701 T5: freshness at a later time expires, and a rewound caller clock 
   assert.equal(state(stale, 'cpu').freshness, FRESHNESS.EXPIRED);
   assert.equal(freshnessAt(stale, CONTEXT.receivedAt - 99_999).cpu, FRESHNESS.EXPIRED);
   assert.notEqual(freshnessAt(stale, CONTEXT.receivedAt - 99_999).cpu, FRESHNESS.FRESH);
-  // And freshnessAt never re-derives a value, only a freshness verdict.
-  assert.equal(Object.keys(freshnessAt(observation, CONTEXT.receivedAt)).length, Object.keys(DIMENSIONS).length);
+  // And freshnessAt never re-derives a value, only a freshness verdict - over every declared key, facets included.
+  assert.equal(Object.keys(freshnessAt(observation, CONTEXT.receivedAt)).length, dimensionKeys().length);
+  assert.ok(dimensionKeys().length > Object.keys(DIMENSIONS).length, 'the facet keys must be part of the declared key set');
 });
 
 test('PCF-701 T6: an absent optional adapter is UNSUPPORTED, not zero', () => {
@@ -200,7 +203,138 @@ test('PCF-701 T12: only authorised surfaces are ever looked at', () => {
   // The collector states its surfaces, so an auditor can diff them against the workbook instead of trusting prose.
   const collector = createTelemetryCollector({sample: () => ({cpu: 0.1}), now: () => CONTEXT.receivedAt, minIntervalMs: 0});
   collector.ingest({cpu: 0.1});
-  assert.deepEqual([...collector.inspectedSurfaces()].sort(), Object.keys(DIMENSIONS).sort());
+  assert.deepEqual([...collector.inspectedSurfaces()].sort(), dimensionKeys());
+});
+
+test('PCF-701 T14: total, free, reserved and in-use are separate facts, and one bad facet fails alone', () => {
+  const observation = observeResources({
+    memory: {unit: 'bytes', observedAt: CONTEXT.receivedAt, facets: {total: 8_000, free: 3_000, reserved: 1_000, inUse: Number.NaN}},
+    disk: {unit: 'bytes', observedAt: CONTEXT.receivedAt, facets: {total: 100, free: 40}},
+  }, CONTEXT);
+  assert.equal(valueOrNull(observation, 'memory.total'), 8_000);
+  assert.equal(valueOrNull(observation, 'memory.free'), 3_000);
+  assert.equal(valueOrNull(observation, 'memory.reserved'), 1_000);
+  // The NaN in-use did not damage the three good facets, and it did not become 0 either.
+  assert.equal(state(observation, 'memory.inUse').reason, SAMPLE_REASONS.NOT_A_NUMBER);
+  assert.equal(state(observation, 'memory.inUse').value, null);
+  assert.notEqual(state(observation, 'memory.inUse').value, 0);
+  // A facet the sample omits is UNKNOWN rather than a copy of the base reading.
+  assert.equal(state(observation, 'disk.reserved').presence, PRESENCE.UNKNOWN);
+  assert.equal(state(observation, 'disk.reserved').reason, SAMPLE_REASONS.MISSING_VALUE);
+  // The declared key set now includes the facets, and the base dimensions are still there.
+  assert.ok(dimensionKeys().includes('memory.free') && dimensionKeys().includes('disk.total'));
+  assert.deepEqual(Object.keys(FACETS).sort(), ['disk', 'memory']);
+  // A single "memory" number is never claimed: the facets are the reading.
+  assert.equal(valueOrNull(observation, 'memory'), null);
+});
+
+test('PCF-701 T15: a free figure larger than its total is refused as two unusable numbers', () => {
+  const observation = observeResources({memory: {unit: 'bytes', observedAt: CONTEXT.receivedAt, facets: {total: 1_000, free: 5_000}}}, CONTEXT);
+  for (const key of ['memory.total', 'memory.free']) {
+    assert.equal(state(observation, key).reason, SAMPLE_REASONS.FACET_INCONSISTENT, `${key} must carry the contradiction`);
+    assert.equal(state(observation, key).value, null, `${key} must not be handed on as a usable number`);
+    assert.deepEqual(state(observation, key).raw, {total: 1_000, free: 5_000}, `${key} keeps the raw pair for diagnosis`);
+  }
+  assert.equal(valueOrNull(observation, 'memory.total'), null);
+});
+
+test('PCF-701 T16: the system adapter reports what it can read and names what it cannot', async () => {
+  const adapter = createSystemAdapter();
+  const {sample, notes} = await adapter.sample(CONTEXT.receivedAt);
+  // Whatever the host can read must be a real number, never a placeholder zero: on this machine memory is readable.
+  const total = sample.memory?.facets?.total;
+  const free = sample.memory?.facets?.free;
+  assert.ok(Number.isFinite(total) && total > 0, `memory.total must be a real reading (got ${total})`);
+  assert.ok(Number.isFinite(free) && free >= 0, `memory.free must be a real reading (got ${free})`);
+  assert.ok(total >= free, 'total must not be smaller than free');
+  assert.equal(sample.memory.value, undefined, 'the adapter must not claim one combined memory number');
+  if (sample.cpu) assert.ok(sample.cpu.value >= 0 && sample.cpu.value <= 1, 'cpu is a clamped demand ratio');
+  // Hardware this adapter does not talk to is DECLARED, so it is reported rather than omitted.
+  assert.deepEqual([...UNSUPPORTED_ON_THIS_ADAPTER].sort(), ['battery', 'networkRtt', 'networkThroughput', 'thermal', 'vram']);
+  const registry = createAdapterRegistry({adapters: [adapter], now: () => CONTEXT.receivedAt});
+  const collected = await registry.collect();
+  assert.ok(collected.unsupported.includes('vram') && collected.unsupported.includes('battery'), 'absent hardware must be reported UNSUPPORTED');
+  assert.ok(!collected.unsupported.includes('memory'), 'memory was read, so it must not be reported unsupported');
+  // Through the contract, the unsupported dimensions keep their name and carry no value.
+  const observation = observeResources(collected.sample, {...CONTEXT, unsupported: collected.unsupported});
+  assert.equal(state(observation, 'vram').presence, PRESENCE.UNSUPPORTED);
+  assert.equal(valueOrNull(observation, 'vram'), null);
+  assert.ok(valueOrNull(observation, 'memory.total') > 0, 'the real readings survive alongside the declared gaps');
+  assert.ok(Array.isArray(notes));
+});
+
+test('PCF-701 T17: an unavailable adapter keeps its dimensions named instead of dropping them', async () => {
+  const absent = {id: 'gpu-vendor-tool', kind: ADAPTER_KINDS.OPTIONAL, dimensions: ['vram'], unsupported: [], available: () => false, sample: () => ({vram: {value: 999, unit: 'bytes'}})};
+  const registry = createAdapterRegistry({adapters: [absent], now: () => CONTEXT.receivedAt});
+  const collected = await registry.collect();
+  assert.ok(collected.unsupported.includes('vram'), 'an unavailable adapter must name its dimensions');
+  assert.equal(collected.sample.vram, undefined, 'an unavailable adapter must not contribute a value');
+  assert.ok(collected.notes.some(note => note.includes('unavailable')));
+  const observation = observeResources(collected.sample, {...CONTEXT, unsupported: collected.unsupported});
+  assert.equal(valueOrNull(observation, 'vram'), null, 'and the contract must not turn the gap into 0');
+});
+
+test('PCF-701 T18: latency belongs to a PATH, and an unmeasured path is never 0 ms', async () => {
+  const clock = {t: CONTEXT.receivedAt};
+  const ticks = {t: 0};
+  const probe = createPathProbe({measure: async () => 12.5, now: () => clock.t, monotonic: () => ticks.t, minIntervalMs: 1000});
+  // Never measured yet: UNKNOWN, not zero.
+  assert.equal(probe.rttOrNull({from: 'mech', to: 'alien'}), null);
+  const first = await probe.measurePath({from: 'mech', to: 'alien'});
+  assert.equal(first.status, PROBE_STATUS.MEASURED);
+  assert.equal(first.rttMs, 12.5);
+  assert.equal(probe.paths()[0].status, PROBE_STATUS.MEASURED);
+  // A different path is a different fact, and it stays unmeasured.
+  assert.equal(probe.rttOrNull({from: 'mech', to: 'phone'}), null);
+  // Throttled: the second attempt inside the window does not re-probe.
+  clock.t += 100;
+  const throttled = await probe.measurePath({from: 'mech', to: 'alien'});
+  assert.equal(throttled.status, PROBE_STATUS.THROTTLED);
+  assert.equal(throttled.rttMs, null, 'a throttled probe must not repeat the previous number as if it were fresh');
+  assert.equal(probe.paths().length, 1, 'only the measured path exists in the state');
+  // The sample a measured path yields is what the resource contract consumes, with the path as its source.
+  assert.equal(first.sample.networkRtt.source, 'path:mech->alien');
+  const observation = observeResources(first.sample, CONTEXT);
+  assert.equal(valueOrNull(observation, 'networkRtt'), 12.5);
+  assert.equal(state(observation, 'networkRtt').source, 'path:mech->alien');
+});
+
+test('PCF-701 T19: a probe that hangs or lies becomes a bounded failure with growing backoff', async () => {
+  const clock = {t: CONTEXT.receivedAt};
+  let mode = 'hang';
+  const probe = createPathProbe({
+    measure: async () => { if (mode === 'hang') return new Promise(() => {}); if (mode === 'lie') return 'fast'; return 4; },
+    now: () => clock.t, monotonic: () => clock.t, budgetMs: 20, minIntervalMs: 0, backoffBaseMs: 1000, maxBackoffMs: 4000,
+  });
+  const started = Date.now();
+  const timedOut = await probe.measurePath({from: 'a', to: 'b'});
+  assert.equal(timedOut.status, PROBE_STATUS.TIMEOUT, 'a hung probe must become a bounded TIMEOUT');
+  assert.ok(Date.now() - started < 1000, 'and it must not hold the caller for the probe\u2019s lifetime');
+  assert.equal(timedOut.rttMs, null, 'a timeout is not a latency');
+  assert.equal(timedOut.backoffMs, 1000, 'the first failure sets the base backoff');
+  // A non-numeric answer is an INVALID_RESULT failure, never a 0 ms path and never a accepted string.
+  mode = 'lie';
+  clock.t += 5000;
+  const lied = await probe.measurePath({from: 'a', to: 'b'});
+  assert.equal(lied.status, PROBE_STATUS.FAILED);
+  assert.equal(lied.reason, PROBE_REASONS.INVALID_RESULT);
+  assert.equal(lied.rttMs, null);
+  assert.equal(lied.backoffMs, 2000, 'consecutive failures double the backoff');
+  // Backoff is capped, and a success resets both the backoff and the failure streak.
+  mode = 'hang';
+  clock.t += 10_000;
+  await probe.measurePath({from: 'a', to: 'b'});
+  clock.t += 20_000;
+  const capped = await probe.measurePath({from: 'a', to: 'b'});
+  assert.equal(capped.backoffMs, 4000, 'backoff must be capped rather than growing without bound');
+  mode = 'ok';
+  clock.t += 60_000;
+  const recovered = await probe.measurePath({from: 'a', to: 'b'});
+  assert.equal(recovered.status, PROBE_STATUS.MEASURED);
+  assert.equal(recovered.backoffMs, 0, 'a success clears the backoff');
+  assert.equal(probe.paths()[0].consecutiveFailures, 0);
+  // And the history is visible rather than overwritten.
+  assert.ok(probe.paths()[0].failures >= 4, `failures must stay countable, saw ${probe.paths()[0].failures}`);
 });
 
 test('PCF-701 T13: the same sample and context always produce the same observation (replayable)', () => {

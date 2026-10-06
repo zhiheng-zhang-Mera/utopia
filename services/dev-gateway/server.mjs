@@ -8,7 +8,11 @@ import { randomUUID, randomBytes as randomBytesBytes, timingSafeEqual } from 'no
 import { WebSocketServer } from 'ws';
 import { Store } from './store.mjs';
 import {createObservation} from './observation.mjs';
+// MON-902: the overview graph builder. It is a pure function of ONE observation view, so the graph route reuses the
+// monitor's single-flight projection instead of inventing a second canonical read path.
 import {buildGraph} from './monitor-graph.mjs';
+import {createExecutionProfileController} from './execution-profile.mjs';
+import {createTraceCollector} from '../research-trace/index.mjs';
 import { Pairing } from './pairing.mjs';
 // JOIN-503: device enrollment and tokenless routine reconnect. The registrar is a seam over the City's own
 // RF-001 identity lifecycle (see services/dev-gateway/enrollment.mjs) - it mints installation credentials, issues
@@ -52,9 +56,30 @@ import { STRICT_TARGET_FIELD, TARGET_REASONS, classifyTarget, claimAllowedByTarg
 // here. Utopia's own policy travels as data (REQUIRED_TASK_CAPABILITIES and
 // claimNodeFor below), so this is an equivalence-preserving rewiring, not a new rule.
 import { acceptsWork } from '../../city/00-foundation/01-city-core/fleet-routing/index.mjs';
+// WBC-602: the Node Role / Capability / Resource descriptor. Pure, additive and read-only: it projects a node
+// record that already exists into the shape a capability/resource scheduler would need, and translates a record
+// written before the contract into a conservative one. It schedules nothing and owns no state.
+import { describeLegacyNode, availabilityFrom, NODE_ROLES } from '../../contracts/node-descriptor-v1/node-descriptor.mjs';
+// REX-801: the experiment manifest contract and its registry. A manifest describes an experiment that is meant
+// to be reproducible; it owns no work, grants no fault authority, and never invents a default for a missing
+// field. The registry is file-backed and lives outside the task-keyed City store on purpose.
+import { createExperimentRegistry } from './research/registry.mjs';
+import { ARTIFACT_RETENTION, SEED_POLICIES, STOP_CONDITION_KINDS, TOPOLOGIES, ExperimentManifestError } from '../../contracts/experiment-manifest-v1/manifest.mjs';
 // City Core (MB-006). Whether work interrupted by a restart may resume is decided by the
 // migrated checkpoint-gate module instead of an inline state test.
 import { checkpointGate, unboundCheckpointPort } from '../../city/02-engineering/04-restart-recovery-station/checkpoint-gate/index.mjs';
+// WBC-601: the execution backend seam. The Windows Alien/Mech path is now an *implementation* of a versioned
+// port (`execution-backend-v1`) rather than the only shape execution can take, so a future Workbench node pool
+// is a second registration instead of a rewrite of this file. What matters here is what did NOT change: the
+// claim/report decisions below are still the frozen ones, evaluated in the same order by the same functions,
+// and `STANDARD_DEVICES` is enabled unconditionally so no configuration can make the current path unavailable.
+import {
+  DEFAULT_EXECUTION_PROFILE,
+  createExecutionBackendRegistry,
+  describeExecutionBackend,
+} from '../../contracts/execution-backend-v1/execution-backend.mjs';
+import { createStandardDevicesBackend } from './execution-backend/standard-devices.mjs';
+import { createWorkerPoolBackend } from './execution-backend/worker-pool.mjs';
 
 const now=()=>new Date().toISOString();
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
@@ -74,11 +99,12 @@ const claimNodeFor=n=>({nodeId:n.id,state:n.online?'READY':'OFFLINE',capabilitie
 // enrollment registry reads the second. Dropping either one produces a ReferenceError at request time rather than
 // at load time, which is why this is stated here: the first attempt at this merge kept only `deviceClock` and every
 // JOIN-502 test failed with "nearbyTimeoutMs is not defined".
-export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',token,nodeToken,heartbeatTimeout=8000,pairingClock=Date.now,pairingTtlMs=300000,discoveryEnabled=false,nearbyTimeoutMs=2000,roomHubUrl=process.env.CITY_ROOMS_URL,roomsDisabled=process.env.CITY_ROOMS_DISABLED==='1',hostId=process.env.CITY_HOST_ID,roomFetch,deviceClock=Date.now,hostDeviceId:requestedHostDeviceId,hostJoin=null}) {
+export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',token,nodeToken,heartbeatTimeout=8000,pairingClock=Date.now,pairingTtlMs=300000,discoveryEnabled=false,nearbyTimeoutMs=2000,roomHubUrl=process.env.CITY_ROOMS_URL,roomsDisabled=process.env.CITY_ROOMS_DISABLED==='1',hostId=process.env.CITY_HOST_ID,roomFetch,deviceClock=Date.now,hostDeviceId:requestedHostDeviceId,hostJoin=null,researchTraceStorage,researchTraceSoftwareRefs={}}) {
   if(!token||!nodeToken||token===nodeToken) throw new Error('Separate control and node tokens are required');
   if(host==='0.0.0.0'||host==='::') throw new Error('Configure an explicit loopback or LAN interface');
   const store=new Store(dir); const wss=new WebSocketServer({noServer:true}); let closed=false;
   const observation=createObservation({read:()=>store.observationWindow()});
+  const researchTrace=createTraceCollector({directory:resolve(dir,'research-trace'),sourceStreamRef:store.cityId,storage:researchTraceStorage,softwareRefs:researchTraceSoftwareRefs});
   // MESH-301: WHICH control surfaces are attached to this City, and what each of them calls itself.
   //
   // The identity is declared on the event-stream handshake and travels in the CLIENT_CONNECTED /
@@ -156,7 +182,10 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // the surfaces disagreeing about a request a human is being asked to decide.
   let join=null;
   const telemetry=b=>{if(b.telemetry===undefined)return {};if(b.telemetry===null)return {telemetry:null};try{validateTelemetry(b.telemetry);return {telemetry:b.telemetry};}catch(e){fail(400,e.message);}};
-  const emit=(type,id,payload,actor)=>{const e=store.event(type,id,payload,actor); for(const c of wss.clients) if(c.readyState===1)c.send(JSON.stringify(envelope({event:e})));return e;};
+  const observeResources=b=>{if(!b.telemetry)return;researchTrace.record({eventId:'resource-'+randomUUID(),type:'RESOURCE_OBSERVATION',timestamp:b.telemetry.observedAt,sourceClock:'EXTERNAL_DECLARED_WALL_UTC',canonicalRefs:{nodeRef:b.id},metrics:{cpuPercent:b.telemetry.cpu.usagePercent,memoryBytes:b.telemetry.memory?.usedBytes??null}});};
+  let transactionTrace=null;
+  const atomicWithTrace=fn=>{const staged=[];transactionTrace=staged;try{const result=store.atomic(fn);transactionTrace=null;for(const event of staged)researchTrace.captureCanonical(event);return result;}finally{transactionTrace=null;}};
+  const emit=(type,id,payload,actor)=>{const e=store.event(type,id,payload,actor);if(transactionTrace)transactionTrace.push(e);else researchTrace.captureCanonical(e);for(const c of wss.clients) if(c.readyState===1)c.send(JSON.stringify(envelope({event:e})));return e;};
   join=createJoinRequests({file:resolve(dir,'join-requests.json'),clock:pairingClock,credential:token,onChange:(kind,view)=>{
     const type={created:'JOIN_REQUEST_CREATED',approved:'JOIN_REQUEST_APPROVED',rejected:'JOIN_REQUEST_REJECTED',consumed:'JOIN_REQUEST_CONSUMED',updated:'JOIN_REQUEST_UPDATED'}[kind]||'JOIN_REQUEST_UPDATED';
     // The payload is the bounded public row: no claim digest, no secret, nothing that becomes a
@@ -260,7 +289,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
     // A forwarded frame returns work to RUN rather than a promise to await: the socket handler must not block on a
     // slow peer, and the asking peer's own wait is bounded by the hub's request timeout.
     if(result&&typeof result.settleLater==='function')result.settleLater().then(outcome=>{if(outcome?.delivered!==true)console.warn('relay answer not delivered',outcome?.reason);}).catch(error=>console.error('relay forward failed',error?.stack??error));}).catch(error=>console.error('relay frame failed',error?.stack??error));};
-  const change=(task,state,patch={},event='TASK_'+state)=>store.atomic(()=>{Object.assign(task,patch,{state,updatedAt:now()});store.put('tasks',task);emit(event,task.id,{state,progress:task.progress,...patch},task.assignedNodeId||'gateway');return task;});
+  const change=(task,state,patch={},event='TASK_'+state)=>atomicWithTrace(()=>{Object.assign(task,patch,{state,updatedAt:now()});store.put('tasks',task);emit(event,task.id,{state,progress:task.progress,...patch},task.assignedNodeId||'gateway');return task;});
   // City Core (MB-006). Whether work interrupted by a restart may resume is decided by the
   // migrated checkpoint-gate module, not by an inline state test. Utopia's policy travels as
   // data: a task that was still QUEUED never started, so no checkpoint is required and the
@@ -359,6 +388,39 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // Product closeout (T1–T3). The Room Hub is reached over loopback only, and the Action
   // facade is the single user-facing record over Rooms, capabilities and City tasks.
   const rooms=createRoomPack({baseUrl:roomHubUrl,disabled:roomsDisabled,fetchImpl:roomFetch});
+  // WBC-602: the Node Role / Capability / Resource descriptor, projected READ-ONLY.
+  //
+  // WHY A PROJECTION AND NOT A STORED RECORD. A descriptor derived from the node's current liveness, sharing
+  // flag and telemetry would go stale the moment the next heartbeat landed, and a stale descriptor stored
+  // beside the canonical record is exactly how a second, disagreeing truth starts. So the canonical node
+  // record stays the only stored node truth, and the descriptor is computed from it at read time.
+  //
+  // WHY IT IS ADDITIVE. The raw `nodes` list is untouched; `nodeDescriptors` is a new sibling field. A surface
+  // that does not know about descriptors sees precisely what it saw before, and a node record written before
+  // this contract existed still translates (roles from LEGACY_DEFAULT, unknown resources as UNKNOWN rather than
+  // zero). `availabilityFrom` is told the fleet-routing verdict rather than deriving one, because whether a node
+  // accepts work is already decided in one place and this file must not grow a second opinion about it.
+  const ableNode=n=>acceptsWork(claimNodeFor(n),{requiredCapabilities:REQUIRED_TASK_CAPABILITIES})===true;
+  const nodeDescriptors=()=>store.list('nodes').map(node=>{
+    const able=ableNode(node);
+    const busy=store.list('tasks').some(task=>task.assignedNodeId===node.id&&!terminal.includes(task.state));
+    // DEFECT FOUND BY THIS TASK'S OWN TEST, REPAIRED HERE. The first version of this projection passed the
+    // Core's verdict straight through, so a device whose owner had withdrawn sharing reported
+    // `acceptingWork: true` beside `sharingEnabled: false` — a descriptor that contradicts itself on the one
+    // question a scheduler reads it for. `acceptingWork` is now the conjunction the claim path actually
+    // applies: the Core accepts this node AND its owner still shares it. "This is an execution resource"
+    // (isExecutionResource), "the Core accepts it" (the node's capabilities/liveness) and "it will take work
+    // right now" (acceptingWork) are three separate facts, and each one is stated.
+    const sharingEnabled=node.sharingEnabled!==false;
+    return describeLegacyNode(node,{
+      availability:availabilityFrom({
+        acceptingWork:able&&sharingEnabled&&!busy,
+        state:node.online===true?'ONLINE':'OFFLINE',
+        reason:node.online!==true?'ENDPOINT_OFFLINE':(!sharingEnabled?'SHARING_DISABLED_BY_OWNER':(!able?'ENDPOINT_NOT_ACCEPTING_WORK':busy?'ENDPOINT_BUSY':null)),
+        sharingEnabled,
+      }),
+    });
+  });
   // Is some real node currently able to accept the work Utopia places? Decided by the
   // migrated fleet-routing module, exactly as `/api/v0/node/claim` decides it.
   const cityAvailability=()=>{
@@ -384,7 +446,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // silent rerouting this task forbids. The distinction is persisted, not merely decided.
       const verdict=targetVerdict(intent.value);
       if(verdict.state==='UNKNOWN')refuse(TARGET_REASONS.UNKNOWN,422,`no City node identity "${intent.value}" is known to this City`);
-      return store.atomic(()=>{
+      return atomicWithTrace(()=>{
         const t={id:'Q-'+randomUUID(),type,domain:'system',state:'QUEUED',createdAt:now(),updatedAt:now(),assignedNodeId:null,progress:0,lastCheckpoint:null,result:null,error:null,
           [STRICT_TARGET_FIELD]:intent.value,targetIntentAt:now(),targetStateAtCreation:verdict.state};
         store.put('tasks',t);emit('COMMAND_ACCEPTED',t.id);emit('TASK_CREATED',t.id);
@@ -392,7 +454,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         return t;
       });
     }
-    return store.atomic(()=>{const t={id:'Q-'+randomUUID(),type,domain:'system',state:'QUEUED',createdAt:now(),updatedAt:now(),assignedNodeId:null,progress:0,lastCheckpoint:null,result:null,error:null};store.put('tasks',t);emit('COMMAND_ACCEPTED',t.id);emit('TASK_CREATED',t.id);return t;});
+    return atomicWithTrace(()=>{const t={id:'Q-'+randomUUID(),type,domain:'system',state:'QUEUED',createdAt:now(),updatedAt:now(),assignedNodeId:null,progress:0,lastCheckpoint:null,result:null,error:null};store.put('tasks',t);emit('COMMAND_ACCEPTED',t.id);emit('TASK_CREATED',t.id);return t;});
   };
   const cityTasks={
     terminal,
@@ -407,6 +469,83 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   const askTargets=async()=>{const roomState=await rooms.probe();return buildTargets({roomState,capabilities:bridge.registry(),cityAvailability:cityAvailability(),roomsAvailable:roomState.available});};
   const body=async (req,limit=16384)=>{let size=0;const chunks=[];for await(const c of req){size+=c.length;if(size>limit){if(limit===MAX_REQUEST_BYTES)refuse('INPUT_TOO_LARGE',413);fail(413,'Request too large');}chunks.push(c);}try{return JSON.parse(Buffer.concat(chunks).toString('utf8')||'{}');}catch{if(limit===MAX_REQUEST_BYTES)refuse('INVALID_JSON');fail(400,'Invalid JSON');}};
   const required=(table,id)=>store.get(table,id)||fail(404,'Not found');
+  // WBC-601: THE EXECUTION BACKEND SEAM.
+  //
+  // Which execution profile this City runs, and which backends may serve it. Two decisions are recorded here
+  // rather than left to a default that a later edit could change by accident:
+  //
+  //   1. `STANDARD_DEVICES` is registered UNCONDITIONALLY. It is not the fallback of a missing Workbench; it is
+  //      the baseline the product already runs on, and the hard compatibility invariant of this programme is
+  //      that a City with no Workbench and no Linux server is fully startable and fully executable.
+  //   2. Future profiles are NOT enabled, and naming one does not enable it. `CITY_EXECUTION_PROFILE` may only
+  //      select a profile that WBC-601 actually ships; anything else is refused at startup with the supported
+  //      set named, because a City that silently ran the wrong profile would make every later "the pool did it"
+  //      claim unverifiable. Enabling WORKER_POOL/HYBRID is WBC-603/604's work, not a configuration toggle.
+  const enabledBackends=['standard-devices',...(process.env.CITY_EXECUTION_BACKENDS??'').split(',').map(v=>v.trim()).filter(Boolean)];
+  const unsupportedBackends=enabledBackends.filter(id=>id!=='standard-devices');
+  if(unsupportedBackends.length>0)throw new Error(`No execution backend implementation exists for ${unsupportedBackends.join(', ')}; only standard-devices is implemented. A future backend is enabled by shipping it, not by naming it.`);
+  const executionProfile=process.env.CITY_EXECUTION_PROFILE??DEFAULT_EXECUTION_PROFILE;
+  if(executionProfile!==DEFAULT_EXECUTION_PROFILE)throw new Error(`Execution profile ${executionProfile} is not enabled by this release; supported profiles: ${DEFAULT_EXECUTION_PROFILE}`);
+  const executionBackends=createExecutionBackendRegistry({defaultProfile:DEFAULT_EXECUTION_PROFILE});
+  // WBC-604: the profile becomes a RUNTIME decision. The startup value is only an initial seed; from here on the
+  // controller owns it, persists it, and gates every switch on the registry's own readiness answer. A dormant backend
+  // reports ABSENT rather than throwing at the caller, which is what keeps "the pool is not there yet" from becoming a
+  // City that will not start.
+  const profileController=createExecutionProfileController({dir, initial:executionProfile, readinessOf:profile=>{try{return executionBackends.forProfile(profile).readiness();}catch(error){return {state:error?.code==='BACKEND_DORMANT'?'ABSENT':'UNAVAILABLE',reason:error?.message??'backend unavailable'};}}});
+  const currentProfile=()=>profileController.profile();
+  // The port is built over the gateway's OWN primitives - its node liveness shape, its strict-target guard, its
+  // handoff reservation guard, its canonical transition writer - so the backend cannot grow a second opinion
+  // about any of them. `claimNodeFor`/`acceptsWork` are the very functions the Core is asked through elsewhere
+  // in this file, and `REQUIRED_TASK_CAPABILITIES` is exported by this module, so the policy has one home.
+  const standardDevices=createStandardDevicesBackend({
+    store,
+    terminal,
+    claimNodeFor,
+    requiredCapabilities:REQUIRED_TASK_CAPABILITIES,
+    claimAllowedByTarget,
+    handoffClaimAllowed:args=>handoff.claimAllowed(args),
+    noteAssignment:args=>handoff.noteAssignment(args),
+    withheldTasks,
+    changeTask:change,
+    requireRecord:required,
+    fail,
+  });
+  executionBackends.register(standardDevices);
+  // Registration is inert: no adapter, discovery, credentials or startup probe.
+  executionBackends.register(createWorkerPoolBackend());
+  // Read at request time through the registry, never captured as the raw port: a later backend registration
+  // must be able to take effect without every route holding a stale reference.
+  const executionBackend=()=>executionBackends.active(currentProfile());
+  // REX-801: the research experiment registry.
+  //
+  // The capability vocabulary is taken from the LIVE bridge rather than from a constant, so "this manifest
+  // requires a capability nobody provides" is decided against what this City can actually do right now — the
+  // workbook's unknown-capability gate is only meaningful if it is answered by the real provider list. The
+  // documents live under the git-ignored runtime directory as files (see research/registry.mjs for why the City's
+  // task-keyed store is the wrong home for a description), and nothing here executes anything: the routes can
+  // list, create, validate and inspect an experiment, and that is all.
+  const experiments=createExperimentRegistry({
+    dir:resolve(dir,'research','experiments'),
+    knownCapabilities:bridge.registry().map(descriptor=>descriptor.capabilityId),
+  });
+  // What a research surface needs in order to build a valid manifest, published with every research response so
+  // the contract is discoverable from the contract itself: the topologies this release can describe, the seed
+  // policies, the stop-condition kinds, the retention levels, and the LIVE capability vocabulary that the
+  // unknown-capability gate is decided against. None of it is a copy that can drift, because the capability list
+  // is read from the bridge on each request.
+  const researchFacts=()=>({
+    contractVersion:experiments.contractVersion,
+    topologies:Object.keys(TOPOLOGIES),
+    topologyRequirements:TOPOLOGIES,
+    seedPolicies:SEED_POLICIES,
+    stopConditionKinds:STOP_CONDITION_KINDS,
+    artifactRetention:ARTIFACT_RETENTION,
+    capabilityVocabulary:bridge.registry().map(descriptor=>descriptor.capabilityId),
+    ownsTaskState:false,
+    grantsFaultAuthority:false,
+    executesExperiments:false,
+  });
+
   // INTEGRATION (JOIN-502 + JOIN-503): ONE snapshot carries both additions. The earlier de-duplication regex in
   // this branch's resolver matched the UNION line instead of JOIN-502's stale one (both begin with the same text
   // and the union ends with `joinRequests:join.snapshot()`), so it removed `joinRequests` and every JOIN-502 test
@@ -418,7 +557,12 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
     // JOIN-503: the surface that is asking is told which INSTALLATION it is. A control-token client gets null
     // (it is the owner, not an enrolled installation), which is exactly what the Settings page needs in order to
     // show an enrollment summary for an enrolled client and the engineering fallback for a control-token one.
-    enrolledDevice:req?.citySession?enrollment.describe(req.citySession.session.installationId):null});
+    enrolledDevice:req?.citySession?enrollment.describe(req.citySession.session.installationId):null,
+    // WBC-601: which execution profile is serving this City, as an observable fact rather than an internal
+    // detail. It is a DESCRIPTOR only - it names the backend and its mode, never a device - so a surface can
+    // say "these runs are placed by STANDARD_DEVICES" without gaining any authority over placement. A future
+    // backend appears here by being registered; nothing in this field can enable one.
+    executionBackend:{profile:executionProfile,backend:describeExecutionBackend(executionBackends.active(executionProfile)),registered:executionBackends.list()}});
   // JOIN-502: `joinRequests` carries only LIVE ask rows (PENDING / APPROVED) as bounded public views,
   // so an already connected trusted surface can show "someone nearby wants to join" without polling a
   // second endpoint. It deliberately contains no claim digest and no credential, and each row declares
@@ -441,8 +585,16 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // degradation is stated explicitly instead, in `status` and in `components`.
       if(path==='/api/v0/health'){
         const roomState=await rooms.probe();
-        const components={gateway:{state:'READY'},rooms:{state:roomState.available?'READY':'UNAVAILABLE',reason:roomState.available?null:roomState.reason,hubUrl:roomState.hubUrl}};
-        const degraded=Object.values(components).some(c=>c.state!=='READY');
+        // WBC-601: the execution backend is reported as its own component with its own readiness word. It is
+        // NOT part of the degraded calculation on purpose: "no device is online right now" is a normal state of
+        // a peer-to-peer City, not a broken gateway, and making it degrade the whole City would recreate exactly
+        // the kind of global blocker this programme forbids. Readiness is stated so a supervisor can see it.
+        const backendState=executionBackend().readiness();
+        const components={gateway:{state:'READY'},rooms:{state:roomState.available?'READY':'UNAVAILABLE',reason:roomState.available?null:roomState.reason,hubUrl:roomState.hubUrl},execution:{state:backendState.state,reason:backendState.reason,detail:backendState.detail,profile:executionProfile,backendId:standardDevices.backendId,ready:backendState.ready,endpointCount:backendState.endpointCount,readyEndpointCount:backendState.readyEndpointCount}};
+        // `execution` is deliberately excluded from the degraded calculation: having no device online at this
+        // instant is a normal state of a peer-to-peer City, not a broken gateway, and folding it in would make a
+        // supervisor unable to tell the two apart. The word is still reported, so it is visible where it matters.
+        const degraded=components.gateway.state!=='READY'||components.rooms.state!=='READY';
         res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
         res.end(JSON.stringify(envelope({status:degraded?'degraded':'healthy',components})));
         return;
@@ -459,6 +611,11 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // two routes that skip it, and they do so because they predate the header and their callers are
       // already deployed.
       const nodeRoute=path.startsWith('/api/v0/node/');
+      // REX-801: research routes are CONTROL-credential routes. A node credential describes a worker, and an
+      // experiment description is an owner-level act of research governance: it names required capabilities, stop
+      // conditions and acceptance criteria for work that will be placed on those workers. Letting a worker
+      // register the experiment it will be judged by would make the acceptance criteria self-certified.
+      const researchRoute=path.startsWith('/api/v0/research/');
       // INTEGRATION: JOIN-502's OWN auth preamble used to stand here and has been removed. The text-level union
       // kept both, so this earlier one ran FIRST and authenticated before `publicJoin` existed, which made every
       // join route answer 401 while the code behind it was correct (`ask 0 answered 401` in the JOIN-502 suite).
@@ -478,7 +635,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // it in the removed block left the union preamble unaware of it, so /device/session answered 401 and every
       // JOIN-503 enrollment test failed with the same "Invalid pairing token" as an unauthenticated request.
       const selfAuthenticating=req.method==='POST'&&path==='/api/v0/device/session';
-      if(!publicJoin&&!legacyPublicPairing&&!selfAuthenticating)auth(req,nodeRoute&&path!=='/api/v0/node/sharing');
+      if(!publicJoin&&!legacyPublicPairing&&!selfAuthenticating)auth(req,nodeRoute&&path!=='/api/v0/node/sharing'&&!researchRoute);
       if(!legacyPublicPairing)version(req);
       let out;
       // JOIN-502 answers first, in the SAME chain as everything below: a second `if` chain would run
@@ -511,7 +668,19 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         // against, and a prefix would make that check fail on a legitimate hand-off.
       }
       else if(req.method==='GET' && path==='/api/v0/pairing/info')out=pairing.info();
-      else if(req.method==='POST' && path==='/api/v0/pairing/session'){await body(req);out=await pairing.create();}
+      // UNION (CEX-704 onto the JOIN-590 integration): main's owner-only minting guard and CEX-704's
+      // expectedSessionState precondition belong to the SAME route, so they are composed into one handler rather
+      // than concatenated - the mechanical pass left two bodies and a stray block here.
+      else if(req.method==='POST' && path==='/api/v0/pairing/session'){
+        if(req.citySession)refuse('SESSION_CANNOT_MINT_PAIRING',403,'Only the City owner may create a pairing code');
+        const b=await body(req);
+        if(b.expectedSessionState!==undefined){
+          if(!['IDLE','USED','EXPIRED','LOCKED'].includes(b.expectedSessionState))refuse('PAIRING_STATE_INVALID',400,'A known terminal pairing state is required');
+          const current=pairing.info();
+          if(current.activeSession||current.sessionState!==b.expectedSessionState)refuse('PAIRING_STATE_CHANGED',409,'Pairing state changed; refresh before generating');
+        }
+        out=await pairing.create();
+      }
       else if(req.method==='POST' && path==='/api/v0/pairing/exchange'){
         const b=await body(req);
         assertNewAdmission(b.installation);const exchanged=pairing.exchange(b);
@@ -533,7 +702,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
             credentialId:enrolled.credential.credentialId,
             credentialSecret:enrolled.credential.credentialSecret,
           });
-          out={...exchanged,apiVersion:0,schemaVersion:0,enrollment:{
+          out={...exchanged,credential:sessionCredential(opened.session.sessionId),apiVersion:0,schemaVersion:0,enrollment:{
             installationId:enrolled.installation.installationId,
             instanceId:enrolled.installation.instanceId,
             deviceId:enrolled.installation.deviceId,
@@ -609,6 +778,10 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         out={apiVersion:0,schemaVersion:0,revoked:enrollment.revoke({installationId,reason:b.reason??'revoked_by_owner'}),scope:mine?'OWN_INSTALLATION':'CITY'};
         const revokedRef=out.revoked.deviceId;const n=store.get('nodes',revokedRef);if(n)store.put('nodes',{...n,online:false});for(const [socket,surface] of controlSurfaces)if(surface.clientRef===revokedRef)socket.close(1008,'Device revoked');emit('MEMBER_REVOKED',null,{deviceId:revokedRef});
       }
+      else if(req.method==='GET' && path==='/api/v0/research/trace'){
+        if(req.citySession)refuse('RESEARCH_OWNER_REQUIRED',403,'Research trace requires the City owner');
+        out={trace:researchTrace.snapshot()};
+      }
       else if(req.method==='GET' && path==='/api/v0/capabilities')out={capabilities:bridge.registry()};
       else if(req.method==='GET' && path==='/api/v0/capability-invocations')out={invocations:bridge.list(new URL(req.url,'http://city').searchParams.get('limit')??undefined)};
       else if(req.method==='GET' && /^\/api\/v0\/capability-invocations\/[^/]+$/.test(path))out=bridge.get(decodeURIComponent(path.split('/').at(-1)))||refuse('INVOCATION_NOT_FOUND',404);
@@ -621,6 +794,20 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         out={cityId:store.cityId,displayName:store.cityName};
       }
       else if(req.method==='GET' && path==='/api/v0/city')out=snapshot(req);
+      // WBC-604 control surface. Owner-only: the execution profile decides where work runs, which is a
+      // user/permission-level decision, so a member session may read nothing and change nothing here.
+      else if(req.method==='GET' && path==='/api/v0/execution-profile'){
+        if(req.citySession)fail(403,'Only the City owner may read the execution profile control surface');
+        out={executionProfile:profileController.state()};
+      }
+      else if(req.method==='POST' && path==='/api/v0/execution-profile'){
+        if(req.citySession)fail(403,'Only the City owner may change the execution profile');
+        const b=await body(req);
+        try{
+          const receipt=b.action==='ROLLBACK'?profileController.rollback():profileController.change(b.profile);
+          out={receipt,executionProfile:profileController.state()};
+        }catch(error){refuse(error.code??'PROFILE_CHANGE_REFUSED',409,error.message);}
+      }
       else if(req.method==='GET' && path==='/api/v0/monitor')out={monitor:await observation.refresh()};
       // MON-902: the overview graph, built from the SAME single-flight observation as /monitor. No second canonical read
       // path, no cache of its own, no timer, no lock: a graph request that arrives while a projection is in flight
@@ -667,7 +854,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       else if(req.method==='GET' && path==='/api/v0/host/join/status'){
         if(req.citySession||!hostJoin)fail(403,'Only the local host owner may read the join ticket');out=await hostJoin.status(new URL(req.url,'http://city').searchParams.get('ticketId'));
       }
-      else if(req.method==='GET' && path==='/api/v0/nodes')out={nodes:store.list('nodes')};
+      else if(req.method==='GET' && path==='/api/v0/nodes')out={nodes:store.list('nodes'),nodeDescriptors:nodeDescriptors()};
       else if(req.method==='GET' && path==='/api/v0/tasks')out={tasks:store.list('tasks')};
       else if(req.method==='GET' && path==='/api/v0/events')out={events:store.events()};
       // JOIN-502 owner decisions. These are AUTHENTICATED: deciding who joins is exactly the authority
@@ -698,13 +885,24 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
           out=change(t,'QUEUED',{assignedNodeId:null,chosenProviderRef:b.providerRef,userChoiceAt:now()});
           emit('TASK_PROVIDER_CHOSEN',t.id,{providerRef:b.providerRef},'user');
       } else if(req.method==='POST' && /^\/api\/v0\/tasks\/[^/]+\/switch-declined$/.test(path)){
+          const b=await body(req);
           // UXI-301: the user declined the provider switch. That is the ONE condition RS-202's planner
           // reaches ALTERNATE_DEVICE on, and it means "do not switch provider - use another of my own
           // devices instead". Recorded as an explicit user intent that the routing planner then acts on,
           // rather than as a flag set by a test.
           const t=required('tasks',path.split('/').at(-2));
           if(terminal.includes(t.state))fail(409,'Task already finished');
-          out=change(t,t.state,{switchDeclined:true,userDeclinedSwitchAt:now()});
+          const explicitAlternate=b.decision==='ALTERNATE_DEVICE';
+          if(b.decision!==undefined&&!explicitAlternate)refuse('CHOICE_INVALID',400,'Unsupported scheduler decision');
+          if(explicitAlternate&&(typeof b.expectedUpdatedAt!=='string'||!Number.isFinite(Date.parse(b.expectedUpdatedAt))))refuse('CHOICE_INVALID',400,'A current task revision is required');
+          if(explicitAlternate&&t.alternateDeviceDecisionRevision===b.expectedUpdatedAt){out=t;}else{
+          if(explicitAlternate){
+            if(t.updatedAt!==b.expectedUpdatedAt)refuse('CHOICE_STALE',409,'The task changed; refresh before choosing');
+            const entry=buildPresentationFeed({tasks:store.list('tasks'),nodes:store.list('nodes')}).tasks.find(entry=>entry.taskId===t.id);
+            const choice=entry?.userChoices?.alternateDevice;
+            if(!choice?.allowed)refuse(choice?.reason??'NO_SWITCH_DECISION',409,'Another device cannot be selected for this task right now');
+          }
+          out=change(t,t.state,{switchDeclined:true,userDeclinedSwitchAt:now(),...(explicitAlternate?{alternateDeviceDecisionRevision:b.expectedUpdatedAt}:{})});
           emit('TASK_SWITCH_DECLINED',t.id,{},'user');
           // UXI-391: THIS is where the plan is consumed. The user's decline is the only condition under which
           // RS-202 reaches ALTERNATE_DEVICE, so the orchestration plans over live City state and executes the
@@ -729,12 +927,19 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
               }
             }
           }
+          }
       } else if(req.method==='POST' && path==='/api/v0/node/register'){
         const b=await body(req);assertOwnNode(req,b.id);if(req.citySession)b.displayName=enrollment.describe(req.citySession.session.installationId)?.displayName;
         if(!/^[a-zA-Z0-9-]{1,80}$/.test(b.id||'')||typeof b.displayName!=='string'||!Array.isArray(b.capabilities)||!b.capabilities.every(c=>typeof c==='string'))fail(400,'Invalid node registration');
+        if(b.roles!==undefined&&(!Array.isArray(b.roles)||b.roles.length<1||b.roles.length>NODE_ROLES.length||!b.roles.every(role=>NODE_ROLES.includes(role))||!b.roles.includes('EXECUTION_NODE')))fail(400,'Registered worker roles must include EXECUTION_NODE and use the supported vocabulary');
         const prior=store.get('nodes',b.id);
+        const roles=b.roles??prior?.roles;
         for(const t of store.list('tasks'))if(t.assignedNodeId===b.id&&!terminal.includes(t.state))change(t,'FAILED',{error:'Node re-registered; interrupted work is not replayed.'});
-        out=store.put('nodes',{id:b.id,devicePrincipalId:b.id,displayName:b.displayName.slice(0,100),metadata:{platform:String(b.metadata?.platform||'unknown')},agentVersion:typeof b.agentVersion==='string'?b.agentVersion.slice(0,30):'0.1.0',...telemetry(b),sharingEnabled:prior?.sharingEnabled??true,capabilities:b.capabilities,online:true,lastHeartbeatAt:now()});
+        out=store.put('nodes',{id:b.id,devicePrincipalId:b.id,displayName:b.displayName.slice(0,100),metadata:{platform:String(b.metadata?.platform||'unknown')},agentVersion:typeof b.agentVersion==='string'?b.agentVersion.slice(0,30):'0.1.0',...telemetry(b),...(roles?{roles:[...new Set(roles)].sort()}:{}),sharingEnabled:prior?.sharingEnabled??true,capabilities:b.capabilities,online:true,lastHeartbeatAt:now()});
+        // UNION (JOIN-590 closeout integration): the branch integrated here carried a pre-WBC-602 copy of this write
+        // WITHOUT `roles`, and concatenating both made the older one overwrite the newer - which silently dropped a
+        // DECLARED role set and is exactly what the WBC-602 review test caught. The newer write is kept alone.
+        observeResources(b);
         if(!prior?.online){
           emit('NODE_ONLINE',null,{nodeId:b.id});
           // MESH-301: a strict task that was waiting for this device becomes claimable the moment the device
@@ -744,36 +949,68 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         }
       } else if(req.method==='POST' && path==='/api/v0/node/heartbeat'){
         const b=await body(req);assertOwnNode(req,b.id);const n=required('nodes',b.id);const metrics=telemetry(b);if(!n.online)emit('NODE_ONLINE',null,{nodeId:n.id});out=store.put('nodes',{...n,...metrics,online:true,lastHeartbeatAt:now()});
+      } else if(req.method==='POST' && path==='/api/v0/node/descriptor'){
+        // WBC-602: what this City believes about one node's roles, capabilities, resources and availability —
+        // read-only and computed at request time, so a node can see the descriptor a future scheduler would read
+        // without this route gaining any authority over its own role or resources. A POST is used because the
+        // node credential authenticates the node route family; nothing is written.
+        const b=await body(req);assertOwnNode(req,b.id);required('nodes',b.id);
+        out={descriptor:nodeDescriptors().find(descriptor=>descriptor.nodeId===b.id)??null};
       } else if(req.method==='POST' && path==='/api/v0/node/claim'){
-        const b=await body(req);assertOwnNode(req,b.id);const n=required('nodes',b.id);
-        const ready=acceptsWork(claimNodeFor(n),{requiredCapabilities:REQUIRED_TASK_CAPABILITIES});
-        const busy=store.list('tasks').some(t=>t.assignedNodeId===n.id&&!terminal.includes(t.state));
-        // UXI-391: a QUEUED task may be handed out only to a device the handoff bridge allows. A task that
-        // was transferred to B stays RESERVED for B, and a device the guard shows as its current holder is the
-        // only one that may take it - so a recovered A cannot re-claim work that has already moved to B.
-        //
-        // MESH-301: a strict target is a STRONGER guard than a reservation, and it is applied first. The
-        // reservation is the City's own post-hoc repair and may be released when the reserved device dies; the
-        // user's target may never be released, so a strict task whose device is away stays unclaimed rather
-        // than being handed to whoever is healthy. `claimAllowedByTarget` returns true for every untargeted
-        // task, which is what keeps the pre-existing scheduler behaviour unchanged.
-        const claimable=t=>t.state==='QUEUED'&&claimAllowedByTarget(t,n.id)&&handoff.claimAllowed({subjectRef:t.id,deviceRef:n.id,reservedFor:typeof t.handoffTargetRef==='string'&&t.handoffTargetRef.length>0?t.handoffTargetRef:null});
-        const t=ready&&!busy&&n.sharingEnabled!==false?store.list('tasks').find(claimable):null;
-        if(t)handoff.noteAssignment({subjectRef:t.id,deviceRef:n.id});
-        // A bare `task: null` cannot tell a device "there is no work" from "there is work and it is not
-        // yours". The withheld set is the difference, stated as data; nodes that ignore it are unaffected.
-        const withheld=withheldTasks({tasks:store.list('tasks'),deviceRef:n.id,terminal});
-        out={task:t?change(t,'ASSIGNED',{assignedNodeId:n.id}):null,...(withheld.length>0?{withheld}:{})};
+        const b=await body(req);assertOwnNode(req,b.id);
+        required('nodes',b.id);
+        // WBC-601: the decision moved behind the execution backend port and did NOT change. The guard order is
+        // still strict-target first, then the handoff reservation, then the endpoint's own readiness/busy/sharing
+        // gate, and the withheld set is still returned as data. The lookup above is kept so that an unknown node
+        // id answers the same typed 404 it answered before the seam existed.
+        out=executionBackend().claim({nodeId:b.id});
       } else if(req.method==='POST' && path==='/api/v0/node/report'){
-        const b=await body(req);assertOwnNode(req,b.id);const t=required('tasks',b.taskId);if(t.assignedNodeId!==b.id)fail(403,'Task belongs to another node');
-        if(terminal.includes(t.state)){out=t;}else{
-          const allowed=(t.state==='ASSIGNED'&&['RUNNING','FAILED'].includes(b.state))||(t.state==='RUNNING'&&['RUNNING','COMPLETED','FAILED'].includes(b.state));
-          if(!allowed)fail(409,'Invalid task transition');
-          if(!Number.isFinite(b.progress)||b.progress<t.progress||b.progress>100)fail(400,'Invalid progress');
-          const patch={progress:b.progress};for(const k of ['lastCheckpoint','result','error'])if(b[k]!==undefined)patch[k]=b[k];
-          out=change(t,b.state,patch,b.state==='RUNNING'?(t.state==='ASSIGNED'?'TASK_STARTED':'TASK_CHECKPOINTED'):'TASK_'+b.state);
+        const b=await body(req);assertOwnNode(req,b.id);
+        out=executionBackend().report({taskId:b.taskId,nodeId:b.id,state:b.state,progress:b.progress,lastCheckpoint:b.lastCheckpoint,result:b.result,error:b.error});
+      }
+      // REX-801 — the Research control contract. Four stable operations, all authenticated with the control
+      // credential: list, inspect, create-or-import (validate then register), and validate-before-run. There is
+      // deliberately NO run/stop here: this contract describes experiments, and executing them belongs to
+      // REX-803. A caller that expects a run endpoint will get a typed 404 rather than a surprise.
+      //
+      // Note the shape of the refusals: a malformed manifest is NEVER repaired into a valid one. Registration
+      // answers with the full issue list (409 when the id is already taken by different content, 422 when the
+      // manifest is invalid), so the caller can see exactly why, and the rejection is persisted as evidence by
+      // the registry itself.
+      else if(path==='/api/v0/research/experiments'&&req.method==='GET'){
+        const query=new URL(req.url,'http://city').searchParams.get('status');
+        out={...experiments.list({status:query&&query.length>0?query:null}),research:researchFacts()};
+      } else if(path==='/api/v0/research/experiments'&&req.method==='POST'){
+        const b=await body(req,65536);
+        const result=experiments.register(b.manifest??b);
+        // A refused manifest is PERSISTED as evidence by the registry and then answered as a typed refusal with
+        // the whole issue list: 422 for "you sent an invalid description", 409 for "that id is already taken by
+        // different content" (which is thrown by the registry itself).
+        if(result.record.status==='REJECTED'){
+          emit('RESEARCH_EXPERIMENT_REJECTED',null,{experimentId:result.record.experimentId,issueCount:result.record.issues.length},'user');
+          throw new ExperimentManifestError('REJECTED',`${result.record.issues.length} issue(s) in the submitted manifest`,result.record.issues);
         }
-      }else fail(404,'Not found');
+        if(!result.replayed)emit('RESEARCH_EXPERIMENT_REGISTERED',null,{experimentId:result.record.experimentId,topology:result.record.manifest.topology,repetitions:result.record.manifest.repetitions},'user');
+        out={registered:true,replayed:result.replayed,persisted:result.persisted,...result.record,research:researchFacts()};
+      } else if(req.method==='POST'&&path==='/api/v0/research/experiments/validate'){
+        const b=await body(req,65536);
+        const verdict=experiments.validate(b.manifest??b);
+        emit('RESEARCH_EXPERIMENT_VALIDATED',null,{experimentId:verdict.experimentId,ok:verdict.ok,issueCount:verdict.issues.length},'user');
+        out={validation:verdict,research:researchFacts()};
+      } else if(req.method==='GET'&&/^\/api\/v0\/research\/experiments\/[^/]+\/seeds$/.test(path)){
+        const id=decodeURIComponent(path.split('/').at(-2));
+        const requested=new URL(req.url,'http://city').searchParams.get('repetitions');
+        const repetitions=requested===null||requested===''?null:Number(requested);
+        if(repetitions!==null&&(!Number.isSafeInteger(repetitions)||repetitions<1))refuse('INVALID_FIELD',400,'repetitions must be a positive integer when given');
+        out={seeds:experiments.seeds(id,{repetitions}),research:researchFacts()};
+      } else if(req.method==='GET'&&/^\/api\/v0\/research\/experiments\/[^/]+$/.test(path)){
+        const id=decodeURIComponent(path.split('/').at(-1));
+        out={experiment:experiments.get(id),research:researchFacts()};
+      } else if(req.method==='POST'&&/^\/api\/v0\/research\/experiments\/[^/]+\/register$/.test(path)){
+        // Import-by-id is not offered: an import must carry the manifest itself, so nothing is fetched from an
+        // address the City did not choose. Stated as a typed refusal rather than a 404 so the reason is readable.
+        refuse('IMPORT_REQUIRES_INLINE_MANIFEST',400);
+      } else fail(404,'Not found');
       res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify(envelope(out)));
     }catch(e){
       // JOIN-503: an enrollment refusal is a typed fact (which installation, which ladder rung), so its code
@@ -782,6 +1019,10 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // A refusal from the identity lifecycle itself (RF-001's rules) carries the same kind of typed code. The
       // refused facts are all client errors: a missing rebind proof, a clone, an already-bound installation.
       if(e instanceof DeviceIdentityError){res.writeHead(403,{'Content-Type':'application/json'});res.end(JSON.stringify(envelope({error:e.code,errorCode:e.code,detail:e.detail})));return;}
+      // REX-801: a refused experiment manifest is a typed fact with its whole issue list, so a caller can see
+      // every reason at once instead of fixing one field per round trip. The rejection is also persisted by the
+      // registry, so this response is a view of stored evidence rather than the only copy of it.
+      if(e instanceof ExperimentManifestError){res.writeHead(e.status||400,{'Content-Type':'application/json'});res.end(JSON.stringify(envelope({error:e.code,errorCode:e.code,detail:e.detail,issues:e.issues})));return;}
       res.writeHead(e.status||500,{'Content-Type':'application/json'});res.end(JSON.stringify(envelope({error:e.status?e.message:'Gateway error',...(e.code?{errorCode:e.code}:{})})));if(!e.status)console.error(e);}
   });
   // A relay peer is WRITTEN TO by the City (that is the whole point: the City pushes an answer it received down the
@@ -869,5 +1110,8 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // here - recorded so the next reader does not mistake the assignment below for a join fix.
   pairing.endpoint=`http://${host}:${server.address().port}`;
   if(discoveryEnabled)discovery=await startDiscovery({descriptor:pairing.descriptor(),onStatus:s=>{discoveryState=s;}});
-  return {url:pairing.endpoint,store,join,relay,quiesce:value=>{acceptingTasks=!value;},close:async()=>{if(closed)return;closed=true;observation.disconnect();bridge.close();join.close();relay.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();}};
+  // UNION (JOIN-590 closeout integration): this single return must expose EVERY capability the integrated branches
+  // promised, and its teardown must release every side's resources. Enumerated rather than concatenated on purpose -
+  // the first mechanical attempt left two returns here and silently hid `researchTrace` behind the earlier one.
+  return {url:pairing.endpoint,store,join,relay,researchTrace,executionProfile,executionBackends,executionBackend,quiesce:value=>{acceptingTasks=!value;},close:async()=>{if(closed)return;closed=true;observation.disconnect();bridge.close();join.close();relay.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();await researchTrace.close(100);}};
 }

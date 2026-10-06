@@ -421,6 +421,23 @@ export const messages = {
 };
 
 Object.assign(messages,{"members.thisDevice":"本机","members.role.PRIMARY":"城市主机","members.role.MEMBER":"成员主机","members.role.CONTROL_ONLY":"仅 Web 控制端","members.role.COMPUTE_NODE":"计算设备","members.sharing":"正在共享计算资源","members.notSharing":"资源共享已暂停","members.noAgent":"未连接计算代理","members.messages":"设备消息","members.message":"消息","members.send":"发送","members.received":"已接收","members.pending":"等待接收","members.stopSharing":"停止共享本机资源","members.startSharing":"共享本机资源"});
+Object.assign(messages,{"catalog.hint":"不知道能做什么？","catalog.open":"查看全部能力","catalog.title":"能力目录 — 选择后再提交操作"});
+Object.assign(messages,{"nav.research":"研究","heading.research":"研究"});
+Object.assign(messages,{"nav.researchTrace":"研究记录","heading.researchtrace":"研究记录","trace.title":"研究记录","trace.hint":"只读查看本城市的观察记录。记录不会创建或执行实验。","trace.refresh":"刷新","trace.offline":"重新连接后查看当前研究记录。","trace.recording":"正在记录","trace.stopped":"记录已停止","trace.types":"记录的事件类型","trace.none":"尚未观察到","trace.experiment":"实验运行","trace.metrics":"测量可用性","trace.available":"已测量","trace.failures":"采集器故障","trace.dropped":"丢弃记录","trace.retention":"保留窗口已截断","trace.declared":"软件身份为声明的引用，需要外部验证。缺失测量保持 NOT_OBSERVABLE。","trace.ownerRequired":"仅城市所有者可查看研究记录，请由所有者打开此页面。","trace.unavailable":"研究记录暂不可用，请刷新或重新连接。"});
+// (union) duplicate export default removed: the earlier one belonged to a side that also appended its keys above
+Object.assign(messages, {
+"recovery.conflict":"设备身份冲突",
+"recovery.conflictHint":"多个安装实例可能共享凭据。请核对这些安装实例后再决定是否移除设备，系统不会自动删除。",
+"recovery.ownerGuidance":"恢复需要主城所有者批准。请在主城所有者的 Web 设置中确认重新安装；此成员会话只能查看或移除自身。",
+"recovery.required":"此安装实例需要恢复绑定才能重新连接。",
+"recovery.choose":"原有设备",
+"recovery.choosePlaceholder":"选择原有设备",
+"recovery.confirm":"我是主城所有者，确认此安装实例属于所选设备。",
+"recovery.rebind":"恢复设备绑定",
+"recovery.done":"设备绑定已恢复，请重新连接已安装的应用。",
+});
+// (union) duplicate export default removed
+Object.assign(messages,{'scheduler.choice.explicitPrompt':'选择如何继续这项服务','scheduler.choice.alternateDevice':'保留这项服务，换另一台设备执行','scheduler.choice.reason.TARGET_DEVICE_BOUND':'这项服务绑定了指定设备。','scheduler.choice.reason.ALTERNATE_NOT_AVAILABLE':'目前没有符合条件的替代设备。','scheduler.choice.reason.NO_SWITCH_DECISION':'目前无需选择设备切换。'});
 // MON-902 — 全城工作监视器文案。风险码只在这里翻译：投影只发出代码，界面负责说明含义，
 // 原始代码仅在"技术细节"折叠中可见。
 Object.assign(messages, {
@@ -516,5 +533,4 @@ Object.assign(messages, {
   "monitor.technical.disclosure": "技术细节",
   "monitor.technical.note": "投影的原始字段、精确引用与计数。这是监视器自身的来源，不是第二套事实来源。",
 });
-
 export default { meta, messages };

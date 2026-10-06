@@ -1,0 +1,166 @@
+{
+  "workbook_id": "CEX-704",
+  "identity": "Alien-codex",
+  "baseline_sha": "0e9bea3ce739b979e582a428af8fb233045a5e75",
+  "source_binding": "Containing commit; full implementation SHA recorded externally",
+  "backend": {
+    "focused_tests": 40,
+    "pass": 40,
+    "guarded_generation": "PASS; ACTIVE preserved, stale terminal refused, expiry/consume regenerate explicitly"
+  },
+  "android": {
+    "unit_tests": 84,
+    "build": "PASS",
+    "final_apk_sha256": "1b481632f7dd763b6e95b53d6180288223820e536f015a4a97be6cccd6ae17d1",
+    "device": "OPPO PERM00 / BICIPVNB5HS85H9T",
+    "physical_observed_before_final_query_whitelist_hardening": [
+      "ONLINE Owner entry with canonical City name",
+      "explicit generate and short-code visibility",
+      "QR bitmap present",
+      "controlled second client consume200 and automatic material removal",
+      "approve and reject visible and canonical states matched",
+      "same code and QR after process restart",
+      "expired material removed without auto-generation"
+    ],
+    "share_sheet": "NOT_RUN_AUTO_APPROVAL_REJECTED",
+    "different_physical_second_device": "NOT_RUN",
+    "physical_artifact_sha_before_last_hardening": null,
+    "physical_artifact_sha_unknown_reason": "NOT_OBSERVABLE; prior APK not hashed before replacement",
+    "final_whitelist_physical_retest": {
+      "app": true,
+      "online": true,
+      "shortCodeVisible": true,
+      "qrVisible": true,
+      "apk_sha256": "1b481632f7dd763b6e95b53d6180288223820e536f015a4a97be6cccd6ae17d1",
+      "fixture": "App-private fixture connection seeded for final smoke; prior main campaign used manual native connection UI"
+    },
+    "held_navigation_scope": "4s response held; left panel and later returned with material present. Return-before-release timing NOT_OBSERVABLE.",
+    "restoration": "Original app-private connection copied back and cmp exit0; CEX701 APK hash f796d9ce7d7086a30a3bb8fa2c88a60fb258106e77a7e76b3b4bc22737360a51 install SUCCESS; fixture reverse removed"
+  },
+  "technical_review": {
+    "navigation_ticket_reset": "FOUND_AND_FIXED",
+    "last_recheck": "No residual blocker including whitelist hardening; source review, not independent physical review",
+    "formal_review": "PENDING"
+  },
+  "failures": [
+    {
+      "kind": "HARNESS_INVALID",
+      "detail": "initial clock frozen at fixture startup; real phone material expired while fake Gateway ACTIVE; changed harness to Date.now plus offset"
+    },
+    {
+      "kind": "DEVICE_INPUT_FAILURE",
+      "detail": "CTRL+A did not replace fields; explicit delete and endpoint verification succeeded"
+    },
+    {
+      "kind": "POLICY_BLOCKED",
+      "detail": "Combined share-sheet/lifecycle exec rejected blocked by policy; action not executed; share test not retried"
+    },
+    {
+      "kind": "VALIDATION_RED",
+      "detail": "Unexpected QR credential field accepted before whitelist correction"
+    }
+  ],
+  "metrics": {
+    "approval_latency_ms": null,
+    "context_tokens": null,
+    "model_context_window": null,
+    "unknown_reason": "NOT_OBSERVABLE"
+  },
+  "raw_refs": [
+    {
+      "path": ".runtime/evidence/mission-book/CEX-704/native-owner-entry.xml",
+      "sha256": "70fae7b1d69541711b1723c7368a1fc3c46d1f1d750299d6de3ea9fd367e89c1",
+      "bytes": 19843
+    },
+    {
+      "path": ".runtime/evidence/mission-book/CEX-704/native-generated-retry.xml",
+      "sha256": "7c793492a30157d646cbac656f08433b1f8d303d4ff845eaed6dea3e6e5c14de",
+      "bytes": 17121
+    },
+    {
+      "path": ".runtime/evidence/mission-book/CEX-704/native-consumed.xml",
+      "sha256": "af0e7e6a99c3ca3fe7240ada0621d35f68b7d5dc0acf0026f776dd16ebf807b8",
+      "bytes": 19843
+    },
+    {
+      "path": ".runtime/evidence/mission-book/CEX-704/native-incoming.xml",
+      "sha256": "a35b0286a60b95fd09990d778cd37c6b08642f1fe8a6bbe782f1f49484f6ce5b",
+      "bytes": 22422
+    },
+    {
+      "path": ".runtime/evidence/mission-book/CEX-704/native-approved.xml",
+      "sha256": "b011ae311da424c15c90df62854cb9de463428c005bb61ddcc406e7a1fee7457",
+      "bytes": 21484
+    },
+    {
+      "path": ".runtime/evidence/mission-book/CEX-704/native-rejected.xml",
+      "sha256": "160d0d4ed0e48cd9974c6c329408cfa6ca3bd2c455b9e02ff9db6bf86aa2077c",
+      "bytes": 20516
+    },
+    {
+      "path": ".runtime/evidence/mission-book/CEX-704/native-held-navigation-return.xml",
+      "sha256": "46bb816036fb5c3d6b26d58fe589ab458189076453e6a65d5f005a86debc5b65",
+      "bytes": 17420
+    },
+    {
+      "path": ".runtime/evidence/mission-book/CEX-704/native-process-restored.xml",
+      "sha256": "15c64a144d376d916cb361d3c4f615b5c26e11ce40f2e81e23b9b1a1b1c81205",
+      "bytes": 17420
+    },
+    {
+      "path": ".runtime/evidence/mission-book/CEX-704/native-expired.xml",
+      "sha256": "0d46adbddbc1e2d8cfafc6bd3a143bf065800396a8e1c0c9fa38bef7ff8ad39b",
+      "bytes": 20489
+    },
+    {
+      "path": ".runtime/evidence/mission-book/CEX-704/native-second-client-consume.json",
+      "sha256": "4db85aaa9b923babfecac2fccf1920e6a67fed0bad8fc84709de4c6b7d09c1e1",
+      "bytes": 136
+    },
+    {
+      "path": ".runtime/evidence/mission-book/CEX-704/generation-red.log",
+      "sha256": "fd9bf4c3f61c42d81b44974e6d09aa885f192ffae31dc5f1b6aca75ddc85037f",
+      "bytes": 1002
+    },
+    {
+      "path": ".runtime/evidence/mission-book/CEX-704/generation-green.log",
+      "sha256": "bd4276c42e1981234f185fa76494691e8a7c5df3476514891b35e810388def63",
+      "bytes": 4316
+    },
+    {
+      "path": ".runtime/evidence/mission-book/CEX-704/native-model-red.log",
+      "sha256": "915a55ab4ef5c602b1aa33225b139d83b4d0aec398e3892bdcc2ada6ec6fe7fe",
+      "bytes": 4700
+    },
+    {
+      "path": ".runtime/evidence/mission-book/CEX-704/native-model-green.log",
+      "sha256": "3a50c7ecfa1cbb9b1ab841096f4f170b2b14807e621d2e12b5b0c79a680b09a9",
+      "bytes": 1361
+    },
+    {
+      "path": ".runtime/evidence/mission-book/CEX-704/native-errors-final-build.log",
+      "sha256": "d9b4d2385021c1953b93747c5309a1467c6736b46d15411fc553389bbd95319d",
+      "bytes": 2384
+    },
+    {
+      "path": ".runtime/evidence/mission-book/CEX-704/share-fields-red.log",
+      "sha256": "0cef825dc4621af9d741a384d2f4c67c7818af8d37ebcf7d41ba3fc82a3f53f7",
+      "bytes": 1884
+    },
+    {
+      "path": ".runtime/evidence/mission-book/CEX-704/share-fields-green.log",
+      "sha256": "96ed2572787ce0c9212c8f6c0d0f539b64dca7a316e2d54ed081081d76dfa49d",
+      "bytes": 2384
+    },
+    {
+      "path": ".runtime/evidence/mission-book/CEX-704/native-final-smoke.json",
+      "sha256": "dd2d03104a0234f81b5eee0f052995c22ba292639a0656fe969c3445a0c5490d",
+      "bytes": 292
+    },
+    {
+      "path": ".runtime/evidence/mission-book/CEX-704/native-final-generated.xml",
+      "sha256": "8e42a85280f5f897a596e2b9bdb44a5e17d42112544962da9a26413bf9098146",
+      "bytes": 17393
+    }
+  ]
+}

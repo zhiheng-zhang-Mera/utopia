@@ -1,0 +1,33 @@
+{
+  "reviewer": "Alien-codex",
+  "physical_host": "MERA-ALIANWARE",
+  "original_author": "Mech",
+  "original_source_sha": "8f8c521fc299d622093776615b653457d8833f96",
+  "original_baseline_sha": "0e9bea3ce739b979e582a428af8fb233045a5e75",
+  "findings": [
+    "Movable software provenance",
+    "Duplicate topology identity",
+    "Missing visible DIRECT_CONTROL entry",
+    "Committed registration hidden after list refresh failure"
+  ],
+  "corrected_focused_pass": 23,
+  "independent_technical_browser_pass": 2,
+  "original_fixture_failure": "INVALID_WORKER_HOST_MAPPING",
+  "root_interrupted": "SOURCE_CHANGED_DURING_REVIEW; own session7773 interrupted; not final evidence",
+  "raw_sha256": {
+    "independent-review-green.log": "185f373f91143e696ba7206f1f625137ca10d00c804b72c470d8cdb688d4cc1c",
+    "ui-green2.log": "b36ebe3ea7830707748b2e2eea42427f06b2a2aa954ca8c84b5b44526811b422",
+    "research-web.png": "738d9644acc99e7c497e9add01ec5927c989097a17a24920859d9afa730fdc64",
+    "independent-review-red3.log": "6f947eeb2f1c3210bd92301586ad63fa6d2becea80b75598396da7ed5e44c946",
+    "correction-focused-green.log": "c508859b8d32ec6048fb63e0ada5ea1eb13a154fadfc37a1c83ebb1741334e45",
+    "ui-green1.log": "5c6b49c57a4498f6a828be094bb767c1aa7b755a30f2893fcab3cc9072d8a826",
+    "root-review.log": "9df47e21b2ea7c5592ba3f78d84737e9fc9769b48a58190b7f967950c1a1b23d",
+    "independent-review-red.log": "754b329d789e56ee5fd9b62cd687dc35587c8d68626b013140bce11c350b59d8",
+    "independent-review-red2.log": "b5bd3d470752ddaf01956d68b9969a6aad546deba22edcf9cdbbb32e36223e33"
+  },
+  "software_fixture_sha": "8f8c521fc299d622093776615b653457d8833f96",
+  "physical_topology_execution": "NOT_RUN",
+  "tasks_created_during_browser_workflow": 0,
+  "exact_final_ci": "PENDING",
+  "performance_claim": false
+}

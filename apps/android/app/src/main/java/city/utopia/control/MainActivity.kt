@@ -64,6 +64,17 @@ class MainActivity : ComponentActivity() {
    client = c; c.start(); onDispose { c.close() }
   }
   val online = state.connection == "ONLINE"
+  val schedulerChoiceState=remember(client,state.snapshot?.optString("cityId")) { SchedulerChoiceState() }
+  DisposableEffect(schedulerChoiceState) { onDispose { schedulerChoiceState.fence.close() } }
+  val ownerCityId=state.snapshot?.optString("cityId")?.takeIf { it.isNotBlank() } ?: prefs.getString("cityId","").orEmpty()
+  val ownerPrefs=remember { getSharedPreferences("owner-pairing-temp",MODE_PRIVATE) }
+  val ownerOnboarding=remember(client,ownerCityId,host,token) { if(ownerCityId.isBlank()) null else OwnerOnboardingState(ownerCityId,host,token,ownerPrefs) }
+  DisposableEffect(ownerOnboarding) { onDispose { ownerOnboarding?.fence?.close() } }
+  LaunchedEffect(ownerOnboarding,online) { ownerOnboarding?.connectivityChanged() }
+  val managementCity=state.snapshot?.optString("cityId")?.takeIf { it.isNotBlank() }
+  val memberManagement=remember(client,managementCity) { managementCity?.let { MemberManagementState(it) } }
+  DisposableEffect(memberManagement) { onDispose { memberManagement?.fence?.close() } }
+  LaunchedEffect(memberManagement,online) { memberManagement?.connectivityChanged() }
   val tasks = state.snapshot?.optJSONArray("tasks").objects()
   val nodes = state.snapshot?.optJSONArray("nodes").objects()
   val events = state.snapshot?.optJSONArray("events").objects()
@@ -79,6 +90,7 @@ class MainActivity : ComponentActivity() {
    "Activity" to UtopiaIcons.Activity,
   )
   val advancedNav = listOf(
+   "ResearchTrace" to "研究记录",
    "Services" to "能力服务",
    "Tasks" to "任务",
    "Action" to "操作记录",
@@ -97,10 +109,11 @@ class MainActivity : ComponentActivity() {
   }) { padding ->
    LazyColumn(Modifier.fillMaxSize().padding(padding).imePadding().padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(Space.md), contentPadding = PaddingValues(top = Space.lg, bottom = Space.xl)) {
     item { Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) { Text("UTOPIA", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, letterSpacing = 3.sp); Spacer(Modifier.width(Space.md)); MeasuredStatusChip(state.connection); Spacer(Modifier.width(Space.xs)); Box { IconButton(onClick = { advancedOpen.value = true }) { Icon(UtopiaIcons.More, contentDescription = "更多", tint = MaterialTheme.colorScheme.onSurfaceVariant) }; DropdownMenu(expanded = advancedOpen.value, onDismissRequest = { advancedOpen.value = false }) { advancedNav.forEach { (target, label) -> DropdownMenuItem(text = { Text(label) }, onClick = { page = target; selected = null; selectedNode = null; advancedOpen.value = false }) } } } } }
-    item { Column { Text(if (selected != null) "Task details" else when (page) { "Home" -> "Digital City"; "Find" -> "Welcome"; "Ask" -> "Ask / Do"; "Rooms" -> "Rooms · local tools"; "Action" -> "Actions"; "Devices" -> if(selectedNode == null) "Devices" else "Device details"; "Services" -> "City services"; "Tasks" -> "Your tasks"; "Activity" -> "City activity"; else -> "Connect your city" }, fontSize = 32.sp, color = Ink, fontWeight = FontWeight.Medium); Text(if (online) "Your devices. One shared view." else "Cached information · connection is not live", fontSize = 12.sp, color = Color.Gray) } }
+    item { Column { Text(if (selected != null) "Task details" else when (page) { "Home" -> "Digital City"; "Find" -> "Welcome"; "Ask" -> "Ask / Do"; "Rooms" -> "Rooms · local tools"; "Action" -> "Actions"; "Devices" -> if(selectedNode == null) "Devices" else "Device details"; "ResearchTrace" -> "研究记录"; "Services" -> "City services"; "Tasks" -> "Your tasks"; "Activity" -> "City activity"; else -> "Connect your city" }, fontSize = 32.sp, color = Ink, fontWeight = FontWeight.Medium); Text(if (online) "Your devices. One shared view." else "Cached information · connection is not live", fontSize = 12.sp, color = Color.Gray) } }
     if (state.message.isNotBlank()) item { UtFeedback(state.message, kind = "error") }
     if (page == "Find") {
-     item { PairingPanel(log, intent?.dataString, { page="Settings" }, { h,t,id -> host=h; token=t; prefs.edit().putString("host",h).putString("token",t).putString("cityId",id).apply(); state=CityState("RECONNECTING"); settingsRevision++; page="Devices"; intent.data=null }) }
+     item { ownerOnboarding?.let { OwnerOnboardingPanel(it,client,online,state.snapshot?.optString("displayName")?.takeIf { it.isNotBlank() } ?: "当前城市",now) } ?: Text("连接城市后可邀请设备并审批入网。") }
+     item { PairingPanel(log, intent?.dataString, host, token, { page="Settings" }, { h,t,id,_ -> host=h; token=t; prefs.edit().putString("host",h).putString("token",t).putString("cityId",id).apply(); state=CityState("RECONNECTING"); settingsRevision++; page="Devices"; intent.data=null }) }
     } else if (page == "Devices") {
      // UXI-301: show WHY things are waiting ahead of the device list, on the overview only - a single
      // device's detail view is about that device, and repeating the fleet-wide panel there would bury it.
@@ -111,6 +124,9 @@ class MainActivity : ComponentActivity() {
      if(selectedNode==null) item {
        SchedulerStatusPanel(
          state.feed, online,
+         requestScope = client,
+         choiceState = schedulerChoiceState,
+         onAlternateDevice = { taskId, revision, done -> client?.alternateDevice(taskId, revision, done) },
          supportedActions = setOf("CANCEL"),
          onChooseProvider = { taskId, providerRef -> client?.providerChoice(taskId, providerRef) },
          onAction = { taskId, token, providerRef ->
@@ -120,9 +136,15 @@ class MainActivity : ComponentActivity() {
          },
        )
      }
-     if(nodes.isEmpty()) item { Text("Waiting for devices") }
-     nodes.filter { selectedNode == null || it.optString("id")==selectedNode }.forEach { n -> item { DeviceCard(n,online,now,selectedNode!=null,tasks,events) { selectedNode=n.optString("id") } } }
+     if(selectedNode==null) item {
+      memberManagement?.let { CityMembersPanel(it,client,state.snapshot,online) { nodeId ->
+       if(nodes.any { it.optString("id")==nodeId }) selectedNode=nodeId else it.actionError="计算节点未报告，请刷新城市状态。"
+      } } ?: Text("成员列表尚未报告。")
+     }
+     else nodes.filter { it.optString("id")==selectedNode }.forEach { n -> item { DeviceCard(n,online,now,true,tasks,events) { selectedNode=n.optString("id") } } }
      if(selectedNode!=null) item { OutlinedButton(onClick={selectedNode=null}) { Text("All devices") } }
+    } else if (page == "ResearchTrace") {
+     item { ResearchTracePanel(state,client) }
     } else if (page == "Services") {
      item { ServicesPanel(state,client) }
     } else if (page == "Rooms") {
@@ -132,10 +154,15 @@ class MainActivity : ComponentActivity() {
     } else if (page == "Action") {
      item { ActionsPanel(state,client) }
     } else if (page == "Settings") {
+     item { if(NativeEnrollmentStore(this@MainActivity).read(host,prefs.getString("cityId",null))!=null) OutlinedButton(onClick={ client?.leaveCity { token="";settingsRevision++;page="Find" } }) { Text("Leave City / 退出城市（仅本机）") } }
+     item { DeviceRecoveryPanel(client,host,state.message) { page="Find" } }
+     item { memberManagement?.let { CityManagementSettings(it,client,state.snapshot,online) {
+      client?.close();prefs.edit().remove("host").remove("token").remove("cityId").apply();host="http://";token="";state=CityState();settingsRevision++;page="Find";selectedNode=null;selected=null
+     } } ?: Text("连接城市后可管理城市名称和设备身份。") }
      item { OutlinedButton(onClick={ client?.close(); prefs.edit().clear().apply(); token=""; host="http://"; state=CityState(); settingsRevision++; page="Find"; log.event("clearPairing") }) { Text("Clear pairing / Find your City") } }
      item { OutlinedTextField(host, { host = it }, label = { Text("City URL") }, singleLine = true, modifier = Modifier.fillMaxWidth()) }
      item { OutlinedTextField(token, { token = it }, label = { Text("Pairing token") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth()) }
-     item { Button(onClick = { val valid = runCatching { val u = java.net.URI(host.trim()); u.scheme in listOf("http", "https") && u.host != null && u.userInfo == null && u.query == null && (u.path.isNullOrBlank() || u.path == "/") }.getOrDefault(false); if (valid && token.isNotBlank()) { host = host.trim().trimEnd('/'); token = token.trim(); log.event("action"); log.event("discovery"); log.event("pairingSubmitted"); prefs.edit().remove("cityId").putString("host", host).putString("token", token).apply(); state = CityState("RECONNECTING"); settingsRevision++; page = "Devices" } else { state = state.copy(message = "Enter a valid HTTP city URL and pairing token.") } }, modifier = Modifier.fillMaxWidth()) { Text("Save and connect") } }
+     item { Button(onClick = { val valid = runCatching { val u = java.net.URI(host.trim()); u.scheme in listOf("http", "https") && u.host != null && u.userInfo == null && u.query == null && (u.path.isNullOrBlank() || u.path == "/") }.getOrDefault(false); if (valid && token.isNotBlank()) { host = host.trim().trimEnd('/'); token = token.trim(); log.event("action"); log.event("discovery"); log.event("pairingSubmitted"); NativeEnrollmentStore(this@MainActivity).clear(); prefs.edit().remove("cityId").putString("host", host).putString("token", token).apply(); state = CityState("RECONNECTING"); settingsRevision++; page = "Devices" } else { state = state.copy(message = "Enter a valid HTTP city URL and pairing token.") } }, modifier = Modifier.fillMaxWidth()) { Text("Save and connect") } }
      item { Panel { Text("Connection diagnostics", fontWeight = FontWeight.Bold); Text("apiVersion = 0 · schemaVersion = 0"); Text("Credentials stay in app-private storage. LAN development only.", fontSize = 12.sp) } }
     } else if (selected != null) {
      val t = tasks.find { it.optString("id") == selected }

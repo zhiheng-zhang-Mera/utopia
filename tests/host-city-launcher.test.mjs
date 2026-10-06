@@ -88,6 +88,10 @@ test('forgetting migrated enrollment cannot import the legacy credential again',
 });
 
 test('remote short code enrolls with a local member agent and reconnects without launching a host City', {timeout:120000}, async () => {
+  // UTOPIA_HOST_STATE_DIR does not isolate the machine-wide reservation socket.
+  // Refuse before issuing admission: otherwise this fixture demotes a real running City.
+  try {await readHostCity(); throw new Error('Host integration requires a free coordination port; refusing to disturb an active City');}
+  catch(error) {if(error.cause?.code!=='ECONNREFUSED') throw error;}
   const dir=await mkdtemp(resolve('.scratch-remote-launch-'));
   const app=await createGateway({host:'127.0.0.1',port:0,dir:resolve(dir,'remote'),token:'remote-owner',nodeToken:'remote-node'});
   const env={...process.env,UTOPIA_CLIENT_STATE_DIR:resolve(dir,'client'),UTOPIA_HOST_STATE_DIR:resolve(dir,'unused-host')};

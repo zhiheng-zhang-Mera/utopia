@@ -1,0 +1,117 @@
+{
+  "task": "REX-802",
+  "developer": "Alien-codex",
+  "physicalHost": "MERA-ALIANWARE",
+  "baselineSha": "0e9bea3ce739b979e582a428af8fb233045a5e75",
+  "sourceIdentity": "Source commit owning this receipt; exact source and CI bound by Digital-City handoff",
+  "focusedTests": {
+    "passed": 18,
+    "failed": 0,
+    "log": ".runtime/evidence/mission-book/REX-802/clock-isolation-green.log"
+  },
+  "android": {
+    "unitTests": 83,
+    "build": "PASS",
+    "apkSha256": "9f98fa9da1fa45bc644e14041b53423353cbf90e87c339edf8a3d51772a43c81",
+    "device": "OPPO PERM00",
+    "entry": "More > Research trace",
+    "connection": "OFFLINE",
+    "observed": [
+      "Research trace entry",
+      "disabled refresh",
+      "NOT_OBSERVABLE reconnect guidance"
+    ],
+    "onlineRendering": "NOT_RUN",
+    "restoredApk": "CEX701",
+    "rawXmlRefs": [
+      ".runtime/evidence/mission-book/REX-802/oppo-menu.xml",
+      ".runtime/evidence/mission-book/REX-802/oppo-panel.xml"
+    ]
+  },
+  "technicalCritique": {
+    "initialFindings": [
+      "P1 rolled-back events captured",
+      "P2 retention loss concealed on restart",
+      "P2 owner-required Web guidance unreachable",
+      "P2 offline guidance erased by delayed response"
+    ],
+    "recheck": "17/17 PASS; no remaining blocker identified",
+    "formalReview": false
+  },
+  "unknowns": {
+    "experimentRun": null,
+    "provider": null,
+    "model": null,
+    "autonomousSpanMs": null,
+    "contextTokenCount": null,
+    "contextWindow": null,
+    "automaticCompactionTrigger": null
+  },
+  "failuresRetained": [
+    {
+      "path": ".runtime/evidence/mission-book/REX-802/schema-red.log",
+      "sha256": "da09503090a5c410da4e80b2a635fb14413772f8fb7c3cbc02bc21c0a3339637"
+    },
+    {
+      "path": ".runtime/evidence/mission-book/REX-802/early-capture-red.log",
+      "sha256": "e933b50ee36718fd3739fbaa02b51b84f8e1c3825f9cfd006404e9df92e5acb5"
+    },
+    {
+      "path": ".runtime/evidence/mission-book/REX-802/governance-red.log",
+      "sha256": "6c997bb97e91a92c2496c2b86cfae37fff86ec12235b983f017dcc4df8773095"
+    },
+    {
+      "path": ".runtime/evidence/mission-book/REX-802/containment-red.log",
+      "sha256": "12afc17fc690a4f9b7e97ce867282b6381cf38fd6477acba8cc0ea6cdd8e8ff2"
+    },
+    {
+      "path": ".runtime/evidence/mission-book/REX-802/gateway-red.log",
+      "sha256": "f8c93a5eec653004142f6463dd0dac1c6baac8a56c18c1f5ecb0d6e3a9f5f0de"
+    },
+    {
+      "path": ".runtime/evidence/mission-book/REX-802/resource-red.log",
+      "sha256": "fc0eddee5603e491280f3fe669b17729b115953100840ae1d8050169b5ee6e3d"
+    },
+    {
+      "path": ".runtime/evidence/mission-book/REX-802/review-red.log",
+      "sha256": "e4cc143ee14c92da86ccbec387556f2aacb5a6e689ea8ce752e7085ca63a08fe"
+    },
+    {
+      "path": ".runtime/evidence/mission-book/REX-802/review-all-red.log",
+      "sha256": "d92d7ff1f5aa09d206a0261dad65b70601905502ad19407514f54035e081adef"
+    },
+    {
+      "path": ".runtime/evidence/mission-book/REX-802/review-green.log",
+      "sha256": "3b8117a28864f8c4fcf987198532d159097de289df1ac840650551e26b5bbb19"
+    },
+    {
+      "path": ".runtime/evidence/mission-book/REX-802/android-red.log",
+      "sha256": "d752ab14e8f884c6ba3c30b07673060803795766c8eddb60d78a03911caeed17"
+    },
+    {
+      "path": ".runtime/evidence/mission-book/REX-802/android-green.log",
+      "sha256": "4777bac9ff370c4784922e1e51763958f43844962312fba1a5071ac8d598c688"
+    },
+    {
+      "path": ".runtime/evidence/mission-book/REX-802/android-green2.log",
+      "sha256": "3a943d783befd326f0faec84a9531c35565088d4e61cffbe8df366bfae54b747"
+    },
+    {
+      "path": ".runtime/evidence/mission-book/REX-802/clock-isolation-red.log",
+      "sha256": "f66e8b08c4bb0a30d2d7ac30fdf5a6845d592aca1ebabfc0cdd04c29c2271a44"
+    },
+    {
+      "path": ".runtime/evidence/mission-book/REX-802/clock-isolation-green.log",
+      "sha256": "fc5c23704cfd0d954a22127a286a8273b444fd8aac8048ca53546bef553f6424"
+    },
+    {
+      "path": ".runtime/evidence/mission-book/REX-802/regression.log",
+      "sha256": "6b0a1996e18f5cd09d531c987bbb9dca56176f58bc55475412c6815931559bd7"
+    }
+  ],
+  "regression": {
+    "passed": 53,
+    "failed": 0,
+    "log": ".runtime/evidence/mission-book/REX-802/regression.log"
+  }
+}

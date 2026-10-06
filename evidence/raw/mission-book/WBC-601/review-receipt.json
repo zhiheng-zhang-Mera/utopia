@@ -1,0 +1,117 @@
+{
+  "baselineSha": "612c344f9f2b06a67b2645b4662d97750dd7c44e",
+  "reviewedOriginalSha": "d65dbd3af2d8903aca13726f74110e1f2f6b9b65",
+  "host": "MERA-ALIANWARE",
+  "role": "Alien-codex",
+  "kind": "CONTROLLED_REAL_GATEWAY_HTTP",
+  "baseline": [
+    [
+      "startup",
+      200
+    ],
+    [
+      "untargeted",
+      true,
+      "Alien-fixture",
+      "ASSIGNED"
+    ],
+    [
+      "wrong-holder-report",
+      403
+    ],
+    [
+      "running",
+      "RUNNING"
+    ],
+    [
+      "nonmonotonic",
+      400
+    ],
+    [
+      "completed",
+      "COMPLETED"
+    ],
+    [
+      "offline-strict",
+      true
+    ],
+    [
+      "strict-holder",
+      true,
+      "Mech-fixture"
+    ],
+    [
+      "unknown-strict",
+      200,
+      "TARGET_DEVICE_UNKNOWN"
+    ],
+    [
+      "cancel",
+      "CANCELLED"
+    ]
+  ],
+  "correction": [
+    [
+      "startup",
+      200
+    ],
+    [
+      "untargeted",
+      true,
+      "Alien-fixture",
+      "ASSIGNED"
+    ],
+    [
+      "wrong-holder-report",
+      403
+    ],
+    [
+      "running",
+      "RUNNING"
+    ],
+    [
+      "nonmonotonic",
+      400
+    ],
+    [
+      "completed",
+      "COMPLETED"
+    ],
+    [
+      "offline-strict",
+      true
+    ],
+    [
+      "strict-holder",
+      true,
+      "Mech-fixture"
+    ],
+    [
+      "unknown-strict",
+      200,
+      "TARGET_DEVICE_UNKNOWN"
+    ],
+    [
+      "cancel",
+      "CANCELLED"
+    ]
+  ],
+  "equivalent": true,
+  "physicalDistributedExecution": "NOT_RUN",
+  "reviewedOriginalCi": 37205291447,
+  "reviewCorrections": [
+    "dispatch honors QUEUED/strict target/handoff reservation",
+    "claim readiness honors busy and sharing gates",
+    "null port typed INVALID_BACKEND"
+  ],
+  "focusedTests": {
+    "pass": 23,
+    "fail": 0
+  },
+  "failuresRetained": [
+    "review-red.log INVALID_INSTRUMENT wrong fixture IDs",
+    "review-red2.log valid three product regressions",
+    "null-port-red.log typed contract regression"
+  ],
+  "formalReviewStatus": "CORRECTION_PENDING_EXACT_CI"
+}

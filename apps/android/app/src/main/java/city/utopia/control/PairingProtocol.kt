@@ -7,8 +7,8 @@ import java.time.Instant
 data class PairDescriptor(val cityId: String, val endpoint: String, val session: String, val expires: String, val secret: String? = null, val displayName: String = cityId)
 fun endpoint(value: String): String {
  val u = URI(value)
- require(u.scheme == "http" && !u.host.isNullOrBlank() && u.userInfo == null && u.query == null && u.fragment == null && (u.path.isNullOrEmpty() || u.path == "/") && (u.port == -1 || u.port in 1..65535)) { "Invalid LAN endpoint" }
- return "http://${if (u.host.contains(':')) "[${u.host.trim('[', ']')}]" else u.host}:${if(u.port == -1) 80 else u.port}"
+ require(u.scheme in listOf("http","https") && !u.host.isNullOrBlank() && u.userInfo == null && u.query == null && u.fragment == null && (u.path.isNullOrEmpty() || u.path == "/") && (u.port == -1 || u.port in 1..65535)) { "Invalid City endpoint" }
+ return "${u.scheme}://${if (u.host.contains(':')) "[${u.host.trim('[', ']')}]" else u.host}:${if(u.port == -1) (if(u.scheme=="https") 443 else 80) else u.port}"
 }
 fun parseQr(value: String, now: Instant = Instant.now()): PairDescriptor {
  val u = URI(value); require(u.scheme == "utopia" && u.host == "pair" && u.fragment == null) { "Invalid pairing QR" }

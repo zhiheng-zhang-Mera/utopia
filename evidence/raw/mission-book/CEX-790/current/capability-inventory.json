@@ -1,0 +1,2118 @@
+{
+ "workbook": "CEX-790",
+ "baseline": "65f86f91a3d404cdbcb8f2fa43ceb9da8e994600",
+ "working_tree_diff": "",
+ "source_hashes": {
+  "services/dev-gateway/server.mjs": "9bbf879887d2c07981d569cdd302e285e9055b2dc7137113e4a65a10cafc1d0b",
+  "services/dev-gateway/actions.mjs": "e4b4c11afeb7e0fdbea604d74892c9410241bbaf7ba34b8b59c36333da5cbfbf",
+  "services/dev-gateway/rooms.mjs": "1d00608a60dda0c3244c588ae33132e1929f2e38719ca7e824a31a92b0e67bc0",
+  "apps/rooms/hub/manifest.mjs": "a9bff4be13d51a422f0bca6a5d0324f54d1fe3f0b74c3a8feefa7acbdcc787a7",
+  "apps/web/app.js": "1dba9bd21a2bddf681a3b0d95897596a7310febd81775e9fff98e81e3193374e",
+  "apps/web/connect-surface.js": "cfcdb1000b89d68f40442df86bbf9fd779b453451ef19b36a9b7b7d985078378",
+  "apps/web/device-recovery.js": "d768953b66bfd071c192ceb999513c4dce8fecc0c4866c9469e86c1e4245a4df",
+  "apps/web/discovery.js": "8acc660a5e36f61be09e0fb201257e3fdfcd6ff7d18114cc6f94877cab342b82",
+  "apps/web/enrollment.js": "5b00e73fb8a2e7de5c40f2dc17c0c03df648f9ae881cee5f341bd44636599d82",
+  "apps/web/i18n/en.js": "77c1ffe8f4c3046e3c4046f51648ea99eebd256bd4f94ac85eba3bac8d0a1f4b",
+  "apps/web/i18n/index.js": "696d3a99b6317a9898f8c595c251ac2c533da35a5c9314233110329166cdb8d0",
+  "apps/web/i18n/zh-CN.js": "36dfa68caf99b22bf42c8ac20484dbd2b6b3361bc42504f27fcb14a23a6efe16",
+  "apps/web/index.html": "4bc29aaba6d4e4fca3531ff1a59b0be37ab9620d3f24f35b6db7bbb701633a06",
+  "apps/web/invite.js": "4df4953bcb6f782e34dccf19ad6cb07686f68be1e8eb66c2a575df56c70aaa61",
+  "apps/web/network-path.js": "1f549f01f2c4964a2c9d40ec2ed527ee9c8cd7d142d300634d7a9ee00af21183",
+  "apps/web/pairing-lifecycle.js": "37580377b7135231e529dc9fe713e97b9111a0cc0bf66cf408d0393f0e2601b4",
+  "apps/web/primary-city.js": "c14adea58170605a4cdbe1fb6cca9db8e0f0de5a7898336d6f3ebc53741310df",
+  "apps/web/research-trace.js": "d39429c9c74e5abce9ef0971ab2ab10826fd52ff41cab9dd009bdb62608b6447",
+  "apps/web/research.js": "e37e60e532fac7be470cafae0bac10f5546ccb3810972fef29e0983cd0e6e654",
+  "apps/web/scheduler-adapter.js": "761e5e8f205d5bac814f318f93ad57ace463d8a8c041297b0a5627b515836dbd",
+  "apps/web/scheduler.js": "51ad70b764fcf9c9331f3c99c5a365594a20ebfefd6b143496b45ef3ab486cd2",
+  "apps/web/services.js": "6e79882dd47f883835215351a2dee664cb32c34f87e8a648a02a7e6b1ac07a17",
+  "apps/web/short-code.js": "a198f8cfc42c960246d07e1313181756de70abee1513e37035e2b656b32519f4",
+  "apps/web/terminal.js": "fcf40664cfc86b8fd5d511ceab303fdf20cbe47b6749e807bb329094f0adfefb",
+  "apps/android/app/src/main/java/city/utopia/control/Actions.kt": "8dbe2089207b189b65a4ceac111207966464e6e756920c8c0408acbbc4c3e7b7",
+  "apps/android/app/src/main/java/city/utopia/control/ActionsPanel.kt": "baea3969315893237f5c85cee85ea0cc67a71fb7882fdc06a441f7fbadc97dde",
+  "apps/android/app/src/main/java/city/utopia/control/AskPanel.kt": "2e5cfe03a8ff76eca3d43595593e6a46c558c2fc1483f4a7cfb481bed6caae22",
+  "apps/android/app/src/main/java/city/utopia/control/AutoZoomCaptureActivity.kt": "9ac000a4ee6b09cd087671e906a2b0d16dc2479b174df9ade62a78682ce1c65a",
+  "apps/android/app/src/main/java/city/utopia/control/CallbackFence.kt": "e444be106134b76ee283bf62e50513898601f437de20bd3906d43802e137f866",
+  "apps/android/app/src/main/java/city/utopia/control/CapabilityPolicy.kt": "7361bdb220500980ba2599fa350060e58c25d03f6fd31c746d2f4db140067e58",
+  "apps/android/app/src/main/java/city/utopia/control/CapabilityRequestException.kt": "578ef451e909fabab80678a39f511ca81543961251b8950bddb5eb7d698b444d",
+  "apps/android/app/src/main/java/city/utopia/control/CityClient.kt": "e930ebe511b95cf1c4202a30e56e9ccf29c9ee3d7733ed2d57fbfc3063fbcd48",
+  "apps/android/app/src/main/java/city/utopia/control/CityDiscovery.kt": "a436e137db15d168573749fcb2f9da4452cf3da0578c493b9c9391ad2d2c98f8",
+  "apps/android/app/src/main/java/city/utopia/control/DeviceRecovery.kt": "38eaced31d0a22326859709bcc77df4c2ca5086f698af8695840d4b6d691f9ba",
+  "apps/android/app/src/main/java/city/utopia/control/DeviceRecoveryPanel.kt": "f6fcab4daf157ab47f1aaa17c13c4ff368e817d50f7dda1fbc954f1841368937",
+  "apps/android/app/src/main/java/city/utopia/control/Devices.kt": "3de829b7e65ccc0f3717cb8138b42dccb551bb8b3ca349fd9da4a10bb09f4478",
+  "apps/android/app/src/main/java/city/utopia/control/MainActivity.kt": "8819e8c7239d7b2558109e80a752ab7eff1be27974577d53eecba7a1a82dcbb8",
+  "apps/android/app/src/main/java/city/utopia/control/MemberManagement.kt": "906b125e265a9ce255f934686570df6625620cd17cb4d1c442b337f7b67257b5",
+  "apps/android/app/src/main/java/city/utopia/control/MemberManagementPanel.kt": "3ecfbc3823f1f600fac068eb6bae50bb7760985c498d7113b7502932bbe09eed",
+  "apps/android/app/src/main/java/city/utopia/control/NativeEnrollment.kt": "ea5393146b056b0ef3cfd0997d646c9e77a094899e8bfce9b37488ffc9dd86b1",
+  "apps/android/app/src/main/java/city/utopia/control/OwnerOnboarding.kt": "978b091c4a62b360d0d72ebfdb5039655eb18303c4d86e58c7b8e2d1020ff36f",
+  "apps/android/app/src/main/java/city/utopia/control/OwnerOnboardingPanel.kt": "c8077291740c2d54a2063797b3182e122739e9944e169e908186d7d3e7b3e6eb",
+  "apps/android/app/src/main/java/city/utopia/control/PairingApi.kt": "d6af967b06411e55ecc21b7e6847c31fa43cd0709c541a969f95b76ec81c6753",
+  "apps/android/app/src/main/java/city/utopia/control/PairingPanel.kt": "b1cc42609fdd23529614a55b09bea809749f0ad90bad267e237ecba27e2527cf",
+  "apps/android/app/src/main/java/city/utopia/control/PairingProtocol.kt": "250f4bed51e07d12ab50e2d48addbe2284583bce1728041de276de81551ed0e0",
+  "apps/android/app/src/main/java/city/utopia/control/Protocol.kt": "0c3090034f4a3eefceba4d6af9d85e1bd86b8b6378bfd6b67c9385ba3bfe3f92",
+  "apps/android/app/src/main/java/city/utopia/control/RelayDial.kt": "7288bfe0742960ecbfcf877483c22ee21f966c4075492be63b3986002e24e3e8",
+  "apps/android/app/src/main/java/city/utopia/control/RelayPairing.kt": "671e5ee9dab65849eca6e059e6aafe6cfe8864976dea0b8bec11725c88c01951",
+  "apps/android/app/src/main/java/city/utopia/control/ResearchTrace.kt": "cd8703426709514ea0883a0d0b6293dd58a0c9e84a176a2d378739bf37d6850a",
+  "apps/android/app/src/main/java/city/utopia/control/ResearchTracePanel.kt": "4f1bee81fe40e23e02e3e2b47a59370457a3941eccb87530958c507ec886bde1",
+  "apps/android/app/src/main/java/city/utopia/control/Rooms.kt": "9614e2aa6ae284acc608cbf9ee58f39fa0ed810a93151e9462473a7d24593603",
+  "apps/android/app/src/main/java/city/utopia/control/RoomsPanel.kt": "01426b13f8404931e3e0fa7fcd00c910d8a3d9eb6f428499dc1b81a898950d09",
+  "apps/android/app/src/main/java/city/utopia/control/ScanZoomPolicy.kt": "0f8059bf30d08102d2bfb181fdf0998d1c676b0c00b435f2c944edf213a85779",
+  "apps/android/app/src/main/java/city/utopia/control/SchedulerChoice.kt": "44cfcb6d40a4c27dd254be1c671793ba33044a329a316a1c63f283e7f776c0e8",
+  "apps/android/app/src/main/java/city/utopia/control/SchedulerPanel.kt": "28d97ce8ce05b9852154c8e9b4d5c4e26b7f1ca4adf32b261eb355472333f39d",
+  "apps/android/app/src/main/java/city/utopia/control/SchedulerPresentation.kt": "e04fe91c4c7245ea541ac12374492733158fc4caaf2484d691449ba4b8c328db",
+  "apps/android/app/src/main/java/city/utopia/control/ServicesPanel.kt": "3a17af3f8860a8da4c0c18bc8716dde62ebd747eb9f2ebb91e51b1a1c0dfe73d"
+ },
+ "registry_sha": "cb56bc3064fdbab111577286c008b4c9ce4b0954",
+ "registry_dirty_state": "",
+ "registry_hashes": {
+  "CAP-ASK-001.yaml": "17f826a379853649a310a2d83f317f16bc767ff39ef374132cec93656f30bbba",
+  "CAP-CAPABILITY-BRIDGE-001.yaml": "315486bc3d8e8cf4b2f5f80c45c26e7ea655c2191f682e8a736b92cd03bb6f29",
+  "CAP-CITY-MEMBERS-NATIVE-001.yaml": "b3600240aa681f7d4d5b54c9c08ece77daccd2b23d3f81945b89cd2468bd1dca",
+  "CAP-EXECUTION-001.yaml": "9d0eef9a78507881210f1246e24c64bf90d58ecb41950544f6d47909b2dbab50",
+  "CAP-EXPERIMENT-MANIFEST-001.yaml": "189ee2a3806e06bfdd4be88dbfbf3c1f7b90ceb7a43bdcfb11c285289fd4e26f",
+  "CAP-HOST-LIFECYCLE-001.yaml": "9ef25f51bd3d16f734a639bf9f73d0131edd9ae94fc35709f5dca8bfdca92be0",
+  "CAP-IDENTITY-001.yaml": "8c54e4359fb384301f4d94e5d1d3eb988089863e5634ce54a6f1cdde72390e35",
+  "CAP-MON-001.yaml": "d93b7779d0c86d45440c6ae805e28955b67572f3c8abfbd6bb49667dc9eb50c2",
+  "CAP-MON-002.yaml": "e1263c27ff98a51e4d3832aaee8394cf6dcb049fc5267e090962a1e26a113914",
+  "CAP-MON-003.yaml": "83367c978bf6ae92da568655b04a01c9f2ab67a7d9c5ad262c0968d421d8508d",
+  "CAP-NODE-DESCRIPTOR-001.yaml": "73f868ad57e391e6f78afa45df198989b41f0140fb3744a24338edb1862ab6c2",
+  "CAP-ONBOARDING-OWNER-001.yaml": "79e53d4568d073e8d6bce33c4588f1c3fc9fa7e465cfec6b62eb6316e69bdcbf",
+  "CAP-RESEARCH-CAMPAIGN-001.yaml": "ba64ce8b9fdb3d97a846d4a5380a23fd227174ef5a7b9db3831cb5abb9650869",
+  "CAP-RESEARCH-FAULTS-001.yaml": "7b7b96265057193eeb2d5c4f98727e897c9c15a6359f2cce3085a71a65394786",
+  "CAP-RESEARCH-TRACE-001.yaml": "1ef22f7449a72758a5a1a21622f4218b99562dc16a4ddf9b23f996bb52f6cf8d",
+  "CAP-SCHEDULER-CHOICE-001.yaml": "49d46aaedee04f56f0ce07e56f922e612a5b20e30ac4f7ef530e9519517c0be5",
+  "CAP-WORKER-POOL-AGENT-001.yaml": "2c7d1d2e66a2272164ce58316cccc89607052022f67c7f811a30c1bd0a9c6684"
+ },
+ "scope": "STATIC_DISCOVERY_CANDIDATES_NOT_RUNTIME_VERDICTS",
+ "sources": {
+  "gateway_route": 60,
+  "gateway_transport": 2,
+  "action_route_kind": 4,
+  "ask_target": 16,
+  "room_catalog": 20,
+  "capability_registry_record": 17,
+  "web_entry": 47,
+  "android_entry": 35,
+  "scheduler_user_action": 4
+ },
+ "classes": {
+  "INTERNAL_PROTOCOL": 22,
+  "EXPOSED": 151,
+  "EXPOSED_ADVANCED": 2,
+  "CURRENT_ENTRY_GAP": 5,
+  "PARITY_GAP": 7,
+  "INTERNAL_TRANSPORT": 2,
+  "FUTURE_PRODUCT_INTEGRATION": 6,
+  "DEPRECATED": 10
+ },
+ "registry_records": [
+  {
+   "id": "CAP-ASK-001",
+   "class": "DIRECT_CONTROL",
+   "wire": "VERIFIED",
+   "reach": "PARTIAL",
+   "recon": "FORMAL_REVIEW_RECONCILED",
+   "platforms": [
+    "WEB",
+    "ANDROID"
+   ]
+  },
+  {
+   "id": "CAP-CAPABILITY-BRIDGE-001",
+   "class": "DIRECT_CONTROL",
+   "wire": "VERIFIED",
+   "reach": "PARTIAL",
+   "recon": "FINAL_AUDIT_BACKFILLED",
+   "platforms": [
+    "WEB",
+    "ANDROID"
+   ]
+  },
+  {
+   "id": "CAP-CITY-MEMBERS-NATIVE-001",
+   "class": "DIRECT_CONTROL",
+   "wire": "VERIFIED",
+   "reach": "PARTIAL",
+   "recon": "FORMAL_REVIEW_RECONCILED",
+   "platforms": [
+    "ANDROID"
+   ]
+  },
+  {
+   "id": "CAP-EXECUTION-001",
+   "class": "INTERNAL_ONLY",
+   "wire": "VERIFIED",
+   "reach": "NOT_APPLICABLE",
+   "recon": "FORMAL_REVIEW_RECONCILED",
+   "platforms": []
+  },
+  {
+   "id": "CAP-EXPERIMENT-MANIFEST-001",
+   "class": "DIRECT_CONTROL",
+   "wire": "VERIFIED",
+   "reach": "VERIFIED",
+   "recon": "VERIFIED_BOUNDED_WEB_MANIFEST_WORKFLOW",
+   "platforms": [
+    "WEB"
+   ]
+  },
+  {
+   "id": "CAP-HOST-LIFECYCLE-001",
+   "class": "BACKGROUND_DISCLOSED",
+   "wire": "VERIFIED",
+   "reach": "PARTIAL",
+   "recon": "CREATED_BY_OWNER_DIRECTED_CHANGE",
+   "platforms": [
+    "WEB",
+    "WEB"
+   ]
+  },
+  {
+   "id": "CAP-IDENTITY-001",
+   "class": "DIRECT_CONTROL",
+   "wire": "VERIFIED",
+   "reach": "PARTIAL",
+   "recon": "FORMAL_REVIEW_RECONCILED",
+   "platforms": [
+    "WEB",
+    "ANDROID"
+   ]
+  },
+  {
+   "id": "CAP-MON-001",
+   "class": "BACKGROUND_DISCLOSED",
+   "wire": "VERIFIED",
+   "reach": "PARTIAL",
+   "recon": "FORMAL_REVIEW_RECONCILED",
+   "platforms": [
+    "API"
+   ]
+  },
+  {
+   "id": "CAP-MON-002",
+   "class": "OBSERVABLE_ADVANCED",
+   "wire": "VERIFIED",
+   "reach": "PARTIAL",
+   "recon": "CREATED_BY_DEVELOPMENT",
+   "platforms": [
+    "WEB"
+   ]
+  },
+  {
+   "id": "CAP-MON-003",
+   "class": "OBSERVABLE_ADVANCED",
+   "wire": "LOCALLY_VERIFIED",
+   "reach": "WEB_VERIFIED_ANDROID_PENDING",
+   "recon": "CANDIDATE_PENDING_FORMAL_REVIEW",
+   "platforms": [
+    "WEB"
+   ]
+  },
+  {
+   "id": "CAP-NODE-DESCRIPTOR-001",
+   "class": "INTERNAL_ONLY",
+   "wire": "VERIFIED",
+   "reach": "NOT_APPLICABLE",
+   "recon": "FORMAL_REVIEW_RECONCILED",
+   "platforms": []
+  },
+  {
+   "id": "CAP-ONBOARDING-OWNER-001",
+   "class": "DIRECT_CONTROL",
+   "wire": "VERIFIED",
+   "reach": "PARTIAL",
+   "recon": "FORMAL_REVIEW_RECONCILED",
+   "platforms": [
+    "ANDROID"
+   ]
+  },
+  {
+   "id": "CAP-RESEARCH-CAMPAIGN-001",
+   "class": "DIRECT_CONTROL",
+   "wire": "VERIFIED",
+   "reach": "PARTIAL",
+   "recon": "CREATED_BY_DEVELOPMENT_PENDING_FORMAL_REVIEW",
+   "platforms": [
+    "WEB"
+   ]
+  },
+  {
+   "id": "CAP-RESEARCH-FAULTS-001",
+   "class": "ADVANCED_CONTROL",
+   "wire": "LOCALLY_VERIFIED",
+   "reach": "WEB_VERIFIED_ANDROID_PENDING",
+   "recon": "CANDIDATE_PENDING_FORMAL_REVIEW",
+   "platforms": [
+    "WEB"
+   ]
+  },
+  {
+   "id": "CAP-RESEARCH-TRACE-001",
+   "class": "OBSERVABLE_ADVANCED",
+   "wire": "VERIFIED",
+   "reach": "PARTIAL",
+   "recon": "FORMAL_REVIEW_RECONCILED",
+   "platforms": [
+    "WEB",
+    "ANDROID"
+   ]
+  },
+  {
+   "id": "CAP-SCHEDULER-CHOICE-001",
+   "class": "DIRECT_CONTROL",
+   "wire": "VERIFIED",
+   "reach": "PARTIAL",
+   "recon": "FORMAL_REVIEW_RECONCILED",
+   "platforms": [
+    "WEB",
+    "ANDROID"
+   ]
+  },
+  {
+   "id": "CAP-WORKER-POOL-AGENT-001",
+   "class": "INTERNAL_ONLY",
+   "wire": "VERIFIED",
+   "reach": "NOT_APPLICABLE",
+   "recon": "FORMAL_REVIEW_RECONCILED",
+   "platforms": []
+  }
+ ],
+ "items": [
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/device/session",
+   "method": "POST",
+   "path": "/api/v0/device/session",
+   "pattern": false,
+   "class": "INTERNAL_PROTOCOL",
+   "rule": "matches the internal protocol/transport allow-list (health, events feed, node worker API, join/pairing handshake, device session mint)"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/join/info",
+   "method": "GET",
+   "path": "/api/v0/join/info",
+   "pattern": false,
+   "class": "INTERNAL_PROTOCOL",
+   "rule": "matches the internal protocol/transport allow-list (health, events feed, node worker API, join/pairing handshake, device session mint)"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/join/request",
+   "method": "POST",
+   "path": "/api/v0/join/request",
+   "pattern": false,
+   "class": "INTERNAL_PROTOCOL",
+   "rule": "matches the internal protocol/transport allow-list (health, events feed, node worker API, join/pairing handshake, device session mint)"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/join/status",
+   "method": "POST",
+   "path": "/api/v0/join/status",
+   "pattern": false,
+   "class": "INTERNAL_PROTOCOL",
+   "rule": "matches the internal protocol/transport allow-list (health, events feed, node worker API, join/pairing handshake, device session mint)"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/join/exchange",
+   "method": "POST",
+   "path": "/api/v0/join/exchange",
+   "pattern": false,
+   "class": "INTERNAL_PROTOCOL",
+   "rule": "matches the internal protocol/transport allow-list (health, events feed, node worker API, join/pairing handshake, device session mint)"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/join/nearby",
+   "method": "GET",
+   "path": "/api/v0/join/nearby",
+   "pattern": false,
+   "class": "INTERNAL_PROTOCOL",
+   "rule": "matches the internal protocol/transport allow-list (health, events feed, node worker API, join/pairing handshake, device session mint)"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/pairing/info",
+   "method": "GET",
+   "path": "/api/v0/pairing/info",
+   "pattern": false,
+   "class": "INTERNAL_PROTOCOL",
+   "rule": "matches the internal protocol/transport allow-list (health, events feed, node worker API, join/pairing handshake, device session mint)"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/pairing/session",
+   "method": "POST",
+   "path": "/api/v0/pairing/session",
+   "pattern": false,
+   "class": "EXPOSED",
+   "rule": "named by capability record CAP-ONBOARDING-OWNER-001 (exposure class DIRECT_CONTROL); backend wiring VERIFIED; reconciliation FORMAL_REVIEW_RECONCILED",
+   "capability": "CAP-ONBOARDING-OWNER-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/pairing/exchange",
+   "method": "POST",
+   "path": "/api/v0/pairing/exchange",
+   "pattern": false,
+   "class": "INTERNAL_PROTOCOL",
+   "rule": "matches the internal protocol/transport allow-list (health, events feed, node worker API, join/pairing handshake, device session mint)"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/device/enroll",
+   "method": "POST",
+   "path": "/api/v0/device/enroll",
+   "pattern": false,
+   "class": "INTERNAL_PROTOCOL",
+   "rule": "matches the internal protocol/transport allow-list (health, events feed, node worker API, join/pairing handshake, device session mint)"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/device/installations",
+   "method": "GET",
+   "path": "/api/v0/device/installations",
+   "pattern": false,
+   "class": "EXPOSED",
+   "rule": "named by capability record CAP-CITY-MEMBERS-NATIVE-001 (exposure class DIRECT_CONTROL); backend wiring VERIFIED; reconciliation FORMAL_REVIEW_RECONCILED",
+   "capability": "CAP-CITY-MEMBERS-NATIVE-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/research/trace",
+   "method": "GET",
+   "path": "/api/v0/research/trace",
+   "pattern": false,
+   "class": "EXPOSED_ADVANCED",
+   "rule": "named by capability record CAP-RESEARCH-TRACE-001 (exposure class OBSERVABLE_ADVANCED); backend wiring VERIFIED; reconciliation FORMAL_REVIEW_RECONCILED",
+   "capability": "CAP-RESEARCH-TRACE-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/capabilities",
+   "method": "GET",
+   "path": "/api/v0/capabilities",
+   "pattern": false,
+   "class": "EXPOSED",
+   "rule": "named by capability record CAP-CAPABILITY-BRIDGE-001 (exposure class DIRECT_CONTROL); backend wiring VERIFIED; reconciliation FINAL_AUDIT_BACKFILLED",
+   "capability": "CAP-CAPABILITY-BRIDGE-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/capability-invocations",
+   "method": "GET",
+   "path": "/api/v0/capability-invocations",
+   "pattern": false,
+   "class": "EXPOSED",
+   "rule": "named by capability record CAP-CAPABILITY-BRIDGE-001 (exposure class DIRECT_CONTROL); backend wiring VERIFIED; reconciliation FINAL_AUDIT_BACKFILLED",
+   "capability": "CAP-CAPABILITY-BRIDGE-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "PATCH /api/v0/city/name",
+   "method": "PATCH",
+   "path": "/api/v0/city/name",
+   "pattern": false,
+   "class": "EXPOSED",
+   "rule": "named by capability record CAP-CITY-MEMBERS-NATIVE-001 (exposure class DIRECT_CONTROL); backend wiring VERIFIED; reconciliation FORMAL_REVIEW_RECONCILED",
+   "capability": "CAP-CITY-MEMBERS-NATIVE-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/city",
+   "method": "GET",
+   "path": "/api/v0/city",
+   "pattern": false,
+   "class": "INTERNAL_PROTOCOL",
+   "rule": "matches the internal protocol/transport allow-list (health, events feed, node worker API, join/pairing handshake, device session mint)"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/execution-profile",
+   "method": "GET",
+   "path": "/api/v0/execution-profile",
+   "pattern": false,
+   "class": "CURRENT_ENTRY_GAP",
+   "rule": "no user surface and no capability record names this route"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/execution-profile",
+   "method": "POST",
+   "path": "/api/v0/execution-profile",
+   "pattern": false,
+   "class": "CURRENT_ENTRY_GAP",
+   "rule": "no user surface and no capability record names this route"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/monitor",
+   "method": "GET",
+   "path": "/api/v0/monitor",
+   "pattern": false,
+   "class": "EXPOSED",
+   "rule": "named by capability record CAP-MON-001 (exposure class BACKGROUND_DISCLOSED); backend wiring VERIFIED; reconciliation FORMAL_REVIEW_RECONCILED",
+   "capability": "CAP-MON-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/node/sharing",
+   "method": "POST",
+   "path": "/api/v0/node/sharing",
+   "pattern": false,
+   "class": "EXPOSED",
+   "rule": "named by capability record CAP-CITY-MEMBERS-NATIVE-001 (exposure class DIRECT_CONTROL); backend wiring VERIFIED; reconciliation FORMAL_REVIEW_RECONCILED",
+   "capability": "CAP-CITY-MEMBERS-NATIVE-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/members/messages",
+   "method": "POST",
+   "path": "/api/v0/members/messages",
+   "pattern": false,
+   "class": "EXPOSED",
+   "rule": "named by capability record CAP-CITY-MEMBERS-NATIVE-001 (exposure class DIRECT_CONTROL); backend wiring VERIFIED; reconciliation FORMAL_REVIEW_RECONCILED",
+   "capability": "CAP-CITY-MEMBERS-NATIVE-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/members/messages",
+   "method": "GET",
+   "path": "/api/v0/members/messages",
+   "pattern": false,
+   "class": "EXPOSED",
+   "rule": "named by capability record CAP-CITY-MEMBERS-NATIVE-001 (exposure class DIRECT_CONTROL); backend wiring VERIFIED; reconciliation FORMAL_REVIEW_RECONCILED",
+   "capability": "CAP-CITY-MEMBERS-NATIVE-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/presentation",
+   "method": "GET",
+   "path": "/api/v0/presentation",
+   "pattern": false,
+   "class": "INTERNAL_PROTOCOL",
+   "rule": "matches the internal protocol/transport allow-list (health, events feed, node worker API, join/pairing handshake, device session mint)"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/rooms",
+   "method": "GET",
+   "path": "/api/v0/rooms",
+   "pattern": false,
+   "class": "EXPOSED",
+   "rule": "has both a Web entry group and an Android page whose name matches the route family"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/actions",
+   "method": "GET",
+   "path": "/api/v0/actions",
+   "pattern": false,
+   "class": "EXPOSED",
+   "rule": "has both a Web entry group and an Android page whose name matches the route family"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/actions",
+   "method": "POST",
+   "path": "/api/v0/actions",
+   "pattern": false,
+   "class": "EXPOSED",
+   "rule": "has both a Web entry group and an Android page whose name matches the route family"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/ask/targets",
+   "method": "GET",
+   "path": "/api/v0/ask/targets",
+   "pattern": false,
+   "class": "EXPOSED",
+   "rule": "named by capability record CAP-ASK-001 (exposure class DIRECT_CONTROL); backend wiring VERIFIED; reconciliation FORMAL_REVIEW_RECONCILED",
+   "capability": "CAP-ASK-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/ask",
+   "method": "POST",
+   "path": "/api/v0/ask",
+   "pattern": false,
+   "class": "EXPOSED",
+   "rule": "named by capability record CAP-ASK-001 (exposure class DIRECT_CONTROL); backend wiring VERIFIED; reconciliation FORMAL_REVIEW_RECONCILED",
+   "capability": "CAP-ASK-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/host/join",
+   "method": "POST",
+   "path": "/api/v0/host/join",
+   "pattern": false,
+   "class": "CURRENT_ENTRY_GAP",
+   "rule": "no user surface and no capability record names this route"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/host/join/status",
+   "method": "GET",
+   "path": "/api/v0/host/join/status",
+   "pattern": false,
+   "class": "CURRENT_ENTRY_GAP",
+   "rule": "no user surface and no capability record names this route"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/nodes",
+   "method": "GET",
+   "path": "/api/v0/nodes",
+   "pattern": false,
+   "class": "INTERNAL_PROTOCOL",
+   "rule": "named by capability record CAP-NODE-DESCRIPTOR-001 (exposure class INTERNAL_ONLY); backend wiring VERIFIED; reconciliation FORMAL_REVIEW_RECONCILED",
+   "capability": "CAP-NODE-DESCRIPTOR-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/tasks",
+   "method": "GET",
+   "path": "/api/v0/tasks",
+   "pattern": false,
+   "class": "EXPOSED",
+   "rule": "named by capability record CAP-SCHEDULER-CHOICE-001 (exposure class DIRECT_CONTROL); backend wiring VERIFIED; reconciliation FORMAL_REVIEW_RECONCILED",
+   "capability": "CAP-SCHEDULER-CHOICE-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/events",
+   "method": "GET",
+   "path": "/api/v0/events",
+   "pattern": false,
+   "class": "INTERNAL_PROTOCOL",
+   "rule": "matches the internal protocol/transport allow-list (health, events feed, node worker API, join/pairing handshake, device session mint)"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/join/requests",
+   "method": "GET",
+   "path": "/api/v0/join/requests",
+   "pattern": false,
+   "class": "EXPOSED",
+   "rule": "named by capability record CAP-ONBOARDING-OWNER-001 (exposure class DIRECT_CONTROL); backend wiring VERIFIED; reconciliation FORMAL_REVIEW_RECONCILED",
+   "capability": "CAP-ONBOARDING-OWNER-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/tasks",
+   "method": "POST",
+   "path": "/api/v0/tasks",
+   "pattern": false,
+   "class": "EXPOSED",
+   "rule": "named by capability record CAP-SCHEDULER-CHOICE-001 (exposure class DIRECT_CONTROL); backend wiring VERIFIED; reconciliation FORMAL_REVIEW_RECONCILED",
+   "capability": "CAP-SCHEDULER-CHOICE-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/node/register",
+   "method": "POST",
+   "path": "/api/v0/node/register",
+   "pattern": false,
+   "class": "INTERNAL_PROTOCOL",
+   "rule": "matches the internal protocol/transport allow-list (health, events feed, node worker API, join/pairing handshake, device session mint)"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/node/heartbeat",
+   "method": "POST",
+   "path": "/api/v0/node/heartbeat",
+   "pattern": false,
+   "class": "INTERNAL_PROTOCOL",
+   "rule": "matches the internal protocol/transport allow-list (health, events feed, node worker API, join/pairing handshake, device session mint)"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/node/descriptor",
+   "method": "POST",
+   "path": "/api/v0/node/descriptor",
+   "pattern": false,
+   "class": "INTERNAL_PROTOCOL",
+   "rule": "matches the internal protocol/transport allow-list (health, events feed, node worker API, join/pairing handshake, device session mint)"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/node/claim",
+   "method": "POST",
+   "path": "/api/v0/node/claim",
+   "pattern": false,
+   "class": "INTERNAL_PROTOCOL",
+   "rule": "matches the internal protocol/transport allow-list (health, events feed, node worker API, join/pairing handshake, device session mint)"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/node/report",
+   "method": "POST",
+   "path": "/api/v0/node/report",
+   "pattern": false,
+   "class": "INTERNAL_PROTOCOL",
+   "rule": "matches the internal protocol/transport allow-list (health, events feed, node worker API, join/pairing handshake, device session mint)"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/research/experiments/validate",
+   "method": "POST",
+   "path": "/api/v0/research/experiments/validate",
+   "pattern": false,
+   "class": "EXPOSED",
+   "rule": "named by capability record CAP-EXPERIMENT-MANIFEST-001 (exposure class DIRECT_CONTROL); backend wiring VERIFIED; reconciliation VERIFIED_BOUNDED_WEB_MANIFEST_WORKFLOW",
+   "capability": "CAP-EXPERIMENT-MANIFEST-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/research/experiments",
+   "method": "GET",
+   "path": "/api/v0/research/experiments",
+   "pattern": false,
+   "class": "EXPOSED",
+   "rule": "named by capability record CAP-EXPERIMENT-MANIFEST-001 (exposure class DIRECT_CONTROL); backend wiring VERIFIED; reconciliation VERIFIED_BOUNDED_WEB_MANIFEST_WORKFLOW",
+   "capability": "CAP-EXPERIMENT-MANIFEST-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/research/experiments",
+   "method": "POST",
+   "path": "/api/v0/research/experiments",
+   "pattern": false,
+   "class": "EXPOSED",
+   "rule": "named by capability record CAP-EXPERIMENT-MANIFEST-001 (exposure class DIRECT_CONTROL); backend wiring VERIFIED; reconciliation VERIFIED_BOUNDED_WEB_MANIFEST_WORKFLOW",
+   "capability": "CAP-EXPERIMENT-MANIFEST-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/health",
+   "method": "GET",
+   "path": "/api/v0/health",
+   "pattern": false,
+   "class": "INTERNAL_PROTOCOL",
+   "rule": "matches the internal protocol/transport allow-list (health, events feed, node worker API, join/pairing handshake, device session mint)"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/device/installations/:id/rebind",
+   "method": "POST",
+   "path": "/api/v0/device/installations/:id/rebind",
+   "pattern": true,
+   "class": "EXPOSED",
+   "rule": "named by capability record CAP-IDENTITY-001 (exposure class DIRECT_CONTROL); backend wiring VERIFIED; reconciliation FORMAL_REVIEW_RECONCILED",
+   "capability": "CAP-IDENTITY-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/device/installations/:id/revoke",
+   "method": "POST",
+   "path": "/api/v0/device/installations/:id/revoke",
+   "pattern": true,
+   "class": "EXPOSED",
+   "rule": "named by capability record CAP-CITY-MEMBERS-NATIVE-001 (exposure class DIRECT_CONTROL); backend wiring VERIFIED; reconciliation FORMAL_REVIEW_RECONCILED",
+   "capability": "CAP-CITY-MEMBERS-NATIVE-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/capability-invocations/:id",
+   "method": "GET",
+   "path": "/api/v0/capability-invocations/:id",
+   "pattern": true,
+   "class": "EXPOSED",
+   "rule": "named by capability record CAP-CAPABILITY-BRIDGE-001 (exposure class DIRECT_CONTROL); backend wiring VERIFIED; reconciliation FINAL_AUDIT_BACKFILLED",
+   "capability": "CAP-CAPABILITY-BRIDGE-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/capabilities/:id",
+   "method": "GET",
+   "path": "/api/v0/capabilities/:id",
+   "pattern": true,
+   "class": "EXPOSED",
+   "rule": "named by capability record CAP-CAPABILITY-BRIDGE-001 (exposure class DIRECT_CONTROL); backend wiring VERIFIED; reconciliation FINAL_AUDIT_BACKFILLED",
+   "capability": "CAP-CAPABILITY-BRIDGE-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/capabilities/:id/invoke",
+   "method": "POST",
+   "path": "/api/v0/capabilities/:id/invoke",
+   "pattern": true,
+   "class": "EXPOSED",
+   "rule": "named by capability record CAP-CAPABILITY-BRIDGE-001 (exposure class DIRECT_CONTROL); backend wiring VERIFIED; reconciliation FINAL_AUDIT_BACKFILLED",
+   "capability": "CAP-CAPABILITY-BRIDGE-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/members/messages/:id/receipt",
+   "method": "POST",
+   "path": "/api/v0/members/messages/:id/receipt",
+   "pattern": true,
+   "class": "EXPOSED",
+   "rule": "named by capability record CAP-CITY-MEMBERS-NATIVE-001 (exposure class DIRECT_CONTROL); backend wiring VERIFIED; reconciliation FORMAL_REVIEW_RECONCILED",
+   "capability": "CAP-CITY-MEMBERS-NATIVE-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/actions/:id",
+   "method": "GET",
+   "path": "/api/v0/actions/:id",
+   "pattern": true,
+   "class": "EXPOSED",
+   "rule": "has both a Web entry group and an Android page whose name matches the route family"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/join/requests/:id/approve",
+   "method": "POST",
+   "path": "/api/v0/join/requests/:id/approve",
+   "pattern": true,
+   "class": "EXPOSED",
+   "rule": "named by capability record CAP-ONBOARDING-OWNER-001 (exposure class DIRECT_CONTROL); backend wiring VERIFIED; reconciliation FORMAL_REVIEW_RECONCILED",
+   "capability": "CAP-ONBOARDING-OWNER-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/join/requests/:id/reject",
+   "method": "POST",
+   "path": "/api/v0/join/requests/:id/reject",
+   "pattern": true,
+   "class": "EXPOSED",
+   "rule": "named by capability record CAP-ONBOARDING-OWNER-001 (exposure class DIRECT_CONTROL); backend wiring VERIFIED; reconciliation FORMAL_REVIEW_RECONCILED",
+   "capability": "CAP-ONBOARDING-OWNER-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/tasks/:id",
+   "method": "GET",
+   "path": "/api/v0/tasks/:id",
+   "pattern": true,
+   "class": "EXPOSED",
+   "rule": "named by capability record CAP-SCHEDULER-CHOICE-001 (exposure class DIRECT_CONTROL); backend wiring VERIFIED; reconciliation FORMAL_REVIEW_RECONCILED",
+   "capability": "CAP-SCHEDULER-CHOICE-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/tasks/:id/cancel",
+   "method": "POST",
+   "path": "/api/v0/tasks/:id/cancel",
+   "pattern": true,
+   "class": "PARITY_GAP",
+   "rule": "only one first-class surface is detectable (web=false, android=true)"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/tasks/:id/provider-choice",
+   "method": "POST",
+   "path": "/api/v0/tasks/:id/provider-choice",
+   "pattern": true,
+   "class": "PARITY_GAP",
+   "rule": "only one first-class surface is detectable (web=false, android=true)"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/tasks/:id/switch-declined",
+   "method": "POST",
+   "path": "/api/v0/tasks/:id/switch-declined",
+   "pattern": true,
+   "class": "EXPOSED",
+   "rule": "named by capability record CAP-SCHEDULER-CHOICE-001 (exposure class DIRECT_CONTROL); backend wiring VERIFIED; reconciliation FORMAL_REVIEW_RECONCILED",
+   "capability": "CAP-SCHEDULER-CHOICE-001"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/research/experiments/:id/seeds",
+   "method": "GET",
+   "path": "/api/v0/research/experiments/:id/seeds",
+   "pattern": true,
+   "class": "PARITY_GAP",
+   "rule": "only one first-class surface is detectable (web=true, android=false)"
+  },
+  {
+   "source": "gateway_route",
+   "id": "GET /api/v0/research/experiments/:id",
+   "method": "GET",
+   "path": "/api/v0/research/experiments/:id",
+   "pattern": true,
+   "class": "PARITY_GAP",
+   "rule": "only one first-class surface is detectable (web=true, android=false)"
+  },
+  {
+   "source": "gateway_route",
+   "id": "POST /api/v0/research/experiments/:id/register",
+   "method": "POST",
+   "path": "/api/v0/research/experiments/:id/register",
+   "pattern": true,
+   "class": "PARITY_GAP",
+   "rule": "only one first-class surface is detectable (web=true, android=false)"
+  },
+  {
+   "source": "gateway_transport",
+   "id": "WS /api/v0/relay",
+   "path": "/api/v0/relay",
+   "class": "INTERNAL_TRANSPORT",
+   "rule": "Authenticated WebSocket transport; users enter through pairing and live product pages, not a separate action."
+  },
+  {
+   "source": "gateway_transport",
+   "id": "WS /api/v0/events/stream",
+   "path": "/api/v0/events/stream",
+   "class": "INTERNAL_TRANSPORT",
+   "rule": "Authenticated WebSocket transport; users enter through pairing and live product pages, not a separate action."
+  },
+  {
+   "source": "action_route_kind",
+   "id": "ROOM",
+   "class": "EXPOSED",
+   "rule": "Canonical Action adapter reachable from Ask/Actions."
+  },
+  {
+   "source": "action_route_kind",
+   "id": "CAPABILITY",
+   "class": "EXPOSED",
+   "rule": "Canonical Action adapter reachable from Ask/Actions."
+  },
+  {
+   "source": "action_route_kind",
+   "id": "CITY_TASK",
+   "class": "EXPOSED",
+   "rule": "Canonical Action adapter reachable from Ask/Actions."
+  },
+  {
+   "source": "action_route_kind",
+   "id": "GENERAL_AI",
+   "class": "FUTURE_PRODUCT_INTEGRATION",
+   "rule": "Reserved route with typed UNAVAILABLE; no executor claimed."
+  },
+  {
+   "source": "ask_target",
+   "id": "ROOM:checklist.add-item",
+   "class": "EXPOSED",
+   "rule": "Authoritative Ask catalog export, reachable through target selection; availability is checked by the canonical adapter."
+  },
+  {
+   "source": "ask_target",
+   "id": "ROOM:bookmarks.add-bookmark",
+   "class": "EXPOSED",
+   "rule": "Authoritative Ask catalog export, reachable through target selection; availability is checked by the canonical adapter."
+  },
+  {
+   "source": "ask_target",
+   "id": "ROOM:hash.hash-file",
+   "class": "EXPOSED",
+   "rule": "Authoritative Ask catalog export, reachable through target selection; availability is checked by the canonical adapter."
+  },
+  {
+   "source": "ask_target",
+   "id": "ROOM:knowledge.add-entry",
+   "class": "EXPOSED",
+   "rule": "Authoritative Ask catalog export, reachable through target selection; availability is checked by the canonical adapter."
+  },
+  {
+   "source": "ask_target",
+   "id": "ROOM:knowledge.search",
+   "class": "EXPOSED",
+   "rule": "Authoritative Ask catalog export, reachable through target selection; availability is checked by the canonical adapter."
+  },
+  {
+   "source": "ask_target",
+   "id": "CAPABILITY:planning.document.intake:read",
+   "class": "EXPOSED",
+   "rule": "Authoritative Ask catalog export, reachable through target selection; availability is checked by the canonical adapter."
+  },
+  {
+   "source": "ask_target",
+   "id": "CAPABILITY:planning.knowledge.query:query",
+   "class": "EXPOSED",
+   "rule": "Authoritative Ask catalog export, reachable through target selection; availability is checked by the canonical adapter."
+  },
+  {
+   "source": "ask_target",
+   "id": "CAPABILITY:research.evidence.review:review",
+   "class": "EXPOSED",
+   "rule": "Authoritative Ask catalog export, reachable through target selection; availability is checked by the canonical adapter."
+  },
+  {
+   "source": "ask_target",
+   "id": "CAPABILITY:presentation.theme.lab:generate",
+   "class": "EXPOSED",
+   "rule": "Authoritative Ask catalog export, reachable through target selection; availability is checked by the canonical adapter."
+  },
+  {
+   "source": "ask_target",
+   "id": "CAPABILITY:presentation.theme.lab:build",
+   "class": "EXPOSED",
+   "rule": "Authoritative Ask catalog export, reachable through target selection; availability is checked by the canonical adapter."
+  },
+  {
+   "source": "ask_target",
+   "id": "CAPABILITY:engineering.skill.inspect:validate",
+   "class": "EXPOSED",
+   "rule": "Authoritative Ask catalog export, reachable through target selection; availability is checked by the canonical adapter."
+  },
+  {
+   "source": "ask_target",
+   "id": "CITY_TASK:WAIT",
+   "class": "EXPOSED",
+   "rule": "Authoritative Ask catalog export, reachable through target selection; availability is checked by the canonical adapter."
+  },
+  {
+   "source": "ask_target",
+   "id": "CITY_TASK:CREATE_TEMP_ARTIFACT",
+   "class": "EXPOSED",
+   "rule": "Authoritative Ask catalog export, reachable through target selection; availability is checked by the canonical adapter."
+  },
+  {
+   "source": "ask_target",
+   "id": "CITY_TASK:HASH_TEMP_ARTIFACT",
+   "class": "EXPOSED",
+   "rule": "Authoritative Ask catalog export, reachable through target selection; availability is checked by the canonical adapter."
+  },
+  {
+   "source": "ask_target",
+   "id": "CITY_TASK:DELETE_TEMP_ARTIFACT",
+   "class": "EXPOSED",
+   "rule": "Authoritative Ask catalog export, reachable through target selection; availability is checked by the canonical adapter."
+  },
+  {
+   "source": "ask_target",
+   "id": "CITY_TASK:CHECKPOINT_DEMO",
+   "class": "EXPOSED",
+   "rule": "Authoritative Ask catalog export, reachable through target selection; availability is checked by the canonical adapter."
+  },
+  {
+   "source": "room_catalog",
+   "id": "knowledge",
+   "lifecycle": "LOCAL_PRODUCT",
+   "active": true,
+   "class": "EXPOSED",
+   "rule": "Active Room catalog; live availability is disclosed by the Room Hub."
+  },
+  {
+   "source": "room_catalog",
+   "id": "bookmarks",
+   "lifecycle": "LOCAL_PRODUCT",
+   "active": true,
+   "class": "EXPOSED",
+   "rule": "Active Room catalog; live availability is disclosed by the Room Hub."
+  },
+  {
+   "source": "room_catalog",
+   "id": "checklist",
+   "lifecycle": "LOCAL_PRODUCT",
+   "active": true,
+   "class": "EXPOSED",
+   "rule": "Active Room catalog; live availability is disclosed by the Room Hub."
+  },
+  {
+   "source": "room_catalog",
+   "id": "prompts",
+   "lifecycle": "LOCAL_PRODUCT",
+   "active": true,
+   "class": "EXPOSED",
+   "rule": "Active Room catalog; live availability is disclosed by the Room Hub."
+  },
+  {
+   "source": "room_catalog",
+   "id": "text-workshop",
+   "lifecycle": "LOCAL_PRODUCT",
+   "active": true,
+   "class": "EXPOSED",
+   "rule": "Active Room catalog; live availability is disclosed by the Room Hub."
+  },
+  {
+   "source": "room_catalog",
+   "id": "hash",
+   "lifecycle": "LOCAL_PRODUCT",
+   "active": true,
+   "class": "EXPOSED",
+   "rule": "Active Room catalog; live availability is disclosed by the Room Hub."
+  },
+  {
+   "source": "room_catalog",
+   "id": "data-lab",
+   "lifecycle": "LOCAL_PRODUCT",
+   "active": true,
+   "class": "EXPOSED",
+   "rule": "Active Room catalog; live availability is disclosed by the Room Hub."
+  },
+  {
+   "source": "room_catalog",
+   "id": "focus",
+   "lifecycle": "LOCAL_PRODUCT",
+   "active": true,
+   "class": "EXPOSED",
+   "rule": "Active Room catalog; live availability is disclosed by the Room Hub."
+  },
+  {
+   "source": "room_catalog",
+   "id": "calendar",
+   "lifecycle": "LOCAL_PRODUCT",
+   "active": true,
+   "class": "EXPOSED",
+   "rule": "Active Room catalog; live availability is disclosed by the Room Hub."
+  },
+  {
+   "source": "room_catalog",
+   "id": "decisions",
+   "lifecycle": "LOCAL_PRODUCT",
+   "active": true,
+   "class": "EXPOSED",
+   "rule": "Active Room catalog; live availability is disclosed by the Room Hub."
+  },
+  {
+   "source": "room_catalog",
+   "id": "theme-builder-lab",
+   "lifecycle": "PROMOTED",
+   "active": false,
+   "class": "DEPRECATED",
+   "rule": "Retired/promoted/rejected catalog identity, not a current callable Room."
+  },
+  {
+   "source": "room_catalog",
+   "id": "evidence-engine-lab",
+   "lifecycle": "PROMOTED",
+   "active": false,
+   "class": "DEPRECATED",
+   "rule": "Retired/promoted/rejected catalog identity, not a current callable Room."
+  },
+  {
+   "source": "room_catalog",
+   "id": "document-readers-lab",
+   "lifecycle": "PROMOTED",
+   "active": false,
+   "class": "DEPRECATED",
+   "rule": "Retired/promoted/rejected catalog identity, not a current callable Room."
+  },
+  {
+   "source": "room_catalog",
+   "id": "yaml-intake-lab",
+   "lifecycle": "PROMOTED",
+   "active": false,
+   "class": "DEPRECATED",
+   "rule": "Retired/promoted/rejected catalog identity, not a current callable Room."
+  },
+  {
+   "source": "room_catalog",
+   "id": "theme-package-lab",
+   "lifecycle": "PROMOTED",
+   "active": false,
+   "class": "DEPRECATED",
+   "rule": "Retired/promoted/rejected catalog identity, not a current callable Room."
+  },
+  {
+   "source": "room_catalog",
+   "id": "skill-discovery-lab",
+   "lifecycle": "PROMOTED",
+   "active": false,
+   "class": "DEPRECATED",
+   "rule": "Retired/promoted/rejected catalog identity, not a current callable Room."
+  },
+  {
+   "source": "room_catalog",
+   "id": "document-intake-lab",
+   "lifecycle": "PROMOTED",
+   "active": false,
+   "class": "DEPRECATED",
+   "rule": "Retired/promoted/rejected catalog identity, not a current callable Room."
+  },
+  {
+   "source": "room_catalog",
+   "id": "knowledge-core-lab",
+   "lifecycle": "PROMOTED",
+   "active": false,
+   "class": "DEPRECATED",
+   "rule": "Retired/promoted/rejected catalog identity, not a current callable Room."
+  },
+  {
+   "source": "room_catalog",
+   "id": "theme-engine-lab",
+   "lifecycle": "PROMOTED",
+   "active": false,
+   "class": "DEPRECATED",
+   "rule": "Retired/promoted/rejected catalog identity, not a current callable Room."
+  },
+  {
+   "source": "room_catalog",
+   "id": "skill-intake-lab",
+   "lifecycle": "PROMOTED",
+   "active": false,
+   "class": "DEPRECATED",
+   "rule": "Retired/promoted/rejected catalog identity, not a current callable Room."
+  },
+  {
+   "source": "capability_registry_record",
+   "id": "CAP-ASK-001",
+   "registry_class": "DIRECT_CONTROL",
+   "implementation": "COMPLETE",
+   "backend_wiring": "VERIFIED",
+   "reachability": "PARTIAL",
+   "reconciliation": "FORMAL_REVIEW_RECONCILED",
+   "apis": [
+    "GET /api/v0/ask/targets",
+    "POST /api/v0/ask"
+   ],
+   "platforms": [
+    "WEB",
+    "ANDROID"
+   ],
+   "absent_paths": [],
+   "file": "capability-registry\\records\\CAP-ASK-001.yaml",
+   "class": "EXPOSED",
+   "rule": "registry declares exposure class DIRECT_CONTROL; reconciliation FORMAL_REVIEW_RECONCILED"
+  },
+  {
+   "source": "capability_registry_record",
+   "id": "CAP-CAPABILITY-BRIDGE-001",
+   "registry_class": "DIRECT_CONTROL",
+   "implementation": "COMPLETE",
+   "backend_wiring": "VERIFIED",
+   "reachability": "PARTIAL",
+   "reconciliation": "FINAL_AUDIT_BACKFILLED",
+   "apis": [
+    "GET /api/v0/capabilities",
+    "GET /api/v0/capabilities/:id",
+    "POST /api/v0/capabilities/:id/invoke",
+    "GET /api/v0/capability-invocations",
+    "GET /api/v0/capability-invocations/:id"
+   ],
+   "platforms": [
+    "WEB",
+    "ANDROID"
+   ],
+   "absent_paths": [],
+   "file": "capability-registry\\records\\CAP-CAPABILITY-BRIDGE-001.yaml",
+   "class": "EXPOSED",
+   "rule": "registry declares exposure class DIRECT_CONTROL; reconciliation FINAL_AUDIT_BACKFILLED"
+  },
+  {
+   "source": "capability_registry_record",
+   "id": "CAP-CITY-MEMBERS-NATIVE-001",
+   "registry_class": "DIRECT_CONTROL",
+   "implementation": "COMPLETE",
+   "backend_wiring": "VERIFIED",
+   "reachability": "PARTIAL",
+   "reconciliation": "FORMAL_REVIEW_RECONCILED",
+   "apis": [
+    "GET /api/v0/device/installations",
+    "PATCH /api/v0/city/name",
+    "POST /api/v0/device/installations/:id/revoke",
+    "POST /api/v0/node/sharing",
+    "POST /api/v0/members/messages",
+    "POST /api/v0/members/messages/:id/receipt"
+   ],
+   "platforms": [
+    "ANDROID"
+   ],
+   "absent_paths": [],
+   "file": "capability-registry\\records\\CAP-CITY-MEMBERS-NATIVE-001.yaml",
+   "class": "EXPOSED",
+   "rule": "registry declares exposure class DIRECT_CONTROL; reconciliation FORMAL_REVIEW_RECONCILED"
+  },
+  {
+   "source": "capability_registry_record",
+   "id": "CAP-EXECUTION-001",
+   "registry_class": "INTERNAL_ONLY",
+   "implementation": "COMPLETE",
+   "backend_wiring": "VERIFIED",
+   "reachability": "NOT_APPLICABLE",
+   "reconciliation": "FORMAL_REVIEW_RECONCILED",
+   "apis": [
+    "POST /api/v0/node/claim",
+    "POST /api/v0/node/report"
+   ],
+   "platforms": [],
+   "absent_paths": [],
+   "file": "capability-registry\\records\\CAP-EXECUTION-001.yaml",
+   "class": "INTERNAL_PROTOCOL",
+   "rule": "registry declares exposure class INTERNAL_ONLY; reconciliation FORMAL_REVIEW_RECONCILED"
+  },
+  {
+   "source": "capability_registry_record",
+   "id": "CAP-EXPERIMENT-MANIFEST-001",
+   "registry_class": "DIRECT_CONTROL",
+   "implementation": "COMPLETE",
+   "backend_wiring": "VERIFIED",
+   "reachability": "VERIFIED",
+   "reconciliation": "VERIFIED_BOUNDED_WEB_MANIFEST_WORKFLOW",
+   "apis": [
+    "POST /api/v0/research/experiments/validate"
+   ],
+   "platforms": [
+    "WEB"
+   ],
+   "absent_paths": [],
+   "file": "capability-registry\\records\\CAP-EXPERIMENT-MANIFEST-001.yaml",
+   "class": "EXPOSED",
+   "rule": "registry declares exposure class DIRECT_CONTROL; reconciliation VERIFIED_BOUNDED_WEB_MANIFEST_WORKFLOW"
+  },
+  {
+   "source": "capability_registry_record",
+   "id": "CAP-HOST-LIFECYCLE-001",
+   "registry_class": "BACKGROUND_DISCLOSED",
+   "implementation": "COMPLETE",
+   "backend_wiring": "VERIFIED",
+   "reachability": "PARTIAL",
+   "reconciliation": "CREATED_BY_OWNER_DIRECTED_CHANGE",
+   "apis": [
+    "POST /api/v0/host/release",
+    "GET /api/v0/city (snapshot field: lifecycle)"
+   ],
+   "platforms": [
+    "WEB",
+    "WEB"
+   ],
+   "absent_paths": [
+    "scripts/launcher-plan.mjs",
+    "tests/host-standalone-lifecycle.test.mjs",
+    "tests/host-lifecycle-process-e2e.test.mjs",
+    "docs/START_MODES.md"
+   ],
+   "file": "capability-registry\\records\\CAP-HOST-LIFECYCLE-001.yaml",
+   "class": "FUTURE_PRODUCT_INTEGRATION",
+   "rule": "Record is branch-scoped; implementation paths are absent from this integration tree. Not an accepted main capability."
+  },
+  {
+   "source": "capability_registry_record",
+   "id": "CAP-IDENTITY-001",
+   "registry_class": "DIRECT_CONTROL",
+   "implementation": "COMPLETE",
+   "backend_wiring": "VERIFIED",
+   "reachability": "PARTIAL",
+   "reconciliation": "FORMAL_REVIEW_RECONCILED",
+   "apis": [
+    "GET /api/v0/device/installations",
+    "POST /api/v0/device/installations/:id/rebind",
+    "POST /api/v0/device/installations/:id/revoke"
+   ],
+   "platforms": [
+    "WEB",
+    "ANDROID"
+   ],
+   "absent_paths": [],
+   "file": "capability-registry\\records\\CAP-IDENTITY-001.yaml",
+   "class": "EXPOSED",
+   "rule": "registry declares exposure class DIRECT_CONTROL; reconciliation FORMAL_REVIEW_RECONCILED"
+  },
+  {
+   "source": "capability_registry_record",
+   "id": "CAP-MON-001",
+   "registry_class": "BACKGROUND_DISCLOSED",
+   "implementation": "COMPLETE",
+   "backend_wiring": "VERIFIED",
+   "reachability": "PARTIAL",
+   "reconciliation": "FORMAL_REVIEW_RECONCILED",
+   "apis": [
+    "GET /api/v0/monitor"
+   ],
+   "platforms": [
+    "API"
+   ],
+   "absent_paths": [],
+   "file": "capability-registry\\records\\CAP-MON-001.yaml",
+   "class": "EXPOSED",
+   "rule": "registry declares exposure class BACKGROUND_DISCLOSED; reconciliation FORMAL_REVIEW_RECONCILED"
+  },
+  {
+   "source": "capability_registry_record",
+   "id": "CAP-MON-002",
+   "registry_class": "OBSERVABLE_ADVANCED",
+   "implementation": "COMPLETE",
+   "backend_wiring": "VERIFIED",
+   "reachability": "PARTIAL",
+   "reconciliation": "CREATED_BY_DEVELOPMENT",
+   "apis": [
+    "GET /api/v0/monitor/graph?edges=&collapse="
+   ],
+   "platforms": [
+    "WEB"
+   ],
+   "absent_paths": [
+    "services/dev-gateway/monitor-graph.mjs",
+    "apps/web/monitor-graph.js",
+    "docs/CITY_WORK_MONITOR_GRAPH.md"
+   ],
+   "file": "capability-registry\\records\\CAP-MON-002.yaml",
+   "class": "FUTURE_PRODUCT_INTEGRATION",
+   "rule": "Record is branch-scoped; implementation paths are absent from this integration tree. Not an accepted main capability."
+  },
+  {
+   "source": "capability_registry_record",
+   "id": "CAP-MON-003",
+   "registry_class": "OBSERVABLE_ADVANCED",
+   "implementation": "CANDIDATE",
+   "backend_wiring": "LOCALLY_VERIFIED",
+   "reachability": "WEB_VERIFIED_ANDROID_PENDING",
+   "reconciliation": "CANDIDATE_PENDING_FORMAL_REVIEW",
+   "apis": [
+    "GET /api/v0/monitor/decisions",
+    "GET /api/v0/monitor/decisions/:id",
+    "POST /api/v0/monitor/decisions"
+   ],
+   "platforms": [
+    "WEB"
+   ],
+   "absent_paths": [
+    "services/dev-gateway/decision.mjs",
+    "apps/web/monitor-decisions.js",
+    "docs/CITY_WORK_MONITOR_DECISIONS.md"
+   ],
+   "file": "capability-registry\\records\\CAP-MON-003.yaml",
+   "class": "FUTURE_PRODUCT_INTEGRATION",
+   "rule": "Record is branch-scoped; implementation paths are absent from this integration tree. Not an accepted main capability."
+  },
+  {
+   "source": "capability_registry_record",
+   "id": "CAP-NODE-DESCRIPTOR-001",
+   "registry_class": "INTERNAL_ONLY",
+   "implementation": "COMPLETE",
+   "backend_wiring": "VERIFIED",
+   "reachability": "NOT_APPLICABLE",
+   "reconciliation": "FORMAL_REVIEW_RECONCILED",
+   "apis": [
+    "GET /api/v0/nodes",
+    "POST /api/v0/node/descriptor",
+    "POST /api/v0/node/register (optional roles)"
+   ],
+   "platforms": [],
+   "absent_paths": [],
+   "file": "capability-registry\\records\\CAP-NODE-DESCRIPTOR-001.yaml",
+   "class": "INTERNAL_PROTOCOL",
+   "rule": "registry declares exposure class INTERNAL_ONLY; reconciliation FORMAL_REVIEW_RECONCILED"
+  },
+  {
+   "source": "capability_registry_record",
+   "id": "CAP-ONBOARDING-OWNER-001",
+   "registry_class": "DIRECT_CONTROL",
+   "implementation": "COMPLETE",
+   "backend_wiring": "VERIFIED",
+   "reachability": "PARTIAL",
+   "reconciliation": "FORMAL_REVIEW_RECONCILED",
+   "apis": [
+    "GET /api/v0/pairing/info",
+    "POST /api/v0/pairing/session",
+    "GET /api/v0/join/requests",
+    "POST /api/v0/join/requests/:id/approve",
+    "POST /api/v0/join/requests/:id/reject"
+   ],
+   "platforms": [
+    "ANDROID"
+   ],
+   "absent_paths": [],
+   "file": "capability-registry\\records\\CAP-ONBOARDING-OWNER-001.yaml",
+   "class": "EXPOSED",
+   "rule": "registry declares exposure class DIRECT_CONTROL; reconciliation FORMAL_REVIEW_RECONCILED"
+  },
+  {
+   "source": "capability_registry_record",
+   "id": "CAP-RESEARCH-CAMPAIGN-001",
+   "registry_class": "DIRECT_CONTROL",
+   "implementation": "COMPLETE",
+   "backend_wiring": "VERIFIED",
+   "reachability": "PARTIAL",
+   "reconciliation": "CREATED_BY_DEVELOPMENT_PENDING_FORMAL_REVIEW",
+   "apis": [
+    "GET /api/v0/research/campaigns",
+    "POST /api/v0/research/campaigns",
+    "POST /api/v0/research/campaigns/stop",
+    "GET /api/v0/research/campaigns/<campaignId>"
+   ],
+   "platforms": [
+    "WEB"
+   ],
+   "absent_paths": [
+    "services/dev-gateway/scenario-runner.mjs",
+    "apps/web/research-campaign.js"
+   ],
+   "file": "capability-registry\\records\\CAP-RESEARCH-CAMPAIGN-001.yaml",
+   "class": "FUTURE_PRODUCT_INTEGRATION",
+   "rule": "Record is branch-scoped; implementation paths are absent from this integration tree. Not an accepted main capability."
+  },
+  {
+   "source": "capability_registry_record",
+   "id": "CAP-RESEARCH-FAULTS-001",
+   "registry_class": "ADVANCED_CONTROL",
+   "implementation": "CANDIDATE",
+   "backend_wiring": "LOCALLY_VERIFIED",
+   "reachability": "WEB_VERIFIED_ANDROID_PENDING",
+   "reconciliation": "CANDIDATE_PENDING_FORMAL_REVIEW",
+   "apis": [
+    "GET /api/v0/research/faults",
+    "POST /api/v0/research/faults",
+    "POST /api/v0/research/faults/:id/stop"
+   ],
+   "platforms": [
+    "WEB"
+   ],
+   "absent_paths": [
+    "services/dev-gateway/research/faults.mjs",
+    "apps/web/research-faults.js"
+   ],
+   "file": "capability-registry\\records\\CAP-RESEARCH-FAULTS-001.yaml",
+   "class": "FUTURE_PRODUCT_INTEGRATION",
+   "rule": "Record is branch-scoped; implementation paths are absent from this integration tree. Not an accepted main capability."
+  },
+  {
+   "source": "capability_registry_record",
+   "id": "CAP-RESEARCH-TRACE-001",
+   "registry_class": "OBSERVABLE_ADVANCED",
+   "implementation": "COMPLETE",
+   "backend_wiring": "VERIFIED",
+   "reachability": "PARTIAL",
+   "reconciliation": "FORMAL_REVIEW_RECONCILED",
+   "apis": [
+    "GET /api/v0/research/trace"
+   ],
+   "platforms": [
+    "WEB",
+    "ANDROID"
+   ],
+   "absent_paths": [],
+   "file": "capability-registry\\records\\CAP-RESEARCH-TRACE-001.yaml",
+   "class": "EXPOSED_ADVANCED",
+   "rule": "registry declares exposure class OBSERVABLE_ADVANCED; reconciliation FORMAL_REVIEW_RECONCILED"
+  },
+  {
+   "source": "capability_registry_record",
+   "id": "CAP-SCHEDULER-CHOICE-001",
+   "registry_class": "DIRECT_CONTROL",
+   "implementation": "COMPLETE",
+   "backend_wiring": "VERIFIED",
+   "reachability": "PARTIAL",
+   "reconciliation": "FORMAL_REVIEW_RECONCILED",
+   "apis": [
+    "GET /api/v0/presentation",
+    "POST /api/v0/tasks/:id/switch-declined"
+   ],
+   "platforms": [
+    "WEB",
+    "ANDROID"
+   ],
+   "absent_paths": [],
+   "file": "capability-registry\\records\\CAP-SCHEDULER-CHOICE-001.yaml",
+   "class": "EXPOSED",
+   "rule": "registry declares exposure class DIRECT_CONTROL; reconciliation FORMAL_REVIEW_RECONCILED"
+  },
+  {
+   "source": "capability_registry_record",
+   "id": "CAP-WORKER-POOL-AGENT-001",
+   "registry_class": "INTERNAL_ONLY",
+   "implementation": "COMPLETE",
+   "backend_wiring": "VERIFIED",
+   "reachability": "NOT_APPLICABLE",
+   "reconciliation": "FORMAL_REVIEW_RECONCILED",
+   "apis": [],
+   "platforms": [],
+   "absent_paths": [],
+   "file": "capability-registry\\records\\CAP-WORKER-POOL-AGENT-001.yaml",
+   "class": "INTERNAL_PROTOCOL",
+   "rule": "registry declares exposure class INTERNAL_ONLY; reconciliation FORMAL_REVIEW_RECONCILED"
+  },
+  {
+   "source": "web_entry",
+   "id": "goto:Rooms",
+   "file": "apps/web/app.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "goto:Actions",
+   "file": "apps/web/app.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "dom:member-sharing",
+   "file": "apps/web/app.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "dom:member-message-send",
+   "file": "apps/web/app.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "dom:copy-invite",
+   "file": "apps/web/app.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "dom:copy-raw",
+   "file": "apps/web/app.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "dom:generate-pairing",
+   "file": "apps/web/app.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "dom:disconnect",
+   "file": "apps/web/app.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "dom:cancel",
+   "file": "apps/web/app.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "page:Home",
+   "file": "apps/web/index.html",
+   "class": "EXPOSED",
+   "rule": "page exists on both Web and Android nav"
+  },
+  {
+   "source": "web_entry",
+   "id": "page:Rooms",
+   "file": "apps/web/index.html",
+   "class": "EXPOSED",
+   "rule": "page exists on both Web and Android nav"
+  },
+  {
+   "source": "web_entry",
+   "id": "page:Devices",
+   "file": "apps/web/index.html",
+   "class": "EXPOSED",
+   "rule": "page exists on both Web and Android nav"
+  },
+  {
+   "source": "web_entry",
+   "id": "page:Activity",
+   "file": "apps/web/index.html",
+   "class": "EXPOSED",
+   "rule": "page exists on both Web and Android nav"
+  },
+  {
+   "source": "web_entry",
+   "id": "page:Research",
+   "file": "apps/web/index.html",
+   "class": "PARITY_GAP",
+   "rule": "Web page with no matching Android page"
+  },
+  {
+   "source": "web_entry",
+   "id": "page:ResearchTrace",
+   "file": "apps/web/index.html",
+   "class": "EXPOSED",
+   "rule": "page exists on both Web and Android nav"
+  },
+  {
+   "source": "web_entry",
+   "id": "page:Services",
+   "file": "apps/web/index.html",
+   "class": "EXPOSED",
+   "rule": "page exists on both Web and Android nav"
+  },
+  {
+   "source": "web_entry",
+   "id": "page:Tasks",
+   "file": "apps/web/index.html",
+   "class": "EXPOSED",
+   "rule": "page exists on both Web and Android nav"
+  },
+  {
+   "source": "web_entry",
+   "id": "page:Actions",
+   "file": "apps/web/index.html",
+   "class": "PARITY_GAP",
+   "rule": "Web page with no matching Android page"
+  },
+  {
+   "source": "web_entry",
+   "id": "page:Pairing",
+   "file": "apps/web/index.html",
+   "class": "EXPOSED",
+   "rule": "page exists on both Web and Android nav"
+  },
+  {
+   "source": "web_entry",
+   "id": "page:Settings",
+   "file": "apps/web/index.html",
+   "class": "EXPOSED",
+   "rule": "page exists on both Web and Android nav"
+  },
+  {
+   "source": "web_entry",
+   "id": "goto:Ask/Do",
+   "file": "apps/web/index.html",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "dom:connect-rescan",
+   "file": "apps/web/index.html",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "dom:connect",
+   "file": "apps/web/index.html",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "dom:ask-submit",
+   "file": "apps/web/index.html",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "dom:ask-catalog-entry",
+   "file": "apps/web/index.html",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "dom:run",
+   "file": "apps/web/index.html",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "dom:trace-refresh",
+   "file": "apps/web/research-trace.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "dom:research-refresh",
+   "file": "apps/web/research.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "dom:research-validate",
+   "file": "apps/web/research.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "dom:research-register",
+   "file": "apps/web/research.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "scheduler:CHOOSE_PROVIDER",
+   "file": "apps/web/scheduler.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "scheduler:ALTERNATE_DEVICE",
+   "file": "apps/web/scheduler.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "scheduler:KEEP_WAITING",
+   "file": "apps/web/scheduler.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "dom:service-tamper",
+   "file": "apps/web/services.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "dom:service-invoke",
+   "file": "apps/web/services.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "dom:document-to-knowledge",
+   "file": "apps/web/services.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "terminal:ask-open",
+   "file": "apps/web/terminal.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "terminal:ask-confirm",
+   "file": "apps/web/terminal.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "terminal:ask-cancel",
+   "file": "apps/web/terminal.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "terminal:ask-toggle-record",
+   "file": "apps/web/terminal.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "terminal:catalog-open",
+   "file": "apps/web/terminal.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "terminal:ask-clear",
+   "file": "apps/web/terminal.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "terminal:room-open",
+   "file": "apps/web/terminal.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "terminal:room-close",
+   "file": "apps/web/terminal.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "terminal:action-open",
+   "file": "apps/web/terminal.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "dom:rooms-reload",
+   "file": "apps/web/terminal.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "web_entry",
+   "id": "dom:actions-reload",
+   "file": "apps/web/terminal.js",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Web surface"
+  },
+  {
+   "source": "android_entry",
+   "id": "page:Home",
+   "file": "apps/android/app/src/main/java/city/utopia/control/MainActivity.kt",
+   "class": "EXPOSED",
+   "rule": "Android page; web counterpart resolved through the nav map"
+  },
+  {
+   "source": "android_entry",
+   "id": "page:Ask",
+   "file": "apps/android/app/src/main/java/city/utopia/control/MainActivity.kt",
+   "class": "EXPOSED",
+   "rule": "Android page; web counterpart resolved through the nav map"
+  },
+  {
+   "source": "android_entry",
+   "id": "page:Rooms",
+   "file": "apps/android/app/src/main/java/city/utopia/control/MainActivity.kt",
+   "class": "EXPOSED",
+   "rule": "Android page; web counterpart resolved through the nav map"
+  },
+  {
+   "source": "android_entry",
+   "id": "page:Devices",
+   "file": "apps/android/app/src/main/java/city/utopia/control/MainActivity.kt",
+   "class": "EXPOSED",
+   "rule": "Android page; web counterpart resolved through the nav map"
+  },
+  {
+   "source": "android_entry",
+   "id": "page:Activity",
+   "file": "apps/android/app/src/main/java/city/utopia/control/MainActivity.kt",
+   "class": "EXPOSED",
+   "rule": "Android page; web counterpart resolved through the nav map"
+  },
+  {
+   "source": "android_entry",
+   "id": "page:ResearchTrace",
+   "file": "apps/android/app/src/main/java/city/utopia/control/MainActivity.kt",
+   "class": "EXPOSED",
+   "rule": "Android page; web counterpart resolved through the nav map"
+  },
+  {
+   "source": "android_entry",
+   "id": "page:Services",
+   "file": "apps/android/app/src/main/java/city/utopia/control/MainActivity.kt",
+   "class": "EXPOSED",
+   "rule": "Android page; web counterpart resolved through the nav map"
+  },
+  {
+   "source": "android_entry",
+   "id": "page:Tasks",
+   "file": "apps/android/app/src/main/java/city/utopia/control/MainActivity.kt",
+   "class": "EXPOSED",
+   "rule": "Android page; web counterpart resolved through the nav map"
+  },
+  {
+   "source": "android_entry",
+   "id": "page:Action",
+   "file": "apps/android/app/src/main/java/city/utopia/control/MainActivity.kt",
+   "class": "EXPOSED",
+   "rule": "Android page; web counterpart resolved through the nav map"
+  },
+  {
+   "source": "android_entry",
+   "id": "page:Settings",
+   "file": "apps/android/app/src/main/java/city/utopia/control/MainActivity.kt",
+   "class": "EXPOSED",
+   "rule": "Android page; web counterpart resolved through the nav map"
+  },
+  {
+   "source": "android_entry",
+   "id": "page:Find",
+   "file": "apps/android/app/src/main/java/city/utopia/control/MainActivity.kt",
+   "class": "EXPOSED",
+   "rule": "Android page; web counterpart resolved through the nav map"
+  },
+  {
+   "source": "android_entry",
+   "id": "panel:ActionsPanel",
+   "file": "apps/android/app/src/main/java/city/utopia/control/ActionsPanel.kt",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Android surface"
+  },
+  {
+   "source": "android_entry",
+   "id": "button:关闭详情",
+   "file": "apps/android/app/src/main/java/city/utopia/control/ActionsPanel.kt",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Android surface"
+  },
+  {
+   "source": "android_entry",
+   "id": "panel:AskPanel",
+   "file": "apps/android/app/src/main/java/city/utopia/control/AskPanel.kt",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Android surface"
+  },
+  {
+   "source": "android_entry",
+   "id": "button:取消",
+   "file": "apps/android/app/src/main/java/city/utopia/control/AskPanel.kt",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Android surface"
+  },
+  {
+   "source": "android_entry",
+   "id": "button:选择",
+   "file": "apps/android/app/src/main/java/city/utopia/control/AskPanel.kt",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Android surface"
+  },
+  {
+   "source": "android_entry",
+   "id": "panel:DeviceRecoveryPanel",
+   "file": "apps/android/app/src/main/java/city/utopia/control/DeviceRecoveryPanel.kt",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Android surface"
+  },
+  {
+   "source": "android_entry",
+   "id": "panel:Panel",
+   "file": "apps/android/app/src/main/java/city/utopia/control/MainActivity.kt",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Android surface"
+  },
+  {
+   "source": "android_entry",
+   "id": "button:All devices",
+   "file": "apps/android/app/src/main/java/city/utopia/control/MainActivity.kt",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Android surface"
+  },
+  {
+   "source": "android_entry",
+   "id": "button:Leave City / 退出城市（仅本机）",
+   "file": "apps/android/app/src/main/java/city/utopia/control/MainActivity.kt",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Android surface"
+  },
+  {
+   "source": "android_entry",
+   "id": "button:Any node",
+   "file": "apps/android/app/src/main/java/city/utopia/control/MainActivity.kt",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Android surface"
+  },
+  {
+   "source": "android_entry",
+   "id": "panel:CityMembersPanel",
+   "file": "apps/android/app/src/main/java/city/utopia/control/MemberManagementPanel.kt",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Android surface"
+  },
+  {
+   "source": "android_entry",
+   "id": "button:取消",
+   "file": "apps/android/app/src/main/java/city/utopia/control/MemberManagementPanel.kt",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Android surface"
+  },
+  {
+   "source": "android_entry",
+   "id": "button:向此设备发消息",
+   "file": "apps/android/app/src/main/java/city/utopia/control/MemberManagementPanel.kt",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Android surface"
+  },
+  {
+   "source": "android_entry",
+   "id": "button:取消",
+   "file": "apps/android/app/src/main/java/city/utopia/control/MemberManagementPanel.kt",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Android surface"
+  },
+  {
+   "source": "android_entry",
+   "id": "panel:OwnerOnboardingPanel",
+   "file": "apps/android/app/src/main/java/city/utopia/control/OwnerOnboardingPanel.kt",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Android surface"
+  },
+  {
+   "source": "android_entry",
+   "id": "panel:PairingPanel",
+   "file": "apps/android/app/src/main/java/city/utopia/control/PairingPanel.kt",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Android surface"
+  },
+  {
+   "source": "android_entry",
+   "id": "panel:ResearchTracePanel",
+   "file": "apps/android/app/src/main/java/city/utopia/control/ResearchTracePanel.kt",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Android surface"
+  },
+  {
+   "source": "android_entry",
+   "id": "panel:RoomsPanel",
+   "file": "apps/android/app/src/main/java/city/utopia/control/RoomsPanel.kt",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Android surface"
+  },
+  {
+   "source": "android_entry",
+   "id": "panel:SchedulerStatusPanel",
+   "file": "apps/android/app/src/main/java/city/utopia/control/SchedulerPanel.kt",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Android surface"
+  },
+  {
+   "source": "android_entry",
+   "id": "button:Keep waiting",
+   "file": "apps/android/app/src/main/java/city/utopia/control/SchedulerPanel.kt",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Android surface"
+  },
+  {
+   "source": "android_entry",
+   "id": "panel:ServicesPanel",
+   "file": "apps/android/app/src/main/java/city/utopia/control/ServicesPanel.kt",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Android surface"
+  },
+  {
+   "source": "android_entry",
+   "id": "button:Action: $skillOperation",
+   "file": "apps/android/app/src/main/java/city/utopia/control/ServicesPanel.kt",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Android surface"
+  },
+  {
+   "source": "android_entry",
+   "id": "button:Theme action: $themeOperation",
+   "file": "apps/android/app/src/main/java/city/utopia/control/ServicesPanel.kt",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Android surface"
+  },
+  {
+   "source": "android_entry",
+   "id": "button:Observation: $themeObservation",
+   "file": "apps/android/app/src/main/java/city/utopia/control/ServicesPanel.kt",
+   "class": "EXPOSED",
+   "rule": "clickable entry rendered by the Android surface"
+  },
+  {
+   "source": "scheduler_user_action",
+   "id": "CANCEL",
+   "wiring": "backend",
+   "route": "cancel",
+   "class": "EXPOSED",
+   "rule": "ACTION_WIRING kind=backend route=cancel"
+  },
+  {
+   "source": "scheduler_user_action",
+   "id": "RETRY",
+   "wiring": "backend",
+   "route": "create",
+   "class": "EXPOSED",
+   "rule": "ACTION_WIRING kind=backend route=create"
+  },
+  {
+   "source": "scheduler_user_action",
+   "id": "KEEP_WAITING",
+   "wiring": "local",
+   "route": null,
+   "class": "EXPOSED",
+   "rule": "ACTION_WIRING kind=local"
+  },
+  {
+   "source": "scheduler_user_action",
+   "id": "CONFIRM",
+   "wiring": "unwired",
+   "route": null,
+   "class": "CURRENT_ENTRY_GAP",
+   "rule": "ACTION_WIRING kind=unwired"
+  }
+ ]
+}

@@ -11,15 +11,17 @@
 // reference) behind a disclosure rather than in the primary reading. The controls are owner-only, and the view states
 // that plainly when the City refuses a member.
 import {t} from './i18n/index.js';
+import {createResearchReplayView} from './research-replay.js';
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const number = value => (Number.isFinite(value) ? String(value) : '');
 const POLL_MS = 750;
 const POLL_LIMIT = 400;
 
 export function createResearchCampaignView() {
+  const replayView=createResearchReplayView();
   let context = null, connectivity = null, epoch = 0, data = null, error = null, pending = false, busy = false, timer = null;
   const stopPolling = () => { if (timer) { clearTimeout(timer); timer = null; } };
-  function reset() { stopPolling(); context = null; connectivity = null; epoch += 1; data = null; error = null; pending = false; busy = false; }
+  function reset() { replayView.reset();stopPolling(); context = null; connectivity = null; epoch += 1; data = null; error = null; pending = false; busy = false; }
 
   function render(host, {contextKey, online, api, isCurrent}) {
     if (contextKey !== context || online !== connectivity) { reset(); context = contextKey; connectivity = online; }
@@ -85,7 +87,9 @@ export function createResearchCampaignView() {
         <h3>${esc(t('rc.receipts'))}</h3>
         <p>${esc(t('rc.receiptsHint'))}</p>
         <ul id="rc-receipts">${(data?.receipts ?? []).map(receipt => `<li data-rc-receipt="${esc(receipt.campaignId ?? receipt.file)}">${esc(receipt.campaignId ?? receipt.file)} · ${esc(receipt.scenarioId ?? '?')} · ${esc(receipt.state)} · ${esc(t('rc.receiptTotals', {measured: receipt.summary?.measured ?? '?', planned: receipt.summary?.planned ?? '?'}))}${receipt.reason ? ` · ${esc(receipt.reason)}` : ''}</li>`).join('') || `<li>${esc(t('rc.noReceipts'))}</li>`}</ul>` : ''}
+        <div id="rc-replay-slot"></div>
       </section>`;
+      replayView.render(()=>host.querySelector('#rc-replay-slot'),{contextKey,online,api,isCurrent:current,onStarted:async()=>{await load();schedule();}});
       const shellNode = shell();
       shellNode.querySelector('#rc-refresh').onclick = () => load();
       const start = shellNode.querySelector('#rc-start');
@@ -108,6 +112,7 @@ export function createResearchCampaignView() {
         repetitions: Math.max(1, (data?.live?.totals?.planned ?? 1) - (data?.live?.totals?.warmup ?? 0)),
         warmup: data?.live?.totals?.warmup ?? 0,
         seed: data?.live?.campaignSeed,
+        seedIndexOffset:data?.live?.seedIndexOffset??0,
         resume: true,
       }));
       const abandon = shellNode.querySelector('#rc-abandon');

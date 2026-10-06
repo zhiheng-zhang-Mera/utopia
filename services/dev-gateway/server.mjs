@@ -65,6 +65,7 @@ import { createExperimentRegistry } from './research/registry.mjs';
 // REX-803: the controlled scenario runner. It owns no work of its own - every run it performs is a canonical City
 // task created through the same path the product's own task route uses - and it never touches canonical task truth.
 import { createScenarioRunner, ScenarioRunnerError } from './scenario-runner.mjs';
+import { createReplayEngine, replayTarget, ReplayError } from './research/replay.mjs';
 import { ARTIFACT_RETENTION, SEED_POLICIES, STOP_CONDITION_KINDS, TOPOLOGIES, ExperimentManifestError } from '../../contracts/experiment-manifest-v1/manifest.mjs';
 // City Core (MB-006). Whether work interrupted by a restart may resume is decided by the
 // migrated checkpoint-gate module instead of an inline state test.
@@ -580,7 +581,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // The seed is USED, not decorative. With no explicit target the repetition's own derived seed selects among the
       // experiment's declared workers, so the same campaign places the same repetition on the same device, on any
       // host. With an explicit target the operator's choice wins, and the run says which rule was applied.
-      const target=context?.targetDeviceRef??(workers.length>0?workers[seed%workers.length]:null);
+      const target=replayTarget(context,seed);
       let task;
       try{task=createCityTask(scenario.id,{...(target?{targetDeviceRef:target}:{}),researchRunRef:researchRunRef(campaignId,index)});}
       catch(error){return {state:'FAILED',reason:`the canonical task could not be created: ${error?.message??error}`};}
@@ -669,11 +670,18 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // hosts running the same manifest still derive the same seed sequence.
   const experimentIdentity=record=>createHash('sha256').update(typeof record?.digest==='string'?record.digest:JSON.stringify(record?.manifest??null)).digest('hex').slice(0,32);
   const campaignContext=(described,targetDeviceRef)=>Object.freeze({experimentId:described.experimentId,manifestIdentity:experimentIdentity(described),manifest:Object.freeze({topology:described.manifest.topology,hosts:described.manifest.hosts,workers:described.manifest.workers,controlSurfaces:described.manifest.controlSurfaces,repetitions:described.manifest.repetitions,seedPolicy:described.manifest.seedPolicy,baseSeed:described.manifest.baseSeed,stopConditions:described.manifest.stopConditions,acceptance:described.manifest.acceptance,softwareRefs:described.manifest.softwareRefs}),targetDeviceRef:targetDeviceRef??null});
-  // UNION (REX-803 accepted head + REX-804 accepted head): both sides define a controller at this point and neither
-  // references the other, so the union is simply both - the campaign surface and the fault controller, with no shared
-  // state to reconcile. This is the same union measured on the development branches; re-measured here because the
-  // ACCEPTED REX-803 head is 14 commits ahead of the development branch tip (see the preflight report).
+  // UNION (REX-803 + REX-804 + REX-805): three products define a research controller at this point, and none of them
+  // references another, so the union is simply all three - the campaign surface, the fault controller and the replay
+  // engine. 803 and 804 are the ACCEPTED heads; 805 is the author's repaired candidate 0261a9e (the empty-limit
+  // comparison fix), still not accepted, so this branch is a preflight measurement and not an integration.
   faults=createFaultController({dir:resolve(dir,'research','faults'),node:id=>store.get('nodes',id),trace:researchTrace});
+  const replays=createReplayEngine({receipt:id=>campaigns.receipt(id),experiment:id=>experiments.get(id),register:manifest=>experiments.register(manifest),
+    start:options=>campaigns.start(options),identity:experimentIdentity,context:campaignContext,limits:campaignLimits,
+    preflight:context=>{
+      if(campaigns.progress().state==='RUNNING'||campaigns.unfinished())throw new ReplayError('REPLAY_BUSY','finish or explicitly resolve the current campaign before replay');
+      if(campaigns.storeState()!=='READY')throw new ReplayError('REPLAY_STORE_UNAVAILABLE','campaign receipt storage is unavailable');
+      if(campaignReadiness(context).state!=='READY')throw new ReplayError('REPLAY_TOPOLOGY_NOT_READY','the recorded topology is not currently live; unavailable conditions cannot be replayed deterministically');
+    }});
   // What a research surface needs in order to build a valid manifest, published with every research response so
   // the contract is discoverable from the contract itself: the topologies this release can describe, the seed
   // policies, the stop-condition kinds, the retention levels, and the LIVE capability vocabulary that the
@@ -769,7 +777,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // enrolled installation may read its own City, but it may not start, stop or inspect a campaign: the control
       // credential is the only thing that reaches these routes, exactly as for the research trace and the execution
       // profile. Stated as an explicit refusal rather than left to the shape of the credential check above.
-      const campaignRoute=path==='/api/v0/research/campaigns'||path.startsWith('/api/v0/research/campaigns/');
+      const campaignRoute=path==='/api/v0/research/campaigns'||path.startsWith('/api/v0/research/campaigns/')||path==='/api/v0/research/replays'||path.startsWith('/api/v0/research/replays/');
       // INTEGRATION: JOIN-502's OWN auth preamble used to stand here and has been removed. The text-level union
       // kept both, so this earlier one ran FIRST and authenticated before `publicJoin` existed, which made every
       // join route answer 401 while the code behind it was correct (`ask 0 answered 401` in the JOIN-502 suite).
@@ -1119,7 +1127,16 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // every run that produced no measurement and the reason it did not. Four operations and nothing else. Like the
       // REX-801 contract above it, this surface executes only canonical City tasks through the product's own creation
       // path; it has no second executor and no way to state an outcome the canonical task did not reach.
-      else if(path==='/api/v0/research/campaigns'&&req.method==='GET'){
+      else if(path==='/api/v0/research/replays'&&req.method==='GET'){
+        out={mechanisms:replays.mechanisms(),supportedScenarios:['WAIT'],sources:campaigns.receipts(),receiptWindow:campaigns.receiptWindow(),research:researchFacts()};
+      } else if(path==='/api/v0/research/replays'&&req.method==='POST'){
+        const b=await body(req);
+        const started=replays.start(b);
+        emit('RESEARCH_CAMPAIGN_STARTED',null,{campaignId:started.campaignId,experimentId:started.experimentId,scenarioId:campaigns.progress().scenarioId,repetitions:1,resumed:false},'user');
+        out={started,progress:campaigns.progress(),research:researchFacts()};
+      } else if(req.method==='GET'&&/^\/api\/v0\/research\/replays\/[^/]+$/.test(path)){
+        out={comparison:replays.compare(decodeURIComponent(path.split('/').at(-1))),research:researchFacts()};
+      } else if(path==='/api/v0/research/campaigns'&&req.method==='GET'){
         // `topology` publishes the identities this City can actually offer RIGHT NOW, because a manifest has to
         // declare them and the only honest place to read them is the City. Without it an owner writing a manifest
         // guesses at the control-surface ref of their own browser (this surface's first browser test did exactly
@@ -1155,6 +1172,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
           resume:b.resume===true,
           abandon:b.abandon===true,
           seed,
+          seedIndexOffset:b.resume===true?(b.seedIndexOffset??0):0,
           timeout:b.timeoutMs===undefined||b.timeoutMs===null?undefined:b.timeoutMs,
           limits:campaignLimits(manifest,b.limits??null),
           context:campaignContext(described,b.targetDeviceRef??null),
@@ -1238,6 +1256,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // REX-803: a refused campaign is a typed fact too (which scenario, which repetitions, which topology was
       // missing), so the refusal travels with its code instead of being flattened into a 500.
       if(e instanceof ScenarioRunnerError){res.writeHead(e.status||400,{'Content-Type':'application/json'});res.end(JSON.stringify(envelope({error:e.code,errorCode:e.code,detail:e.detail})));return;}
+      if(e instanceof ReplayError){res.writeHead(e.status,{'Content-Type':'application/json'});res.end(JSON.stringify(envelope({error:e.code,errorCode:e.code,detail:e.message})));return;}
       res.writeHead(e.status||500,{'Content-Type':'application/json'});res.end(JSON.stringify(envelope({error:e.status?e.message:'Gateway error',...(e.code?{errorCode:e.code}:{})})));if(!e.status)console.error(e);}
   });
   // A relay peer is WRITTEN TO by the City (that is the whole point: the City pushes an answer it received down the

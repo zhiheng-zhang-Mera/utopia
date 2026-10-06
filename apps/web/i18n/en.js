@@ -446,4 +446,11 @@ Object.assign(messages, {
 });
 // (union) duplicate export default removed
 Object.assign(messages,{'scheduler.choice.explicitPrompt':'Choose how to continue this service','scheduler.choice.alternateDevice':'Keep this service and use another device','scheduler.choice.reason.TARGET_DEVICE_BOUND':'This service is bound to the selected device.','scheduler.choice.reason.ALTERNATE_NOT_AVAILABLE':'No eligible alternative device is available.','scheduler.choice.reason.NO_SWITCH_DECISION':'No device change is currently offered.'});
+Object.assign(messages,{
+ 'rr.title':'Replay and ablation','rr.hint':'Select a recorded WAIT repetition. Replay creates new experiment and run identities while preserving the original evidence. Stateful scenarios require input snapshots and are currently refused.',
+ 'rr.caveat':'Only controlled inputs are reproduced. Live resources, clocks and external provider state may differ; timing differences are not causal performance evidence.',
+ 'rr.source':'Recorded campaign','rr.run':'Recorded repetition','rr.replay':'Replay selected repetition',
+ 'rr.ablation':'Ablate alternate-device selection','rr.noRuns':'No observable recorded run is available.','rr.comparison':'Original → replay comparison',
+ 'rr.value':'Observation','rr.original':'Original','rr.replayed':'New run','rr.worker':'Executing worker','rr.inputs':'Controlled inputs match','rr.unavailable':'Replay is unavailable; refresh or reconnect.'
+});
 export default { meta, messages };

@@ -82,18 +82,19 @@ class CityClient(context: Context, private val host: String, token: String, priv
    enrollmentStore.saveSession(next);token=next;sessionReady=true;log.event("deviceSessionRenewed")
   }
  }
- private fun request(path: String, body: JSONObject? = null, allowRenew:Boolean=true): JSONObject {
+ private fun request(path: String, body: JSONObject? = null, method:String=if(body==null) "GET" else "POST", allowRenew:Boolean=true): JSONObject {
   val builder = Request.Builder().url(host.trimEnd('/') + "/api/v0/" + path).header("Authorization", "Bearer $token").header("X-City-Api-Version", "0").header("X-City-Schema-Version", "0")
-  if (body != null) builder.post(body.toString().toRequestBody("application/json".toMediaType()))
+  if (body != null) builder.method(method,body.toString().toRequestBody("application/json".toMediaType()))
   (if(path.startsWith("capabilities/")) http.newBuilder().readTimeout(25, TimeUnit.SECONDS).callTimeout(26, TimeUnit.SECONDS).build() else http).newCall(builder.build()).execute().use { response ->
    if(response.code in listOf(401,403) && enrollment!=null && allowRenew && !retired) {
-    response.close();dropSocket("Renewing device session…");renewSession();return request(path,body,false)
+    response.close();dropSocket("Renewing device session…");renewSession();return request(path,body,allowRenew=false)
    }
-   val raw = response.body?.string() ?: "{}"
-   // UNION (JOIN-590 closeout integration): both sides widened the same typed-refusal path set - the
-   // research trace route (REX-802) and the scheduler switch-declined route (CEX-702). Keep both.
-   if (!response.isSuccessful && (path.startsWith("capabilities/") || path.startsWith("capability-invocations/") || path=="research/trace" || path.endsWith("/switch-declined") || path.startsWith("join/requests") || path.startsWith("pairing/"))) {    val error = runCatching { JSONObject(raw) }.getOrNull()
-    throw CapabilityRequestException(error?.optString("errorCode")?.takeIf { it.isNotBlank() } ?: "HTTP_${response.code}",response.code,error?.optString("error")?.takeIf { it.isNotBlank() } ?: "Request failed: ${response.code}")
+      val raw = response.body?.string() ?: "{}"
+   // UNION: every widened typed-refusal path is kept - capabilities/invocations (base), research/trace (REX-802),
+   // the scheduler switch-declined route (CEX-702) and the member-management device routes (CEX-705).
+   if (!response.isSuccessful && (path.startsWith("capabilities/") || path.startsWith("capability-invocations/") || path=="research/trace" || path.endsWith("/switch-declined") || path.startsWith("device/installations"))) {
+    val error = runCatching { JSONObject(raw) }.getOrNull()
+throw CapabilityRequestException(error?.optString("errorCode")?.takeIf { it.isNotBlank() } ?: "HTTP_${response.code}",response.code,error?.optString("error")?.takeIf { it.isNotBlank() } ?: "Request failed: ${response.code}")
    }
    val data = JSONObject(raw)
    if (!response.isSuccessful) error(data.optString("error", "Connection failed: ${response.code}"))
@@ -218,7 +219,7 @@ class CityClient(context: Context, private val host: String, token: String, priv
  private fun capabilityError(error: Exception): JSONObject { val failure=capabilityFailure(error,socketOnline);return JSONObject().put("status","FAILED").put("errorCode",failure.code).put("httpStatus",failure.status ?: JSONObject.NULL).put("error",failure.message) }
  fun invokeCapability(id: String, operation: String, input: JSONObject, done: (JSONObject) -> Unit) { submit { val response=try { request("capabilities/$id/invoke",JSONObject().put("operationId",operation).put("input",input)) } catch(e: Exception) { capabilityError(e) };handler.post {if(!closed)done(response)};refresh() } }
  fun invocationDetail(id: String, done: (JSONObject) -> Unit) { submit { val response=try { request("capability-invocations/"+java.net.URLEncoder.encode(id,"UTF-8")) } catch(e: Exception) { capabilityError(e) };handler.post {if(!closed)done(response)} } }
- private fun row(path: String, body: JSONObject? = null): JSONObject = try { request(path, body) } catch(e: Exception) { val failure=capabilityFailure(e,socketOnline);JSONObject().put("errorCode",failure.code).put("httpStatus",failure.status ?: JSONObject.NULL).put("error",failure.message) }
+ private fun row(path: String, body: JSONObject? = null, method:String?=null): JSONObject = try { request(path, body, method ?: if(body==null) "GET" else "POST") } catch(e: Exception) { val failure=capabilityFailure(e,socketOnline);JSONObject().put("errorCode",failure.code).put("httpStatus",failure.status ?: JSONObject.NULL).put("error",failure.message) }
  private fun deliver(response: JSONObject, done: (JSONObject) -> Unit) { handler.post { if(!closed) done(response) } }
  /** T1 — GET /api/v0/rooms. The returned hubUrl is loopback-only and is never used by Android. */
  fun rooms(done: (JSONObject) -> Unit) { submit { deliver(row("rooms"),done) } }
@@ -274,4 +275,23 @@ class CityClient(context: Context, private val host: String, token: String, priv
   refresh()
  } }
  fun close() { log.surface("stop", lastServerMaxSeq); closed = true; runCatching { connectivity.unregisterNetworkCallback(callback) }; socket?.cancel(); executor.shutdownNow(); http.dispatcher.cancelAll(); http.connectionPool.evictAll() }
+ // GRAFTED FROM CEX-705 (manual union): memberManagement
+ fun memberManagement(done:(JSONObject)->Unit) { submit {
+  deliver(JSONObject().put("installations",row("device/installations")).put("messages",row("members/messages")),done)
+ } }
+
+ // GRAFTED FROM CEX-705 (manual union): renameCity
+ fun renameCity(name:String,done:(JSONObject)->Unit) { submit { deliver(row("city/name",JSONObject().put("displayName",name),"PATCH"),done);refresh() } }
+
+ // GRAFTED FROM CEX-705 (manual union): revokeInstallation
+ fun revokeInstallation(id:String,done:(JSONObject)->Unit) { submit { deliver(row("device/installations/"+java.net.URLEncoder.encode(id,"UTF-8")+"/revoke",JSONObject().put("reason","native_user_request")),done);refresh() } }
+
+ // GRAFTED FROM CEX-705 (manual union): setSharing
+ fun setSharing(id:String,enabled:Boolean,done:(JSONObject)->Unit) { submit { deliver(row("node/sharing",JSONObject().put("id",id).put("enabled",enabled)),done);refresh() } }
+
+ // GRAFTED FROM CEX-705 (manual union): receiveMemberMessage
+ fun receiveMemberMessage(id:String,done:(JSONObject)->Unit) { submit { deliver(row("members/messages/"+java.net.URLEncoder.encode(id,"UTF-8")+"/receipt",JSONObject()),done);refresh() } }
+
+ // GRAFTED FROM CEX-705 (manual union): sendMemberMessage
+ fun sendMemberMessage(target:String,text:String,done:(JSONObject)->Unit) { submit { deliver(row("members/messages",JSONObject().put("targetDeviceId",target).put("text",text)),done);refresh() } }
 }

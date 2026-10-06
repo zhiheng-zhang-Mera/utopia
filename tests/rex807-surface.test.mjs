@@ -7,7 +7,8 @@
 // diagnostic that disappears, a Danger Zone item that opens by default - written so it fails if the failure returns.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {SURFACE_LEVELS, assertPrimarySurfacesClean, researchView, summariseRun} from '../apps/web/research-surface.js';
+import {SURFACE_LEVELS, assertPrimarySurfacesClean, researchMarkup, researchView, summariseRun} from '../apps/web/research-surface.js';
+import {renderResearch} from '../apps/web/research.js';
 
 const UUIDS = ['campaign-4f1c2b7e-9a3d-4e5f-8b21-0c7d6e5f4a3b', 'campaign-8d2e4f61-1b2c-4d3e-9f40-aa11bb22cc33'];
 const payload = {
@@ -113,3 +114,53 @@ test('REX807 S7: the same payload renders in zh-CN with real translation, not En
   assert.match(run.note, /[\u4e00-\u9fff]/);
   assert.equal(summariseRun(payload.live, 'en').note.includes('planned repetition'), true);
 });
+
+// The rendered page, not just the view model: the layer has to survive into the markup the browser receives. The
+// harness captures innerHTML and answers every querySelector with a throwaway stub, which is enough to assert the SHAPE
+// of the shell and to run the page's own render path without a browser.
+const stubNode = () => ({
+  style: {}, dataset: {}, innerHTML: '', textContent: '', disabled: false, isConnected: true, _show: null,
+  querySelector() { return stubNode(); }, append() {}, remove() {},
+  parentElement: {firstChild: {textContent: ''}, append() {}},
+  set onclick(value) {}, set oninput(value) {}, set onchange(value) {},
+  get onclick() { return null; }, get oninput() { return null; }, get onchange() { return null; },
+});
+
+const fakeContainer = () => {
+  let html = '';
+  return {
+    get innerHTML() { return html; },
+    set innerHTML(value) { html = String(value); },
+    querySelector() { return stubNode(); },
+    contains() { return true; },
+  };
+};
+
+test('REX807 S8: the rendered page folds identifiers, keeps the technical layer collapsed, and surfaces alerts', async () => {
+  const container = fakeContainer();
+  const api = async path => {
+    if (path === 'research/experiments') return {experiments: [{experimentId: UUIDS[0], question: 'Does strict routing preserve target identity?', status: 'REGISTERED', topology: 'TWO_HOST_MESH', repetitions: 3}], storeState: 'UNAVAILABLE', storeReason: 'SQLITE_BUSY'};
+    if (path === 'research/campaigns') return {live: {campaignId: UUIDS[0], scenarioId: 'WAIT', state: 'RUNNING', summary: {planned: 3, measured: 1, failed: 0}}};
+    return {};
+  };
+  renderResearch(container, true, api, 'test-context');
+  await new Promise(resolve => setTimeout(resolve, 20));
+  const shell = container.innerHTML;
+  // The page is layered, and the technical layer is present but NOT open.
+  for (const id of ['research-direct', 'research-runs', 'research-metrics', 'research-technical']) assert.match(shell, new RegExp(`id="${id}"`), `${id} must exist`);
+  assert.ok(!/<details id="research-technical" open>/.test(shell), 'the technical layer must not be open by default');
+  assert.match(shell, /id="research-direct" open/, 'the direct controls are the open one');
+  // The fragments the page renders, asserted directly: the identifier is a title attribute, never the label.
+  const view = researchView({experiments: [{experimentId: UUIDS[0], question: 'Does strict routing preserve target identity?', status: 'REGISTERED', repetitions: 3}], live: {campaignId: UUIDS[0], scenarioId: 'WAIT', state: 'RUNNING', summary: {planned: 3, measured: 1}}}, {locale: 'en'});
+  const markup = researchMarkup(view, {locale: 'en'});
+  assert.match(markup.list, /Does strict routing preserve target identity\?/, 'the label is the question');
+  // The identifier travels as an ATTRIBUTE (the click handler needs it) but never as visible text. Stripping every
+  // attribute value is the honest test: `indexOf` alone would flag the attribute's own position, not the label.
+  const visibleText = markup.list.replace(/="[^"]*"/g, '=""');
+  assert.ok(!visibleText.includes(UUIDS[0]), `the identifier must not be visible text: ${visibleText}`);
+  assert.match(markup.list, new RegExp(`data-experiment="${UUIDS[0]}"`), 'the identifier is still carried for the handler');
+  assert.ok(markup.technical.includes(UUIDS[0]), 'the exact record is available in the technical fragment');
+  assert.match(markup.run, /1\/3/);
+  assert.match(markup.run, /2 planned repetition/, 'an unfinished run is stated in words');
+});
+

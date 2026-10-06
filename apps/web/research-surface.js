@@ -175,3 +175,26 @@ export const assertPrimarySurfacesClean = (view, {primarySurfaces = ['home', 'as
   if (polluted.length) throw new Error(`PRIMARY_SURFACE_POLLUTED: ${polluted.join(', ')}`);
   return view;
 };
+
+const escaper = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[character]));
+
+/**
+ * The markup fragments the page renders, kept here rather than inside the page so the SHAPE can be asserted without a
+ * browser: the list shows the human summary and carries the identifier only as a title attribute, the alerts are
+ * rendered with their role, and the technical fragment is the only place an exact record appears.
+ */
+export const researchMarkup = (view, {locale = 'en'} = {}) => {
+  const take = id => view.sections.find(section => section.id === id) ?? {items: [], note: '', title: ''};
+  const direct = take('experiments');
+  const runs = take('runs');
+  const metrics = take('metrics');
+  const technical = take('diagnostics');
+  const line = runs.items[0];
+  return Object.freeze({
+    alerts: view.alerts.map(alert => `<p role="${escaper(alert.role)}" data-severity="${escaper(alert.severity)}">${escaper(alert.message)}${alert.detail ? ` <span class="detail">${escaper(alert.detail)}</span>` : ''}</p>`).join(''),
+    list: direct.items.map(item => `<button data-experiment="${escaper(item.id)}" title="${escaper(item.id)}">${escaper(item.summary)} · ${escaper(item.status)}${item.repetitions !== null && item.repetitions !== undefined ? ` · ${escaper(item.repetitions)}×` : ''}</button>`).join(''),
+    run: line ? `<p>${escaper(line.scenarioId)} · ${escaper(line.state)} · ${escaper(line.progress)}</p>${line.note ? `<p role="status">${escaper(line.note)}</p>` : ''}` : `<p>${locale === 'zh-CN' ? '当前没有运行中的 experiment。' : 'No run is live.'}</p>`,
+    metrics: `<p>${escaper(metrics.note || (locale === 'zh-CN' ? '本次运行报告的指标都可测量。' : 'Every metric this run reports could be measured.'))}</p>`,
+    technical: technical.items.map(item => `<details><summary>${escaper(item.label)}</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${escaper(item.value)}</pre></details>`).join('') + (technical.note ? `<p role="status">${escaper(technical.note)}</p>` : ''),
+  });
+};

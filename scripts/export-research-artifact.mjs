@@ -35,8 +35,14 @@ for (const entry of list.receipts ?? []) {
 }
 if (receipts.length === 0) {
   console.error('no campaign receipt is readable from this City; an artifact with no real source is not worth exporting');
-  process.exit(1);
-}
+  // DEFECT REPAIR (measured on Windows): `process.exit(1)` here asserted in libuv - "Assertion failed:
+  // !(handle->flags & UV_HANDLE_CLOSING), src/win/async.c" - because the fetch keep-alive handle from the
+  // listing above was still closing, so the process exited with 0xC0000409 and a caller could not tell a designed
+  // refusal from a crash. Setting the exit code and skipping the export keeps both the message and the code
+  // honest. The body below is left at its original indentation on purpose: the diff is the guard, not a re-indent
+  // of the whole file.
+  process.exitCode = 1;
+} else {
 const experiments = [];
 for (const entry of list.experiments ?? []) {
   const id = entry.experimentId ?? entry;
@@ -89,3 +95,4 @@ const accounting = artifact.manifest.supporting.accounting;
 console.log(`accounting  planned=${accounting.planned} accounted=${accounting.accounted} measured=${accounting.measured} undelivered=${accounting.planned - accounting.accounted}${accounting.undeliveredCampaigns.length ? ' from ' + accounting.undeliveredCampaigns.map(entry => `${entry.reason}`).join(',') : ''}`);
 console.log(`exclusions  ${artifact.exclusions.length}`);
 console.log(`written     ${OUT} (${Object.keys(files).length + 1} files, checksums.json included)`);
+}

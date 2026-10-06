@@ -1,0 +1,113 @@
+{
+  "observedAt": "2026-10-06T01:26:18.672Z",
+  "endpoint": "http://172.31.12.151:4391",
+  "health": "healthy",
+  "cityId": "031fdba6-e94c-4298-a095-6ff04a65481d",
+  "nodes": [
+    {
+      "id": "alien-reference-node",
+      "online": false,
+      "sharingEnabled": null,
+      "lastHeartbeatAt": "2026-10-05T11:15:06.977Z",
+      "capabilities": [
+        "task.execute.safe",
+        "filesystem.temp"
+      ]
+    },
+    {
+      "id": "dev-031fdba6e94c4298a0956ff04a65481d",
+      "online": true,
+      "sharingEnabled": true,
+      "lastHeartbeatAt": "2026-10-06T01:26:17.837Z",
+      "capabilities": [
+        "task.execute.safe",
+        "filesystem.temp"
+      ]
+    },
+    {
+      "id": "dev-e1d87b2a0ec5457e822b91d81e40dc67",
+      "online": false,
+      "sharingEnabled": true,
+      "lastHeartbeatAt": "2026-10-05T11:32:34.777Z",
+      "capabilities": [
+        "task.execute.safe",
+        "filesystem.temp"
+      ]
+    }
+  ],
+  "controlSurfaces": [
+    {
+      "clientRef": "dev-be7832e35fc34b85966c3bb43a992e1d",
+      "clientLabel": "Android · PERM00",
+      "connectedAt": "2026-10-06T01:26:01.676Z"
+    }
+  ],
+  "members": [
+    {
+      "deviceId": "dev-031fdba6e94c4298a0956ff04a65481d",
+      "online": true,
+      "computeOnline": true,
+      "sharingEnabled": true,
+      "capabilities": [
+        "task.execute.safe",
+        "filesystem.temp"
+      ],
+      "displayName": "Mega-rep",
+      "role": "PRIMARY",
+      "nodeId": "dev-031fdba6e94c4298a0956ff04a65481d",
+      "telemetry": {
+        "observedAt": "2026-10-06T01:26:17.461Z",
+        "cpu": {
+          "usagePercent": 9.13680736203183
+        },
+        "memory": {
+          "usedBytes": 16102510592,
+          "totalBytes": 34066345984
+        },
+        "disk": {
+          "usedBytes": 420477796352,
+          "freeBytes": 280536150016,
+          "totalBytes": 701013946368
+        },
+        "uptimeSeconds": 59935.531
+      },
+      "lastHeartbeatAt": "2026-10-06T01:26:17.837Z",
+      "metadata": {
+        "platform": "win32"
+      },
+      "agentVersion": "0.2.0"
+    },
+    {
+      "deviceId": "dev-bb313bf720a57976e49a502c6539cfde",
+      "online": false,
+      "computeOnline": false,
+      "sharingEnabled": false,
+      "capabilities": [],
+      "displayName": "Mech-Fresh-Installation",
+      "role": "MEMBER",
+      "installationId": "ins-54ea7741a3fd9c6882930a409827f1b7"
+    },
+    {
+      "deviceId": "dev-5bbb22fa7ffa4c45915e86c9085347ef",
+      "online": false,
+      "computeOnline": false,
+      "sharingEnabled": false,
+      "capabilities": [],
+      "displayName": "Android · PERM00",
+      "role": "MEMBER",
+      "installationId": "ins-92893167bd38ba85b43fc527e586ddab"
+    },
+    {
+      "deviceId": "dev-be7832e35fc34b85966c3bb43a992e1d",
+      "online": true,
+      "computeOnline": false,
+      "sharingEnabled": false,
+      "capabilities": [],
+      "displayName": "Android · PERM00",
+      "role": "MEMBER",
+      "installationId": "ins-e6e912d7c8f5e4df5e2ade5c004f6d22",
+      "controlOnline": true
+    }
+  ],
+  "tasksBefore": 6
+}

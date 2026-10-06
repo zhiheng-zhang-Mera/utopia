@@ -1,0 +1,27 @@
+✔ CEX790 Web reports validated but unfiled registration and degraded store (2005.5264ms)
+✔ Web Research discovers imports validates registers and inspects canonical experiments without running (2461.7742ms)
+✔ a failed list refresh cannot hide a successful canonical registration (2278.2468ms)
+✔ REX801 store guard: a file where research (the registry parent) belongs cannot stop the City (150.8851ms)
+✔ REX801 store guard: a file where research/experiments (the registry itself) belongs cannot stop the City (96.5545ms)
+✔ fault confirmation, live canonical target and bounded duration required (2.4789ms)
+✔ heartbeat loss refuses only targeted heartbeats, stop and expiry restore requests (35.5775ms)
+✔ provider unavailable refuses targeted claim and records measured recovery after stop (4.7448ms)
+✔ delayed report releases immediately on emergency stop without blocking unrelated requests (11.0598ms)
+✔ duplicate event affects observation only and is absent after emergency stop (3.7629ms)
+✔ restart disables persisted activation and never resumes fault silently (4.0092ms)
+✔ unexercised or stopped fault cannot receive unrelated future detection or recovery measurements (2.7065ms)
+✔ expired fault persistence failure cannot turn normal canonical observation into an error (3.0147ms)
+✔ four fault classes change real Gateway boundaries and emergency stop restores canonical requests (3363.0817ms)
+✔ REX804 repair guard: an unreadable fault receipt is reported and never prevents the City from starting (160.7629ms)
+✔ REX804 repair guard: a receipt with no fault identity is reported as broken, not adopted without identity (74.1106ms)
+✔ REX804 unavailable receipt directory is disclosed and refuses injection without affecting observation (7.2105ms)
+✔ REX804 Web discloses unavailable fault store and prevents injection while normal task creation works (1656.2836ms)
+✔ Research Danger Zone requires explicit confirmation and offers real emergency stop (1803.6934ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10587.8512

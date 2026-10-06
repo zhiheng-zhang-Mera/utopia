@@ -1,0 +1,34 @@
+✖ REX804 unavailable receipt directory is disclosed and refuses injection without affecting observation (5.9268ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1392.2134
+
+✖ failing tests:
+
+test at tests\rex804-unavailable-store.test.mjs:5:1
+✖ REX804 unavailable receipt directory is disclosed and refuses injection without affecting observation (5.9268ms)
+  AssertionError [ERR_ASSERTION]: Got unwanted exception.
+  Actual message: "EEXIST: file already exists, mkdir 'C:\Users\15601\AppData\Local\Temp\rex804-dir-F1lCGh\faults'"
+      at TestContext.<anonymous> (file:///D:/Utopia-REX804/tests/rex804-unavailable-store.test.mjs:9:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: Error: EEXIST: file already exists, mkdir 'C:\Users\15601\AppData\Local\Temp\rex804-dir-F1lCGh\faults'
+        at mkdirSync (node:fs:1411:26)
+        at createFaultController (file:///D:/Utopia-REX804/services/dev-gateway/research/faults.mjs:9:2)
+        at file:///D:/Utopia-REX804/tests/rex804-unavailable-store.test.mjs:9:39
+        at getActual (node:assert:611:5)
+        at strict.doesNotThrow (node:assert:779:32)
+        at TestContext.<anonymous> (file:///D:/Utopia-REX804/tests/rex804-unavailable-store.test.mjs:9:10)
+        at async Test.run (node:internal/test_runner/test:1389:7)
+        at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3),
+    expected: undefined,
+    operator: 'doesNotThrow',
+    diff: 'simple'
+  }

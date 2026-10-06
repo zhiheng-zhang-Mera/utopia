@@ -11,7 +11,9 @@ layer. It creates **no runtime code**: the architecture's candidate directories 
 ```text
 baseline / 基线   utopia main 312b627 (= PCF-700's claim-time baseline)
 branch / 分支     pcf/PCF-700-mech-ownership-and-reality-audit
-tests / 配套测试  tests/pcf700-compatibility.test.mjs (7/7 green, see section 6)
+tests / 配套测试  tests/pcf700-compatibility.test.mjs (7/7), tests/pcf700-dependency-direction.test.mjs (4/4)
+companions        reuse-tiers.md (five-tier check + reuse boundary), ui-backend-matrix.md (UI->backend matrix + writers)
+record / 机器可读 data-records/{zh-CN,en}/pcf/reuse-wiring-audit.json (produced by scripts/pcf700-reuse-audit.mjs)
 ```
 
 ## 1. Reuse points: declaration → caller → live API → user surface → evidence
@@ -97,8 +99,9 @@ component/evidence owners (as the workbooks declare)
   715 public UI host          the only UI host; 714 origin continuity; 790 final composition
 
 UI -> backend direction (measured)
-  apps/web and apps/android reach the City only through /api/v0/*; no backend file imports a front-end module
-  => no cycle found this round; the per-file dependency matrix is queued as the next audit increment (section 7)
+  apps/web and apps/android reach the City only through /api/v0/*; **backend modules importing front-end modules = 0**
+  => acyclic. The per-file endpoint matrix, the single-writer fingerprints and the three-way direction classification
+  live in ui-backend-matrix.md (delivered this round)
 ```
 
 ## 6. Compatibility counter-examples (written and run)
@@ -123,17 +126,27 @@ C7 the worker pool is registered but not the active backend; the strict-target g
 `reason=UNKNOWN` (they are `taskId` and `STRICT_TARGET_BOUND`); and expecting `classifyTarget` to return `{ok}` (it
 returns `{state, claimable, reason}`).
 
-## 7. NOT finished this round (next round continues; nothing is passed off as done)
+## 7. What this audit has and has not done (checked item by item; nothing passed off as done)
 
 ```text
-a the revision-2 five-level check (EM connector/Foreman, RF, GAI, WBC, origin tooling): the only evidence so far is
-  that the contract directories exist (contracts/engineering-*, remote-*, general-ai-*, rs-*); the per-item verdicts
-  DECLARED / COMPONENT_TESTED / LIVE_WIRED / TWO_HOST_VERIFIED / ORIGIN_AGENT_CONSUMED are not done yet
-b the two-host independent walk of sample call chains - the opposite physical host must do it; this host does not
-  substitute for it
-c the per-file UI->backend dependency matrix and a machine-readable single-writer list
-d the "accepted EM/RF/GAI components vs PCF reuse boundary" table (who supplies identity/transport, who supplies
-  providers/approvals)
+DONE this round, re-runnable:
+a the revision-2 five-tier check (EM connector/Foreman, RF, GAI, WBC, origin tooling) -> reuse-tiers.md
+  MEASURED: of 49 contract directories only 4 are LIVE_WIRED (execution-backend-v1, node-descriptor-v1,
+  remote-local-discovery-v1, rs-presentation-contract-v1); all 13 EM and all 9 GAI contracts are referenced by TESTS
+  ONLY, zero production references; rs-cross-device-return-v1 is tests-only, so the return seam is proven by NO
+  production path
+c the per-file UI->backend dependency matrix, the single-writer list and the machine-readable record ->
+  ui-backend-matrix.md + data-records/{zh-CN,en}/pcf/reuse-wiring-audit.json (D1/D2 guards: backend imports of the
+  front end = 0; unresolved UI endpoints = 0)
+d the EM/RF/GAI vs PCF reuse-boundary table (who supplies identity/transport, who supplies providers/approvals) ->
+  reuse-tiers.md section 4
+
+STILL NOT DONE:
+b the two-host independent walk of sample call chains (the last sub-step) - the opposite physical host must do it and
+  this host does not substitute for it; the TWO_HOST_VERIFIED and ORIGIN_AGENT_CONSUMED tiers are BOTH EMPTY this
+  round and each is named in reuse-tiers.md section 5
+e the URL a Gradle-generated Android BuildConfig carries is not in the static matrix (next increment); a runtime click
+  path is not static evidence either, and belongs to b
 ```
 
 This map therefore freezes only what has been measured; `UNKNOWN` here is a conclusion, not a blank.

@@ -7,7 +7,9 @@
 ```text
 审计基线 / baseline   utopia main 312b627（= PCF-700 的 claim-time baseline）
 任务分支 / branch     pcf/PCF-700-mech-ownership-and-reality-audit
-配套测试 / tests      tests/pcf700-compatibility.test.mjs（7/7 通过，见 §6）
+配套测试 / tests      tests/pcf700-compatibility.test.mjs（7/7）、tests/pcf700-dependency-direction.test.mjs（4/4）
+同伴交付 / companions reuse-tiers.md（五档核对 + 复用边界）、ui-backend-matrix.md（UI→后端矩阵 + 单写者）
+机器可读 / record     data-records/{zh-CN,en}/pcf/reuse-wiring-audit.json（由 scripts/pcf700-reuse-audit.mjs 生成）
 ```
 
 ## 1. 复用点：声明 → 调用者 → 活的 API → 用户面 → 证据
@@ -88,8 +90,8 @@
   709/710/711/712      artifact / 执行 / 检查点 / 对账      owner: 各自；用户面归 714/715
   715 公共 UI 宿主      唯一 UI 宿主；714 发起端连续性；790 最终组合
 UI→后端方向（实测）
-  apps/web 与 apps/android 只通过 /api/v0/* 与网关通信；仓库内没有反过来 import 前端模块的后端文件
-  => 本轮未发现环；更细的逐文件依赖矩阵列入下一次审计增量（未完成，见 §7）
+  apps/web 与 apps/android 只通过 /api/v0/* 与网关通信；**后端模块 import 前端模块 = 0 条**
+  => 无环。逐文件端点矩阵、单写者指纹与三段方向分类见 ui-backend-matrix.md（本轮已交付）
 ```
 
 ## 6. 兼容反例测试（已写、已跑）
@@ -111,15 +113,22 @@ C7 worker-pool 已注册但非活动后端；严格目标 guard 确实在 claim 
 
 **过程中本机自己的三处仪器错误**（记录，不掩盖）：把 `POST /tasks` 当成能带 `targetDeviceRef`（实测只接受 `type`，参数一律 400）；把 withheld 投影的行字段当成 `id`/`reason=UNKNOWN`（实测是 `taskId`/`STRICT_TARGET_BOUND`）；把 `classifyTarget` 的返回值当成 `{ok}`（实测是 `{state,claimable,reason}`）。
 
-## 7. 本轮**未完成**的部分（下一轮继续，不冒充完成）
+## 7. 本审计的完成状态（逐条对照，不冒充完成）
 
 ```text
-a  revision 2 的五档核对（EM connector/Foreman、RF、GAI、WBC、原端工具）：
-   目前只有「合同目录存在」这一层证据（contracts/engineering-*、remote-*、general-ai-*、rs-* 等），
-   DECLARED → COMPONENT_TESTED → LIVE_WIRED → TWO_HOST_VERIFIED → ORIGIN_AGENT_CONSUMED 的逐项判定尚未做
-b  两主机独立核对样本调用链（§子步骤最后一条）——必须由另一实体主机执行，本机不代做
-c  UI→后端逐文件依赖矩阵与共享文件单写者的机器可读清单
-d  EM/RF/GAI 的「已接受组件」与 PCF 复用边界表（谁提供 identity/transport、谁提供 provider/审批）
+已完成（本轮，可重跑）：
+a  revision 2 的五档核对（EM connector/Foreman、RF、GAI、WBC、原端工具）→ reuse-tiers.md
+   实测：49 个合同目录中只有 4 个 LIVE_WIRED（execution-backend-v1、node-descriptor-v1、remote-local-discovery-v1、
+   rs-presentation-contract-v1）；EM 13 个与 GAI 9 个**全部只有测试引用、零产线引用**；rs-cross-device-return-v1
+   只有测试 ⇒ 回端缝没有被任何产线路径证明
+c  UI→后端逐文件依赖矩阵、单写者清单与机器可读记录 → ui-backend-matrix.md +
+   data-records/{zh-CN,en}/pcf/reuse-wiring-audit.json（D1/D2 守卫：后端 import 前端 = 0；未解析端点数 = 0）
+d  EM/RF/GAI 与 PCF 的复用边界表（谁供 identity/transport、谁供 provider/审批）→ reuse-tiers.md §4
+
+仍未完成：
+b  两主机独立核对样本调用链（子步骤最后一条）——**必须由另一实体主机执行**，本机不代做；TWO_HOST_VERIFIED 与
+   ORIGIN_AGENT_CONSUMED 两档在本轮**全部为空**，已在 reuse-tiers.md §5 逐条写明
+e  Android 侧 BuildConfig 生成的 URL 未纳入静态矩阵（列为下一增量）；运行期点击路径也不在静态证据内 —— 属 b
 ```
 
 本文件因此**只冻结已经实测的部分**；`UNKNOWN` 是结论，不是空白。

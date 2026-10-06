@@ -680,10 +680,9 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       if(campaigns.storeState()!=='READY')throw new ReplayError('REPLAY_STORE_UNAVAILABLE','campaign receipt storage is unavailable');
       if(campaignReadiness(context).state!=='READY')throw new ReplayError('REPLAY_TOPOLOGY_NOT_READY','the recorded topology is not currently live; unavailable conditions cannot be replayed deterministically');
     }});
-  // UNION (REX-803 + REX-804 + REX-805): three accepted products define a research controller at this point, and none
-  // of them references another, so the union is simply all three - the campaign surface, the fault controller and the
-  // replay engine. REX-806 is built on this union because its declared dependencies are all accepted and none of them
-  // is in main: the union of the accepted heads IS the eligible baseline (DEPENDENCY_SHA_UNION_AT_CLAIM).
+  // UNION (REX series merge, in the owner-granted window): this fault controller and the campaign/replay
+  // controllers above are independent - none of the three references another - so all of them are constructed here,
+  // and the single return at the end of this function exposes every one of them with a teardown that releases all.
   faults=createFaultController({dir:resolve(dir,'research','faults'),node:id=>store.get('nodes',id),trace:researchTrace});
   // What a research surface needs in order to build a valid manifest, published with every research response so
   // the contract is discoverable from the contract itself: the topologies this release can describe, the seed

@@ -31,14 +31,15 @@ export function createMonitorDecisionsView() {
       const rate = metrics?.autoResolutionRate === null || metrics?.autoResolutionRate === undefined
         ? (metrics?.autoResolutionRateReason ?? t('dec.notMeasured'))
         : `${Math.round(metrics.autoResolutionRate * 100)}% (${metrics.autoResolved}/${metrics.decisions})`;
+      const measured = value => (Number.isFinite(value) ? esc(value) : esc(t('dec.notMeasured')));
       const row = decision => `<tr data-decision="${esc(decision.decisionId)}">
         <td>${esc(decision.triggerEvent?.kind)}</td>
         <td>${esc(decision.taskRef ?? t('dec.cityWide'))}</td>
         <td>${esc(decision.source)}</td>
         <td>${esc(decision.action)}</td>
         <td>${decision.ownerRequired ? esc(t('dec.yes')) : esc(t('dec.no'))}</td>
-        <td>${esc(decision.decisionLatencyMs)}</td>
-        <td>${esc(decision.queueWaitMs)}</td>
+        <td>${measured(decision.decisionLatencyMs)}</td>
+        <td>${measured(decision.queueWaitMs)}</td>
         <td><details data-provenance="${esc(decision.decisionId)}"><summary>${esc(t('dec.provenance'))}</summary><p>${esc(t('dec.prePost', {pre: decision.preState ?? t('dec.unknown'), post: decision.postState ?? t('dec.unknown')}))}</p><p>${esc(t('dec.applied', {applied: decision.appliedBy ?? t('dec.nobody')}))}</p><p>${esc(t('dec.evidence', {refs: (decision.evidenceRefs ?? []).map(ref => `${ref.source}:${ref.canonicalEventId}`).join(', ') || t('dec.none')}))}</p><pre>${esc(JSON.stringify({triggerEvent: decision.triggerEvent, decisionTrace: decision.decisionTrace, timeoutOrFallback: decision.timeoutOrFallback, escalationReason: decision.escalationReason, applicationReason: decision.applicationReason, confidence: decision.confidence, confidenceReason: decision.confidenceReason}, null, 2))}</pre></details></td>
       </tr>`;
       host.innerHTML = `<section class="panel" id="monitor-decisions" data-loaded="${Boolean(data || error)}">
@@ -50,6 +51,7 @@ export function createMonitorDecisionsView() {
         <button id="dec-refresh" ${pending || !online ? 'disabled' : ''}>${esc(t('dec.refresh'))}</button>
         ${data ? `
         <p id="dec-metrics">${esc(t('dec.metrics', {decisions: metrics.decisions, owner: metrics.ownerRequired, auto: rate, timeouts: metrics.timeouts}))}</p>
+        ${metrics.retentionTruncated ? `<p id="dec-metrics-window" role="alert">${esc(t('dec.retention', {retained: metrics.retained, limit: metrics.retainedLimit}))}</p>` : ''}
         <p id="dec-notblocking">${esc(t('dec.noBarrier', {value: metrics.unrelatedTaskBlocking, concurrent: metrics.concurrentDecisionTasks}))}</p>
         <h3>${esc(t('dec.ownerRequiredTitle'))}</h3>
         ${ownerRequired.length === 0 ? `<p id="dec-owner-empty">${esc(t('dec.noOwnerRequired'))}</p>` : `<ul id="dec-owner-list">${ownerRequired.map(decision => `<li data-owner-required="${esc(decision.decisionId)}">${esc(decision.triggerEvent?.kind)} · ${esc(decision.taskRef ?? t('dec.cityWide'))} · ${esc(decision.escalationReason ?? t('dec.unknown'))}</li>`).join('')}</ul>`}
@@ -58,7 +60,7 @@ export function createMonitorDecisionsView() {
         ${(window?.unsupportedSources ?? []).length > 0 ? `<p id="dec-unsupported">${esc(t('dec.notObservable', {list: window.unsupportedSources.join('; ')}))}</p>` : ''}
         ${window?.retentionTruncated ? `<p id="dec-retention">${esc(t('dec.retention', {retained: window.retained, limit: window.retainedLimit}))}</p>` : ''}
         ${window?.persistence && window.persistence!=='READY' ? `<p id="dec-persistence" role="status">${esc(t('dec.persistenceUnavailable'))}</p>` : ''}
-        ${(window?.failures ?? []).length > 0 ? `<p id="dec-failures">${esc(t('dec.failures', {list: window.failures.map(failure => failure.code).join(', ')}))}</p>` : ''}
+        ${(window?.failures ?? []).length > 0 ? `<p id="dec-failures">${esc(t('dec.failures', {list: window.failures.map(failure => failure.code).join(', ')}))}${window.failuresDropped > 0 ? ` ${esc(t('dec.failuresDropped', {dropped: window.failuresDropped}))}` : ''}</p>` : ''}
         ` : ''}
       </section>`;
       host.querySelectorAll('details[data-provenance]').forEach(element=>{if(opened.has(element.dataset.provenance))element.open=true;});

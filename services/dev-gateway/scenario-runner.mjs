@@ -63,6 +63,7 @@ export const RUNNER_CODES = Object.freeze({
   // the same lifecycle hole the opposite host's MON-903 review found when observe() ignored the overlay's close flag.
   // Finding F-S8 of this module's third-class sweep.
   RUNNER_CLOSED: 'RUNNER_CLOSED',
+  INVALID_SEED_INDEX: 'SEED_INDEX_INVALID',
 });
 
 export class ScenarioRunnerError extends Error {
@@ -250,6 +251,8 @@ export function createScenarioRunner({dir = '.runtime/research', scenarios = [],
         return {state: 'INTERRUPTED', campaignId: null, unreadable: true};
       }
       normalizeLimits(record.limits);
+      if (!Number.isSafeInteger(record.seedIndexOffset ?? 0) || (record.seedIndexOffset ?? 0) < 0 ||
+          (record.seedIndexOffset ?? 0) + record.totalRuns > 20000) throw new Error('CAMPAIGN_SEED_INDEX_INVALID');
       return record;
     } catch (error) { noteStoreFailure(error); return {state: 'INTERRUPTED', campaignId: null, unreadable: true}; }
   }
@@ -266,7 +269,7 @@ export function createScenarioRunner({dir = '.runtime/research', scenarios = [],
     if (record.state === 'RUNNING') {
       const index = record.runs.length;
       if (index < record.totalRuns) {
-        const run = {index, state: 'INTERRUPTED', reason: 'PROCESS_RESTART', seed: runSeed(record.campaignSeed, index), warmup: index < record.warmup, measured: false, durationMs: null, result: null};
+        const run = {index, state: 'INTERRUPTED', reason: 'PROCESS_RESTART', seed: runSeed(record.campaignSeed, index + (record.seedIndexOffset ?? 0)), warmup: index < record.warmup, measured: false, durationMs: null, result: null};
         record.runs.push(run);
         if (typeof cancelRun === 'function') {
           try { cancelRun({campaignId: record.campaignId, scenarioId: record.scenarioId, index, context: record.context ?? null}); }
@@ -289,12 +292,13 @@ export function createScenarioRunner({dir = '.runtime/research', scenarios = [],
   }
   recover();
 
-  function start({scenarioId, repetitions, warmup = 0, resume = false, abandon = false, seed = null, timeout = timeoutMs, limits = null, context = null} = {}) {
+  function start({scenarioId, repetitions, warmup = 0, resume = false, abandon = false, seed = null, seedIndexOffset = 0, timeout = timeoutMs, limits = null, context = null} = {}) {
     if (closed) throw new ScenarioRunnerError(RUNNER_CODES.RUNNER_CLOSED, 'this runner has been closed and accepts no new campaign', {state: campaign?.state ?? 'IDLE'});
     const scenario = scenarioById.get(scenarioId);
     if (!scenario) throw new ScenarioRunnerError(RUNNER_CODES.UNKNOWN_SCENARIO, `Unknown scenario ${String(scenarioId)}`, {known: [...scenarioById.keys()]});
     if (!Number.isSafeInteger(repetitions) || repetitions < 1 || repetitions > 10000) throw new ScenarioRunnerError(RUNNER_CODES.INVALID_REPETITIONS, 'repetitions must be an integer in 1..10000', {repetitions});
     if (!Number.isSafeInteger(warmup) || warmup < 0 || warmup > repetitions) throw new ScenarioRunnerError(RUNNER_CODES.INVALID_REPETITIONS, 'warmup must be an integer in 0..repetitions', {warmup});
+    if (!Number.isSafeInteger(seedIndexOffset) || seedIndexOffset < 0 || seedIndexOffset + repetitions + warmup > 20000) throw new ScenarioRunnerError(RUNNER_CODES.INVALID_SEED_INDEX, 'seed index range must stay within 0..19999');
     if (!Number.isSafeInteger(timeout) || timeout < 1 || timeout > 3600000) throw new ScenarioRunnerError(RUNNER_CODES.INVALID_LIMITS, 'timeout must be an integer in 1..3600000 ms', {timeout});
     const boundedLimits = normalizeLimits(limits);
     if (resume === true && abandon === true) throw new ScenarioRunnerError(RUNNER_CODES.RESUME_CONFLICT, 'resume and abandon cannot both be asked for: one campaign cannot be continued and left behind at once');
@@ -312,6 +316,7 @@ export function createScenarioRunner({dir = '.runtime/research', scenarios = [],
       if (Number.isSafeInteger(repetitions) && repetitions !== previous.repetitions) throw new ScenarioRunnerError(RUNNER_CODES.RESUME_CONFLICT, 'a resumed campaign keeps its declared repetition count', {declared: previous.repetitions, requested: repetitions});
       if (Number.isSafeInteger(warmup) && warmup !== previous.warmup) throw new ScenarioRunnerError(RUNNER_CODES.RESUME_CONFLICT, 'a resumed campaign keeps its declared warmup count', {declared: previous.warmup, requested: warmup});
       if (seed !== null && seed !== previous.campaignSeed) throw new ScenarioRunnerError(RUNNER_CODES.RESUME_CONFLICT, 'a resumed campaign keeps its campaign seed, or it is a different campaign', {declared: previous.campaignSeed, requested: seed});
+      if (seedIndexOffset !== (previous.seedIndexOffset ?? 0)) throw new ScenarioRunnerError(RUNNER_CODES.RESUME_CONFLICT, 'a resumed campaign keeps its seed index offset');
     }
     const executionContext = resume === true ? previous.context ?? null : context;
     const readinessReport = scenario.readiness ? scenario.readiness(executionContext) : readiness(executionContext);
@@ -343,7 +348,7 @@ export function createScenarioRunner({dir = '.runtime/research', scenarios = [],
     const campaignSeed = seed ?? `${scenarioId}-${clock()}`;
     campaign = {
       campaignId: `campaign-${randomUUID()}`, scenarioId, state: 'RUNNING', reason: null,
-      seedPolicy: 'derived:seed(campaign,index)', campaignSeed, repetitions, warmup, timeout, limits: boundedLimits,
+      seedPolicy: seedIndexOffset === 0 ? 'derived:seed(campaign,index)' : 'derived:seed(campaign,index+offset)', campaignSeed, seedIndexOffset, repetitions, warmup, timeout, limits: boundedLimits,
       totalRuns: warmup + repetitions, runs: [], startedAt: clock(), finishedAt: null, context,
       resumedFrom: null, resumedAt: null, resumeCount: 0, abandonedFrom: abandon ? previous?.campaignId ?? null : null,
       readiness: readinessReport, summary: null,
@@ -374,16 +379,16 @@ export function createScenarioRunner({dir = '.runtime/research', scenarios = [],
       // invariant (every planned run explained exactly once) false while still looking plausible.
       if (campaign.runs[index]?.index === index) continue;
       if (cancelled) {
-        campaign.runs.push({index, state: 'CANCELLED', reason: cancelled, seed: runSeed(campaign.campaignSeed, index), measured: false, result: null});
+        campaign.runs.push({index, state: 'CANCELLED', reason: cancelled, seed: runSeed(campaign.campaignSeed, index + (campaign.seedIndexOffset ?? 0)), measured: false, result: null});
         continue;
       }
       const ended = limitReached(startedAt);
       if (ended) {
-        campaign.runs.push({index, state: 'SKIPPED', reason: ended, seed: runSeed(campaign.campaignSeed, index), measured: false, result: null});
+        campaign.runs.push({index, state: 'SKIPPED', reason: ended, seed: runSeed(campaign.campaignSeed, index + (campaign.seedIndexOffset ?? 0)), measured: false, result: null});
         continue;
       }
       const isWarmup = index < campaign.warmup;
-      const seed = runSeed(campaign.campaignSeed, index);
+      const seed = runSeed(campaign.campaignSeed, index + (campaign.seedIndexOffset ?? 0));
       const began = clock();
       const scope = {handles: new Set(), aborted: null};
       runScope = scope;
@@ -446,6 +451,7 @@ export function createScenarioRunner({dir = '.runtime/research', scenarios = [],
       scenarioId: campaign.scenarioId,
       seedPolicy: campaign.seedPolicy,
       campaignSeed: campaign.campaignSeed,
+      seedIndexOffset: campaign.seedIndexOffset ?? 0,
       totals: {planned: campaign.totalRuns, attempted: campaign.runs.length, warmup: campaign.runs.filter(run => run.state === 'WARMUP').length, measured: measured.length, notMeasured: notMeasured.length},
       summary: campaign.summary ?? summaryOf(campaign),
       limits: campaign.limits ?? {},

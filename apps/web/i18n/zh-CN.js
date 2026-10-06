@@ -440,4 +440,11 @@ Object.assign(messages, {
 });
 // (union) duplicate export default removed
 Object.assign(messages,{'scheduler.choice.explicitPrompt':'选择如何继续这项服务','scheduler.choice.alternateDevice':'保留这项服务，换另一台设备执行','scheduler.choice.reason.TARGET_DEVICE_BOUND':'这项服务绑定了指定设备。','scheduler.choice.reason.ALTERNATE_NOT_AVAILABLE':'目前没有符合条件的替代设备。','scheduler.choice.reason.NO_SWITCH_DECISION':'目前无需选择设备切换。'});
+Object.assign(messages,{
+ 'rr.title':'重放与消融','rr.hint':'选择已有回执中的 WAIT 运行。重放创建新的实验和运行身份，保留原始证据；需要输入快照的有状态场景当前会明确拒绝。',
+ 'rr.caveat':'只复现受控输入。实时资源、时钟和外部服务状态可能变化；时间差不构成因果性能证据。',
+ 'rr.source':'已有运行回执','rr.run':'已记录的重复','rr.replay':'重放选中的运行',
+ 'rr.ablation':'消融备选设备选择','rr.noRuns':'当前没有可观测的已记录运行。','rr.comparison':'原始 → 重放比较',
+ 'rr.value':'观测值','rr.original':'原始运行','rr.replayed':'新运行','rr.worker':'执行节点','rr.inputs':'受控输入一致','rr.unavailable':'重放暂不可用，请刷新或重新连接。'
+});
 export default { meta, messages };

@@ -1,0 +1,12 @@
+{
+ "task":"REX-803","host":"Alien","physicalHost":"Mera-Alianware",
+ "baselineSha":"1a26d7499d3de39b19c3136c3032e8ccd9343428",
+ "focusedTests":{"pass":10,"fail":0,"log":".runtime/evidence/mission-book/REX-803/focused-green.log"},
+ "webRuntime":"real Gateway + reference worker; 2 measured + 1 warmup canonical tasks completed",
+ "physicalThreeSurfaceCampaign":"NOT_RUN: adb devices reports no attached devices; no current Mech worker endpoint observed",
+ "formalReview":"NOT_RUN: opposite physical host required",
+ "technicalCritique":"strict worker scope, timeout boundary, canonical crash ownership and seed semantics repaired; not Formal Review",
+ "retainedFailures":["module missing RED","HTTP normalized software-reference object mismatch","incorrect test WebSocket path","enrolled-member campaign authorization RED","late completion RED","canonical ownership restart RED","initial full-suite document parsing failure before city dependencies installed"],
+ "metricLimit":"host wall-clock duration; cross-host latency, autonomous span and Owner interruption counts NOT_MEASURED",
+ "softwareIdentity":"manifest declaration; runtime and final source identity separately bound in City report"
+}

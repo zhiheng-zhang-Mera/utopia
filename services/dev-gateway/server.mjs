@@ -60,6 +60,7 @@ import { describeLegacyNode, availabilityFrom, NODE_ROLES } from '../../contract
 // to be reproducible; it owns no work, grants no fault authority, and never invents a default for a missing
 // field. The registry is file-backed and lives outside the task-keyed City store on purpose.
 import { createExperimentRegistry } from './research/registry.mjs';
+import {createScenarioRunner} from './research/runner.mjs';
 import { ARTIFACT_RETENTION, SEED_POLICIES, STOP_CONDITION_KINDS, TOPOLOGIES, ExperimentManifestError } from '../../contracts/experiment-manifest-v1/manifest.mjs';
 // City Core (MB-006). Whether work interrupted by a restart may resume is decided by the
 // migrated checkpoint-gate module instead of an inline state test.
@@ -444,6 +445,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       if(verdict.state==='UNKNOWN')refuse(TARGET_REASONS.UNKNOWN,422,`no City node identity "${intent.value}" is known to this City`);
       return atomicWithTrace(()=>{
         const t={id:'Q-'+randomUUID(),type,domain:'system',state:'QUEUED',createdAt:now(),updatedAt:now(),assignedNodeId:null,progress:0,lastCheckpoint:null,result:null,error:null,
+          ...(options.researchRunRef?{researchRunRef:options.researchRunRef}:{}),
           [STRICT_TARGET_FIELD]:intent.value,targetIntentAt:now(),targetStateAtCreation:verdict.state};
         store.put('tasks',t);emit('COMMAND_ACCEPTED',t.id);emit('TASK_CREATED',t.id);
         if(verdict.state!=='ELIGIBLE')emit('TASK_TARGET_WAITING',t.id,{targetDeviceRef:intent.value,targetState:verdict.state,reason:verdict.reason},'user');
@@ -518,6 +520,18 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
     dir:resolve(dir,'research','experiments'),
     knownCapabilities:bridge.registry().map(descriptor=>descriptor.capabilityId),
   });
+  const campaigns=createScenarioRunner({dir:resolve(dir,'research','campaigns'),registry:experiments,trace:researchTrace,adapter:{
+    readiness:manifest=>{
+      const workers=store.list('nodes').filter(n=>n.online===true&&ableNode(n)&&n.sharingEnabled!==false).map(n=>n.id);
+      const surfaces=liveSurfaces().map(s=>s.clientRef);
+      const missing=[...manifest.hosts,...manifest.workers].filter(id=>!workers.includes(id)).concat(manifest.controlSurfaces.filter(id=>!surfaces.includes(id)));
+      return {ready:missing.length===0,missing:[...new Set(missing)],workers,surfaces,identitySemantics:'CANONICAL_LIVE_REFS; physical topology independently verified'};
+    },
+    create:(type,options)=>createCityTask(type,{targetDeviceRef:options.targetDeviceRef,researchRunRef:options.researchRunRef}),
+    owned:ref=>store.list('tasks').filter(task=>task.researchRunRef===ref),
+    get:id=>store.get('tasks',id),
+    cancel:id=>{const task=required('tasks',id);if(!terminal.includes(task.state))change(task,'CANCELLED');},
+  }});
   // What a research surface needs in order to build a valid manifest, published with every research response so
   // the contract is discoverable from the contract itself: the topologies this release can describe, the seed
   // policies, the stop-condition kinds, the retention levels, and the LIVE capability vocabulary that the
@@ -626,6 +640,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // JOIN-503 enrollment test failed with the same "Invalid pairing token" as an unauthenticated request.
       const selfAuthenticating=req.method==='POST'&&path==='/api/v0/device/session';
       if(!publicJoin&&!legacyPublicPairing&&!selfAuthenticating)auth(req,nodeRoute&&path!=='/api/v0/node/sharing'&&!researchRoute);
+      if(path.startsWith('/api/v0/research/campaigns')&&req.citySession)refuse('RESEARCH_OWNER_REQUIRED',403,'Campaign controls require the City owner');
       if(!legacyPublicPairing)version(req);
       let out;
       // JOIN-502 answers first, in the SAME chain as everything below: a second `if` chain would run
@@ -942,6 +957,11 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // answers with the full issue list (409 when the id is already taken by different content, 422 when the
       // manifest is invalid), so the caller can see exactly why, and the rejection is persisted as evidence by
       // the registry itself.
+      else if(path==='/api/v0/research/campaigns'&&req.method==='GET')out=campaigns.list();
+      else if(path==='/api/v0/research/campaigns'&&req.method==='POST'){
+        const {experimentId,...options}=await body(req);out={campaign:campaigns.start(experimentId,options)};
+      } else if(req.method==='GET'&&/^\/api\/v0\/research\/campaigns\/[^/]+$/.test(path))out={campaign:campaigns.get(decodeURIComponent(path.split('/').at(-1)))};
+      else if(req.method==='POST'&&/^\/api\/v0\/research\/campaigns\/[^/]+\/stop$/.test(path))out={campaign:campaigns.stop(decodeURIComponent(path.split('/').at(-2)))};
       else if(path==='/api/v0/research/experiments'&&req.method==='GET'){
         const query=new URL(req.url,'http://city').searchParams.get('status');
         out={...experiments.list({status:query&&query.length>0?query:null}),research:researchFacts()};
@@ -1078,5 +1098,5 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // UNION (JOIN-590 closeout integration): this single return must expose EVERY capability the integrated branches
   // promised, and its teardown must release every side's resources. Enumerated rather than concatenated on purpose -
   // the first mechanical attempt left two returns here and silently hid `researchTrace` behind the earlier one.
-  return {url:pairing.endpoint,store,join,relay,researchTrace,executionProfile,executionBackends,executionBackend,quiesce:value=>{acceptingTasks=!value;},close:async()=>{if(closed)return;closed=true;observation.disconnect();bridge.close();join.close();relay.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();await researchTrace.close(100);}};
+  return {url:pairing.endpoint,store,join,relay,researchTrace,campaigns,executionProfile,executionBackends,executionBackend,quiesce:value=>{acceptingTasks=!value;},close:async()=>{if(closed)return;closed=true;await campaigns.close();observation.disconnect();bridge.close();join.close();relay.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();await researchTrace.close(100);}};
 }

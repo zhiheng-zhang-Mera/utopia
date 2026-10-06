@@ -3,29 +3,76 @@ import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import {hostname} from 'node:os';
+
+/** The typed refusal a City makes when it cannot open its own canonical store.
+ *
+ *  `status` is 503 because the process is not serving and the condition is a storage one, not a bad request. The
+ *  underlying error is kept as `cause` and its code is repeated in `detail.reason`, so a supervisor can distinguish
+ *  "the path is not a directory" from "the disk refused" without parsing a message. */
+export class StoreUnavailableError extends Error {
+  constructor(message, detail) {
+    super(message, detail?.cause ? {cause: detail.cause} : undefined);
+    this.name = 'StoreUnavailableError';
+    this.code = 'CITY_STORE_UNAVAILABLE';
+    this.status = 503;
+    this.detail = detail;
+  }
+}
+const storeUnavailable = (dir, file, error, what) => new StoreUnavailableError(
+  `${what} (${error?.code ?? error?.message ?? 'unknown error'}): ${file ?? dir}. A City without its canonical store has no task truth, so it refuses to start rather than serve an empty city. Check that the path is a writable directory and that no file sits where city.sqlite belongs.`,
+  {dir, file, reason: String(error?.code ?? error?.message ?? 'unknown'), cause: error},
+);
+
 export class Store {
   constructor(dir) {
-    mkdirSync(dir,{recursive:true});
-    this.db = new DatabaseSync(join(dir,'city.sqlite'));
-    // `actions` is the product-level Action facade (T2 of the pre-assistant closeout). It
-    // adapts the existing backends; it never replaces the tasks/nodes/invocations tables.
-    this.db.exec('PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS meta(version INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS tasks(id TEXT PRIMARY KEY, json TEXT NOT NULL); CREATE TABLE IF NOT EXISTS nodes(id TEXT PRIMARY KEY,json TEXT NOT NULL); CREATE TABLE IF NOT EXISTS events(seq INTEGER PRIMARY KEY AUTOINCREMENT,json TEXT NOT NULL); CREATE TABLE IF NOT EXISTS actions(id TEXT PRIMARY KEY, json TEXT NOT NULL);'
-      // JOIN-503: the enrollment registry the City already has semantics for (see
-      // city/00-foundation/02-city-node-network/device-identity). Three tables, one row per record,
-      // same shape as every other table here: a logical DEVICE, a concrete INSTALLATION of it, and the
-      // short-lived SESSIONS the browser may hold. The durable installation credential is never stored -
-      // only its fingerprint - so there is nothing in here that could be replayed.
-      + ' CREATE TABLE IF NOT EXISTS devices(id TEXT PRIMARY KEY, json TEXT NOT NULL);'
-      + ' CREATE TABLE IF NOT EXISTS installations(id TEXT PRIMARY KEY, json TEXT NOT NULL);'
-      + ' CREATE TABLE IF NOT EXISTS device_sessions(id TEXT PRIMARY KEY, json TEXT NOT NULL); CREATE TABLE IF NOT EXISTS member_messages(id TEXT PRIMARY KEY, json TEXT NOT NULL);');
-    const meta=this.db.prepare('SELECT version FROM meta').get();
-    if(meta && meta.version!==0) throw new Error('Unsupported stored schema version');
-    if(!meta) this.db.prepare('INSERT INTO meta VALUES(0)').run();
-    this.db.exec('CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT NOT NULL)');
-    this.db.prepare('INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)').run('cityId',randomUUID());
-    this.cityId=this.db.prepare('SELECT value FROM settings WHERE key=?').get('cityId').value;
-    this.db.prepare('INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)').run('cityName',`Utopia · ${hostname()}`);
-    this.cityName=this.db.prepare('SELECT value FROM settings WHERE key=?').get('cityName').value;
+    // THE CANONICAL STORE IS THE ONE PLACE WHERE REFUSING TO START IS CORRECT, AND THE REFUSAL MUST BE USABLE.
+    // A City without its canonical database has no task truth, so degrading it into an empty City would be worse than
+    // stopping - this is deliberately NOT made survivable the way the experiment registry, the theme artifacts, the
+    // execution profile, the campaign runner and the fault controller were. What was wrong is the DIAGNOSTIC: one file
+    // (or directory) where `city.sqlite` belongs produced a bare `Error: unable to open database file` with code
+    // ERR_SQLITE_ERROR, naming neither the path nor the reason, and an operator had nothing to act on. The family rule
+    // is not "never fail"; it is "never fail silently or uninformatively".
+    const file = join(dir, 'city.sqlite');
+    try {
+      mkdirSync(dir, {recursive: true});
+    } catch (error) {
+      throw storeUnavailable(dir, null, error, `the City runtime directory cannot be created`);
+    }
+    try {
+      this.db = new DatabaseSync(file);
+    } catch (error) {
+      throw storeUnavailable(dir, file, error, `the canonical City database cannot be opened`);
+    }
+    // THE OPEN CAN SUCCEED ON A FILE THAT IS NOT A DATABASE, so the schema step is part of "can this store be used at
+    // all" and is guarded with it. Measured: a text file named city.sqlite opened without error and then failed here
+    // with a raw `ERR_SQLITE_ERROR: file is not a database`, i.e. the same uninformative refusal one step later. The
+    // version refusal is a DIFFERENT fact - the file IS a database, from a future release - so it is deliberately left
+    // as its own error rather than folded into "unavailable".
+    try {
+      // `actions` is the product-level Action facade (T2 of the pre-assistant closeout). It
+      // adapts the existing backends; it never replaces the tasks/nodes/invocations tables.
+      this.db.exec('PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS meta(version INTEGER NOT NULL); CREATE TABLE IF NOT EXISTS tasks(id TEXT PRIMARY KEY, json TEXT NOT NULL); CREATE TABLE IF NOT EXISTS nodes(id TEXT PRIMARY KEY,json TEXT NOT NULL); CREATE TABLE IF NOT EXISTS events(seq INTEGER PRIMARY KEY AUTOINCREMENT,json TEXT NOT NULL); CREATE TABLE IF NOT EXISTS actions(id TEXT PRIMARY KEY, json TEXT NOT NULL);'
+        // JOIN-503: the enrollment registry the City already has semantics for (see
+        // city/00-foundation/02-city-node-network/device-identity). Three tables, one row per record,
+        // same shape as every other table here: a logical DEVICE, a concrete INSTALLATION of it, and the
+        // short-lived SESSIONS the browser may hold. The durable installation credential is never stored -
+        // only its fingerprint - so there is nothing in here that could be replayed.
+        + ' CREATE TABLE IF NOT EXISTS devices(id TEXT PRIMARY KEY, json TEXT NOT NULL);'
+        + ' CREATE TABLE IF NOT EXISTS installations(id TEXT PRIMARY KEY, json TEXT NOT NULL);'
+        + ' CREATE TABLE IF NOT EXISTS device_sessions(id TEXT PRIMARY KEY, json TEXT NOT NULL); CREATE TABLE IF NOT EXISTS member_messages(id TEXT PRIMARY KEY, json TEXT NOT NULL);');
+      const meta=this.db.prepare('SELECT version FROM meta').get();
+      if(meta && meta.version!==0) throw Object.assign(new Error('Unsupported stored schema version'), {code: 'CITY_STORE_SCHEMA_VERSION_UNSUPPORTED'});
+      if(!meta) this.db.prepare('INSERT INTO meta VALUES(0)').run();
+      this.db.exec('CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+      this.db.prepare('INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)').run('cityId',randomUUID());
+      this.cityId=this.db.prepare('SELECT value FROM settings WHERE key=?').get('cityId').value;
+      this.db.prepare('INSERT OR IGNORE INTO settings(key,value) VALUES(?,?)').run('cityName',`Utopia · ${hostname()}`);
+      this.cityName=this.db.prepare('SELECT value FROM settings WHERE key=?').get('cityName').value;
+    } catch (error) {
+      try { this.db?.close(); } catch { /* the store never became usable; a handle left open would lock the file */ }
+      if (error?.code === 'CITY_STORE_SCHEMA_VERSION_UNSUPPORTED') throw error;
+      throw storeUnavailable(dir, file, error, `the canonical City database cannot be used`);
+    }
   }
   renameCity(name) {
     if(typeof name!=='string'||!name.trim()||name.trim().length>64||/[\u0000-\u001f\u007f]/.test(name)) throw Object.assign(new Error('City name must contain 1–64 characters'),{status:400});

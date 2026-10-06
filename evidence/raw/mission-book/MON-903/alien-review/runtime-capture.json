@@ -1,17 +1,17 @@
 {
-  "sourceSha": "ae73d9d0d82ee03a29ec8d783405aa82002934fa",
+  "sourceSha": "b76adfeb94cbfbbe233a93c3d29261dfc00bfdfa",
   "host": "MERA-ALIANWARE",
-  "measuredAt": "2026-10-06T05:03:23.000Z",
+  "measuredAt": "2026-10-06T05:10:57.513Z",
   "fixture": "REAL_ISOLATED_GATEWAY_CANONICAL_STORE",
   "surface": "HEADLESS_EDGE_WEB",
-  "cityId": "ba1f280b-3cf2-48ce-bc07-0c8518f6c019",
+  "cityId": "1e5bc40d-58cd-494d-a52a-3d80561307aa",
   "canonicalTask": {
-    "id": "Q-1c7f3bcd-e1c7-465d-a7aa-4b91910b07af",
+    "id": "Q-1871888f-4583-4800-a416-2e8e018a38a3",
     "type": "WAIT",
     "domain": "system",
     "state": "FAILED",
-    "createdAt": "2026-10-06T05:03:21.826Z",
-    "updatedAt": "2026-10-06T05:03:21.843Z",
+    "createdAt": "2026-10-06T05:10:56.328Z",
+    "updatedAt": "2026-10-06T05:10:56.345Z",
     "assignedNodeId": "capture-node",
     "progress": 60,
     "lastCheckpoint": null,
@@ -26,8 +26,8 @@
     "decisions": [
       {
         "schemaVersion": 1,
-        "decisionId": "decision-263cf851-6e7e-42fc-aa94-8e9152ab14a0",
-        "taskRef": "Q-1c7f3bcd-e1c7-465d-a7aa-4b91910b07af",
+        "decisionId": "decision-99905e53-87f6-489c-b2a8-4a0c60d2d260",
+        "taskRef": "Q-1871888f-4583-4800-a416-2e8e018a38a3",
         "triggerEvent": {
           "kind": "SCOPE_CHANGE",
           "origin": "SUBMITTED",
@@ -42,7 +42,7 @@
         "action": "OWNER_REQUIRED",
         "confidence": null,
         "confidenceReason": "NOT_AVAILABLE: a deterministic rule is not a probability and no resolver reported one",
-        "queueWaitMs": 3,
+        "queueWaitMs": 2,
         "decisionLatencyMs": 0,
         "timeoutOrFallback": [],
         "escalationTarget": "OWNER",
@@ -55,26 +55,26 @@
         "decisionTrace": [
           {
             "stage": "OBSERVATION",
-            "at": "2026-10-06T05:03:21.853Z",
+            "at": "2026-10-06T05:10:56.354Z",
             "detail": "trigger SCOPE_CHANGE from SUBMITTED"
           },
           {
             "stage": "RULE",
-            "at": "2026-10-06T05:03:21.853Z",
+            "at": "2026-10-06T05:10:56.354Z",
             "detail": "owner boundary: no resolver consulted"
           }
         ],
-        "decidedAt": "2026-10-06T05:03:21.853Z",
+        "decidedAt": "2026-10-06T05:10:56.354Z",
         "brokerNote": "decision recorded by the MON-903 overlay; canonical task state remains the City's own"
       },
       {
         "schemaVersion": 1,
-        "decisionId": "decision-fbe798de-442d-41f8-9104-ebff276e9cb7",
-        "taskRef": "Q-1c7f3bcd-e1c7-465d-a7aa-4b91910b07af",
+        "decisionId": "decision-6656f4bd-ca7f-47a3-85e8-e03e24690e38",
+        "taskRef": "Q-1871888f-4583-4800-a416-2e8e018a38a3",
         "triggerEvent": {
           "kind": "FAILED",
           "origin": "CANONICAL_EVENT",
-          "eventId": "3fffce2d-5623-4949-8e9a-b0ed6a2b6b1e",
+          "eventId": "a4095089-8547-4097-a060-66885c45de8b",
           "eventSeq": 7,
           "eventType": "TASK_FAILED",
           "reason": null
@@ -93,7 +93,7 @@
         "ownerRequired": false,
         "evidenceRefs": [
           {
-            "canonicalEventId": "3fffce2d-5623-4949-8e9a-b0ed6a2b6b1e",
+            "canonicalEventId": "a4095089-8547-4097-a060-66885c45de8b",
             "seq": 7,
             "source": "CANONICAL_GATEWAY_STORE",
             "path": "/api/v0/events"
@@ -105,16 +105,16 @@
         "decisionTrace": [
           {
             "stage": "OBSERVATION",
-            "at": "2026-10-06T05:03:21.846Z",
+            "at": "2026-10-06T05:10:56.348Z",
             "detail": "trigger FAILED from CANONICAL_EVENT"
           },
           {
             "stage": "RULE",
-            "at": "2026-10-06T05:03:21.846Z",
+            "at": "2026-10-06T05:10:56.348Z",
             "detail": "first attributable failure with retry budget remaining"
           }
         ],
-        "decidedAt": "2026-10-06T05:03:21.846Z",
+        "decidedAt": "2026-10-06T05:10:56.348Z",
         "brokerNote": "decision recorded by the MON-903 overlay; canonical task state remains the City's own"
       }
     ],
@@ -123,10 +123,17 @@
     "retentionTruncated": false,
     "broken": [],
     "failures": [],
+    "failuresDropped": 0,
     "observedEvents": 8,
     "window": {
+      "over": "TRIGGER_EVENTS",
+      "note": "firstSeq/lastSeq span the canonical events that were DECISION TRIGGERS, not every canonical event; non-trigger events are deliberately not decisions",
       "firstSeq": 7,
-      "lastSeq": null
+      "lastSeq": null,
+      "triggerEvents": 2,
+      "observedEvents": 8,
+      "canonicalHighWatermark": null,
+      "canonicalHighWatermarkReason": "NOT_OBSERVABLE: this overlay is handed individual events and never reads the canonical stream itself"
     },
     "unsupportedSources": [
       "model/provider identity (a resolver is a seam, not an identified model)",
@@ -135,6 +142,12 @@
   },
   "metrics": {
     "decisions": 2,
+    "retained": 2,
+    "retainedLimit": 200,
+    "retentionTruncated": false,
+    "windowNote": "Rate is over the whole retained window (2 of a limit of 200).",
+    "latencySamples": 2,
+    "latencyNotObservable": 0,
     "bySource": {
       "RULE": 2,
       "FAST_MODEL": 0,
@@ -154,6 +167,7 @@
     "persistence": "READY",
     "persistenceReason": null,
     "resolverFailures": [],
+    "resolverFailuresDropped": 0,
     "unsupportedSources": [
       "wrong auto-decision and repair (requires an independent judge, not this overlay)",
       "confidence versus final review outcome (no resolver is configured in this City)"

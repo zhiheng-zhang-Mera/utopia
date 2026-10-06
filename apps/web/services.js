@@ -1,7 +1,7 @@
 import {getLocale} from './i18n/index.js';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const L=(en,zh)=>getLocale()==='zh-CN'?zh:en;
-let selected=null,current=null,documentResult=null,busy=false,formKey='',snapshot=null,call=null,online=false,selectionEpoch=0;
+let selected=null,current=null,documentResult=null,busy=false,formKey='',snapshot=null,call=null,online=false,selectionEpoch=0,busyEpoch=null;
 const names={document:['Document Intake','文档读取'],knowledge:['Knowledge Query','知识查询'],skill:['Skill Inspect','技能检查'],evidence:['Evidence Review','证据审查'],theme:['Theme Lab','主题实验室']};
 const field=(id,label,value='')=>`<label>${label}<input id="${id}" value="${esc(value)}"></label>`;
 const area=(id,label,value)=>`<label>${label}<textarea id="${id}" rows="6">${esc(value)}</textarea></label>`;
@@ -33,7 +33,7 @@ function showResult(){
 }
 async function fileInput(){const file=document.querySelector('#service-file')?.files[0];if(!file)throw Error(L('Choose a file first','请先选择文件'));if(file.size>1024*1024)throw Error('INPUT_TOO_LARGE');const bytes=new Uint8Array(await file.arrayBuffer());let raw='';for(let i=0;i<bytes.length;i+=8192)raw+=String.fromCharCode(...bytes.subarray(i,i+8192));return{fileName:file.name,base64:btoa(raw)};}
 async function submit(tamper=false){
- const descriptor=snapshot?.capabilities?.find(c=>c.capabilityId===selected);if(busy||!online||descriptor?.bridgeState!=='AVAILABLE'||!descriptor.operations?.length)return;const startedCapability=selected,epoch=++selectionEpoch,editorNode=document.querySelector('#service-editor');const isCurrent=()=>epoch===selectionEpoch&&selected===startedCapability&&document.querySelector('#service-editor')===editorNode;busy=true;let operationId=descriptor.operations[0].operationId,input={};
+ const descriptor=snapshot?.capabilities?.find(c=>c.capabilityId===selected);if(busy||!online||descriptor?.bridgeState!=='AVAILABLE'||!descriptor.operations?.length)return;const startedCapability=selected,epoch=++selectionEpoch,editorNode=document.querySelector('#service-editor');const isCurrent=()=>epoch===selectionEpoch&&selected===startedCapability&&document.querySelector('#service-editor')===editorNode;busy=true;busyEpoch=epoch;const invoke=call;let operationId=descriptor.operations[0].operationId,input={};
  try{
   switch(descriptor.inputKind){
    case 'document':input=await fileInput();break;
@@ -42,15 +42,16 @@ async function submit(tamper=false){
    case 'evidence':input=JSON.parse(document.querySelector('#evidence-input').value);operationId=tamper?'tamper':'review';break;
    case 'theme':operationId=document.querySelector('#theme-operation').value;input=operationId==='build'?{prompt:document.querySelector('#theme-prompt').value,observationPreset:document.querySelector('#theme-observation').value,injectFailure:document.querySelector('#theme-failure').checked}:{seed:document.querySelector('#theme-seed').value,style:document.querySelector('#theme-style').value,palette:{accent:document.querySelector('#theme-accent').value}};break;
   }
+  if(!isCurrent())return;
   busy=true;current=null;showResult();document.querySelector('#service-invoke').disabled=true;
-  const completed=await call('capabilities/'+startedCapability+'/invoke',{operationId,input});if(!isCurrent())return;current=completed;
+  const completed=await invoke('capabilities/'+startedCapability+'/invoke',{operationId,input});if(!isCurrent())return;current=completed;
   if(current.capabilityId==='planning.document.intake'&&current.status==='COMPLETED')documentResult=current.result;
  }catch(error){if(isCurrent())current={status:'FAILED',errorCode:error.message};}
- finally{busy=false;if(isCurrent())showResult();const button=document.querySelector('#service-invoke');const active=snapshot?.capabilities?.find(c=>c.capabilityId===selected);const disabled=!online||active?.bridgeState!=='AVAILABLE'||!active.operations?.length;if(button)button.disabled=disabled;const tamper=document.querySelector('#service-tamper');if(tamper)tamper.disabled=disabled;}
+ finally{if(busyEpoch!==epoch)return;busyEpoch=null;busy=false;if(isCurrent())showResult();const button=document.querySelector('#service-invoke');const active=snapshot?.capabilities?.find(c=>c.capabilityId===selected);const disabled=busy||!online||active?.bridgeState!=='AVAILABLE'||!active.operations?.length;if(button)button.disabled=disabled;const tamper=document.querySelector('#service-tamper');if(tamper)tamper.disabled=disabled;}
 }
 export function renderServices(container,city,isOnline,api){
  snapshot=city;call=api;online=isOnline;
- if(!container.querySelector('#services-shell')){container.innerHTML='<div id="services-shell"><div id="service-cards" class="grid"></div><section id="service-editor" class="panel"></section><section class="panel"><h2>'+L('Invocation history','调用历史')+'</h2><div id="service-history"></div></section></div>';formKey='';}
+ if(!container.querySelector('#services-shell')){selectionEpoch++;busyEpoch=null;busy=false;current=null;container.innerHTML='<div id="services-shell"><div id="service-cards" class="grid"></div><section id="service-editor" class="panel"></section><section class="panel"><h2>'+L('Invocation history','调用历史')+'</h2><div id="service-history"></div></section></div>';formKey='';}
  container.querySelector('#service-cards').innerHTML=(city.capabilities??[]).map(c=>`<button data-service="${esc(c.capabilityId)}" class="card"><strong>${esc(names[c.inputKind]?L(...names[c.inputKind]):c.name)}</strong><p>${esc(c.bridgeState)} · ${esc(c.cityLifecycle)}</p></button>`).join('');
  container.querySelectorAll('[data-service]').forEach(b=>b.onclick=()=>{selectionEpoch++;selected=b.dataset.service;current=null;formKey='';renderServices(container,snapshot,online,call);});
  const descriptor=(city.capabilities??[]).find(c=>c.capabilityId===selected);const key=selected+getLocale();

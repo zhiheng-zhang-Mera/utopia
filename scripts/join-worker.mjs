@@ -22,6 +22,7 @@
 // The owner mints the code with POST /api/v0/pairing/session (owner credential) and reads the node identity
 // this script prints, then declares that identity in the experiment manifest.
 import {readFileSync, writeFileSync, existsSync, mkdirSync} from 'node:fs';
+import {randomUUID} from 'node:crypto';
 import {dirname, resolve} from 'node:path';
 import {startAgent} from '../agents/reference-node/agent.mjs';
 
@@ -32,11 +33,22 @@ const option = (name, fallback = null) => {
 };
 const cityUrl = (option('city') ?? process.env.CITY_URL ?? 'http://127.0.0.1:4310').replace(/\/$/, '');
 const code = option('code');
+// TWO WAYS IN, AND THE REQUEST WAY NEEDS NO SHARED SECRET AT ALL.
+//   --code <shortCode>   the owner mints a code and the joiner consumes it. Simple, but the code's lifetime is bounded
+//                        (five minutes by default), so two hosts coordinating through a repository cannot reliably use
+//                        it: by the time the code is read, it is usually expired.
+//   --request            the JOINING side initiates. It registers a request with a claim secret it generates and keeps,
+//                        prints a short reference, and waits. The owner approves when they next look at the City, and
+//                        the joiner collects its credential then. Nothing has to be transported between the hosts at
+//                        all, which is what makes it the right default for two machines that only share git.
+const useRequest = args.includes('--request') || (!code && !args.includes('--code'));
 const displayName = option('name') ?? 'joined reference node';
 const platform = option('platform') ?? process.platform;
 const identityFile = resolve(option('identity-file') ?? '.runtime/join-worker.json');
-if (!code) {
-  console.error('usage: node scripts/join-worker.mjs --code <shortCode> [--city <url>] [--name <displayName>] [--identity-file <path>]');
+const pollMs = Number(option('poll-ms') ?? 5000);
+if (!code && !useRequest) {
+  console.error('usage: node scripts/join-worker.mjs --request [--city <url>] [--name <displayName>] [--identity-file <path>]');
+  console.error('   or: node scripts/join-worker.mjs --code <shortCode> [--city <url>] [--name <displayName>]');
   process.exit(2);
 }
 const publicHeaders = {Accept: 'application/json', 'Content-Type': 'application/json', 'X-City-Api-Version': '0', 'X-City-Schema-Version': '0'};
@@ -89,12 +101,57 @@ async function join() {
 }
 
 const prior = rememberedIdentity();
-// A failure here must be a plain message and a non-zero exit. The first version let the rejection escape the
+
+/** The request flow: initiate, wait for the owner, then collect. The claim never leaves this machine. */
+async function joinByRequest() {
+  const claim = prior?.claim ?? `${randomUUID()}${randomUUID()}`.replaceAll('-', '');
+  let requestId = prior?.requestId ?? null;
+  if (!requestId) {
+    const created = await fetch(`${cityUrl}/api/v0/join/request`, {
+      method: 'POST', headers: publicHeaders,
+      body: JSON.stringify({displayName, platform, claim}),
+    });
+    const body = await created.json();
+    if (!created.ok || !body.id) throw new Error(`join/request answered ${created.status}: ${JSON.stringify(body).slice(0, 300)}`);
+    requestId = body.id;
+    remember({claim, requestId, cityId: body.cityId ?? null});
+    console.log(`join request ${requestId} registered with the City as "${displayName}" (reference ${body.shortRef ?? 'n/a'}).`);
+    console.log('WAITING FOR THE CITY OWNER TO APPROVE IT in the Devices / Pairing surface - no code or token has to be sent to this host.');
+  } else {
+    console.log(`resuming join request ${requestId}.`);
+  }
+  for (;;) {
+    const statusResponse = await fetch(`${cityUrl}/api/v0/join/status`, {method: 'POST', headers: publicHeaders, body: JSON.stringify({requestId, claim})});
+    const status = await statusResponse.json();
+    if (!statusResponse.ok) throw new Error(`join/status answered ${statusResponse.status}: ${JSON.stringify(status).slice(0, 200)}`);
+    if (status.approved === true) break;
+    if (status.terminal === true) throw new Error(`the City owner answered ${status.state}; this request cannot be used`);
+    await new Promise(r => setTimeout(r, pollMs));
+  }
+  const exchangeResponse = await fetch(`${cityUrl}/api/v0/join/exchange`, {
+    method: 'POST', headers: publicHeaders,
+    body: JSON.stringify({requestId, claim, installation: {displayName, platform}}),
+  });
+  const exchanged = await exchangeResponse.json();
+  if (!exchangeResponse.ok || !exchanged.credential) throw new Error(`join/exchange answered ${exchangeResponse.status}: ${JSON.stringify(exchanged).slice(0, 300)}`);
+  const identity = {
+    cityId: exchanged.cityId ?? null,
+    deviceId: exchanged.enrollment?.deviceId ?? exchanged.member?.deviceId,
+    installationId: exchanged.enrollment?.installationId ?? null,
+    instanceId: exchanged.enrollment?.instanceId ?? null,
+    credential: exchanged.credential,
+  };
+  if (!identity.deviceId) throw new Error(`the exchange returned no device identity: ${JSON.stringify(exchanged).slice(0, 200)}`);
+  remember(identity);
+  return identity;
+}
+
+/** A failure here must be a plain message and a non-zero exit. The first version let the rejection escape the
 // top-level await, and on Windows the abort that followed discarded the piped stderr - so a caller capturing
-// output saw a process that produced NOTHING, which is the least diagnosable failure a tool can have.
+// output saw a process that produced NOTHING, which is the least diagnosable failure a tool can have. */
 let identity;
 try {
-  identity = prior?.credential && prior?.deviceId && !option('rejoin', null) ? prior : await join();
+  identity = prior?.credential && prior?.deviceId ? prior : (useRequest ? await joinByRequest() : await join());
 } catch (error) {
   console.error(`join-worker: ${error?.message ?? error}`);
   process.exit(1);

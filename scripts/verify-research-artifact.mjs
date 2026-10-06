@@ -78,12 +78,12 @@ const durations = dataset
   .filter(ms => Number.isFinite(ms) && ms >= 0)
   .sort((a, b) => a - b);
 const median = durations.length === 0 ? null : (durations.length % 2 === 1 ? durations[(durations.length - 1) / 2] : Math.round((durations[durations.length / 2 - 1] + durations[durations.length / 2]) / 2));
-check('completion_time_ms recomputes from the dataset', String(median) === byMetric.completion_time_ms.value && String(durations.length) === byMetric.completion_time_ms.n,
+check('completion_time_ms recomputes from the dataset', median===null ? byMetric.completion_time_ms.value==='NOT_MEASURED'&&Boolean(byMetric.completion_time_ms.reason?.trim()) : String(median) === byMetric.completion_time_ms.value && String(durations.length) === byMetric.completion_time_ms.n,
   `recomputed ${median} at n=${durations.length}, package says ${byMetric.completion_time_ms.value} at n=${byMetric.completion_time_ms.n}`);
 
 const accounting = manifest.supporting?.accounting ?? {};
-const rate = accounting.accounted > 0 ? (accounting.failed + accounting.timedOut) / accounting.accounted : null;
-check('failure_rate recomputes from the accounting', rate !== null && Math.abs(Number(byMetric.failure_rate.value) - rate) < 1e-9 && String(accounting.accounted) === byMetric.failure_rate.n,
+const rate = accounting.accounted > 0 ? Number(((accounting.failed + accounting.timedOut) / accounting.accounted).toFixed(6)) : null;
+check('failure_rate recomputes from the accounting', rate===null ? byMetric.failure_rate.value==='NOT_MEASURED'&&Boolean(byMetric.failure_rate.reason?.trim()) : Number(byMetric.failure_rate.value)===rate && String(accounting.accounted) === byMetric.failure_rate.n,
   `recomputed ${rate} at n=${accounting.accounted}, package says ${byMetric.failure_rate.value} at n=${byMetric.failure_rate.n}`);
 
 const byRef = new Map();
@@ -95,8 +95,10 @@ const duplicated = [...byRef.values()].filter(refs => refs.size > 1).length;
 check('duplicate_execution_count recomputes from the run references', String(duplicated) === byMetric.duplicate_execution_count.value,
   `recomputed ${duplicated} over ${byRef.size} references, package says ${byMetric.duplicate_execution_count.value}`);
 
-const dangling = dataset.filter(row => row.measured === true && !row.taskRef).length;
-check('convergence_missing_event_count recomputes from the dataset', String(dangling) === byMetric.convergence_missing_event_count.value,
+const canonicalTaskPointers=new Set(json('raw-pointers.json').canonicalTasks??[]);
+const measuredRows=dataset.filter(row=>row.state==='MEASURED');
+const dangling = measuredRows.filter(row => !row.taskRef||!canonicalTaskPointers.has('task:'+row.taskRef)).length;
+check('convergence_missing_event_count recomputes from the dataset', String(dangling) === byMetric.convergence_missing_event_count.value&&String(measuredRows.length)===byMetric.convergence_missing_event_count.n,
   `recomputed ${dangling}, package says ${byMetric.convergence_missing_event_count.value}`);
 
 // --- placement verdicts must be internally consistent and policy-aware ------------------------------------------

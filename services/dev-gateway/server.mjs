@@ -1137,12 +1137,18 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       else if(path==='/api/v0/research/artifacts'||path==='/api/v0/research/artifacts/preview'){
         if(req.citySession)refuse('RESEARCH_OWNER_REQUIRED',403,'Research artifact export requires the City owner');
         const held=[],sourceReadFailures=[];
-        for(const entry of campaigns.receipts()){
+        const receiptWindow=campaigns.receiptWindow();
+        if(receiptWindow.truncated)sourceReadFailures.push({name:'campaign-receipt-window',reason:'RECEIPT_WINDOW_TRUNCATED',total:receiptWindow.total,returned:receiptWindow.receipts.length});
+        for(const entry of receiptWindow.receipts){
           if(entry.state==='UNREADABLE'||entry.reason==='RECEIPT_UNREADABLE'){
             sourceReadFailures.push({name:entry.file??entry.campaignId??'<unidentified receipt>',reason:entry.reason??'RECEIPT_UNREADABLE'});
             continue;
           }
-          try{held.push(campaigns.receipt(entry.campaignId));}
+          try{
+            const receipt=campaigns.receipt(entry.campaignId);
+            if(!receipt||receipt.state==='UNREADABLE'||receipt.reason==='RECEIPT_UNREADABLE')sourceReadFailures.push({name:entry.campaignId??entry.file,reason:'RECEIPT_UNREADABLE'});
+            else held.push(receipt);
+          }
           catch{sourceReadFailures.push({name:entry.campaignId??entry.file??'<unidentified receipt>',reason:'RECEIPT_UNREADABLE'});}
         }
         const live=campaigns.progress();

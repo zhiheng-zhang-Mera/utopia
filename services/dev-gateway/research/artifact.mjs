@@ -138,8 +138,9 @@ function deriveMetrics({receipts, tasks, events, comparisons}) {
   add('duplicate_execution_count', {value: duplicated.length, n: refToTasks.size, provenance: duplicated.length > 0 ? duplicated.map(([ref, ids]) => `${ref} -> ${ids.join(',')}`) : [`${refToTasks.size} run references, each owned by exactly one canonical task`]});
 
   // --- convergence: a measured run whose canonical task is missing from the export is a missing event --------------
-  const dangling = completed.filter(({run}) => !taskById.has(run.result.taskRef));
-  add('convergence_missing_event_count', {value: dangling.length, n: completed.length, provenance: dangling.length > 0 ? dangling.map(({receipt, run}) => `${receipt.campaignId}:${run.index} -> ${run.result.taskRef}`) : [`${completed.length} measured runs all resolved to a canonical task in the export`]});
+  const measured = runs.filter(({run}) => run.state === 'MEASURED');
+  const dangling = measured.filter(({run}) => !run.result?.taskRef || !taskById.has(run.result.taskRef));
+  add('convergence_missing_event_count', {value: dangling.length, n: measured.length, provenance: dangling.length > 0 ? dangling.map(({receipt, run}) => `${receipt.campaignId}:${run.index} -> ${run.result?.taskRef ?? '<missing task reference>'}`) : [`${measured.length} measured runs all resolved to a canonical task in the export`]});
 
   // --- replay coverage: what the replay engine actually produced, from the receipts' own lineage -------------------
   const replays = receipts.filter(receipt => receipt.context?.replay);

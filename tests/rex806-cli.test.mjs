@@ -14,8 +14,9 @@ async function exportFixture(mode) {
   const server=createServer((req,res)=>{
     let body;
     if(req.url==='/api/v0/city') body={cityId:'fixture-city',status:'ONLINE',nodes:[],members:[{deviceId:'device-a',installationId:'installation-a'},{deviceId:'device-b',nodeId:'node-b'}],tasks:[{id:'Q-readable',state:'COMPLETED',createdAt:'2026-10-07T00:00:00Z',updatedAt:'2026-10-07T00:00:01Z'}],events:[]};
-    else if(req.url==='/api/v0/research/campaigns') body={receipts:[{campaignId:'campaign-readable'},...(mode==='corrupt'?[{file:'campaign-broken.json',state:'UNREADABLE',reason:'RECEIPT_UNREADABLE'}]:[])],experiments:[],live:mode==='missing'?{campaignId:'campaign-lost',state:'COMPLETED'}:null};
+    else if(req.url==='/api/v0/research/campaigns') body={receipts:[{campaignId:'campaign-readable'},...(mode==='corrupt'?[{file:'campaign-broken.json',state:'UNREADABLE',reason:'RECEIPT_UNREADABLE'}]:[]),...(mode==='detail-corrupt'?[{campaignId:'campaign-raced'}]:[])],receiptWindow:mode==='truncated'?{total:51,limit:50,truncated:true}:undefined,experiments:[],live:mode==='missing'?{campaignId:'campaign-lost',state:'COMPLETED'}:null};
     else if(req.url==='/api/v0/research/campaigns/campaign-readable') body={campaign};
+    else if(req.url==='/api/v0/research/campaigns/campaign-raced') body={campaign:{campaignId:'campaign-raced',state:'UNREADABLE',reason:'RECEIPT_UNREADABLE'}};
     else if(req.url==='/api/v0/research/trace') body={trace:{records:[]}};
     else {res.writeHead(404);res.end('{}');return;}
     res.setHeader('Content-Type','application/json');res.end(JSON.stringify(body));
@@ -41,4 +42,12 @@ test('REX806 CLI partial download itself names an unreadable receipt without req
 test('REX806 CLI partial download itself names the latest missing receipt',async()=>{
   const out=await exportFixture('missing');assert.equal(out.code,1);
   assert.ok(out.failures.failures.sourceReadFailures?.some(x=>x.name==='campaign-lost'&&x.reason==='LATEST_RECEIPT_MISSING'));
+});
+test('REX806 CLI exposes a known truncated receipt window as partial',async()=>{
+  const out=await exportFixture('truncated');assert.equal(out.code,1);
+  assert.ok(out.failures.failures.sourceReadFailures?.some(x=>x.reason==='RECEIPT_WINDOW_TRUNCATED'&&x.total===51));
+});
+test('REX806 CLI survives an unreadable detail after a readable listing',async()=>{
+  const out=await exportFixture('detail-corrupt');assert.equal(out.code,1);
+  assert.ok(out.failures.failures.sourceReadFailures?.some(x=>x.name==='campaign-raced'&&x.reason==='RECEIPT_UNREADABLE'));
 });

@@ -1105,7 +1105,9 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         // declare them and the only honest place to read them is the City. Without it an owner writing a manifest
         // guesses at the control-surface ref of their own browser (this surface's first browser test did exactly
         // that and was refused), and a guessed identity produces a campaign that can never start.
-        out={scenarios:campaigns.scenarios(),topology:{workers:campaignWorkers(),surfaces:liveSurfaces().map(surface=>({ref:surface.clientRef,label:surface.clientLabel})).filter(surface=>surface.ref)},live:campaigns.progress(),unfinished:campaigns.unfinished()!==null,receipts:campaigns.receipts(),storeState:campaigns.storeState(),storeReason:campaigns.storeReason(),experiments:experiments.list({status:'VALIDATED'}).experiments,research:researchFacts()};
+        // `receiptWindow` states how much history stands behind the bounded list, so a reader can tell "three campaigns"
+        // from "three of four hundred". `receipts` is kept as the array form for callers that only want the rows.
+        out={scenarios:campaigns.scenarios(),topology:{workers:campaignWorkers(),surfaces:liveSurfaces().map(surface=>({ref:surface.clientRef,label:surface.clientLabel})).filter(surface=>surface.ref)},live:campaigns.progress(),unfinished:campaigns.unfinished()!==null,receipts:campaigns.receipts(),receiptWindow:campaigns.receiptWindow(),storeState:campaigns.storeState(),storeReason:campaigns.storeReason(),experiments:experiments.list({status:'VALIDATED'}).experiments,research:researchFacts()};
       } else if(path==='/api/v0/research/campaigns'&&req.method==='POST'){
         const b=await body(req);
         // The experiment must exist and be VALIDATED: an experiment that was rejected has no seed sequence and no

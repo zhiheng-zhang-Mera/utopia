@@ -34,7 +34,7 @@
 //
 // PURITY. No randomness in any measured value and no clock inside the seed derivation: `clock` is injected, and the
 // seeds depend only on the campaign seed and the run index. The runner executes nothing itself; `runOnce` is supplied.
-import {existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync} from 'node:fs';
+import {existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync} from 'node:fs';
 import {randomUUID} from 'node:crypto';
 import {resolve} from 'node:path';
 
@@ -57,6 +57,11 @@ export const RUNNER_CODES = Object.freeze({
   RESUME_CONFLICT: 'RESUME_CONFLICT',
   NOTHING_TO_RESUME: 'NOTHING_TO_RESUME',
   UNKNOWN_CAMPAIGN: 'CAMPAIGN_UNKNOWN',
+  // A runner whose City has begun shutting down must not accept a campaign. Without this, close() fired the cleanups and
+  // drained the loop, and start() then happily launched a NEW campaign into a process that was already going away -
+  // the same lifecycle hole the opposite host's MON-903 review found when observe() ignored the overlay's close flag.
+  // Finding F-S8 of this module's third-class sweep.
+  RUNNER_CLOSED: 'RUNNER_CLOSED',
 });
 
 export class ScenarioRunnerError extends Error {
@@ -68,7 +73,7 @@ export class ScenarioRunnerError extends Error {
     // The transport meaning of each refusal lives here, with the refusal, for the same reason the manifest contract
     // carries its own: a caller must not have to re-derive which refusal is a conflict and which is a bad field.
     this.status = code === RUNNER_CODES.UNKNOWN_CAMPAIGN ? 404
-      : code === RUNNER_CODES.ALREADY_RUNNING || code === RUNNER_CODES.NOT_READY || code === RUNNER_CODES.RESUME_REQUIRED || code === RUNNER_CODES.RESUME_CONFLICT || code === RUNNER_CODES.NOTHING_TO_RESUME ? 409
+      : code === RUNNER_CODES.ALREADY_RUNNING || code === RUNNER_CODES.NOT_READY || code === RUNNER_CODES.RESUME_REQUIRED || code === RUNNER_CODES.RESUME_CONFLICT || code === RUNNER_CODES.NOTHING_TO_RESUME || code === RUNNER_CODES.RUNNER_CLOSED ? 409
         : 422;
   }
 }
@@ -99,6 +104,8 @@ export function createScenarioRunner({dir = '.runtime/research', scenarios = [],
   let runAborted = null;
   /** True while a drive loop is draining. A campaign is not replaceable until its own loop has written its last row. */
   let driving = false;
+  /** Set once close() has begun. A closed runner accepts no new campaign (finding F-S8). */
+  let closed = false;
 
   /**
    * THE RUNNER MUST NOT BE ABLE TO BREAK ITS OWN SURFACE. A receipt store that cannot be written (or read) is reported
@@ -265,6 +272,7 @@ export function createScenarioRunner({dir = '.runtime/research', scenarios = [],
   recover();
 
   function start({scenarioId, repetitions, warmup = 0, resume = false, abandon = false, seed = null, timeout = timeoutMs, limits = null, context = null} = {}) {
+    if (closed) throw new ScenarioRunnerError(RUNNER_CODES.RUNNER_CLOSED, 'this runner has been closed and accepts no new campaign', {state: campaign?.state ?? 'IDLE'});
     const scenario = scenarioById.get(scenarioId);
     if (!scenario) throw new ScenarioRunnerError(RUNNER_CODES.UNKNOWN_SCENARIO, `Unknown scenario ${String(scenarioId)}`, {known: [...scenarioById.keys()]});
     if (!Number.isSafeInteger(repetitions) || repetitions < 1 || repetitions > 10000) throw new ScenarioRunnerError(RUNNER_CODES.INVALID_REPETITIONS, 'repetitions must be an integer in 1..10000', {repetitions});
@@ -452,20 +460,41 @@ export function createScenarioRunner({dir = '.runtime/research', scenarios = [],
     return {stopped: true, state: 'STOPPING', reason, ...(cleanupFailures.length > 0 ? {cleanupFailures} : {})};
   }
 
-  /** Finished campaigns, newest by name order, read from their receipts. Nothing here is inferred from memory. */
-  function receipts() {
-    // A store that cannot be listed is REPORTED as unavailable, not thrown at the caller (finding R-1).
-    if (!existsSync(receiptDir)) return [];
+  /**
+   * Finished campaigns, NEWEST FIRST — and the window says how much of the history it is showing.
+   *
+   * The first version sorted the FILE NAMES. A receipt file is `campaign-<random uuid>.json`, so sorting names sorts
+   * random identifiers, and `slice(-receiptLimit)` then returned an arbitrary sample — measured here as the three OLDEST
+   * campaigns while the comment claimed "newest by name order". This is the same defect the opposite host's MON-903
+   * review found in that module's receipt prune (`readdirSync(...).sort()` on UUID names), applied to the same shape in
+   * a different module: findings F-S6 and F-S7 of this module's third-class sweep. Age is read from the record, and an
+   * unreadable receipt falls back to its file mtime so it still sorts by when it appeared rather than by its name.
+   */
+  function receiptWindow() {
+    if (!existsSync(receiptDir)) return {receipts: [], total: 0, limit: receiptLimit, truncated: false};
     let names = [];
     try { names = readdirSync(receiptDir); }
-    catch (error) { noteStoreFailure(error); return []; }
-    return names.filter(name => RECEIPT_FILE.test(name)).sort().slice(-receiptLimit).map(name => {
+    catch (error) { noteStoreFailure(error); return {receipts: [], total: 0, limit: receiptLimit, truncated: false, storeState, storeReason}; }
+    const matching = names.filter(name => RECEIPT_FILE.test(name));
+    const rows = matching.map(name => {
       try {
         const record = JSON.parse(readFileSync(resolve(receiptDir, name), 'utf8'));
-        return {campaignId: record.campaignId, scenarioId: record.scenarioId, state: record.state, reason: record.reason, startedAt: record.startedAt, finishedAt: record.finishedAt, summary: record.summary ?? summaryOf(record), experimentRef: record.context?.experimentId ?? null};
-      } catch { return {file: name, state: 'UNREADABLE', reason: 'RECEIPT_UNREADABLE'}; }
+        const age = Number.isFinite(record?.finishedAt) ? record.finishedAt : (Number.isFinite(record?.startedAt) ? record.startedAt : 0);
+        return {age, row: {campaignId: record.campaignId, scenarioId: record.scenarioId, state: record.state, reason: record.reason, startedAt: record.startedAt, finishedAt: record.finishedAt, summary: record.summary ?? summaryOf(record), experimentRef: record.context?.experimentId ?? null}};
+      } catch {
+        let age = 0;
+        try { age = statSync(resolve(receiptDir, name)).mtimeMs; } catch { /* the file vanished; sort it oldest */ }
+        return {age, row: {file: name, state: 'UNREADABLE', reason: 'RECEIPT_UNREADABLE'}};
+      }
     });
+    rows.sort((left, right) => right.age - left.age);
+    const total = rows.length;
+    const shown = rows.slice(0, receiptLimit);
+    return {receipts: shown.map(entry => entry.row), total, limit: receiptLimit, truncated: total > receiptLimit};
   }
+
+  /** The array form the existing surfaces read, kept so a caller that only wants the rows needs no change. */
+  const receipts = () => receiptWindow().receipts;
 
   function receipt(campaignId) {
     const id = String(campaignId ?? '');
@@ -486,11 +515,12 @@ export function createScenarioRunner({dir = '.runtime/research', scenarios = [],
    * INTERRUPTED: the failure to drain is visible in the record rather than papered over by a bigger timeout.
    */
   async function close({reason = 'runner closed', timeoutMs = 750} = {}) {
+    closed = true;
     if (campaign?.state === 'RUNNING') stop({reason});
     const until = clock() + Math.max(1, Math.min(Number(timeoutMs) || 1, 10000));
     while (driving && clock() < until) await new Promise(resolveWait => setTimeout(resolveWait, 5));
     return {drained: !driving, state: campaign?.state ?? 'IDLE'};
   }
 
-  return {start, stop, progress, state: () => campaign, unfinished, receipts, receipt, scenarios: () => [...scenarioById.values()], file, receiptDir, storeState: () => storeState, storeReason: () => storeReason, close};
+  return {start, stop, progress, state: () => campaign, unfinished, receipts, receiptWindow, receipt, scenarios: () => [...scenarioById.values()], file, receiptDir, storeState: () => storeState, storeReason: () => storeReason, close, closed: () => closed};
 }

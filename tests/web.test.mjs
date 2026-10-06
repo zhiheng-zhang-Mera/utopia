@@ -41,10 +41,10 @@ test('City monitor renders in the browser and keeps raw projection vocabulary be
  await page.getByLabel('Pairing token').fill('monitor-test');await page.getByRole('button',{name:'Connect',exact:true}).click();
  await page.getByText('ONLINE',{exact:true}).first().waitFor();
  await page.getByRole('button',{name:'City monitor',exact:true}).click();
- await page.locator('.monitor-panel').waitFor();
+ await page.locator('.monitor-panel[data-loaded="true"]').waitFor();
  // The page answers, and it states the standing limitation of the observation model rather than implying completeness.
  // The shell uppercases headings in CSS, and innerText reflects that, so these assertions are case-insensitive.
- const overview=await page.locator('.monitor-panel').innerText();
+ const overview=await page.locator('.monitor-panel[data-loaded="true"]').innerText();
  assert.match(overview,/city monitor/i);
  assert.match(overview,/always true of this monitor|whether the owner is needed cannot be told from here/i);
  // A real row exists and opens the inspector with the four questions.

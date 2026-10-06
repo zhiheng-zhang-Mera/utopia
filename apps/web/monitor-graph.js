@@ -107,7 +107,12 @@ export function monitorOverview(graph) {
     : `<p class="muted">${esc(empty)}</p>`;
   const work = graph.nodes.filter(node => node.kind === 'TASK' && !active.some(item => item.node.id === node.id));
   const clusters = graph.clusters.map(cluster => `<li class="monitor-cluster" data-monitor-cluster="${esc(cluster.id)}">${esc(label('monitor.overview.collapsed', 'Collapsed'))} <strong>${cluster.count}</strong> ${esc(stateLabel(cluster.state))}${cluster.activeRiskCount ? ` <span class="risk-active">${esc(t('monitor.overview.containsRisk'))} ${cluster.activeRiskCount}</span>` : ''}</li>`).join('');
-  return `<section class="panel monitor-panel" aria-labelledby="monitor-title">`
+  // `data-loaded` makes the page's own state machine-readable, so a reader (and a test) can tell the difference between
+  // "the panel exists" and "the projection has arrived". The first version of this panel had no such marker, and the
+  // browser test asserted loaded-state copy as soon as the shell appeared: it passed locally and in one CI run, then
+  // failed in the push run with 'CITY MONITOR\n\nLoading from the Gateway...' - a measurement defect (the test raced the
+  // fetch), not a rendering bug. The marker is the regression guard.
+  return `<section class="panel monitor-panel" data-loaded="true" aria-labelledby="monitor-title">`
     + `<h2 id="monitor-title">${esc(t('monitor.title'))}</h2>`
     + `<p class="muted">${esc(t('monitor.subtitle'))}</p>`
     + banner + blindBlock

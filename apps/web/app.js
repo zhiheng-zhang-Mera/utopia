@@ -742,8 +742,8 @@ function renderMonitor(){
  if(host.dataset.monitorDrawn===drawn){monitorDrawn=drawn;return;}
  monitorDrawn=drawn;host.dataset.monitorDrawn=drawn;
  const body=monitorError
-  ? `<section class="panel monitor-panel"><h2>${esc(t('monitor.title'))}</h2><p class="monitor-banner alert" role="status">${esc(monitorError)}</p><button data-monitor-refresh>${esc(t('monitor.refresh'))}</button></section>`
-  : monitorGraph?monitorOverview(monitorGraph):`<section class="panel monitor-panel"><h2>${esc(t('monitor.title'))}</h2><p class="muted">${esc(t('terminal.loading'))}</p></section>`;
+  ? `<section class="panel monitor-panel" data-loaded="error"><h2>${esc(t('monitor.title'))}</h2><p class="monitor-banner alert" role="status">${esc(monitorError)}</p><button data-monitor-refresh>${esc(t('monitor.refresh'))}</button></section>`
+  : monitorGraph?monitorOverview(monitorGraph):`<section class="panel monitor-panel" data-loaded="false"><h2>${esc(t('monitor.title'))}</h2><p class="muted">${esc(t('terminal.loading'))}</p></section>`;
  host.innerHTML=body+(inspector?`<section class="panel">${inspector}</section>`:'');
 }
 function render(){

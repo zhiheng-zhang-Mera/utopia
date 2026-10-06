@@ -70,7 +70,9 @@ PAIR_STATUS: SYNCHRONIZED
 · 本矩阵是**静态**依赖证据（源码字面量），不是运行期抓包；真实点击路径的跨机验证属 TWO_HOST_VERIFIED，
   必须由另一实体主机完成。
 · 需要 `?query=`、header 或 WebSocket 子协议协商才能确定的端点语义不在字面量矩阵内（如 events/stream 的鉴权）。
-· Android 侧只覆盖 Kotlin 源码字面量；Gradle 生成的 BuildConfig 若携带 URL 不在此矩阵，已列为下一增量。
+· Android 侧只覆盖 Kotlin 源码字面量。**实测关闭**：仓库内 Kotlin/Gradle 源码**没有任何 `BuildConfig` 引用**，
+  三个 `build.gradle*.kts` 里也没有 `buildConfigField` —— 因此不存在「Gradle 生成的 URL 未纳入矩阵」这一缺口，
+  此项不是未完成而是**不适用**（若将来引入 BuildConfig URL，D2 的字面量扫描需同步覆盖）。
 ```
 
 ## 6. 如何重跑

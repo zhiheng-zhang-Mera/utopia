@@ -145,8 +145,9 @@ STILL NOT DONE:
 b the two-host independent walk of sample call chains (the last sub-step) - the opposite physical host must do it and
   this host does not substitute for it; the TWO_HOST_VERIFIED and ORIGIN_AGENT_CONSUMED tiers are BOTH EMPTY this
   round and each is named in reuse-tiers.md section 5
-e the URL a Gradle-generated Android BuildConfig carries is not in the static matrix (next increment); a runtime click
-  path is not static evidence either, and belongs to b
+e the Android BuildConfig question: MEASURED AND CLOSED (not applicable) - no Kotlin or Gradle source references
+  `BuildConfig` and no `buildConfigField` exists, so there is no Gradle-generated URL gap; a runtime click path is not
+  static evidence and belongs to b
 ```
 
 This map therefore freezes only what has been measured; `UNKNOWN` here is a conclusion, not a blank.

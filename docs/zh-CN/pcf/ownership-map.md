@@ -128,7 +128,8 @@ d  EM/RF/GAI 与 PCF 的复用边界表（谁供 identity/transport、谁供 pro
 仍未完成：
 b  两主机独立核对样本调用链（子步骤最后一条）——**必须由另一实体主机执行**，本机不代做；TWO_HOST_VERIFIED 与
    ORIGIN_AGENT_CONSUMED 两档在本轮**全部为空**，已在 reuse-tiers.md §5 逐条写明
-e  Android 侧 BuildConfig 生成的 URL 未纳入静态矩阵（列为下一增量）；运行期点击路径也不在静态证据内 —— 属 b
+e  Android 侧 BuildConfig：**实测关闭（不适用）** —— 仓库内 Kotlin/Gradle 源码没有任何 `BuildConfig` 引用，
+   也没有 `buildConfigField` ⇒ 不存在 Gradle 生成的 URL 缺口；运行期点击路径不属静态证据，归 b
 ```
 
 本文件因此**只冻结已经实测的部分**；`UNKNOWN` 是结论，不是空白。

@@ -82,8 +82,10 @@ exception to anyone.
   hosts is TWO_HOST_VERIFIED and must be done by the opposite physical host.
 * Endpoint semantics that need a query, a header or a WebSocket subprotocol negotiation are outside a literal matrix
   (for example authorisation on events/stream).
-* The Android side covers Kotlin source literals only; a URL carried in a Gradle-generated BuildConfig is not in this
-  matrix and is listed as the next increment.
+* The Android side covers Kotlin source literals only. **Measured and closed**: no Kotlin or Gradle source in the
+  repository references `BuildConfig`, and the three `build.gradle*.kts` files declare no `buildConfigField` - so
+  there is no "Gradle-generated URL missing from the matrix" gap; the item is NOT APPLICABLE rather than unfinished
+  (if a BuildConfig URL is ever introduced, D2's literal scan must cover it).
 ```
 
 ## 6. How to re-run

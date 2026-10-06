@@ -81,7 +81,7 @@ check('C8', 'every single-writer fingerprint (bytes/lines/SHA256) recomputes',
 
 const failed = results.filter(r => r.result === 'FAIL');
 const lines = [
-  'PCF-700 review packet / 复检包',
+  'PCF-700 review packet (review-readiness recomputation)',
   `published record: ${PUBLISHED}`,
   OBSERVED ? `observed report: ${OBSERVED}` : 'observed report: recomputed in place by scripts/pcf700-reuse-audit.mjs',
   '',

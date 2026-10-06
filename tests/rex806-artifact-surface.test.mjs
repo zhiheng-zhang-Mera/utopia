@@ -37,7 +37,7 @@ const withCity = async fn => {
   const app = await createGateway({dir, port: 0, token: 'owner-token', nodeToken: 'node-token', roomsDisabled: true});
   try {
     await api(app, 'node/register', 'node-token', {id: 's-worker', displayName: 'S', metadata: {platform: 'reference'}, capabilities: ['task.execute.safe', 'filesystem.temp']});
-    return await fn({app});
+    return await fn({app, dir});
   } finally {
     await app.close();
     await rm(dir, {recursive: true, force: true});
@@ -106,4 +106,27 @@ test('REX806 S5: an export with nothing behind it is refused by name', async () 
   }
 });
 
+test('REX806 S6: the owner download retains the enrolled member identities', async () => {
+  await withCity(async ({app}) => {
+    const member=await enrollMember(app,'artifact-topology-review');
+    const out=await api(app,'research/artifacts','owner-token');
+    assert.equal(out.status,200);
+    assert.ok(out.body.artifact.topology.members?.includes(member.deviceId));
+  });
+});
+
+test('REX806 S7: corrupt receipt loss remains visible in full, preview and CSV responses', async () => {
+  await withCity(async ({app,dir}) => {
+    const broken='campaign-5face000-0000-4000-8000-000000000002.json';
+    await writeFile(resolve(dir,'research','campaigns',broken),'{broken');
+    const full=await api(app,'research/artifacts','owner-token');
+    assert.equal(full.status,200);
+    assert.ok(full.body.artifact.failures.sourceReadFailures?.some(x=>x.name===broken&&x.reason==='RECEIPT_UNREADABLE'));
+    assert.equal(full.body.artifact.manifest.sourceCoverage?.status,'PARTIAL');
+    const preview=await api(app,'research/artifacts/preview','owner-token');
+    assert.equal(preview.body.preview.manifest.sourceCoverage?.status,'PARTIAL');
+    const csv=await api(app,'research/artifacts?format=csv','owner-token');
+    assert.equal(csv.body.sourceCoverage?.status,'PARTIAL');
+  });
+});
 

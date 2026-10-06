@@ -1137,14 +1137,28 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // derived from those records leave as NOT_MEASURED with their reason; nothing here fills a gap with a zero.
       else if(path==='/api/v0/research/artifacts'||path==='/api/v0/research/artifacts/preview'){
         if(req.citySession)refuse('RESEARCH_OWNER_REQUIRED',403,'Research artifact export requires the City owner');
-        const held=campaigns.receipts().map(entry=>{try{return campaigns.receipt(entry.campaignId);}catch{return null;}}).filter(Boolean);
+        const held=[],sourceReadFailures=[];
+        for(const entry of campaigns.receipts()){
+          if(entry.state==='UNREADABLE'||entry.reason==='RECEIPT_UNREADABLE'){
+            sourceReadFailures.push({name:entry.file??entry.campaignId??'<unidentified receipt>',reason:entry.reason??'RECEIPT_UNREADABLE'});
+            continue;
+          }
+          try{held.push(campaigns.receipt(entry.campaignId));}
+          catch{sourceReadFailures.push({name:entry.campaignId??entry.file??'<unidentified receipt>',reason:'RECEIPT_UNREADABLE'});}
+        }
+        const live=campaigns.progress();
+        if(live?.campaignId&&['COMPLETED','STOPPED','REFUSED','FAILED','INTERRUPTED'].includes(live.state)
+          &&!held.some(row=>row.campaignId===live.campaignId)&&!sourceReadFailures.some(row=>String(row.name).startsWith(live.campaignId))){
+          sourceReadFailures.push({name:live.campaignId,reason:'LATEST_RECEIPT_MISSING'});
+        }
         if(held.length===0)refuse('ARTIFACT_NO_SOURCE',422,'no readable campaign receipt is held by this City');
         const artifact=buildArtifact({
           cityId:store.cityId,
           generatedAt:new Date().toISOString(),
           environment:{cityEndpoint:null,nodeRuntime:process.version,platform:process.platform,surface:'CITY_ROUTE'},
-          topology:{nodes:store.list('nodes').map(node=>({id:node.id,online:node.online===true})),controlSurfaces:liveSurfaces().map(surface=>surface.clientRef)},
+          topology:{nodes:store.list('nodes').map(node=>({id:node.id,online:node.online===true})),controlSurfaces:liveSurfaces().map(surface=>surface.clientRef),members:members().map(member=>member.deviceId).filter(Boolean)},
           receipts:held,
+          sourceReadFailures,
           tasks:store.list('tasks'),
           experiments:experiments.list().experiments,
           traceRecords:researchTrace.snapshot().records,
@@ -1155,7 +1169,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
           out={preview:{manifest:artifact.manifest,metricAvailability:artifact.metrics.map(row=>({metric:row.metric,scope:row.scope,available:row.value!==NOT_MEASURED})),exclusions:artifact.exclusions,rows:artifact.dataset.slice(0,limit),rowsShown:Math.min(limit,artifact.dataset.length),rowsTotal:artifact.dataset.length}};
         } else if(new URL(req.url,'http://city').searchParams.get('format')==='csv'){
           const files=artifactFiles(artifact);
-          out={metricsCsv:files['metrics.csv'],checksums:checksumsFor(files)};
+          out={metricsCsv:files['metrics.csv'],checksums:checksumsFor(files),sourceCoverage:artifact.manifest.sourceCoverage??{status:'NO_KNOWN_SOURCE_LOSS'}};
         } else {
           const files=artifactFiles(artifact);
           out={artifact,checksums:checksumsFor(files)};
@@ -1383,4 +1397,3 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // the first mechanical attempt left two returns here and silently hid `researchTrace` behind the earlier one.
   return {url:pairing.endpoint,store,join,relay,researchTrace,campaigns,faults,executionProfile,executionBackends,executionBackend,quiesce:value=>{acceptingTasks=!value;},close:async()=>{if(closed)return;closed=true;await campaigns.close({reason:'CITY_SHUTDOWN'});faults.close();observation.disconnect();bridge.close();join.close();relay.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();await researchTrace.close(100);}};
 }
-

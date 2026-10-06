@@ -272,6 +272,7 @@ export function buildArtifact({cityId, generatedAt, environment = {}, topology =
       metricsNotMeasured: rows.filter(row => row.value === NOT_MEASURED).length,
       metricCatalogueSize: METRIC_SPEC.length,
       supporting,
+      ...(sourceReadFailures.length?{sourceCoverage:{status:'PARTIAL',knownSourceLossCount:sourceReadFailures.length}}:{}),
       narrative: 'Statistics only. No claim is made here about autonomy, performance or causality; duration deltas do not establish performance and NOT_MEASURED is not zero.',
     },
     environment: copy(environment),

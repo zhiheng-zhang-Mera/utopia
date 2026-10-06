@@ -4,9 +4,9 @@
 
 Authorization comes from the existing workbook and continuous execution instruction. Extend Research Advanced experiment/campaign controls without a second task store, original-trace mutation or production-rule changes. Keep the resident Alien MEMBER online.
 
-采用有界 replay adapter，复用现有 registry、runner 和 canonical strict-target task 执行。另建完全独立执行器会复制取消/timeout/recovery 真相；仅重算 JSON 则无法验证真实执行。本方案直接执行原场景，保留 original seed/index，创建新 experiment/campaign/run ID。
+采用有界 replay adapter，复用现有 registry、runner 和 canonical strict-target task 执行。另建完全独立执行器会复制取消/timeout/recovery 真相；仅重算 JSON 则无法验证真实执行。本方案保留 original seed/index，创建新 experiment/campaign/run ID。v1 仅支持无状态 WAIT；其他场景所需文件/检查点或引用故障尚未 snapshot，明确拒绝。
 
-Use a bounded replay adapter over the registry, runner and canonical strict-target tasks. A separate executor would duplicate lifecycle behavior; JSON-only reprocessing cannot measure real execution. Execute the original scenario with its seed/index under fresh experiment/campaign/run identities.
+Use a bounded replay adapter over the registry, runner and canonical strict-target tasks. A separate executor would duplicate lifecycle behavior; JSON-only reprocessing cannot measure real execution. Preserve the original seed/index under fresh experiment/campaign/run identities. v1 supports stateless WAIT only; unsnapshotted filesystem/checkpoint scenarios and referenced faults are explicitly refused.
 
 ## 数据流 / Data flow
 
@@ -21,6 +21,10 @@ The v1 alternate-device ablation disables seed-modulo worker selection and pins 
 比较读取 source 和新 receipt，核验 source digest 与 scenario/seed/topology/control inputs 一致后展示原值和差异。只声称控制输入一致与确切 policy 差异；动态资源、时钟、external provider 不保证确定性，时间差不是因果性能结论。当前没有可用 provider snapshot 时不能冒充重放现实条件。
 
 Comparison re-reads both receipts and verifies source digest and controlled inputs before reporting original values and differences. Claim controlled-input identity and exact policy differences only. Dynamic resources, clocks and external providers remain nondeterministic; timing differences are not causal performance results. Unavailable provider snapshots cannot become deterministic replay claims.
+
+原始来源digest为 canonical parsed receipt SHA256，不冒充原文件字节hash。新进程 softwareSha 未独立观测时保留 null + NOT_OBSERVED；复制来源软件refs仅绑定来源。
+
+The source digest is canonical parsed receipt SHA256, not an exact-byte file hash. Current-process softwareSha stays null with NOT_OBSERVED when unavailable; copied source refs bind only the source.
 
 ## 验证 / Validation
 

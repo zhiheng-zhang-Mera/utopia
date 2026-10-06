@@ -1,0 +1,152 @@
+✖ Alien: completed work does not imply an offline host is holding executable work or current retry/wait (14.9373ms)
+✖ Alien: missing coverage metadata cannot yield a calm graph (0.5378ms)
+✖ Alien: collapsed normal work stays collapsed in actual rendered overview, with stable visible order (1.8502ms)
+✖ Alien: a path preserves observed event provenance and explicitly unknown timing (0.5147ms)
+✖ Alien browser: offline invalidates a delayed monitor response (1546.6174ms)
+✖ Alien browser: cluster expands, edge filter is reachable and evidence opens exact canonical reference (1845.3088ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 0
+ℹ fail 6
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6137.5452
+
+✖ failing tests:
+
+test at tests\mon902-alien-review.test.mjs:12:1
+✖ Alien: completed work does not imply an offline host is holding executable work or current retry/wait (14.9373ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(!graph.nodes.find(n=>n.id==='host').riskReasons.some(r=>r.code==='DEVICE_OFFLINE_HOLDING_WORK'))
+  
+      at TestContext.<anonymous> (file:///D:/Utopia-MON902/tests/mon902-alien-review.test.mjs:16:9)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.start (node:internal/test_runner/test:1242:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\mon902-alien-review.test.mjs:19:1
+✖ Alien: missing coverage metadata cannot yield a calm graph (0.5378ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///D:/Utopia-MON902/tests/mon902-alien-review.test.mjs:21:9)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\mon902-alien-review.test.mjs:23:1
+✖ Alien: collapsed normal work stays collapsed in actual rendered overview, with stable visible order (1.8502ms)
+  AssertionError [ERR_ASSERTION]: rendering must honor collapsed clusters
+      at TestContext.<anonymous> (file:///D:/Utopia-MON902/tests/mon902-alien-review.test.mjs:27:9)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\mon902-alien-review.test.mjs:32:1
+✖ Alien: a path preserves observed event provenance and explicitly unknown timing (0.5147ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(edge.evidenceRefs?.includes('event-1'))
+  
+      at TestContext.<anonymous> (file:///D:/Utopia-MON902/tests/mon902-alien-review.test.mjs:38:9)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1382:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:960:18)
+      at Test.postRun (node:internal/test_runner/test:1522:19)
+      at Test.run (node:internal/test_runner/test:1447:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\mon902-alien-review.test.mjs:45:1
+✖ Alien browser: offline invalidates a delayed monitor response (1546.6174ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Reconnect|offline/i. Input:
+  
+  'CITY MONITOR\n' +
+    '\n' +
+    'What the city is doing right now, what is at risk, and what this picture cannot see.\n' +
+    '\n' +
+    'Nothing is failing or blocked in the part of the city this picture can see.\n' +
+    '\n' +
+    'At risk now\n' +
+    '\n' +
+    'No task is failing, refused, blocked or repeating.\n' +
+    '\n' +
+    'Worth watching\n' +
+    '\n' +
+    'Nothing is degraded.\n' +
+    '\n' +
+    'Other work\n' +
+    'WAITqueued\n' +
+    '\n' +
+    'Always true of this monitor: Whether the owner is needed cannot be told from here.\n' +
+    '\n' +
+    'A risk on this page is one click from its reason and its canonical evidence.\n' +
+    '\n' +
+    'Technical details'
+  
+      at file:///D:/Utopia-MON902/tests/mon902-alien-review.test.mjs:53:60
+      at async fixture (file:///D:/Utopia-MON902/tests/mon902-alien-review.test.mjs:43:378)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'CITY MONITOR\n\nWhat the city is doing right now, what is at risk, and what this picture cannot see.\n\nNothing is failing or blocked in the part of the city this picture can see.\n\nAt risk now\n\nNo task is failing, refused, blocked or repeating.\n\nWorth watching\n\nNothing is degraded.\n\nOther work\nWAITqueued\n\nAlways true of this monitor: Whether the owner is needed cannot be told from here.\n\nA risk on this page is one click from its reason and its canonical evidence.\n\nTechnical details',
+    expected: /Reconnect|offline/i,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at tests\mon902-alien-review.test.mjs:55:1
+✖ Alien browser: cluster expands, edge filter is reachable and evidence opens exact canonical reference (1845.3088ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(await page.locator('.monitor-panel [data-monitor-node]').count()<140)
+  
+      at file:///D:/Utopia-MON902/tests/mon902-alien-review.test.mjs:58:9
+      at async fixture (file:///D:/Utopia-MON902/tests/mon902-alien-review.test.mjs:43:378)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

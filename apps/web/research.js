@@ -1,4 +1,5 @@
 import {getLocale} from './i18n/index.js';
+import {renderFaults} from './research-faults.js';
 const states=new WeakMap();
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const L=(en,zh)=>getLocale()==='zh-CN'?zh:en;
@@ -49,4 +50,5 @@ export function renderResearch(container,online,api,contextKey){
   root._show=show;show();if(!state.data&&online)run(list);
  }
  root._show();
+ renderFaults(container,online,api,contextKey);
 }

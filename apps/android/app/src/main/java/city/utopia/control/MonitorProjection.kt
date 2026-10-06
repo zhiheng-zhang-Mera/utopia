@@ -55,6 +55,7 @@ fun parseMonitorDecisions(response:JSONObject,expectedCity:String):JSONObject {
   require(expectedCity.isNotBlank()&&response.optString("cityId")==expectedCity){"Decision City identity mismatch"}
   val window=response.getJSONObject("window");require(window.getInt("schemaVersion")==1&&window.has("authoritative")&&!window.getBoolean("authoritative")){"Decision observation schema required"}
   val rows=monitorObjects(bounded(window,"decisions",200));val ids=rows.map{it.getString("decisionId")};require(ids.distinct().size==ids.size){"Duplicate receipt"}
+  rows.forEach{receipt->monitorObjects(bounded(receipt,"evidenceRefs",256)).forEach{require(it.getString("canonicalEventId").isNotBlank()&&it.getString("source").isNotBlank()){"Invalid receipt evidence"}}}
   rows.forEach{require(it.has("ownerRequired")&&it.get("ownerRequired") is Boolean){"Owner state missing"};require(it.has("appliedBy")&&it.isNull("appliedBy")&&it.optString("application")=="RECORDED_ONLY"){"Receipt application truth conflict"}}
   response.getJSONObject("metrics");return response
  }catch(e:Exception){throw IllegalArgumentException("Decision receipts unavailable: "+(e.message ?: "invalid input"),e)}

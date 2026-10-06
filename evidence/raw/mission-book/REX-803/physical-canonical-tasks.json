@@ -1,0 +1,47 @@
+{
+  "observedAt": "2026-10-06T01:26:47.126Z",
+  "campaignId": "campaign-b0ebb3af-bf86-451a-b508-1aa9e115c8d7",
+  "cityTasks": [
+    {
+      "id": "Q-2257e7cb-814a-4ae6-b69d-11dcc14734d6",
+      "type": "WAIT",
+      "state": "COMPLETED",
+      "researchRunRef": "campaign-b0ebb3af-bf86-451a-b508-1aa9e115c8d7:0",
+      "assignedNodeId": "dev-031fdba6e94c4298a0956ff04a65481d",
+      "progress": 100,
+      "createdAt": "2026-10-06T01:26:18.724Z",
+      "updatedAt": "2026-10-06T01:26:24.953Z"
+    },
+    {
+      "id": "Q-ca4845d5-2d09-4891-ab75-c457684af601",
+      "type": "WAIT",
+      "state": "COMPLETED",
+      "researchRunRef": "campaign-b0ebb3af-bf86-451a-b508-1aa9e115c8d7:1",
+      "assignedNodeId": "dev-031fdba6e94c4298a0956ff04a65481d",
+      "progress": 100,
+      "createdAt": "2026-10-06T01:26:24.960Z",
+      "updatedAt": "2026-10-06T01:26:32.064Z"
+    },
+    {
+      "id": "Q-42a1739a-77d4-477d-ab32-0d0b29309cb9",
+      "type": "WAIT",
+      "state": "COMPLETED",
+      "researchRunRef": "campaign-b0ebb3af-bf86-451a-b508-1aa9e115c8d7:2",
+      "assignedNodeId": "dev-031fdba6e94c4298a0956ff04a65481d",
+      "progress": 100,
+      "createdAt": "2026-10-06T01:26:32.104Z",
+      "updatedAt": "2026-10-06T01:26:39.177Z"
+    },
+    {
+      "id": "Q-28cc5ab0-45c6-4276-a687-28793925c601",
+      "type": "WAIT",
+      "state": "COMPLETED",
+      "researchRunRef": "campaign-b0ebb3af-bf86-451a-b508-1aa9e115c8d7:3",
+      "assignedNodeId": "dev-031fdba6e94c4298a0956ff04a65481d",
+      "progress": 100,
+      "createdAt": "2026-10-06T01:26:39.214Z",
+      "updatedAt": "2026-10-06T01:26:46.291Z"
+    }
+  ],
+  "tasksCreatedByThisCampaign": 4
+}

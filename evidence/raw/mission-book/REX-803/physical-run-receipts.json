@@ -1,0 +1,307 @@
+{
+  "observedAt": "2026-10-06T01:26:47.131Z",
+  "campaignId": "campaign-b0ebb3af-bf86-451a-b508-1aa9e115c8d7",
+  "receipts": [
+    {
+      "schemaVersion": 1,
+      "transformRef": "research-trace-normalize-v1",
+      "sourceDigest": "7f65178787030860e2e542f069d1dbe805a7029c574204c70353392863703494",
+      "eventId": "campaign-b0ebb3af-bf86-451a-b508-1aa9e115c8d7:0",
+      "type": "RESEARCH_RUN_RECEIPT",
+      "runId": "trace-0dd5f8c9-eb46-4a4e-8a77-29373bbe371c",
+      "sourceSeq": null,
+      "timestamp": "2026-10-06T01:26:24.959Z",
+      "clocks": {
+        "source": "HOST_WALL_UTC",
+        "sourceSemantics": "event occurrence as declared by source",
+        "capturedAt": "2026-10-06T01:26:24.959Z",
+        "captureSource": "HOST_WALL_UTC",
+        "monotonicNs": "59943057138500",
+        "monotonicSource": "PROCESS_HRTIME",
+        "epoch": "epoch-0b617d94-e81d-4198-96ea-e3608ef4bb34"
+      },
+      "canonicalRefs": {
+        "taskRef": "Q-2257e7cb-814a-4ae6-b69d-11dcc14734d6",
+        "deviceRef": "dev-031fdba6e94c4298a0956ff04a65481d"
+      },
+      "dimensions": {
+        "experimentRunRef": "campaign-b0ebb3af-bf86-451a-b508-1aa9e115c8d7:0",
+        "experimentRef": "mech-android-canonical-repetition-r2"
+      },
+      "provenance": {
+        "refSemantics": "DECLARED_EXACT_IDENTITY; external verification required",
+        "softwareSha": null,
+        "configRef": null,
+        "implementationSha": null,
+        "reviewSha": null,
+        "ciRunId": null,
+        "evidenceSha": null
+      },
+      "metrics": {
+        "latencyMs": {
+          "value": 6246,
+          "reason": null
+        },
+        "backoffMs": {
+          "value": null,
+          "reason": "NOT_OBSERVABLE: measurement not provided"
+        },
+        "cpuPercent": {
+          "value": null,
+          "reason": "NOT_OBSERVABLE: measurement not provided"
+        },
+        "memoryBytes": {
+          "value": null,
+          "reason": "NOT_OBSERVABLE: measurement not provided"
+        },
+        "autonomousSpanMs": {
+          "value": null,
+          "reason": "NOT_OBSERVABLE: measurement not provided"
+        },
+        "taskTransitionCount": {
+          "value": null,
+          "reason": "NOT_OBSERVABLE: measurement not provided"
+        }
+      },
+      "missingFields": [
+        "providerRef",
+        "modelRef",
+        "channelRef",
+        "softwareSha",
+        "configRef"
+      ],
+      "annotations": []
+    },
+    {
+      "schemaVersion": 1,
+      "transformRef": "research-trace-normalize-v1",
+      "sourceDigest": "c80dcc4a0a712927514f89c0ca7da9eda26cf106f4b19cd53b720b50e564b7c6",
+      "eventId": "campaign-b0ebb3af-bf86-451a-b508-1aa9e115c8d7:1",
+      "type": "RESEARCH_RUN_RECEIPT",
+      "runId": "trace-0dd5f8c9-eb46-4a4e-8a77-29373bbe371c",
+      "sourceSeq": null,
+      "timestamp": "2026-10-06T01:26:32.102Z",
+      "clocks": {
+        "source": "HOST_WALL_UTC",
+        "sourceSemantics": "event occurrence as declared by source",
+        "capturedAt": "2026-10-06T01:26:32.102Z",
+        "captureSource": "HOST_WALL_UTC",
+        "monotonicNs": "59950201015000",
+        "monotonicSource": "PROCESS_HRTIME",
+        "epoch": "epoch-0b617d94-e81d-4198-96ea-e3608ef4bb34"
+      },
+      "canonicalRefs": {
+        "taskRef": "Q-ca4845d5-2d09-4891-ab75-c457684af601",
+        "deviceRef": "dev-031fdba6e94c4298a0956ff04a65481d"
+      },
+      "dimensions": {
+        "experimentRunRef": "campaign-b0ebb3af-bf86-451a-b508-1aa9e115c8d7:1",
+        "experimentRef": "mech-android-canonical-repetition-r2"
+      },
+      "provenance": {
+        "refSemantics": "DECLARED_EXACT_IDENTITY; external verification required",
+        "softwareSha": null,
+        "configRef": null,
+        "implementationSha": null,
+        "reviewSha": null,
+        "ciRunId": null,
+        "evidenceSha": null
+      },
+      "metrics": {
+        "latencyMs": {
+          "value": 7138,
+          "reason": null
+        },
+        "backoffMs": {
+          "value": null,
+          "reason": "NOT_OBSERVABLE: measurement not provided"
+        },
+        "cpuPercent": {
+          "value": null,
+          "reason": "NOT_OBSERVABLE: measurement not provided"
+        },
+        "memoryBytes": {
+          "value": null,
+          "reason": "NOT_OBSERVABLE: measurement not provided"
+        },
+        "autonomousSpanMs": {
+          "value": null,
+          "reason": "NOT_OBSERVABLE: measurement not provided"
+        },
+        "taskTransitionCount": {
+          "value": null,
+          "reason": "NOT_OBSERVABLE: measurement not provided"
+        }
+      },
+      "missingFields": [
+        "providerRef",
+        "modelRef",
+        "channelRef",
+        "softwareSha",
+        "configRef"
+      ],
+      "annotations": []
+    },
+    {
+      "schemaVersion": 1,
+      "transformRef": "research-trace-normalize-v1",
+      "sourceDigest": "8ee8e178378eb7f9d52457d93493346e9860e9f27fdac74c94d47cb7721db646",
+      "eventId": "campaign-b0ebb3af-bf86-451a-b508-1aa9e115c8d7:2",
+      "type": "RESEARCH_RUN_RECEIPT",
+      "runId": "trace-0dd5f8c9-eb46-4a4e-8a77-29373bbe371c",
+      "sourceSeq": null,
+      "timestamp": "2026-10-06T01:26:39.211Z",
+      "clocks": {
+        "source": "HOST_WALL_UTC",
+        "sourceSemantics": "event occurrence as declared by source",
+        "capturedAt": "2026-10-06T01:26:39.211Z",
+        "captureSource": "HOST_WALL_UTC",
+        "monotonicNs": "59957309914200",
+        "monotonicSource": "PROCESS_HRTIME",
+        "epoch": "epoch-0b617d94-e81d-4198-96ea-e3608ef4bb34"
+      },
+      "canonicalRefs": {
+        "taskRef": "Q-42a1739a-77d4-477d-ab32-0d0b29309cb9",
+        "deviceRef": "dev-031fdba6e94c4298a0956ff04a65481d"
+      },
+      "dimensions": {
+        "experimentRunRef": "campaign-b0ebb3af-bf86-451a-b508-1aa9e115c8d7:2",
+        "experimentRef": "mech-android-canonical-repetition-r2"
+      },
+      "provenance": {
+        "refSemantics": "DECLARED_EXACT_IDENTITY; external verification required",
+        "softwareSha": null,
+        "configRef": null,
+        "implementationSha": null,
+        "reviewSha": null,
+        "ciRunId": null,
+        "evidenceSha": null
+      },
+      "metrics": {
+        "latencyMs": {
+          "value": 7102,
+          "reason": null
+        },
+        "backoffMs": {
+          "value": null,
+          "reason": "NOT_OBSERVABLE: measurement not provided"
+        },
+        "cpuPercent": {
+          "value": null,
+          "reason": "NOT_OBSERVABLE: measurement not provided"
+        },
+        "memoryBytes": {
+          "value": null,
+          "reason": "NOT_OBSERVABLE: measurement not provided"
+        },
+        "autonomousSpanMs": {
+          "value": null,
+          "reason": "NOT_OBSERVABLE: measurement not provided"
+        },
+        "taskTransitionCount": {
+          "value": null,
+          "reason": "NOT_OBSERVABLE: measurement not provided"
+        }
+      },
+      "missingFields": [
+        "providerRef",
+        "modelRef",
+        "channelRef",
+        "softwareSha",
+        "configRef"
+      ],
+      "annotations": []
+    },
+    {
+      "schemaVersion": 1,
+      "transformRef": "research-trace-normalize-v1",
+      "sourceDigest": "1470fbfe31cbf038b05ba22588e6e22af4465dddb49f9317051057b56904b903",
+      "eventId": "campaign-b0ebb3af-bf86-451a-b508-1aa9e115c8d7:3",
+      "type": "RESEARCH_RUN_RECEIPT",
+      "runId": "trace-0dd5f8c9-eb46-4a4e-8a77-29373bbe371c",
+      "sourceSeq": null,
+      "timestamp": "2026-10-06T01:26:46.302Z",
+      "clocks": {
+        "source": "HOST_WALL_UTC",
+        "sourceSemantics": "event occurrence as declared by source",
+        "capturedAt": "2026-10-06T01:26:46.302Z",
+        "captureSource": "HOST_WALL_UTC",
+        "monotonicNs": "59964400675000",
+        "monotonicSource": "PROCESS_HRTIME",
+        "epoch": "epoch-0b617d94-e81d-4198-96ea-e3608ef4bb34"
+      },
+      "canonicalRefs": {
+        "taskRef": "Q-28cc5ab0-45c6-4276-a687-28793925c601",
+        "deviceRef": "dev-031fdba6e94c4298a0956ff04a65481d"
+      },
+      "dimensions": {
+        "experimentRunRef": "campaign-b0ebb3af-bf86-451a-b508-1aa9e115c8d7:3",
+        "experimentRef": "mech-android-canonical-repetition-r2"
+      },
+      "provenance": {
+        "refSemantics": "DECLARED_EXACT_IDENTITY; external verification required",
+        "softwareSha": null,
+        "configRef": null,
+        "implementationSha": null,
+        "reviewSha": null,
+        "ciRunId": null,
+        "evidenceSha": null
+      },
+      "metrics": {
+        "latencyMs": {
+          "value": 7087,
+          "reason": null
+        },
+        "backoffMs": {
+          "value": null,
+          "reason": "NOT_OBSERVABLE: measurement not provided"
+        },
+        "cpuPercent": {
+          "value": null,
+          "reason": "NOT_OBSERVABLE: measurement not provided"
+        },
+        "memoryBytes": {
+          "value": null,
+          "reason": "NOT_OBSERVABLE: measurement not provided"
+        },
+        "autonomousSpanMs": {
+          "value": null,
+          "reason": "NOT_OBSERVABLE: measurement not provided"
+        },
+        "taskTransitionCount": {
+          "value": null,
+          "reason": "NOT_OBSERVABLE: measurement not provided"
+        }
+      },
+      "missingFields": [
+        "providerRef",
+        "modelRef",
+        "channelRef",
+        "softwareSha",
+        "configRef"
+      ],
+      "annotations": []
+    }
+  ],
+  "traceCompleteness": "PARTIAL",
+  "traceStorageState": "READY",
+  "traceRunId": "trace-0dd5f8c9-eb46-4a4e-8a77-29373bbe371c",
+  "traceRecordedTypes": [
+    "CITY_STARTED",
+    "RESOURCE_OBSERVATION",
+    "NODE_ONLINE",
+    "DEVICE_ENROLLED",
+    "DEVICE_SESSION_ISSUED",
+    "CLIENT_CONNECTED",
+    "RESEARCH_EXPERIMENT_REGISTERED",
+    "RESEARCH_CAMPAIGN_STARTED",
+    "COMMAND_ACCEPTED",
+    "TASK_CREATED",
+    "TASK_ASSIGNED",
+    "TASK_STARTED",
+    "TASK_CHECKPOINTED",
+    "TASK_COMPLETED",
+    "RESEARCH_RUN_RECEIPT",
+    "CLIENT_DISCONNECTED"
+  ]
+}

@@ -1,0 +1,161 @@
+{
+  "observedAt": "2026-10-06T01:26:47.132Z",
+  "campaign": {
+    "campaignId": "campaign-b0ebb3af-bf86-451a-b508-1aa9e115c8d7",
+    "scenarioId": "WAIT",
+    "state": "COMPLETED",
+    "reason": "REPETITIONS_FINISHED",
+    "seedPolicy": "derived:seed(campaign,index)",
+    "campaignSeed": "mech-android-canonical-repetition-r2@b872f35c85a66fc1d9304d5cf0b7be2f",
+    "repetitions": 3,
+    "warmup": 1,
+    "timeout": 30000,
+    "limits": {
+      "maxFailures": 3
+    },
+    "totalRuns": 4,
+    "runs": [
+      {
+        "index": 0,
+        "state": "WARMUP",
+        "reason": null,
+        "seed": 2733353712,
+        "warmup": true,
+        "measured": false,
+        "durationMs": 6246,
+        "result": {
+          "taskRef": "Q-2257e7cb-814a-4ae6-b69d-11dcc14734d6",
+          "state": "COMPLETED",
+          "assignedNodeId": "dev-031fdba6e94c4298a0956ff04a65481d",
+          "result": {
+            "waitedMs": 6000
+          }
+        }
+      },
+      {
+        "index": 1,
+        "state": "MEASURED",
+        "reason": null,
+        "seed": 2750131331,
+        "warmup": false,
+        "measured": true,
+        "durationMs": 7138,
+        "result": {
+          "taskRef": "Q-ca4845d5-2d09-4891-ab75-c457684af601",
+          "state": "COMPLETED",
+          "assignedNodeId": "dev-031fdba6e94c4298a0956ff04a65481d",
+          "result": {
+            "waitedMs": 6000
+          }
+        }
+      },
+      {
+        "index": 2,
+        "state": "MEASURED",
+        "reason": null,
+        "seed": 2766908950,
+        "warmup": false,
+        "measured": true,
+        "durationMs": 7102,
+        "result": {
+          "taskRef": "Q-42a1739a-77d4-477d-ab32-0d0b29309cb9",
+          "state": "COMPLETED",
+          "assignedNodeId": "dev-031fdba6e94c4298a0956ff04a65481d",
+          "result": {
+            "waitedMs": 6000
+          }
+        }
+      },
+      {
+        "index": 3,
+        "state": "MEASURED",
+        "reason": null,
+        "seed": 2783686569,
+        "warmup": false,
+        "measured": true,
+        "durationMs": 7087,
+        "result": {
+          "taskRef": "Q-28cc5ab0-45c6-4276-a687-28793925c601",
+          "state": "COMPLETED",
+          "assignedNodeId": "dev-031fdba6e94c4298a0956ff04a65481d",
+          "result": {
+            "waitedMs": 6000
+          }
+        }
+      }
+    ],
+    "startedAt": 1791249978705,
+    "finishedAt": 1791250006303,
+    "context": {
+      "experimentId": "mech-android-canonical-repetition-r2",
+      "manifestIdentity": "b872f35c85a66fc1d9304d5cf0b7be2f",
+      "manifest": {
+        "topology": "SINGLE_CITY",
+        "hosts": [
+          "dev-031fdba6e94c4298a0956ff04a65481d"
+        ],
+        "workers": [
+          "dev-031fdba6e94c4298a0956ff04a65481d"
+        ],
+        "controlSurfaces": [
+          "dev-be7832e35fc34b85966c3bb43a992e1d"
+        ],
+        "repetitions": 3,
+        "seedPolicy": "PER_REPETITION",
+        "baseSeed": 20261006,
+        "stopConditions": [
+          {
+            "kind": "MAX_REPETITIONS",
+            "value": 3
+          },
+          {
+            "kind": "MAX_FAILURES",
+            "value": 3
+          }
+        ],
+        "acceptance": {
+          "primary": "Every repetition is either a measured completion of a real canonical task or carries a typed reason it is not",
+          "minimumSuccessfulRuns": 1,
+          "notes": []
+        },
+        "softwareRefs": [
+          {
+            "component": "utopia",
+            "identity": "e284b712c53e5b7f44acdb878afd6a23c7953735",
+            "commitSha": "e284b712c53e5b7f44acdb878afd6a23c7953735",
+            "exact": true
+          }
+        ]
+      },
+      "targetDeviceRef": null
+    },
+    "resumedFrom": null,
+    "resumedAt": null,
+    "resumeCount": 0,
+    "abandonedFrom": null,
+    "readiness": {
+      "state": "READY",
+      "missing": [],
+      "workers": [
+        "dev-031fdba6e94c4298a0956ff04a65481d"
+      ],
+      "surfaces": [
+        "dev-be7832e35fc34b85966c3bb43a992e1d"
+      ],
+      "identitySemantics": "CANONICAL_LIVE_REFS"
+    },
+    "summary": {
+      "planned": 4,
+      "accounted": 4,
+      "warmup": 1,
+      "measured": 3,
+      "timedOut": 0,
+      "failed": 0,
+      "excluded": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "interrupted": 0,
+      "terminalAccountingComplete": true
+    }
+  }
+}

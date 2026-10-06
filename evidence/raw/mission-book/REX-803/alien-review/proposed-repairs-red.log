@@ -1,0 +1,112 @@
+✖ REX803 L6: the receipt list is ordered by AGE, not by a random identifier in the filename (11.272ms)
+✖ REX803 L1b: the receipt list says how many campaigns exist beyond the bound (6.5353ms)
+✖ REX803 L7: a runner that has been closed refuses new work instead of starting a campaign (4.9408ms)
+✔ REX803 positive control: a normal campaign still plans, measures and files exactly once (72.2524ms)
+✖ REX803 rehearsal: with TWO workers every repetition is TARGETED by its derived seed, not left to claim order (388.9309ms)
+✖ REX803 rehearsal: the observed assignment equals the declared rule, and both workers are used (338.8258ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 1
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2703.7207
+
+✖ failing tests:
+
+test at tests\rex803-third-class-sweep.test.mjs:29:1
+✖ REX803 L6: the receipt list is ordered by AGE, not by a random identifier in the filename (11.272ms)
+  AssertionError [ERR_ASSERTION]: the bounded list must be the NEWEST campaigns; ordering by a random identifier in the file name returns an arbitrary sample
+  + actual - expected
+  
+    [
+  +   'campaign-dddddddd-0000-0000-0000-000000000000',
+  +   'campaign-eeeeeeee-0000-0000-0000-000000000000',
+  +   'campaign-ffffffff-0000-0000-0000-000000000000'
+  -   'campaign-aaaaaaaa-0000-0000-0000-000000000000',
+  -   'campaign-bbbbbbbb-0000-0000-0000-000000000000',
+  -   'campaign-cccccccc-0000-0000-0000-000000000000'
+    ]
+  
+      at TestContext.<anonymous> (file:///D:/Utopia-REX803-Review/tests/rex803-third-class-sweep.test.mjs:47:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'campaign-dddddddd-0000-0000-0000-000000000000', 'campaign-eeeeeeee-0000-0000-0000-000000000000', 'campaign-ffffffff-0000-0000-0000-000000000000' ],
+    expected: [ 'campaign-aaaaaaaa-0000-0000-0000-000000000000', 'campaign-bbbbbbbb-0000-0000-0000-000000000000', 'campaign-cccccccc-0000-0000-0000-000000000000' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests\rex803-third-class-sweep.test.mjs:52:1
+✖ REX803 L1b: the receipt list says how many campaigns exist beyond the bound (6.5353ms)
+  AssertionError [ERR_ASSERTION]: 7 campaigns exist and 3 were returned with nothing stating that the list was truncated
+      at TestContext.<anonymous> (file:///D:/Utopia-REX803-Review/tests/rex803-third-class-sweep.test.mjs:69:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\rex803-third-class-sweep.test.mjs:78:1
+✖ REX803 L7: a runner that has been closed refuses new work instead of starting a campaign (4.9408ms)
+  AssertionError [ERR_ASSERTION]: close() was called and start() still accepted a campaign: {"campaignId":"campaign-0da3cd18-1620-4574-ac09-09ba2583723f","state":"RUNNING","totalRuns":1,"campaignSeed":"WAIT-1791267012654"}
+      at TestContext.<anonymous> (file:///D:/Utopia-REX803-Review/tests/rex803-third-class-sweep.test.mjs:89:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\rex803-two-worker-rehearsal.test.mjs:128:1
+✖ REX803 rehearsal: with TWO workers every repetition is TARGETED by its derived seed, not left to claim order (388.9309ms)
+  AssertionError [ERR_ASSERTION]: 6 of 6 campaign task(s) were created with no targetDeviceRef, so the derived-seed placement rule never ran and the receipt's assignment is claim order, not the declared rule
+  
+  6 !== 0
+  
+      at file:///D:/Utopia-REX803-Review/tests/rex803-two-worker-rehearsal.test.mjs:137:12
+      at rehearse (file:///D:/Utopia-REX803-Review/tests/rex803-two-worker-rehearsal.test.mjs:120:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async TestContext.<anonymous> (file:///D:/Utopia-REX803-Review/tests/rex803-two-worker-rehearsal.test.mjs:129:3)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 6,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\rex803-two-worker-rehearsal.test.mjs:148:1
+✖ REX803 rehearsal: the observed assignment equals the declared rule, and both workers are used (338.8258ms)
+  AssertionError [ERR_ASSERTION]: run 1 (seed 2220486659) landed on rehearsal-alpha, but the declared rule selects rehearsal-beta
+  + actual - expected
+  
+  + 'rehearsal-alpha'
+  - 'rehearsal-beta'
+               ^
+  
+      at file:///D:/Utopia-REX803-Review/tests/rex803-two-worker-rehearsal.test.mjs:157:14
+      at rehearse (file:///D:/Utopia-REX803-Review/tests/rex803-two-worker-rehearsal.test.mjs:120:18)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async TestContext.<anonymous> (file:///D:/Utopia-REX803-Review/tests/rex803-two-worker-rehearsal.test.mjs:149:3)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'rehearsal-alpha',
+    expected: 'rehearsal-beta',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

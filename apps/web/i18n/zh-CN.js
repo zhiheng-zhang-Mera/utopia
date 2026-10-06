@@ -424,6 +424,8 @@ Object.assign(messages,{"members.thisDevice":"本机","members.role.PRIMARY":"�
 Object.assign(messages,{"catalog.hint":"不知道能做什么？","catalog.open":"查看全部能力","catalog.title":"能力目录 — 选择后再提交操作"});
 Object.assign(messages,{"nav.research":"研究","heading.research":"研究"});
 Object.assign(messages,{"nav.researchTrace":"研究记录","heading.researchtrace":"研究记录","trace.title":"研究记录","trace.hint":"只读查看本城市的观察记录。记录不会创建或执行实验。","trace.refresh":"刷新","trace.offline":"重新连接后查看当前研究记录。","trace.recording":"正在记录","trace.stopped":"记录已停止","trace.types":"记录的事件类型","trace.none":"尚未观察到","trace.experiment":"实验运行","trace.metrics":"测量可用性","trace.available":"已测量","trace.failures":"采集器故障","trace.dropped":"丢弃记录","trace.retention":"保留窗口已截断","trace.declared":"软件身份为声明的引用，需要外部验证。缺失测量保持 NOT_OBSERVABLE。","trace.ownerRequired":"仅城市所有者可查看研究记录，请由所有者打开此页面。","trace.unavailable":"研究记录暂不可用，请刷新或重新连接。"});
+// REX-803：受控 campaign 控制面。每一次没有产生测量的重复都会与已测量的重复并列显示原因，页面不会在没有解释时显示为“完成”。
+Object.assign(messages,{"nav.researchCampaign":"研究运行","heading.researchcampaign":"研究运行","rc.title":"受控重复运行","rc.hint":"把已登记的实验按重复次数运行在真实的城市任务上。每一次重复都是普通城市工作：本页面不会另造任务类型，也不会报告任务未达到的结果。","rc.refresh":"刷新","rc.offline":"重新连接后可查看或控制重复运行。","rc.ownerRequired":"仅城市所有者可运行实验，请由所有者打开此页面。","rc.unavailable":"运行状态暂不可用，请刷新或重新连接。","rc.experiment":"实验","rc.noExperiments":"尚未登记有效的实验，请先在“研究”页面描述并登记。","rc.declaredRepetitions":"该实验声明 {count} 次重复。","rc.liveTopology":"本城市当前提供 — 工作节点：{workers} · 控制面：{surfaces}。清单必须声明这些完全一致的标识才能在此运行。","rc.scenario":"场景","rc.repetitions":"重复次数","rc.warmup":"预热次数","rc.warmupNote":"预热会执行，但永不计入测量结果。实验清单未声明预热，因此这是你的决定，并会记录在本次运行中。","rc.seed":"运行种子（可选）","rc.seedPlaceholder":"默认使用已登记实验的身份","rc.start":"开始运行","rc.stop":"停止运行","rc.resume":"继续未完成的运行","rc.abandon":"放弃它并重新开始","rc.interruptedNote":"城市发现上一次进程留下的未完成运行。继续会在同一种子序列下延续同一次运行；进程中断时正在进行的那次重复会保留为“丢失”。","rc.current":"当前运行","rc.state":"状态","rc.reason":"原因","rc.idle":"空闲","rc.totals":"已测量 {measured} / 计划 {planned} · 无测量 {notMeasured} · 预热 {warmup}","rc.readiness":"拓扑就绪","rc.measured":"已测量的重复","rc.notMeasured":"未产生测量的重复","rc.notMeasuredHint":"每一项都带有它未计入结果的原因。只要还有一项没有解释，本次运行就不会被报告为完成。","rc.exclusionReason":"原因","rc.duration":"耗时（毫秒）","rc.task":"城市任务","rc.warmupYes":"预热","rc.warmupNo":"已测量","rc.notMeasuredValue":"未测量","rc.noReasonRecorded":"未记录原因","rc.receipts":"已归档的运行回执","rc.receiptsHint":"已完成的运行只写入一次，不会被下一次运行覆盖。","rc.receiptTotals":"已测量 {measured}/{planned}","rc.noReceipts":"本城市尚无已完成的运行。","rc.technical":"技术标识"});
 // (union) duplicate export default removed: the earlier one belonged to a side that also appended its keys above
 Object.assign(messages, {
 "recovery.conflict":"设备身份冲突",
@@ -438,4 +440,11 @@ Object.assign(messages, {
 });
 // (union) duplicate export default removed
 Object.assign(messages,{'scheduler.choice.explicitPrompt':'选择如何继续这项服务','scheduler.choice.alternateDevice':'保留这项服务，换另一台设备执行','scheduler.choice.reason.TARGET_DEVICE_BOUND':'这项服务绑定了指定设备。','scheduler.choice.reason.ALTERNATE_NOT_AVAILABLE':'目前没有符合条件的替代设备。','scheduler.choice.reason.NO_SWITCH_DECISION':'目前无需选择设备切换。'});
+Object.assign(messages,{
+ 'rr.title':'重放与消融','rr.hint':'选择已有回执中的 WAIT 运行。重放创建新的实验和运行身份，保留原始证据；需要输入快照的有状态场景当前会明确拒绝。',
+ 'rr.caveat':'只复现受控输入。实时资源、时钟和外部服务状态可能变化；时间差不构成因果性能证据。',
+ 'rr.source':'已有运行回执','rr.run':'已记录的重复','rr.replay':'重放选中的运行',
+ 'rr.ablation':'消融备选设备选择','rr.noRuns':'当前没有可观测的已记录运行。','rr.comparison':'原始 → 重放比较',
+ 'rr.value':'观测值','rr.original':'原始运行','rr.replayed':'新运行','rr.worker':'执行节点','rr.inputs':'受控输入一致','rr.unavailable':'重放暂不可用，请刷新或重新连接。'
+});
 export default { meta, messages };

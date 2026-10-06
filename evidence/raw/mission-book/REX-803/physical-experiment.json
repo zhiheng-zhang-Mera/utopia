@@ -1,0 +1,74 @@
+{
+  "registeredAt": "2026-10-06T01:26:18.695Z",
+  "endpoint": "http://172.31.12.151:4391",
+  "experimentId": "mech-android-canonical-repetition-r2",
+  "digest": "{\"acceptance\":{\"minimumSuccessfulRuns\":1,\"notes\":[],\"primary\":\"Every repetition is either a measured completion of a real canonical task or carries a typed reason it is not\"},\"artifactPolicy\":{\"exportPath\":null,\"retention\":\"SUMMARY_ONLY\"},\"baseSeed\":20261006,\"contractVersion\":1,\"controlSurfaces\":[\"dev-be7832e35fc34b85966c3bb43a992e1d\"],\"defaultsInvented\":false,\"experimentId\":\"mech-android-canonical-repetition-r2\",\"hosts\":[\"dev-031fdba6e94c4298a0956ff04a65481d\"],\"hypothesis\":\"A derived seed per repetition makes the repetition set reproducible on the same declared topology.\",\"question\":\"Does a canonical City task repeat with a reproducible seed, and is every repetition either measured or explained?\",\"references\":{\"faultProfileRef\":null,\"referenceIsNotAuthorisation\":true,\"scenarioRef\":null},\"repetitions\":3,\"requiredCapabilities\":[\"research.evidence.review\"],\"seedPolicy\":\"PER_REPETITION\",\"softwareRefs\":[{\"commitSha\":\"e284b712c53e5b7f44acdb878afd6a23c7953735\",\"component\":\"utopia\",\"exact\":true,\"identity\":\"e284b712c53e5b7f44acdb878afd6a23c7953735\"}],\"stopConditions\":[{\"kind\":\"MAX_REPETITIONS\",\"value\":3},{\"kind\":\"MAX_FAILURES\",\"value\":3}],\"topology\":\"SINGLE_CITY\",\"topologyDescription\":\"one City process with at least one attached control surface\",\"variables\":{\"controls\":[\"taskType\"],\"dependent\":[\"completion\"],\"independent\":[\"scenario\"]},\"workers\":[\"dev-031fdba6e94c4298a0956ff04a65481d\"]}",
+  "status": "VALIDATED",
+  "manifest": {
+    "contractVersion": 1,
+    "experimentId": "mech-android-canonical-repetition-r2",
+    "question": "Does a canonical City task repeat with a reproducible seed, and is every repetition either measured or explained?",
+    "hypothesis": "A derived seed per repetition makes the repetition set reproducible on the same declared topology.",
+    "topology": "SINGLE_CITY",
+    "topologyDescription": "one City process with at least one attached control surface",
+    "hosts": [
+      "dev-031fdba6e94c4298a0956ff04a65481d"
+    ],
+    "workers": [
+      "dev-031fdba6e94c4298a0956ff04a65481d"
+    ],
+    "controlSurfaces": [
+      "dev-be7832e35fc34b85966c3bb43a992e1d"
+    ],
+    "variables": {
+      "independent": [
+        "scenario"
+      ],
+      "dependent": [
+        "completion"
+      ],
+      "controls": [
+        "taskType"
+      ]
+    },
+    "repetitions": 3,
+    "seedPolicy": "PER_REPETITION",
+    "baseSeed": 20261006,
+    "requiredCapabilities": [
+      "research.evidence.review"
+    ],
+    "stopConditions": [
+      {
+        "kind": "MAX_REPETITIONS",
+        "value": 3
+      },
+      {
+        "kind": "MAX_FAILURES",
+        "value": 3
+      }
+    ],
+    "artifactPolicy": {
+      "retention": "SUMMARY_ONLY",
+      "exportPath": null
+    },
+    "acceptance": {
+      "primary": "Every repetition is either a measured completion of a real canonical task or carries a typed reason it is not",
+      "minimumSuccessfulRuns": 1,
+      "notes": []
+    },
+    "softwareRefs": [
+      {
+        "component": "utopia",
+        "identity": "e284b712c53e5b7f44acdb878afd6a23c7953735",
+        "commitSha": "e284b712c53e5b7f44acdb878afd6a23c7953735",
+        "exact": true
+      }
+    ],
+    "references": {
+      "scenarioRef": null,
+      "faultProfileRef": null,
+      "referenceIsNotAuthorisation": true
+    },
+    "defaultsInvented": false
+  }
+}

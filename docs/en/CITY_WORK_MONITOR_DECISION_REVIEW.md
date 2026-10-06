@@ -1,0 +1,9 @@
+# MON-903 independent review repairs
+
+Alien reviewed Mech's exact `78bdd9dc873ebc257aedecf421068a1387dbec82` on the opposite author host. Baseline: 25/26 probes passed. The failed concurrent route probe reported its newly created task instead of the actual FIFO claim; the Gateway correctly refused with 403. The probe now follows canonical claimed identity and checks RUNNING-report status.
+
+Independent red probes reproduced eight product defects: resolver Owner recommendations counted as automatic resolutions; canonical events were accepted after close; UUID sorting pruned recent receipts; queue overflow lost evidence and write-failure provenance; canonical online-ineligible targets were described as offline/unknown; a successful critic hid the earlier timeout metric; polling closed opened provenance and retained old errors; unavailable persistence was hidden. A ninth red probe showed frequent City renders indefinitely deferred polling.
+
+Repairs preserve chronological receipt retention across restart; classify Owner actions as escalations; fence closed observation; retain overflow provenance and persistence failure; carry canonical target eligibility into deterministic rules; count earlier resolver failures even after successful fallback; expose memory-only persistence; preserve opened provenance and clear recovered errors; and keep polling deadlines independent of canonical snapshot rendering. The existing Owner-queue title is used rather than a misleading permission-denial heading.
+
+The overlay remains advisory: no task writer, no action application, no expanded Owner authority. Real model/provider execution and Android native/physical cross-device acceptance remain unobserved. Deterministic injected resolver probes are not production model evidence. Exact source receipts and red/green probes are retained under `evidence/raw/mission-book/MON-903/alien-review/`.

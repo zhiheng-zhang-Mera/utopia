@@ -441,3 +441,4 @@ Object.assign(messages, {
 // (union) duplicate export default removed
 Object.assign(messages,{'scheduler.choice.explicitPrompt':'选择如何继续这项服务','scheduler.choice.alternateDevice':'保留这项服务，换另一台设备执行','scheduler.choice.reason.TARGET_DEVICE_BOUND':'这项服务绑定了指定设备。','scheduler.choice.reason.ALTERNATE_NOT_AVAILABLE':'目前没有符合条件的替代设备。','scheduler.choice.reason.NO_SWITCH_DECISION':'目前无需选择设备切换。'});
 export default { meta, messages };
+Object.assign(messages,{"dec.persistenceUnavailable":"决定收据存储不可用：收据仅保存在内存中，重启可能丢失。"});

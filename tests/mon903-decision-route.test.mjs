@@ -26,9 +26,13 @@ const withCity = async (fn, options = {}) => {
 const registerWorker = (app, id) => ask(app, 'node/register', {id, displayName: id, metadata: {platform: 'reference'}, capabilities: ['task.execute.safe', 'filesystem.temp']}, 'node');
 /** Drive one task to a terminal state through the canonical routes, exactly as a real endpoint does. */
 const runTask = async (app, nodeId, {fail = false} = {}) => {
-  const task = (await ask(app, 'tasks', {type: 'WAIT'})).body;
-  assert.equal((await ask(app, 'node/claim', {id: nodeId}, 'node')).status, 200);
-  await ask(app, 'node/report', {id: nodeId, taskId: task.id, state: 'RUNNING', progress: 40}, 'node');
+  const created = await ask(app, 'tasks', {type: 'WAIT'});
+  assert.equal(created.status,200);
+  const claimed = await ask(app, 'node/claim', {id: nodeId}, 'node');
+  assert.equal(claimed.status, 200);
+  // Concurrent FIFO claims may return the other caller's newly created task. Report the actual canonical claim.
+  const task=claimed.body.task;assert.ok(task?.id);
+  assert.equal((await ask(app, 'node/report', {id: nodeId, taskId: task.id, state: 'RUNNING', progress: 40}, 'node')).status,200);
   const terminal = await ask(app, 'node/report', {id: nodeId, taskId: task.id, state: fail ? 'FAILED' : 'COMPLETED', progress: 100, ...(fail ? {error: 'endpoint reported a refusal'} : {result: {ok: true}})}, 'node');
   assert.equal(terminal.status, 200);
   return task;

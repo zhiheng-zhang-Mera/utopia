@@ -6,14 +6,14 @@
 //   * the screen never claims a decision did something. Every receipt carries `appliedBy: null` and this surface says
 //     so in words, so a recommendation cannot be read as a performed action.
 // It also refuses to flatter the reader: an empty window says "no decision has been recorded", never "all clear".
-import {t} from './i18n/index.js';
+import {t,getLocale} from './i18n/index.js';
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const POLL_MS = 2000;
 
 export function createMonitorDecisionsView() {
-  let context = null, connectivity = null, epoch = 0, data = null, error = null, pending = false, timer = null;
+  let context = null, connectivity = null, epoch = 0, data = null, error = null, pending = false, timer = null,signature='';
   const stopPolling = () => { if (timer) { clearTimeout(timer); timer = null; } };
-  function reset() { stopPolling(); context = null; connectivity = null; epoch += 1; data = null; error = null; pending = false; }
+  function reset() { stopPolling(); context = null; connectivity = null; epoch += 1; data = null; error = null; pending = false;signature=''; }
 
   function render(host, {contextKey, online, api, isCurrent}) {
     if (contextKey !== context || online !== connectivity) { reset(); context = contextKey; connectivity = online; }
@@ -21,6 +21,9 @@ export function createMonitorDecisionsView() {
 
     function draw() {
       if (!current()) return;
+      const refresh=host.querySelector('#dec-refresh');if(refresh)refresh.disabled=pending||!online;
+      const key=JSON.stringify([getLocale(),online,data,error]);if(signature===key&&refresh)return;signature=key;
+      const opened=new Set([...host.querySelectorAll('details[open][data-provenance]')].map(element=>element.dataset.provenance));
       const metrics = data?.metrics ?? null;
       const window = data?.window ?? null;
       const decisions = window?.decisions ?? [];
@@ -48,15 +51,17 @@ export function createMonitorDecisionsView() {
         ${data ? `
         <p id="dec-metrics">${esc(t('dec.metrics', {decisions: metrics.decisions, owner: metrics.ownerRequired, auto: rate, timeouts: metrics.timeouts}))}</p>
         <p id="dec-notblocking">${esc(t('dec.noBarrier', {value: metrics.unrelatedTaskBlocking, concurrent: metrics.concurrentDecisionTasks}))}</p>
-        <h3>${esc(t('dec.ownerRequired'))}</h3>
+        <h3>${esc(t('dec.ownerRequiredTitle'))}</h3>
         ${ownerRequired.length === 0 ? `<p id="dec-owner-empty">${esc(t('dec.noOwnerRequired'))}</p>` : `<ul id="dec-owner-list">${ownerRequired.map(decision => `<li data-owner-required="${esc(decision.decisionId)}">${esc(decision.triggerEvent?.kind)} · ${esc(decision.taskRef ?? t('dec.cityWide'))} · ${esc(decision.escalationReason ?? t('dec.unknown'))}</li>`).join('')}</ul>`}
         <h3>${esc(t('dec.recent'))}</h3>
         ${decisions.length === 0 ? `<p id="dec-empty">${esc(t('dec.empty'))}</p>` : `<table id="dec-table"><thead><tr><th>${esc(t('dec.trigger'))}</th><th>${esc(t('dec.task'))}</th><th>${esc(t('dec.source'))}</th><th>${esc(t('dec.action'))}</th><th>${esc(t('dec.owner'))}</th><th>${esc(t('dec.latency'))}</th><th>${esc(t('dec.queueWait'))}</th><th>${esc(t('dec.provenance'))}</th></tr></thead><tbody>${decisions.map(row).join('')}</tbody></table>`}
         ${(window?.unsupportedSources ?? []).length > 0 ? `<p id="dec-unsupported">${esc(t('dec.notObservable', {list: window.unsupportedSources.join('; ')}))}</p>` : ''}
         ${window?.retentionTruncated ? `<p id="dec-retention">${esc(t('dec.retention', {retained: window.retained, limit: window.retainedLimit}))}</p>` : ''}
+        ${window?.persistence && window.persistence!=='READY' ? `<p id="dec-persistence" role="status">${esc(t('dec.persistenceUnavailable'))}</p>` : ''}
         ${(window?.failures ?? []).length > 0 ? `<p id="dec-failures">${esc(t('dec.failures', {list: window.failures.map(failure => failure.code).join(', ')}))}</p>` : ''}
         ` : ''}
       </section>`;
+      host.querySelectorAll('details[data-provenance]').forEach(element=>{if(opened.has(element.dataset.provenance))element.open=true;});
       host.querySelector('#dec-refresh').onclick = () => load();
     }
 
@@ -66,7 +71,7 @@ export function createMonitorDecisionsView() {
       try {
         const result = await api('monitor/decisions');
         if (requestEpoch !== epoch || !current()) return;
-        data = result;
+        data = result;error=null;
       } catch (reason) {
         if (requestEpoch !== epoch || !current()) return;
         error = reason?.status === 401 || reason?.status === 403 ? t('dec.ownerRequired') : t('dec.unavailable');
@@ -76,9 +81,9 @@ export function createMonitorDecisionsView() {
     draw();
     if (online && !data && !error && !pending) void load();
     // The overlay records continuously, so the surface refreshes on a bounded interval while it is on screen.
-    stopPolling();
-    const tick = () => { timer = null; if (!current() || !online) return; void load().then(() => { if (current() && online) timer = setTimeout(tick, POLL_MS); }); };
-    if (online) timer = setTimeout(tick, POLL_MS);
+    const tick = () => { if (!current() || !online) return; void load().then(() => { if (current() && online) timer = setTimeout(tick, POLL_MS); }); };
+    // Canonical snapshots may render faster than POLL_MS. Keep the existing timer instead of postponing it forever.
+    if (online && !timer) timer = setTimeout(tick, POLL_MS);
   }
   return {render, reset};
 }

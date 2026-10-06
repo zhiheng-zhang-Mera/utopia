@@ -447,3 +447,4 @@ Object.assign(messages, {
 // (union) duplicate export default removed
 Object.assign(messages,{'scheduler.choice.explicitPrompt':'Choose how to continue this service','scheduler.choice.alternateDevice':'Keep this service and use another device','scheduler.choice.reason.TARGET_DEVICE_BOUND':'This service is bound to the selected device.','scheduler.choice.reason.ALTERNATE_NOT_AVAILABLE':'No eligible alternative device is available.','scheduler.choice.reason.NO_SWITCH_DECISION':'No device change is currently offered.'});
 export default { meta, messages };
+Object.assign(messages,{"dec.persistenceUnavailable":"Decision store unavailable: receipts are held in memory only and may be lost on restart."});

@@ -178,9 +178,10 @@ export function createDecisionOverlay({dir, tasks, fastModel = null, critic = nu
     renameSync(temporary, target);
     // Retention is applied to FILES as well as to the in-memory window, oldest first, and a failed prune is recorded
     // rather than thrown: the receipt that matters has already been written.
-    const files = readdirSync(receiptDir).filter(name => RECEIPT_FILE.test(name)).sort();
+    const files = readdirSync(receiptDir).filter(name => RECEIPT_FILE.test(name));
+    const keep = new Set([...receipts,row].sort((a,b)=>Date.parse(a.decidedAt)-Date.parse(b.decidedAt)).slice(-retentionLimit).map(entry=>entry.decisionId+'.json'));
     if (files.length > retentionLimit) {
-      for (const name of files.slice(0, files.length - retentionLimit)) {
+      for (const name of files.filter(name=>!keep.has(name)&&!broken.some(entry=>entry.file===name))) {
         try { rmSync(resolve(receiptDir, name)); retentionTruncated = true; } catch { noteFailure('DECISION_RETENTION_PRUNE_FAILED'); }
       }
     }
@@ -223,6 +224,7 @@ export function createDecisionOverlay({dir, tasks, fastModel = null, critic = nu
     const trace = [{stage: 'OBSERVATION', at: new Date(startedAt).toISOString(), detail: `trigger ${trigger.kind} from ${trigger.origin}`}];
     let outcome = null;
     let scored = null;
+    const resolverFailures = [];
 
     const rule = resolveByRule({kind: trigger.kind, task, priorFailures: priorFailuresFor(trigger.taskRef), node, retryBudget});
     if (rule && rule.boundary === true) {
@@ -239,15 +241,17 @@ export function createDecisionOverlay({dir, tasks, fastModel = null, critic = nu
       trace.push({stage: 'RULE', at: new Date(clock()).toISOString(), detail: 'no deterministic rule applied'});
       const input = {kind: trigger.kind, taskRef: trigger.taskRef, reason: trigger.reason, preState: task?.state ?? null, priorFailures: priorFailuresFor(trigger.taskRef)};
       const fast = await ask('FAST_MODEL', fastModel, input);
+      if(fast.code)resolverFailures.push(fast.code);
       trace.push({stage: 'FAST_MODEL', at: new Date(clock()).toISOString(), detail: `${fast.status}${fast.code ? `:${fast.code}` : ''}`});
       if (fast.status === 'RESOLVED') scored = fast.value;
       else {
         const review = await ask('CRITIC', critic, {...input, unresolvedBy: fast.status});
+        if(review.code)resolverFailures.push(review.code);
         trace.push({stage: 'CRITIC', at: new Date(clock()).toISOString(), detail: `${review.status}${review.code ? `:${review.code}` : ''}`});
         if (review.status === 'RESOLVED') scored = review.value;
         else outcome = {source: 'OWNER', action: 'OWNER_REQUIRED', confidence: null, reason: `no resolver could decide: ${fast.code ?? fast.status}`, escalated: true, escalationReason: fast.code ?? 'NO_RESOLVER', escalationTarget: 'OWNER', resolverFailures: [fast, review].filter(entry => entry.code).map(entry => entry.code)};
       }
-      if (scored) outcome = {source: scored.source, action: scored.action, confidence: scored.confidence, reason: scored.reason, escalated: false, escalationReason: null, escalationTarget: null};
+      if (scored) {const owner=scored.action==='OWNER_REQUIRED'||scored.action.startsWith('AWAIT_OWNER_');outcome = {source: scored.source, action: scored.action, confidence: scored.confidence, reason: scored.reason, escalated: owner, escalationReason: owner?'RESOLVER_REQUESTED_OWNER':null, escalationTarget: owner?'OWNER':null};}
     }
 
     const decidedAt = clock();
@@ -265,7 +269,7 @@ export function createDecisionOverlay({dir, tasks, fastModel = null, critic = nu
       confidenceReason: outcome.confidence === null ? 'NOT_AVAILABLE: a deterministic rule is not a probability and no resolver reported one' : null,
       queueWaitMs: Math.max(0, startedAt - enqueuedAt),
       decisionLatencyMs: Math.max(0, decidedAt - startedAt),
-      timeoutOrFallback: outcome.resolverFailures ?? [],
+      timeoutOrFallback: resolverFailures,
       escalationTarget: outcome.escalationTarget,
       escalationReason: outcome.escalationReason,
       ownerRequired: outcome.escalated === true,
@@ -309,7 +313,8 @@ export function createDecisionOverlay({dir, tasks, fastModel = null, critic = nu
       noteFailure(DECISION_CODES.QUEUE_FULL);
       // A full per-task queue is itself a decision fact: recorded, attributed, and NOT allowed to spill into other tasks.
       const rejected = {schemaVersion: 1, decisionId: id, taskRef, triggerEvent: {kind, origin: trigger.origin ?? 'SUBMITTED', eventId: trigger.eventId ?? null, eventSeq: trigger.eventSeq ?? null, eventType: trigger.eventType ?? null, reason: trigger.reason ?? null}, preState: taskFor(taskRef)?.state ?? null, postState: null, source: 'OWNER', action: 'OWNER_REQUIRED', confidence: null, confidenceReason: null, queueWaitMs: Math.max(0, clock() - enqueuedAt), decisionLatencyMs: 0, timeoutOrFallback: [DECISION_CODES.QUEUE_FULL], escalationTarget: 'OWNER', escalationReason: DECISION_CODES.QUEUE_FULL, ownerRequired: true, evidenceRefs: [], appliedBy: null, application: 'RECORDED_ONLY', applicationReason: 'NOT_APPLICABLE: this overlay owns no task writer and grants no authority', decisionTrace: [{stage: 'QUEUE', at: new Date(clock()).toISOString(), detail: `per-task queue depth ${queue.depth} reached the bound`}], decidedAt: new Date(clock()).toISOString()};
-      try { persist(rejected); } catch { /* reported through failures */ }
+      rejected.evidenceRefs=trigger.eventId?[{canonicalEventId:trigger.eventId,seq:trigger.eventSeq??null,source:'CANONICAL_GATEWAY_STORE',path:'/api/v0/events'}]:[];
+      try { persist(rejected); } catch(error) {const code=typeof error?.code==='string'?error.code:DECISION_CODES.RECEIPT_WRITE_FAILED;noteFailure(code);rejected.receiptFailure=code;}
       receipts.push(rejected);
       if (receipts.length > retentionLimit) { receipts = receipts.slice(-retentionLimit); retentionTruncated = true; }
       return {decisionId: id, queued: false, queueDepth: queue.depth, queueFull: true};
@@ -331,6 +336,7 @@ export function createDecisionOverlay({dir, tasks, fastModel = null, critic = nu
    */
   function observe(event) {
     try {
+      if(closed){noteFailure(DECISION_CODES.OVERLAY_CLOSED);return null;}
       observed += 1;
       if (!event || typeof event.type !== 'string') return null;
       const kind = TRIGGER_SOURCES[event.type];
@@ -343,7 +349,9 @@ export function createDecisionOverlay({dir, tasks, fastModel = null, critic = nu
         if (waiting.length === 0) return null;
         return submit({kind, taskRef: waiting[0].id, nodeRef, node: {online: false}, origin: 'CANONICAL_EVENT', eventId: event.id, eventSeq: event.seq, eventType: event.type, reason: `${waiting.length} task(s) were assigned to ${nodeRef}`});
       }
-      return submit({kind, taskRef, origin: 'CANONICAL_EVENT', eventId: event.id, eventSeq: event.seq, eventType: event.type, reason: null});
+      const target=event.type==='TASK_TARGET_WAITING'?event.payload:null;
+      const online=target?.targetState==='INELIGIBLE'||target?.targetState==='ELIGIBLE'?true:target?.targetState==='OFFLINE'?false:undefined;
+      return submit({kind, taskRef, nodeRef:target?.targetDeviceRef??null,node:target?{online}:null, origin: 'CANONICAL_EVENT', eventId: event.id, eventSeq: event.seq, eventType: event.type, reason: target?.reason??null});
     } catch (error) { noteFailure(error?.code ?? 'DECISION_OBSERVE_FAILED'); return null; }
   }
 

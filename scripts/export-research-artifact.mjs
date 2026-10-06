@@ -29,14 +29,46 @@ const get = async path => {
 const city = await get('city');
 const list = await get('research/campaigns');
 const receipts = [];
+// ONE UNREADABLE RECEIPT MUST NOT DESTROY THE WHOLE ARTIFACT. The listing above still names a receipt whose file
+// was corrupted, and the detail fetch for it threw at `get`, uncaught - so an export with one healthy campaign and
+// one corrupt receipt died with no artifact at all (measured: exit 0xC0000409, uncaught "GET ... answered 500").
+// This is the store-guard family's own rule applied to the reader: degrade, report the typed reason, keep serving.
+// The loss is named on stderr AND the exit code is non-zero, so a partial artifact can never read as a clean run.
+// NOT DONE HERE (stated rather than implied): the loss is not yet carried INSIDE the package, which would need the
+// artifact module to publish an `unreadableReceipts` section; until then a reader of the package alone still sees
+// only the campaigns that could be read.
+const unreadableReceipts = [];
 for (const entry of list.receipts ?? []) {
-  const detail = await get(`research/campaigns/${encodeURIComponent(entry.campaignId)}`);
-  if (detail.campaign) receipts.push(detail.campaign);
+  // The City already names an unreadable receipt with a typed reason and the file it could not parse:
+  //   {"file":"campaign-<uuid>.json","state":"UNREADABLE","reason":"RECEIPT_UNREADABLE"}
+  // MEASURED, and the reason my first repair printed "undefined": that entry has NO campaignId, so fetching its
+  // detail produced `GET research/campaigns/undefined answered 404`. Read the signal the listing already provides
+  // instead of inventing a lookup, and name the receipt by its file.
+  if (entry.state === 'UNREADABLE' || entry.reason === 'RECEIPT_UNREADABLE') {
+    unreadableReceipts.push({name: entry.file ?? entry.campaignId ?? '<unidentified receipt>', reason: entry.reason ?? 'RECEIPT_UNREADABLE'});
+    continue;
+  }
+  try {
+    const detail = await get(`research/campaigns/${encodeURIComponent(entry.campaignId)}`);
+    if (detail.campaign) receipts.push(detail.campaign);
+    else unreadableReceipts.push({name: entry.campaignId ?? entry.file ?? '<unidentified receipt>', reason: 'NO_CAMPAIGN_IN_DETAIL'});
+  } catch (error) {
+    unreadableReceipts.push({name: entry.campaignId ?? entry.file ?? '<unidentified receipt>', reason: String(error?.message ?? error).slice(0, 120)});
+  }
+}
+if (unreadableReceipts.length > 0) {
+  console.error(`unreadable receipts: ${unreadableReceipts.length} of ${(list.receipts ?? []).length} - this export describes only what could be read, and must not be mistaken for a smaller study:`);
+  for (const row of unreadableReceipts) console.error(`  ${row.name}  ${row.reason}`);
+  process.exitCode = 1;
 }
 if (receipts.length === 0) {
   console.error('no campaign receipt is readable from this City; an artifact with no real source is not worth exporting');
-  process.exit(1);
-}
+  // DEFECT REPAIR (Windows, measured): `process.exit(1)` here asserted in libuv - "!(handle->flags &
+  // UV_HANDLE_CLOSING), src/win/async.c" - because the fetch keep-alive handle from the listing above was still
+  // closing, so the process exited with 0xC0000409 and a caller could not tell a designed refusal from a crash.
+  // Both failure paths of this script are repaired in this branch; see the unreadable-receipt guard above.
+  process.exitCode = 1;
+} else {
 const experiments = [];
 for (const entry of list.experiments ?? []) {
   const id = entry.experimentId ?? entry;
@@ -89,3 +121,4 @@ const accounting = artifact.manifest.supporting.accounting;
 console.log(`accounting  planned=${accounting.planned} accounted=${accounting.accounted} measured=${accounting.measured} undelivered=${accounting.planned - accounting.accounted}${accounting.undeliveredCampaigns.length ? ' from ' + accounting.undeliveredCampaigns.map(entry => `${entry.reason}`).join(',') : ''}`);
 console.log(`exclusions  ${artifact.exclusions.length}`);
 console.log(`written     ${OUT} (${Object.keys(files).length + 1} files, checksums.json included)`);
+}

@@ -146,10 +146,15 @@ export function createDecisionOverlay({dir, tasks, fastModel = null, critic = nu
   let receipts = [];
   const queues = new Map();
   const failures = [];
+  // A BOUNDED LOG MUST SAY THAT IT IS BOUNDED. The list is capped at 16 entries; without a dropped counter, 16 failures
+  // and 16000 failures publish the SAME payload to snapshot() and metrics(), so a reader cannot tell a quiet overlay
+  // from a broken one. Finding F-S1 of this task's second adversarial pass, run against the failure classes that the
+  // opposite-host review of the sibling task MON-902 surfaced in this same programme.
+  let failuresDropped = 0;
   let observed = 0;
   let retentionTruncated = false;
 
-  const noteFailure = code => { failures.push({code: typeof code === 'string' && /^[A-Z0-9_]{1,80}$/.test(code) ? code : 'DECISION_OVERLAY_FAILURE', at: new Date(clock()).toISOString()}); if (failures.length > 16) failures.shift(); };
+  const noteFailure = code => { failures.push({code: typeof code === 'string' && /^[A-Z0-9_]{1,80}$/.test(code) ? code : 'DECISION_OVERLAY_FAILURE', at: new Date(clock()).toISOString()}); if (failures.length > 16) { failures.shift(); failuresDropped += 1; } };
 
   // Existing receipts are read back so a restart keeps the same history and the repeated-failure rule keeps counting.
   // An unreadable receipt is REPORTED, never fatal: the REX-804 review found a sibling module that turned one bad file
@@ -308,7 +313,9 @@ export function createDecisionOverlay({dir, tasks, fastModel = null, critic = nu
     if (queue.depth >= MAX_QUEUE_DEPTH) {
       noteFailure(DECISION_CODES.QUEUE_FULL);
       // A full per-task queue is itself a decision fact: recorded, attributed, and NOT allowed to spill into other tasks.
-      const rejected = {schemaVersion: 1, decisionId: id, taskRef, triggerEvent: {kind, origin: trigger.origin ?? 'SUBMITTED', eventId: trigger.eventId ?? null, eventSeq: trigger.eventSeq ?? null, eventType: trigger.eventType ?? null, reason: trigger.reason ?? null}, preState: taskFor(taskRef)?.state ?? null, postState: null, source: 'OWNER', action: 'OWNER_REQUIRED', confidence: null, confidenceReason: null, queueWaitMs: Math.max(0, clock() - enqueuedAt), decisionLatencyMs: 0, timeoutOrFallback: [DECISION_CODES.QUEUE_FULL], escalationTarget: 'OWNER', escalationReason: DECISION_CODES.QUEUE_FULL, ownerRequired: true, evidenceRefs: [], appliedBy: null, application: 'RECORDED_ONLY', applicationReason: 'NOT_APPLICABLE: this overlay owns no task writer and grants no authority', decisionTrace: [{stage: 'QUEUE', at: new Date(clock()).toISOString(), detail: `per-task queue depth ${queue.depth} reached the bound`}], decidedAt: new Date(clock()).toISOString()};
+      const rejected = {schemaVersion: 1, decisionId: id, taskRef, triggerEvent: {kind, origin: trigger.origin ?? 'SUBMITTED', eventId: trigger.eventId ?? null, eventSeq: trigger.eventSeq ?? null, eventType: trigger.eventType ?? null, reason: trigger.reason ?? null}, preState: taskFor(taskRef)?.state ?? null, postState: null, source: 'OWNER', action: 'OWNER_REQUIRED', confidence: null, confidenceReason: null, queueWaitMs: Math.max(0, clock() - enqueuedAt), // NOT a measurement: the trigger was refused before decide() ran, so no latency exists. Writing 0 here made a
+      // refused decision read like an instantaneous one. Finding F-S2 of this task's second adversarial pass.
+      decisionLatencyMs: null, decisionLatencyReason: 'NOT_OBSERVABLE: the trigger was refused at the queue bound before any decision was made', timeoutOrFallback: [DECISION_CODES.QUEUE_FULL], escalationTarget: 'OWNER', escalationReason: DECISION_CODES.QUEUE_FULL, ownerRequired: true, evidenceRefs: [], appliedBy: null, application: 'RECORDED_ONLY', applicationReason: 'NOT_APPLICABLE: this overlay owns no task writer and grants no authority', decisionTrace: [{stage: 'QUEUE', at: new Date(clock()).toISOString(), detail: `per-task queue depth ${queue.depth} reached the bound`}], decidedAt: new Date(clock()).toISOString()};
       try { persist(rejected); } catch { /* reported through failures */ }
       receipts.push(rejected);
       if (receipts.length > retentionLimit) { receipts = receipts.slice(-retentionLimit); retentionTruncated = true; }
@@ -351,8 +358,14 @@ export function createDecisionOverlay({dir, tasks, fastModel = null, critic = nu
   function snapshot(limit = 50) {
     const size = Number.isInteger(limit) && limit > 0 && limit <= retentionLimit ? limit : 50;
     const rows = [...receipts].slice(-size).reverse().map(copy);
-    const window = receipts.length === 0 ? {firstSeq: null, lastSeq: null} : {firstSeq: receipts[0].triggerEvent?.eventSeq ?? null, lastSeq: receipts.at(-1)?.triggerEvent?.eventSeq ?? null};
-    return {schemaVersion: 1, authoritative: false, persistence: persistenceState, persistenceReason, decisions: rows, retained: receipts.length, retainedLimit: retentionLimit, retentionTruncated, broken, failures: copy(failures), observedEvents: observed, window, unsupportedSources: ['model/provider identity (a resolver is a seam, not an identified model)', 'hidden reasoning (never requested, never stored)']};
+    // WHAT THIS WINDOW IS A WINDOW OVER. firstSeq/lastSeq are the sequence numbers of the canonical events that HAPPENED
+    // TO BE DECISION TRIGGERS; they are not a continuous span of the canonical stream, and reading them as one would
+    // suggest everything in between was examined. Saying so explicitly, and naming the high-water mark as absent rather
+    // than leaving it out, is finding F-S4 of this task's second adversarial pass.
+    const window = receipts.length === 0
+      ? {over: 'TRIGGER_EVENTS', firstSeq: null, lastSeq: null, triggerEvents: 0, observedEvents: observed, canonicalHighWatermark: null, canonicalHighWatermarkReason: 'NOT_OBSERVABLE: this overlay is handed individual events and never reads the canonical stream itself'}
+      : {over: 'TRIGGER_EVENTS', note: 'firstSeq/lastSeq span the canonical events that were DECISION TRIGGERS, not every canonical event; non-trigger events are deliberately not decisions', firstSeq: receipts[0].triggerEvent?.eventSeq ?? null, lastSeq: receipts.at(-1)?.triggerEvent?.eventSeq ?? null, triggerEvents: receipts.length, observedEvents: observed, canonicalHighWatermark: null, canonicalHighWatermarkReason: 'NOT_OBSERVABLE: this overlay is handed individual events and never reads the canonical stream itself'};
+    return {schemaVersion: 1, authoritative: false, persistence: persistenceState, persistenceReason, decisions: rows, retained: receipts.length, retainedLimit: retentionLimit, retentionTruncated, broken, failures: copy(failures), failuresDropped, observedEvents: observed, window, unsupportedSources: ['model/provider identity (a resolver is a seam, not an identified model)', 'hidden reasoning (never requested, never stored)']};
   }
 
   /** Metrics for the research protocol. A number is only reported where it was actually counted. */
@@ -361,11 +374,24 @@ export function createDecisionOverlay({dir, tasks, fastModel = null, critic = nu
     const bySource = Object.fromEntries(DECISION_SOURCES.map(source => [source, receipts.filter(row => row.source === source).length]));
     const ownerRequired = receipts.filter(row => row.ownerRequired).length;
     const timeouts = receipts.filter(row => (row.timeoutOrFallback ?? []).some(code => code === DECISION_CODES.RESOLVER_TIMEOUT)).length;
+    // `decisionLatencyMs` is null on a trigger that was refused at the queue bound, so it must not be counted as a zero.
     const latencies = receipts.map(row => row.decisionLatencyMs).filter(value => Number.isFinite(value));
     const waits = receipts.map(row => row.queueWaitMs).filter(value => Number.isFinite(value));
     const mean = values => (values.length === 0 ? null : Math.round(values.reduce((totalValue, value) => totalValue + value, 0) / values.length));
     return {
       decisions: total,
+      // A HEADLINE RATE OVER A TRUNCATED SAMPLE MUST SAY SO. snapshot() already published retained/retainedLimit/
+      // retentionTruncated; metrics() did not, so a reader of the metrics surface alone could take
+      // autoResolutionRate at face value while the window behind it had been cut. Finding F-S3 of this task's second
+      // adversarial pass.
+      retained: total,
+      retainedLimit: retentionLimit,
+      retentionTruncated,
+      windowNote: retentionTruncated
+        ? `RATE IS OVER A TRUNCATED WINDOW: the most recent ${total} decisions of a longer history (limit ${retentionLimit}).`
+        : `Rate is over the whole retained window (${total} of a limit of ${retentionLimit}).`,
+      latencySamples: latencies.length,
+      latencyNotObservable: total - latencies.length,
       bySource,
       ownerRequired,
       autoResolved: total - ownerRequired,
@@ -383,6 +409,7 @@ export function createDecisionOverlay({dir, tasks, fastModel = null, critic = nu
       persistence: persistenceState,
       persistenceReason,
       resolverFailures: copy(failures),
+      resolverFailuresDropped: failuresDropped,
       unsupportedSources: ['wrong auto-decision and repair (requires an independent judge, not this overlay)', 'confidence versus final review outcome (no resolver is configured in this City)'],
     };
   }

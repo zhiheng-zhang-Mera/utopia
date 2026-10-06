@@ -14,6 +14,8 @@ import assert from 'node:assert/strict';
 import {mkdtemp, rm} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {createDecisionOverlay} from '../services/dev-gateway/decision.mjs';
+import {createGateway} from '../services/dev-gateway/server.mjs';
+import {chromium} from 'playwright';
 
 const withOverlay = async (options, fn) => {
   const dir = await mkdtemp(resolve('.scratch-mon903-sweep-'));
@@ -104,4 +106,32 @@ test('MON903 sweep positive control: a well-formed decision is still recorded, r
     assert.equal(snapshot.failures.length, 0);
     assert.equal(overlay.persistAndCheck?.(), undefined);
   });
+});
+
+test('MON903 sweep L4: the surface renders a decision with NO measured latency as not-measured, not as a number', async () => {
+  // L4 of the inherited classes: a suite that only feeds well-formed input cannot detect a false-safe output. This probe
+  // renders the real component with a payload the module can genuinely produce (a queue-full rejection), so the UI half
+  // of F-S2 is covered by a measurement rather than by reading the source.
+  const dir = await mkdtemp(resolve('.scratch-mon903-sweep-'));
+  const app = await createGateway({dir, port: 0, token: 'sweep', nodeToken: 'sweep-node', roomsDisabled: true});
+  const browser = await chromium.launch({channel: process.platform === 'win32' ? 'msedge' : undefined, headless: true});
+  try {
+    const page = await browser.newPage({locale: 'en-US'});
+    await page.goto(app.url);
+    const rendered = await page.evaluate(async () => {
+      const {createMonitorDecisionsView} = await import('/monitor-decisions.js');
+      const payload = {
+        window: {decisions: [{decisionId: 'decision-00000000-0000-0000-0000-000000000001', triggerEvent: {kind: 'RESOURCE_CONFLICT'}, taskRef: 'busy', source: 'OWNER', action: 'OWNER_REQUIRED', ownerRequired: true, decisionLatencyMs: null, decisionLatencyReason: 'NOT_OBSERVABLE: refused at the queue bound', queueWaitMs: 0, evidenceRefs: []}], failures: [], failuresDropped: 0, unsupportedSources: []},
+        metrics: {decisions: 1, ownerRequired: 1, autoResolved: 0, autoResolutionRate: 0, timeouts: 0, unrelatedTaskBlocking: 'ABSENT_BY_CONSTRUCTION', concurrentDecisionTasks: 0},
+      };
+      const host = document.createElement('div');
+      document.body.append(host);
+      const view = createMonitorDecisionsView();
+      view.render(host, {contextKey: 'sweep', online: true, api: async () => payload, isCurrent: () => true});
+      await new Promise(r => setTimeout(r, 0));
+      return {latencyCell: host.querySelector('[data-decision] td:nth-child(6)')?.textContent ?? null, text: host.textContent};
+    });
+    assert.equal(rendered.latencyCell, 'NOT_MEASURED', 'an unmeasured latency must render as not-measured, never as a number');
+    assert.ok(!rendered.text.includes('NOT_OBSERVABLE: refused at the queue bound'), 'and the raw reason belongs in provenance, not in the table cell');
+  } finally { await browser.close(); await app.close(); await rm(dir, {recursive: true, force: true}); }
 });

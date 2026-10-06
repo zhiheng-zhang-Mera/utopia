@@ -29,7 +29,12 @@ export function createBridge(store,emit,{execute,artifactRoot}={}){
   emit('CAPABILITY_FAILED',null,{invocationId:row.invocationId,errorCode:'GATEWAY_RESTARTED'});
  }
  const artifacts=artifactRoot?createThemeArtifacts(artifactRoot):null;
- return {registry:descriptors,list:history.list,get:history.get,
+ // The theme-artifact store is created during City construction. When its root cannot be prepared the store
+ // reports UNAVAILABLE and every theme-lab build fails typed instead of the City refusing to start; this accessor
+ // is how that state reaches health and the capability surface. `NOT_CONFIGURED` means no artifact root was wired
+ // at all, which is a deployment choice, not a fault - hence its own word rather than a fake READY.
+ const artifactStore=()=>({state:artifacts?artifacts.state():'NOT_CONFIGURED',reason:artifacts?artifacts.reason():null});
+ return {registry:descriptors,list:history.list,get:history.get,artifactStore,
  async invoke(capabilityId,request){
   objectInput(request);const descriptor=descriptors().find(c=>c.capabilityId===capabilityId);if(!descriptor)refuse('CAPABILITY_NOT_FOUND',404);
   if(descriptor.bridgeState!=='AVAILABLE')refuse('BRIDGE_PENDING',409);

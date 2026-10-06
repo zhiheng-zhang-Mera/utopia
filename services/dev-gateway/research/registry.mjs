@@ -56,7 +56,19 @@ const freeze = value => {
 export function createExperimentRegistry({ dir, knownCapabilities = [], knownTopologies, now = () => new Date().toISOString() } = {}) {
   if (typeof dir !== 'string' || dir.trim().length === 0) throw new ExperimentManifestError('INVALID_MANIFEST', 'the experiment registry needs a directory');
   const root = resolve(dir);
-  mkdirSync(root, { recursive: true });
+  // A DOCUMENT STORE THE CITY CANNOT CREATE IS DEGRADED, NOT FATAL. This constructor used to call mkdirSync unguarded,
+  // so a single stray file where `<runtime>/research` or `<runtime>/research/experiments` belongs made createGateway
+  // throw and the City never started - measured on 2026-10-06 against the merged main (both paths: ENOTDIR and EEXIST).
+  // The same shape was found in this programme three times (REX-804 review finding B1, MON-903 self-test M-1, REX-803
+  // self-test R-1), and each time the repair is the same: keep serving, report a typed reason, never throw at a caller.
+  let storeState = 'READY';
+  let storeReason = null;
+  try {
+    mkdirSync(root, { recursive: true });
+  } catch (error) {
+    storeState = 'UNAVAILABLE';
+    storeReason = String(error?.code ?? error?.message ?? 'REGISTRY_STORE_UNAVAILABLE').slice(0, 120);
+  }
 
   const pathOf = experimentId => join(root, `${experimentId}.json`);
 
@@ -64,11 +76,20 @@ export function createExperimentRegistry({ dir, knownCapabilities = [], knownTop
    * Read every stored experiment. A file that cannot be parsed, or whose name is not an experiment id, is
    * REPORTED as a broken record rather than skipped: silently ignoring it would make a missing experiment look
    * like an experiment that was never created, which is the same mistake class as a silently repaired manifest.
+   * A store that cannot be LISTED is reported the same way rather than thrown at the caller.
    */
   function readAll() {
     const records = [];
     const broken = [];
-    for (const name of readdirSync(root).sort()) {
+    if (storeState !== 'READY') return { records, broken: [...broken, freeze({ file: '<store>', reason: `UNLISTABLE:${storeReason}` })] };
+    let names = [];
+    try { names = readdirSync(root).sort(); }
+    catch (error) {
+      storeState = 'UNAVAILABLE';
+      storeReason = String(error?.code ?? error?.message ?? 'REGISTRY_STORE_UNAVAILABLE').slice(0, 120);
+      return { records, broken: [freeze({ file: '<store>', reason: `UNLISTABLE:${storeReason}` })] };
+    }
+    for (const name of names) {
       const match = RECORD_FILE.exec(name);
       if (!match) { if (name !== '.gitkeep') broken.push(freeze({ file: name, reason: 'FILE_NAME_IS_NOT_AN_EXPERIMENT_ID' })); continue; }
       try {
@@ -88,13 +109,24 @@ export function createExperimentRegistry({ dir, knownCapabilities = [], knownTop
     try { return JSON.parse(readFileSync(path, 'utf8')); } catch { return null; }
   };
 
-  /** Atomic write: a crash mid-write leaves the previous document, never a truncated one. */
+  /**
+   * Atomic write: a crash mid-write leaves the previous document, never a truncated one. A store that cannot be
+   * written returns `null` so the caller can report `persisted: false` instead of failing the request - an experiment
+   * that was validated but could not be filed is a stated fact, not a 500.
+   */
   function write(record) {
-    const target = pathOf(record.experimentId);
-    const temp = `${target}.tmp`;
-    writeFileSync(temp, JSON.stringify(record, null, 2), { encoding: 'utf8' });
-    renameSync(temp, target);
-    return record;
+    if (storeState !== 'READY') return null;
+    try {
+      const target = pathOf(record.experimentId);
+      const temp = `${target}.tmp`;
+      writeFileSync(temp, JSON.stringify(record, null, 2), { encoding: 'utf8' });
+      renameSync(temp, target);
+      return record;
+    } catch (error) {
+      storeState = 'UNAVAILABLE';
+      storeReason = String(error?.code ?? error?.message ?? 'REGISTRY_STORE_UNAVAILABLE').slice(0, 120);
+      return null;
+    }
   }
 
   /** Canonical serialisation: key order must not decide whether two manifests are the same manifest. */
@@ -125,7 +157,7 @@ export function createExperimentRegistry({ dir, knownCapabilities = [], knownTop
       if (prior?.status === 'VALIDATED') throw new ExperimentManifestError('IMMUTABLE_MANIFEST', `experiment ${rejected.experimentId} is already registered as a valid manifest; a rejection may not replace it`);
       if (prior?.status === 'REJECTED' && prior.inputDigest === rejected.inputDigest) return { record: freeze(prior), verdict, replayed: true, persisted: true };
       write(rejected);
-      return { record: freeze(rejected), verdict, replayed: false, persisted: true };
+      return { record: freeze(rejected), verdict, replayed: false, persisted: storeState === 'READY', ...(storeState === 'READY' ? {} : { persistFailure: storeReason }) };
     }
 
     const prior = find(verdict.manifest.experimentId);
@@ -144,7 +176,7 @@ export function createExperimentRegistry({ dir, knownCapabilities = [], knownTop
       issues: [],
     };
     write(record);
-    return { record: freeze(record), verdict, replayed: false, persisted: true };
+    return { record: freeze(record), verdict, replayed: false, persisted: storeState === 'READY', ...(storeState === 'READY' ? {} : { persistFailure: storeReason }) };
   }
 
   /** Validate without registering. This is the "validate before run" entry. */
@@ -187,8 +219,10 @@ export function createExperimentRegistry({ dir, knownCapabilities = [], knownTop
           softwareRefs: record.manifest?.softwareRefs ?? freeze([]),
           issueCount: (record.issues ?? []).length,
         }))),
-      // Broken files are surfaced, never hidden.
+      // Broken files are surfaced, never hidden - and so is a store the City cannot list at all.
       broken,
+      storeState,
+      storeReason,
     });
   }
 

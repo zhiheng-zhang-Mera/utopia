@@ -92,7 +92,7 @@ class CityClient(context: Context, private val host: String, token: String, priv
       val raw = response.body?.string() ?: "{}"
    // UNION: every widened typed-refusal path is kept - capabilities/invocations (base), research/trace (REX-802),
    // the scheduler switch-declined route (CEX-702) and the member-management device routes (CEX-705).
-   if (!response.isSuccessful && (path.startsWith("capabilities/") || path.startsWith("capability-invocations/") || path=="research/trace" || path.endsWith("/switch-declined") || path.startsWith("device/installations"))) {
+   if (!response.isSuccessful && (path.startsWith("capabilities/") || path.startsWith("capability-invocations/") || path=="research/trace" || path.endsWith("/switch-declined") || path.startsWith("device/installations") || path.startsWith("members/messages") || path.startsWith("join/requests") || path.startsWith("pairing/") || path=="node/sharing" || path=="city/name")) {
     val error = runCatching { JSONObject(raw) }.getOrNull()
 throw CapabilityRequestException(error?.optString("errorCode")?.takeIf { it.isNotBlank() } ?: "HTTP_${response.code}",response.code,error?.optString("error")?.takeIf { it.isNotBlank() } ?: "Request failed: ${response.code}")
    }

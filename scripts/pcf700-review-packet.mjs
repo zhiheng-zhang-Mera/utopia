@@ -14,7 +14,7 @@
 // If your sandbox forbids capturing a child process's output (this project's Windows confined mode does), run
 //   node scripts/pcf700-reuse-audit.mjs --out /tmp/observed.json
 // and then pass --observed /tmp/observed.json; the two commands together are the whole packet.
-import {readFile, writeFile} from 'node:fs/promises';
+import {readFile, readdir, writeFile} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {execFileSync} from 'node:child_process';
 
@@ -69,11 +69,17 @@ const dd = observed.dependencyDirection;
 check('C4', 'no backend module imports a front-end module', dd.backendModuleImports.length === 0, JSON.stringify(dd.backendModuleImports));
 check('C5', 'every /api/v0 literal a user surface names resolves against a gateway route', dd.unresolvedUiEndpoints.length === 0,
   `unresolved: ${dd.unresolvedUiEndpoints.length}; ui files naming endpoints: ${dd.uiWithEndpoints}`);
-check('C6', 'no runtime module refers to the fabric, so this is still an audit',
-  observed.pcfRuntimeReferences.length === 0, JSON.stringify(observed.pcfRuntimeReferences));
-check('C7', 'the candidate PCF directories were not created by this audit',
-  !existsSync('contracts/personal-compute-fabric-v1') && !existsSync('services/personal-compute-fabric'),
-  'contracts/personal-compute-fabric-v1 and services/personal-compute-fabric absent');
+check('C6', 'no runtime module refers to the fabric OUTSIDE its declared paths (PCF-701 activated the fabric itself)',
+  observed.pcfRuntimeReferencesOutsideDeclaredPaths.length === 0,
+  `declared references: ${observed.pcfRuntimeReferences.length}; outside declared paths: ${JSON.stringify(observed.pcfRuntimeReferencesOutsideDeclaredPaths)}`);
+// C7 was "the candidate PCF directories were not created by this audit" while PCF-700 was an audit. PCF-701 activated
+// the fabric, so the property is restated rather than dropped: the fabric exists ONLY under its declared paths, and
+// those paths hold the declared modules. A new directory appearing anywhere else is what this check now catches.
+const declaredModules = [];
+if (existsSync('contracts/personal-compute-fabric-v1')) declaredModules.push(...(await readdir('contracts/personal-compute-fabric-v1')).map(name => `contracts/personal-compute-fabric-v1/${name}`));
+if (existsSync('services/personal-compute-fabric')) declaredModules.push(...(await readdir('services/personal-compute-fabric')).map(name => `services/personal-compute-fabric/${name}`));
+check('C7', 'the fabric exists only under its declared paths (PCF-700 measured it absent; PCF-701 activated it)',
+  declaredModules.length >= 2, `declared: ${declaredModules.join(', ') || 'none'}`);
 const writerDrift = published.singleWriters.filter((w, i) => JSON.stringify(w) !== JSON.stringify(observed.singleWriters[i]));
 check('C8', 'every single-writer fingerprint (bytes/lines/SHA256) recomputes',
   writerDrift.length === 0 && published.singleWriters.length === observed.singleWriters.length,

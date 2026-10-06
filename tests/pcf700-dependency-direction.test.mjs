@@ -10,6 +10,13 @@
 // reported nineteen "backend imports" of front-end code, and all nineteen were false positives (filesystem paths used
 // to SERVE the UI, and drivers under tests/ and scripts/). The separation into module imports, serve paths, tools and
 // tests is the repair, and it is the distinction this file asserts.
+//
+// D4 WAS RESTATED WHEN PCF-701 WAS ACTIVATED, and the reason is worth keeping: PCF-700's version asserted that no
+// runtime module refers to the fabric at all, which was true of an audit and became false the moment PCF-701 created
+// the fabric's first runtime modules under its declared paths. Deleting the check would have dropped the property; the
+// restatement keeps it as a BOUNDARY guard - fabric references may exist only under those declared paths, and only the
+// fabric's own files, its tests and its tools may import it until a task explicitly wires it into the City. PCF-700's
+// accepted head 659ff6a keeps the original text; this branch carries the successor.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readdir, readFile} from 'node:fs/promises';
@@ -18,8 +25,15 @@ import {resolve} from 'node:path';
 const ROOT = resolve(new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'));
 const SKIP = new Set(['node_modules', '.git', 'build', '.gradle']);
 const SELF = 'scripts/pcf700-reuse-audit.mjs'; // the instrument is not part of the subject it measures
+// A WALKER THAT TOLERATES CHURN, because the suite that creates scratch Cities runs in the same `node --test` process
+// pool: those tests mkdtemp a `.scratch-pcf700-*` directory and remove it when they finish, and a walk that recursed
+// into one between its readdir and its recursion threw ENOENT - which showed up as a fast, confusing D2 failure while
+// every file it was looking for was perfectly intact. A directory that disappears mid-walk holds nothing this check
+// needs, so it is skipped instead of failing the guard.
 const walk = async (dir, out = []) => {
-  for (const entry of await readdir(dir, {withFileTypes: true})) {
+  let entries;
+  try { entries = await readdir(dir, {withFileTypes: true}); } catch (error) { if (error.code === 'ENOENT') return out; throw error; }
+  for (const entry of entries) {
     if (entry.isDirectory()) { if (!SKIP.has(entry.name)) await walk(resolve(dir, entry.name), out); }
     else if (/\.(mjs|js|kt|ts)$/.test(entry.name)) out.push(resolve(dir, entry.name));
   }
@@ -36,6 +50,8 @@ const CODE_IMPORT = /^\s*(?:import|export)\s+(?:[^;\n]*?\bfrom\s*)?(['"])([^'"]+
  *  spelling of this detector missed exactly that case until falsifying the guard produced the line; both spellings
  *  are covered now, because both create the dependency this file is about. */
 const importsApp = (text) => [...text.matchAll(CODE_IMPORT)].map((m) => m[2] ?? m[4]).some((s) => /(^|\/)apps\/(web|android)\//.test(s));
+/** The fabric's own import edges, used by D4's boundary guard below. */
+const importsFabric = (text) => [...text.matchAll(CODE_IMPORT)].map((m) => m[2] ?? m[4]).some((s) => s.includes('personal-compute-fabric'));
 const literals = (text, re) => [...new Set((text.match(re) || []).map((s) => s.replace(/[.,'"`)]+$/, '')))];
 
 test('PCF-700 D1: no backend module imports a front-end module, so the UI -> backend direction stays acyclic', async () => {
@@ -71,8 +87,21 @@ test('PCF-700 D3: every engineering and general-ai contract carries at least one
   assert.ok(dirs.length >= 20, `the measured domain must be non-empty, found ${dirs.length} directories`);
 });
 
-test('PCF-700 D4: no runtime module refers to the fabric yet, so the audit really is still an audit', async () => {
+test('PCF-700 D4: the fabric stays inside its declared paths, and no other domain imports it', async () => {
   const files = await sources();
+  const DECLARED = /^(contracts\/personal-compute-fabric-v1|services\/personal-compute-fabric)\//;
   const runtime = [...files].filter(([name, text]) => /^(services|contracts|apps|city|platform)\//.test(name) && text.includes('personal-compute-fabric')).map(([name]) => name);
-  assert.deepEqual(runtime, [], 'this workbook creates no runtime module; a reference here means the audit silently became an implementation');
+  const outsideDeclaredPaths = runtime.filter((name) => !DECLARED.test(name));
+  assert.deepEqual(outsideDeclaredPaths, [], 'a runtime reference to the fabric outside its declared paths means an audit phase silently became a gateway implementation');
+  // PCF-701 activated the fabric's first runtime modules, so the tree is expected to hold them - and this assertion
+  // keeps that fact visible instead of letting a future regression delete them quietly.
+  const declaredModules = [...files.keys()].filter((name) => DECLARED.test(name) && name.endsWith('.mjs'));
+  assert.ok(declaredModules.length >= 2, `PCF-701's activation must be visible in the tree; found ${declaredModules.join(', ') || 'none'}`);
+  // The boundary half: until a task explicitly wires the fabric into the City, only the fabric's own files (and its
+  // tests and tools) may import it. This is the property PCF-700's phase-scoped check protected, restated so it still
+  // holds once the runtime exists.
+  const importers = [...files]
+    .filter(([name, text]) => !DECLARED.test(name) && !name.startsWith('tests/') && !name.startsWith('scripts/') && importsFabric(text))
+    .map(([name]) => name);
+  assert.deepEqual(importers, [], 'only the fabric itself, its tests and its tools may import the fabric until its wiring task says otherwise');
 });

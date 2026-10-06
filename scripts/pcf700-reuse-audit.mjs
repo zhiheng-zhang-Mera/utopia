@@ -19,7 +19,10 @@ const OUT = process.argv.includes('--out') ? process.argv[process.argv.indexOf('
 const read = (p) => readFile(p, 'utf8');
 const exists = async (p) => { try { await stat(p); return true } catch { return false; } };
 const walk = async (dir, skip, out = []) => {
-  for (const e of (await readdir(dir, { withFileTypes: true })).sort((a, b) => (a.name < b.name ? -1 : 1))) {
+  let entries;
+  // Churn-tolerant for the same reason as the guard suite: another test may remove a scratch directory mid-walk.
+  try { entries = await readdir(dir, {withFileTypes: true}); } catch (error) { if (error.code === 'ENOENT') return out; throw error; }
+  for (const e of entries.sort((a, b) => (a.name < b.name ? -1 : 1))) {
     if (e.isDirectory()) { if (skip.includes(e.name)) continue; await walk(path.join(dir, e.name), skip, out); }
     else out.push(path.join(dir, e.name));
   }
@@ -121,7 +124,13 @@ for (const [file, role] of canonical) {
   const bytes = Buffer.from(text.get(file), 'utf8');
   singleWriters.push({ file, role, bytes: bytes.length, lines: text.get(file).split('\n').length, sha256: createHash('sha256').update(bytes).digest('hex') });
 }
+// PCF-700's phase claim was "no runtime module refers to the fabric yet". PCF-701 activated the fabric's first runtime
+// modules under its declared paths, so the audit now reports BOTH numbers: every runtime reference, and the ones that
+// fall outside the declared paths (which would mean the fabric leaked into another domain). The property survives the
+// activation instead of being deleted; see the successor guard PCF-700 D4 in tests/pcf700-dependency-direction.test.mjs.
+const PCF_DECLARED_PATHS = /^(contracts\/personal-compute-fabric-v1|services\/personal-compute-fabric)\//;
 const pcfRuntimeReferences = files.filter((f) => /^(services|contracts|apps|city|platform)\//.test(f) && text.get(f).includes('personal-compute-fabric'));
+const pcfRuntimeReferencesOutsideDeclaredPaths = pcfRuntimeReferences.filter((f) => !PCF_DECLARED_PATHS.test(f));
 
 const report = {
   measuredAt: { host: process.env.COMPUTERNAME || 'unknown', node: process.version, head: 'see report HEAD_SHA' },
@@ -140,6 +149,7 @@ const report = {
   uiEndpoints,
   singleWriters,
   pcfRuntimeReferences,
+  pcfRuntimeReferencesOutsideDeclaredPaths,
 };
 const rendered = JSON.stringify(report, null, 2) + '\n';
 if (OUT) await writeFile(OUT, rendered, 'utf8');

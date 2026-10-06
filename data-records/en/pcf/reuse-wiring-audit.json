@@ -4,7 +4,7 @@
     "node": "v24.14.0",
     "head": "see report HEAD_SHA"
   },
-  "contractDirectoryCount": 49,
+  "contractDirectoryCount": 50,
   "domains": {
     "EM_ENGINEERING": [
       {
@@ -676,5 +676,8 @@
       "sha256": "5c64f0020995aa4256676054ce684dce83e5f10d27d126615b916d25075caa7b"
     }
   ],
-  "pcfRuntimeReferences": []
+  "pcfRuntimeReferences": [
+    "services/personal-compute-fabric/telemetry.mjs"
+  ],
+  "pcfRuntimeReferencesOutsideDeclaredPaths": []
 }

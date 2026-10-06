@@ -1,17 +1,17 @@
 {
-  "sourceSha": "08952928cddd620f1d65c08668a470b7bab2c134",
+  "sourceSha": "ae73d9d0d82ee03a29ec8d783405aa82002934fa",
   "host": "MERA-ALIANWARE",
-  "measuredAt": "2026-10-06T04:54:12.677Z",
+  "measuredAt": "2026-10-06T05:03:23.000Z",
   "fixture": "REAL_ISOLATED_GATEWAY_CANONICAL_STORE",
   "surface": "HEADLESS_EDGE_WEB",
-  "cityId": "af0ca23f-82e6-4852-bdd3-b9eeb169afcd",
+  "cityId": "ba1f280b-3cf2-48ce-bc07-0c8518f6c019",
   "canonicalTask": {
-    "id": "Q-004e274c-d51e-4510-87e1-f4688d34f261",
+    "id": "Q-1c7f3bcd-e1c7-465d-a7aa-4b91910b07af",
     "type": "WAIT",
     "domain": "system",
     "state": "FAILED",
-    "createdAt": "2026-10-06T04:54:11.570Z",
-    "updatedAt": "2026-10-06T04:54:11.587Z",
+    "createdAt": "2026-10-06T05:03:21.826Z",
+    "updatedAt": "2026-10-06T05:03:21.843Z",
     "assignedNodeId": "capture-node",
     "progress": 60,
     "lastCheckpoint": null,
@@ -26,8 +26,8 @@
     "decisions": [
       {
         "schemaVersion": 1,
-        "decisionId": "decision-98254828-f348-4243-8227-1b96928bd872",
-        "taskRef": "Q-004e274c-d51e-4510-87e1-f4688d34f261",
+        "decisionId": "decision-263cf851-6e7e-42fc-aa94-8e9152ab14a0",
+        "taskRef": "Q-1c7f3bcd-e1c7-465d-a7aa-4b91910b07af",
         "triggerEvent": {
           "kind": "SCOPE_CHANGE",
           "origin": "SUBMITTED",
@@ -42,8 +42,8 @@
         "action": "OWNER_REQUIRED",
         "confidence": null,
         "confidenceReason": "NOT_AVAILABLE: a deterministic rule is not a probability and no resolver reported one",
-        "queueWaitMs": 2,
-        "decisionLatencyMs": 1,
+        "queueWaitMs": 3,
+        "decisionLatencyMs": 0,
         "timeoutOrFallback": [],
         "escalationTarget": "OWNER",
         "escalationReason": "OWNER_BOUNDARY_KIND",
@@ -55,26 +55,26 @@
         "decisionTrace": [
           {
             "stage": "OBSERVATION",
-            "at": "2026-10-06T04:54:11.596Z",
+            "at": "2026-10-06T05:03:21.853Z",
             "detail": "trigger SCOPE_CHANGE from SUBMITTED"
           },
           {
             "stage": "RULE",
-            "at": "2026-10-06T04:54:11.597Z",
+            "at": "2026-10-06T05:03:21.853Z",
             "detail": "owner boundary: no resolver consulted"
           }
         ],
-        "decidedAt": "2026-10-06T04:54:11.597Z",
+        "decidedAt": "2026-10-06T05:03:21.853Z",
         "brokerNote": "decision recorded by the MON-903 overlay; canonical task state remains the City's own"
       },
       {
         "schemaVersion": 1,
-        "decisionId": "decision-63715ac7-dd92-482d-bf6e-b3178505bc7d",
-        "taskRef": "Q-004e274c-d51e-4510-87e1-f4688d34f261",
+        "decisionId": "decision-fbe798de-442d-41f8-9104-ebff276e9cb7",
+        "taskRef": "Q-1c7f3bcd-e1c7-465d-a7aa-4b91910b07af",
         "triggerEvent": {
           "kind": "FAILED",
           "origin": "CANONICAL_EVENT",
-          "eventId": "30df4b00-9074-4d29-ba02-4eb490cc9eac",
+          "eventId": "3fffce2d-5623-4949-8e9a-b0ed6a2b6b1e",
           "eventSeq": 7,
           "eventType": "TASK_FAILED",
           "reason": null
@@ -93,7 +93,7 @@
         "ownerRequired": false,
         "evidenceRefs": [
           {
-            "canonicalEventId": "30df4b00-9074-4d29-ba02-4eb490cc9eac",
+            "canonicalEventId": "3fffce2d-5623-4949-8e9a-b0ed6a2b6b1e",
             "seq": 7,
             "source": "CANONICAL_GATEWAY_STORE",
             "path": "/api/v0/events"
@@ -105,16 +105,16 @@
         "decisionTrace": [
           {
             "stage": "OBSERVATION",
-            "at": "2026-10-06T04:54:11.590Z",
+            "at": "2026-10-06T05:03:21.846Z",
             "detail": "trigger FAILED from CANONICAL_EVENT"
           },
           {
             "stage": "RULE",
-            "at": "2026-10-06T04:54:11.590Z",
+            "at": "2026-10-06T05:03:21.846Z",
             "detail": "first attributable failure with retry budget remaining"
           }
         ],
-        "decidedAt": "2026-10-06T04:54:11.590Z",
+        "decidedAt": "2026-10-06T05:03:21.846Z",
         "brokerNote": "decision recorded by the MON-903 overlay; canonical task state remains the City's own"
       }
     ],
@@ -146,7 +146,7 @@
     "autoResolutionRate": 0.5,
     "autoResolutionRateReason": null,
     "timeouts": 0,
-    "meanDecisionLatencyMs": 1,
+    "meanDecisionLatencyMs": 0,
     "meanQueueWaitMs": 3,
     "unrelatedTaskBlocking": "ABSENT_BY_CONSTRUCTION",
     "unrelatedTaskBlockingBasis": "the queue map is keyed by task and observe() is never awaited on the canonical path",

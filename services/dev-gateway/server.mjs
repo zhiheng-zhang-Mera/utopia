@@ -846,7 +846,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         // The decision window is NESTED, not spread. Its own `schemaVersion` is the decision-receipt schema version (1),
         // while the wire envelope's is 0; spreading it flat overwrote the envelope and made every client reject the
         // response as a protocol mismatch - found by this task's browser probe, which saw a 200 become an error.
-        out={window:decisions.snapshot(limit),metrics:decisions.metrics(),kinds:decisions.kinds,sources:decisions.sources,actions:decisions.actions};
+        out={cityId:store.cityId,window:decisions.snapshot(limit),metrics:decisions.metrics(),kinds:decisions.kinds,sources:decisions.sources,actions:decisions.actions};
       } else if(req.method==='POST' && path==='/api/v0/monitor/decisions'){
         const b=await body(req);
         const submitted=decisions.submit({kind:b.kind,taskRef:b.taskRef??null,origin:'SUBMITTED',reason:typeof b.reason==='string'?b.reason.slice(0,200):null});

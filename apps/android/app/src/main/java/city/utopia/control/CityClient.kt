@@ -23,6 +23,8 @@ class CityClient(context: Context, private val host: String, token: String, priv
  private var sessionReady = false
  private val handler = Handler(Looper.getMainLooper())
  private val executor = Executors.newSingleThreadScheduledExecutor()
+ // Read-only monitor traffic cannot hold the command/snapshot executor.
+ private val monitorExecutor = Executors.newSingleThreadExecutor()
  private val http = OkHttpClient.Builder().followRedirects(false).followSslRedirects(false).connectTimeout(3, TimeUnit.SECONDS).readTimeout(5, TimeUnit.SECONDS).callTimeout(6, TimeUnit.SECONDS).pingInterval(3, TimeUnit.SECONDS).build()
  private val connectivity = context.getSystemService(ConnectivityManager::class.java)
  /**
@@ -92,7 +94,7 @@ class CityClient(context: Context, private val host: String, token: String, priv
       val raw = response.body?.string() ?: "{}"
    // UNION: every widened typed-refusal path is kept - capabilities/invocations (base), research/trace (REX-802),
    // the scheduler switch-declined route (CEX-702) and the member-management device routes (CEX-705).
-   if (!response.isSuccessful && (path.startsWith("capabilities/") || path.startsWith("capability-invocations/") || path=="research/trace" || path.endsWith("/switch-declined") || path.startsWith("device/installations"))) {
+   if (!response.isSuccessful && (path.startsWith("monitor") || path.startsWith("capabilities/") || path.startsWith("capability-invocations/") || path=="research/trace" || path.endsWith("/switch-declined") || path.startsWith("device/installations"))) {
     val error = runCatching { JSONObject(raw) }.getOrNull()
 throw CapabilityRequestException(error?.optString("errorCode")?.takeIf { it.isNotBlank() } ?: "HTTP_${response.code}",response.code,error?.optString("error")?.takeIf { it.isNotBlank() } ?: "Request failed: ${response.code}")
    }
@@ -223,6 +225,19 @@ throw CapabilityRequestException(error?.optString("errorCode")?.takeIf { it.isNo
  private fun deliver(response: JSONObject, done: (JSONObject) -> Unit) { handler.post { if(!closed) done(response) } }
  /** T1 — GET /api/v0/rooms. The returned hubUrl is loopback-only and is never used by Android. */
  fun rooms(done: (JSONObject) -> Unit) { submit { deliver(row("rooms"),done) } }
+ // Observer errors are delivered locally: no renewSession/dropSocket/refresh in this path.
+ fun monitorProjection(edgeType:String,done:(JSONObject)->Unit) {
+  if(closed)return
+  runCatching { monitorExecutor.execute {
+   if(closed)return@execute
+   fun read(path:String):JSONObject = try { request(path,allowRenew=false) } catch(e:Exception) { val failure=capabilityFailure(e,socketOnline);JSONObject().put("errorCode",failure.code).put("error",failure.message) }
+   val query=when(edgeType){"NONE"->"edges=NONE";"ASSIGNED_TO"->"edges=ASSIGNED_TO";else->""}
+   val graph=read("monitor/graph?collapse=24"+(if(query.isBlank()) "" else "&$query"))
+   if(closed)return@execute
+   val decisions=read("monitor/decisions?limit=50")
+   deliver(JSONObject().put("graphResponse",graph).put("decisionResponse",decisions),done)
+  } }
+ }
  fun researchTrace(done:(JSONObject)->Unit) { submit { deliver(row("research/trace"),done) } }
  fun actions(limit: Int, done: (JSONObject) -> Unit) { submit { deliver(row("actions?limit="+limit.coerceIn(1,200)),done) } }
  fun actionDetail(actionId: String, done: (JSONObject) -> Unit) { submit { deliver(row("actions/"+java.net.URLEncoder.encode(actionId,"UTF-8")),done) } }
@@ -274,7 +289,7 @@ throw CapabilityRequestException(error?.optString("errorCode")?.takeIf { it.isNo
   deliver(row("join/requests/"+java.net.URLEncoder.encode(id,"UTF-8")+if(approve) "/approve" else "/reject",JSONObject()),done)
   refresh()
  } }
- fun close() { log.surface("stop", lastServerMaxSeq); closed = true; runCatching { connectivity.unregisterNetworkCallback(callback) }; socket?.cancel(); executor.shutdownNow(); http.dispatcher.cancelAll(); http.connectionPool.evictAll() }
+ fun close() { log.surface("stop", lastServerMaxSeq); closed = true; runCatching { connectivity.unregisterNetworkCallback(callback) }; socket?.cancel(); executor.shutdownNow(); monitorExecutor.shutdownNow(); http.dispatcher.cancelAll(); http.connectionPool.evictAll() }
  // GRAFTED FROM CEX-705 (manual union): memberManagement
  fun memberManagement(done:(JSONObject)->Unit) { submit {
   deliver(JSONObject().put("installations",row("device/installations")).put("messages",row("members/messages")),done)

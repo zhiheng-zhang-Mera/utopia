@@ -38,9 +38,15 @@ fun parseMonitorGraph(response:JSONObject,expectedCity:String):MonitorGraphView 
   val nodes=monitorObjects(bounded(g,"nodes",513));val ids=nodes.map{it.getString("id")};require(ids.all{it.isNotBlank()}&&ids.distinct().size==ids.size){"Invalid node identity"}
   val visible=strings(bounded(g,"visibleNodeIds",513));require(visible.distinct().size==visible.size&&visible.all{it in ids}){"Invalid visible membership"}
   nodes.forEach{node->val risks=monitorObjects(bounded(node,"riskReasons",32));require(!risks.any{it.optString("level") in setOf("ACTIVE","WATCH")}||node.getString("id") in visible){"Risk hidden by collapse"}}
-  val clusters=monitorObjects(bounded(g,"clusters",256));val members=mutableSetOf<String>()
-  clusters.forEach{c->val rows=strings(bounded(c,"nodeIds",512));require(rows.all{it in ids&&it !in visible&&members.add(it)}){"Invalid cluster membership"};require(c.getInt("count")==rows.size){"Invalid cluster count"}}
-  bounded(g,"edges",256);bounded(g,"events",256);bounded(g,"evidence",256);g.getJSONObject("summary")
+  val clusters=monitorObjects(bounded(g,"clusters",256));val members=mutableSetOf<String>();val clusterIds=clusters.map{it.getString("id")};require(clusterIds.all{it.isNotBlank()}&&clusterIds.distinct().size==clusterIds.size){"Invalid cluster identity"}
+  clusters.forEach{c->val rows=strings(bounded(c,"nodeIds",512));require(rows.all{it in ids&&it !in visible&&members.add(it)}){"Invalid cluster membership"};require(c.getInt("count")==rows.size){"Invalid cluster count"};require(rows.all{id->nodes.find{it.getString("id")==id}?.optString("clusterRef")==c.getString("id")}){"Cluster owner mismatch"}}
+  require(ids.all{it in visible||it in members}){"Nodes omitted from layout"}
+  require(nodes.filter{it.getString("id") in visible}.all{it.optString("clusterRef").let{ref->ref.isBlank()||ref=="null"}}){"Visible node also clustered"}
+  val edges=monitorObjects(bounded(g,"edges",256));val edgeIds=edges.map{it.getString("id")};require(edgeIds.all{it.isNotBlank()}&&edgeIds.distinct().size==edgeIds.size){"Invalid edge identity"}
+  edges.forEach{e->require(e.getString("from").isNotBlank()&&e.getString("to").isNotBlank()&&e.getString("type").isNotBlank()){"Invalid edge endpoints"};strings(bounded(e,"evidenceRefs",256));monitorObjects(bounded(e,"relatedEvents",256))}
+  monitorObjects(bounded(g,"events",256)).forEach{require(it.getString("canonicalEventId").isNotBlank()&&it.getString("type").isNotBlank()){"Invalid event identity"}}
+  monitorObjects(bounded(g,"evidence",256)).forEach{require(it.getString("canonicalEventId").isNotBlank()&&it.getString("source").isNotBlank()){"Invalid evidence identity"}}
+  g.getJSONObject("summary")
   return MonitorGraphView(g)
  }catch(e:Exception){throw IllegalArgumentException("Monitor projection unavailable: "+(e.message ?: "invalid input"),e)}
 }

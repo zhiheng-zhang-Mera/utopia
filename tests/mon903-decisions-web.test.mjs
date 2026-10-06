@@ -41,7 +41,7 @@ test('MON903 web: the owner sees the decision the City recorded, its provenance,
     await page.locator('#monitor-decisions[data-loaded="true"]').waitFor();
     // An empty window says so in words rather than implying that everything is fine.
     assert.match(await page.locator('#dec-empty').innerText(), /No decision has been recorded/);
-    assert.match(await page.locator('#dec-owner-empty').innerText(), /Nothing is waiting for you/);
+    assert.match(await page.locator('#dec-owner-empty').innerText(), /No receipt in this window is marked owner-required; current Owner work is not determined here/);
     assert.match(await page.locator('#dec-metrics').innerText(), /NOT_MEASURED/, 'an empty window reports NOT_MEASURED, never a fabricated rate');
 
     const task = await failOneTask(app);

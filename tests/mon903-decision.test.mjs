@@ -6,6 +6,7 @@ import {mkdtemp, rm, readFile, readdir, mkdir, writeFile} from 'node:fs/promises
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createDecisionOverlay, resolveByRule, TRIGGER_KINDS, OWNER_BOUNDARY_KINDS, DECISION_ACTIONS, DECISION_CODES} from '../services/dev-gateway/decision.mjs';
+import {createGateway} from '../services/dev-gateway/server.mjs';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const withOverlay = async (fn, options = {}) => {
@@ -236,8 +237,49 @@ test('MON903 receipts: bounded contract, provenance, measured post-state, and no
   });
 });
 
-test('MON903 isolation: a reader that throws, a broken receipt file and a failing receipt write cannot break the caller', async () => {
-  // A throwing task reader must not escape observe(): the canonical path calls this and must not fail because a
+test('MON903 store: an unusable receipt store degrades the overlay and never prevents the City from starting (finding M-1)', async () => {
+  // A file sits exactly where the decision store wants its directory. This is the class of defect the REX-804 review
+  // called blocking in a sibling module, and this task's own adversarial pass found it here too: the first version
+  // called mkdirSync unguarded, so one stray file made createGateway throw and the City never started.
+  const dir = await mkdtemp(join(tmpdir(), 'mon903-store-'));
+  try {
+    await writeFile(join(dir, 'monitor'), 'a file, not a directory');
+    const tasks = {rows: [{id: 'task-1', state: 'FAILED', error: 'boom'}]};
+    const overlay = createDecisionOverlay({dir: join(dir, 'monitor'), tasks: () => tasks.rows});
+    try {
+      assert.equal(overlay.persistence(), 'UNAVAILABLE', 'the overlay reports the degraded store instead of hiding it');
+      overlay.observe({id: 'e1', seq: 1, type: 'TASK_FAILED', taskId: 'task-1'});
+      await settle(overlay);
+      const snapshot = overlay.snapshot();
+      assert.equal(snapshot.decisions.length, 1, 'the decision is still recorded, in memory');
+      assert.equal(snapshot.persistence, 'UNAVAILABLE');
+      assert.ok(snapshot.persistenceReason, 'the reason the store is unusable is stated');
+      assert.equal(snapshot.decisions[0].receiptFailure, DECISION_CODES.STORE_UNAVAILABLE, 'the missing receipt is named on the decision itself');
+      assert.equal(overlay.receipt(snapshot.decisions[0].decisionId).decisionId, snapshot.decisions[0].decisionId, 'a decision recorded without a receipt is still readable from the window');
+      assert.equal(overlay.metrics().persistence, 'UNAVAILABLE');
+    } finally { await overlay.close(); }
+  } finally { await rm(dir, {recursive: true, force: true, maxRetries: 10, retryDelay: 50}).catch(() => {}); }
+});
+
+test('MON903 store: the City itself starts and serves decisions when the decision store is unusable (finding M-1, City level)', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'mon903-store-city-'));
+  let app = null;
+  try {
+    await writeFile(join(dir, 'monitor'), 'a file, not a directory');
+    app = await createGateway({dir, port: 0, token: 'owner', nodeToken: 'node', roomsDisabled: true});
+    const headers = {Authorization: 'Bearer owner', 'X-City-Api-Version': '0', 'X-City-Schema-Version': '0'};
+    const health = await fetch(app.url + '/api/v0/health', {headers});
+    assert.equal(health.status, 200, 'the City starts and reports healthy with an unusable decision store');
+    const listed = await (await fetch(app.url + '/api/v0/monitor/decisions', {headers})).json();
+    assert.equal(listed.window.persistence, 'UNAVAILABLE', 'the surface tells the truth about the degraded store');
+    assert.ok(listed.window.persistenceReason);
+  } finally {
+    await app?.close();
+    await rm(dir, {recursive: true, force: true, maxRetries: 10, retryDelay: 50}).catch(() => {});
+  }
+});
+
+test('MON903 isolation: a reader that throws, a broken receipt file and a failing receipt write cannot break the caller', async () => {  // A throwing task reader must not escape observe(): the canonical path calls this and must not fail because a
   // projection did.
   await withOverlay(async overlay => {
     const result = overlay.snapshot();
@@ -261,6 +303,19 @@ test('MON903 isolation: a reader that throws, a broken receipt file and a failin
       assert.equal(overlay.snapshot().decisions.length, 1, 'the overlay still works with broken neighbours present');
     } finally { await overlay.close(); }
   } finally { await rm(dir, {recursive: true, force: true}); }
+});
+
+test('MON903 close: a closed overlay refuses a trigger with its OWN code, not by blaming the trigger', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'mon903-closed-'));
+  const overlay = createDecisionOverlay({dir, tasks: () => []});
+  try {
+    await overlay.close();
+    assert.throws(() => overlay.submit({kind: 'SCOPE_CHANGE', taskRef: 'task-1', origin: 'SUBMITTED'}), error => {
+      assert.equal(error.code, DECISION_CODES.OVERLAY_CLOSED, 'a closed overlay must not report the caller\'s trigger as invalid');
+      assert.equal(error.status, 409);
+      return true;
+    });
+  } finally { await rm(dir, {recursive: true, force: true, maxRetries: 10, retryDelay: 50}).catch(() => {}); }
 });
 
 test('MON903 rules: the deterministic layer answers each kind from canonical facts, and invents no default', () => {

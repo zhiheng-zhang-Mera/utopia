@@ -61,6 +61,8 @@ export const DECISION_CODES = Object.freeze({
   RESOLVER_INVALID_OUTPUT: 'RESOLVER_INVALID_OUTPUT',
   RESOLVER_FAILED: 'RESOLVER_FAILED',
   RECEIPT_WRITE_FAILED: 'DECISION_RECEIPT_WRITE_FAILED',
+  STORE_UNAVAILABLE: 'DECISION_STORE_UNAVAILABLE',
+  OVERLAY_CLOSED: 'DECISION_OVERLAY_CLOSED',
 });
 const MAX_QUEUE_DEPTH = 16;
 const RECEIPT_FILE = /^decision-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.json$/;
@@ -126,9 +128,21 @@ export function resolveByRule({kind, task, priorFailures = 0, node, retryBudget 
  */
 export function createDecisionOverlay({dir, tasks, fastModel = null, critic = null, clock = () => Date.now(), stageTimeoutMs = 1500, retentionLimit = 200, onDecision = null, retryBudget = 1} = {}) {
   if (typeof tasks !== 'function') throw new TypeError('a canonical task READER is required: the overlay never writes tasks');
-  mkdirSync(dir, {recursive: true});
+  // THE OVERLAY MUST NOT BE ABLE TO STOP THE CITY. An unusable receipt store means "decisions are recorded in memory
+  // only, and every surface says so", never "the City does not start". This mirrors what the REX-804 opposite-host
+  // review demanded of the fault module: a research-side storage problem is degraded, reported and survivable. Finding
+  // M-1 of this task's own adversarial pass: the first version called mkdirSync unguarded and one stray file at
+  // <runtime>/monitor made createGateway throw.
+  let persistenceState = 'READY';
+  let persistenceReason = null;
+  try {
+    mkdirSync(dir, {recursive: true});
+    mkdirSync(resolve(dir, 'decisions'), {recursive: true});
+  } catch (error) {
+    persistenceState = 'UNAVAILABLE';
+    persistenceReason = String(error?.code ?? error?.message ?? 'DECISION_STORE_UNWRITABLE').slice(0, 120);
+  }
   const receiptDir = resolve(dir, 'decisions');
-  mkdirSync(receiptDir, {recursive: true});
   let receipts = [];
   const queues = new Map();
   const failures = [];
@@ -141,18 +155,23 @@ export function createDecisionOverlay({dir, tasks, fastModel = null, critic = nu
   // An unreadable receipt is REPORTED, never fatal: the REX-804 review found a sibling module that turned one bad file
   // into a City that would not start, and this module must not repeat that.
   const broken = [];
-  for (const name of readdirSync(receiptDir)) {
-    if (!RECEIPT_FILE.test(name)) continue;
-    try {
-      const row = JSON.parse(readFileSync(resolve(receiptDir, name), 'utf8'));
-      if (!row || typeof row !== 'object' || typeof row.decisionId !== 'string' || row.decisionId + '.json' !== name) { broken.push({file: name, reason: 'RECEIPT_SHAPE_MISMATCH'}); continue; }
-      receipts.push(row);
-    } catch { broken.push({file: name, reason: 'UNREADABLE_RECEIPT'}); }
+  if (persistenceState === 'READY') {
+    for (const name of readdirSync(receiptDir)) {
+      if (!RECEIPT_FILE.test(name)) continue;
+      try {
+        const row = JSON.parse(readFileSync(resolve(receiptDir, name), 'utf8'));
+        if (!row || typeof row !== 'object' || typeof row.decisionId !== 'string' || row.decisionId + '.json' !== name) { broken.push({file: name, reason: 'RECEIPT_SHAPE_MISMATCH'}); continue; }
+        receipts.push(row);
+      } catch { broken.push({file: name, reason: 'UNREADABLE_RECEIPT'}); }
+    }
   }
   receipts.sort((left, right) => Date.parse(left.decidedAt) - Date.parse(right.decidedAt));
   if (receipts.length > retentionLimit) { receipts = receipts.slice(-retentionLimit); retentionTruncated = true; }
 
   function persist(row) {
+    // With an unusable store the decision is still recorded in memory and the receipt is simply absent; the caller
+    // reports that through `receiptFailure`, so nothing is lost silently and nothing is invented.
+    if (persistenceState !== 'READY') throw Object.assign(new Error(DECISION_CODES.STORE_UNAVAILABLE), {code: DECISION_CODES.STORE_UNAVAILABLE});
     const target = resolve(receiptDir, `${row.decisionId}.json`);
     const temporary = `${target}.tmp`;
     writeFileSync(temporary, JSON.stringify(row, null, 2), {mode: 0o600});
@@ -260,7 +279,13 @@ export function createDecisionOverlay({dir, tasks, fastModel = null, critic = nu
       decidedAt: new Date(decidedAt).toISOString(),
       brokerNote: 'decision recorded by the MON-903 overlay; canonical task state remains the City\'s own',
     };
-    try { persist(row); } catch { noteFailure(DECISION_CODES.RECEIPT_WRITE_FAILED); row.receiptFailure = DECISION_CODES.RECEIPT_WRITE_FAILED; }
+    try { persist(row); } catch (error) {
+      // The reason the receipt is missing travels with the decision: "the store is unusable" and "this one write
+      // failed" are different facts, and a reader deciding whether to trust the window needs to know which one it is.
+      const code = typeof error?.code === 'string' ? error.code : DECISION_CODES.RECEIPT_WRITE_FAILED;
+      noteFailure(code);
+      row.receiptFailure = code;
+    }
     receipts.push(row);
     if (receipts.length > retentionLimit) { receipts = receipts.slice(-retentionLimit); retentionTruncated = true; }
     if (typeof onDecision === 'function') { try { onDecision(copy(row)); } catch { noteFailure('DECISION_NOTIFICATION_FAILED'); } }
@@ -327,7 +352,7 @@ export function createDecisionOverlay({dir, tasks, fastModel = null, critic = nu
     const size = Number.isInteger(limit) && limit > 0 && limit <= retentionLimit ? limit : 50;
     const rows = [...receipts].slice(-size).reverse().map(copy);
     const window = receipts.length === 0 ? {firstSeq: null, lastSeq: null} : {firstSeq: receipts[0].triggerEvent?.eventSeq ?? null, lastSeq: receipts.at(-1)?.triggerEvent?.eventSeq ?? null};
-    return {schemaVersion: 1, authoritative: false, decisions: rows, retained: receipts.length, retainedLimit: retentionLimit, retentionTruncated, broken, failures: copy(failures), observedEvents: observed, window, unsupportedSources: ['model/provider identity (a resolver is a seam, not an identified model)', 'hidden reasoning (never requested, never stored)']};
+    return {schemaVersion: 1, authoritative: false, persistence: persistenceState, persistenceReason, decisions: rows, retained: receipts.length, retainedLimit: retentionLimit, retentionTruncated, broken, failures: copy(failures), observedEvents: observed, window, unsupportedSources: ['model/provider identity (a resolver is a seam, not an identified model)', 'hidden reasoning (never requested, never stored)']};
   }
 
   /** Metrics for the research protocol. A number is only reported where it was actually counted. */
@@ -355,6 +380,8 @@ export function createDecisionOverlay({dir, tasks, fastModel = null, critic = nu
       unrelatedTaskBlocking: 'ABSENT_BY_CONSTRUCTION',
       unrelatedTaskBlockingBasis: 'the queue map is keyed by task and observe() is never awaited on the canonical path',
       concurrentDecisionTasks: queues.size,
+      persistence: persistenceState,
+      persistenceReason,
       resolverFailures: copy(failures),
       unsupportedSources: ['wrong auto-decision and repair (requires an independent judge, not this overlay)', 'confidence versus final review outcome (no resolver is configured in this City)'],
     };
@@ -364,7 +391,13 @@ export function createDecisionOverlay({dir, tasks, fastModel = null, critic = nu
     const id = String(decisionId ?? '');
     if (!RECEIPT_FILE.test(`${id}.json`)) throw new DecisionError(DECISION_CODES.UNKNOWN_DECISION, `no decision ${id} is recorded here`, {decisionId: id});
     const path = resolve(receiptDir, `${id}.json`);
-    if (!existsSync(path)) throw new DecisionError(DECISION_CODES.UNKNOWN_DECISION, `no decision ${id} is recorded here`, {decisionId: id});
+    if (!existsSync(path)) {
+      // A decision recorded while the store was unavailable still exists in the window, and is answered from there
+      // rather than reported as missing.
+      const inWindow = receipts.find(row => row.decisionId === id);
+      if (inWindow) return copy(inWindow);
+      throw new DecisionError(DECISION_CODES.UNKNOWN_DECISION, `no decision ${id} is recorded here`, {decisionId: id});
+    }
     try { return JSON.parse(readFileSync(path, 'utf8')); } catch { throw new DecisionError(DECISION_CODES.UNKNOWN_DECISION, `decision ${id} is unreadable`, {decisionId: id}); }
   }
 
@@ -378,9 +411,10 @@ export function createDecisionOverlay({dir, tasks, fastModel = null, critic = nu
 
   let closed = false;
   return Object.freeze({
-    submit: trigger => { if (closed) throw new DecisionError(DECISION_CODES.INVALID_TRIGGER, 'the decision overlay is closing'); return submit(trigger); },
+    submit: trigger => { if (closed) throw new DecisionError(DECISION_CODES.OVERLAY_CLOSED, 'the decision overlay is closing and accepts no new triggers', null, 409); return submit(trigger); },
     observe, snapshot, metrics, receipt, close,
     kinds: TRIGGER_KINDS, sources: DECISION_SOURCES, actions: DECISION_ACTIONS,
+    persistence: () => persistenceState,
     // Diagnostics for the review: what this module is NOT.
     ownsTaskState: false,
     mutatesTasks: false,

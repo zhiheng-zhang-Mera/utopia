@@ -1,0 +1,39 @@
+✔ Alien: model OWNER_REQUIRED is an escalation, not auto-resolution (13.2773ms)
+✔ Alien: canonical observation cannot enqueue decisions after bounded close (2.1002ms)
+✔ Alien: retention restart preserves the newest decisions, not UUID lexical order (14.4503ms)
+✔ Alien: queue overflow retains canonical evidence and reports failed receipt persistence (1775.7532ms)
+✔ Alien: canonical present-but-ineligible target is escalated, not described as recovering offline (16.4464ms)
+✔ Alien: a timeout remains measurable when the critic subsequently resolves (31.6361ms)
+✔ Alien Gateway: an online ineligible strict target produces an Owner decision with real event evidence (135.5609ms)
+✔ Alien browser: polling preserves opened provenance and successful retry clears an old error (931.3178ms)
+✔ Alien browser: unavailable decision persistence is visible even before any write failure (1045.1817ms)
+✔ Alien browser: frequent City rendering cannot starve bounded decision polling (3771.784ms)
+✔ MON903 route: a canonical failure becomes a decision receipt with canonical provenance, and the task itself is untouched (175.5473ms)
+✔ MON903 route: ordinary City activity produces no decisions at all (191.7964ms)
+✔ MON903 route: reading is authenticated, asking for a decision is the owner's, and refusals are typed (184.6521ms)
+✔ MON903 route: an explicitly submitted owner-boundary trigger is recorded as owner-required and applied by nobody (115.6942ms)
+✔ MON903 route: a decision for one task never blocks another task, and the projection carries both (232.2535ms)
+✔ MON903 triggers: only the named canonical events enter the decision path, and ordinary reports do not (36.107ms)
+✔ MON903 ladder: a deterministic rule resolves first and the model is never consulted for it (29.4571ms)
+✔ MON903 owner boundary: scope, merge, review and owner-candidate triggers escalate WITHOUT any resolver being asked (16.4249ms)
+✔ MON903 fallback: a hanging, throwing or free-text resolver becomes a bounded fallback, never an authority (156.2244ms)
+✔ MON903 queues: decisions are per-task, parallel across tasks, bounded per task, and never a global barrier (555.4135ms)
+✔ MON903 receipts: bounded contract, provenance, measured post-state, and no applied action anywhere (17.3638ms)
+✔ MON903 store: an unusable receipt store degrades the overlay and never prevents the City from starting (finding M-1) (24.2821ms)
+✔ MON903 store: the City itself starts and serves decisions when the decision store is unusable (finding M-1, City level) (178.9103ms)
+✔ MON903 isolation: a reader that throws, a broken receipt file and a failing receipt write cannot break the caller (28.5768ms)
+✔ MON903 close: a closed overlay refuses a trigger with its OWN code, not by blaming the trigger (3.6166ms)
+✔ MON903 rules: the deterministic layer answers each kind from canonical facts, and invents no default (0.4853ms)
+✔ MON903 web: the owner sees the decision the City recorded, its provenance, and that nobody applied it (6205.0696ms)
+✔ MON903 web: an enrolled member may read what the City decided, and is told who can ask for one (1347.8189ms)
+✔ Services: an old invocation cannot mark a new editor busy or clear its newer invocation (1193.0803ms)
+✔ Windows history loads detail explicitly, retains it across snapshots and fences late selections (2512.8564ms)
+✔ Windows Services invokes real document, knowledge, skill, evidence and theme adapters (3975.0101ms)
+ℹ tests 31
+ℹ suites 0
+ℹ pass 31
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13305.0309

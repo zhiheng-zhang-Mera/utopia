@@ -3,6 +3,10 @@ import {renderServices} from './services.js';
 import {renderResearch} from './research.js';
 import {createResearchTraceView} from './research-trace.js';
 const researchTraceView=createResearchTraceView();
+// REX-803: the campaign control surface. Imported as a view factory for the same reason the trace view is: it holds
+// its own epoch and polling state, and the page shell must be able to reset it without touching the trace's.
+import {createResearchCampaignView} from './research-campaign.js';
+const researchCampaignView=createResearchCampaignView();
 import {schedulerPanel} from './scheduler.js';
 // UXI-301: the scheduler presentation feed, refreshed alongside the snapshot. When it is missing the
 // panel says it is not being reported rather than rendering a healthy or idle surface.
@@ -729,6 +733,9 @@ function assistantSlot(){
 }
 function render(){
  if(page!=='ResearchTrace')researchTraceView.reset();
+ // The campaign view polls while a campaign runs, so it must be reset when the page is left - the same rule the
+ // trace view follows, and the reason both are views rather than plain render functions.
+ if(page!=='ResearchCampaign')researchCampaignView.reset();
  const recoveryFocus=document.activeElement?.closest('form[data-rebind]');const recoveryField=recoveryFocus?{id:recoveryFocus.dataset.rebind,name:document.activeElement.name}:null;
  const nextSchedulerContext=token+'|'+(city?.cityId??'');if(nextSchedulerContext!==schedulerContext){schedulerContext=nextSchedulerContext;schedulerEpoch++;schedulerPending.clear();}
  const previousNameForm=$('#city-name-form');
@@ -760,6 +767,10 @@ function render(){
  if(page==='Home')homeRooms();
  if(page==='Services')renderServices($('#view'),city,connection==='ONLINE',api);
  if(page==='Research')renderResearch($('#view'),connection==='ONLINE',api,city.cityId+':'+generation);
+ if(page==='ResearchCampaign'){
+  const credential=token,cityId=city.cityId;
+  researchCampaignView.render($('#view'),{contextKey:credential+'|'+cityId,online:connection==='ONLINE',api,isCurrent:()=>page==='ResearchCampaign'&&token===credential&&city?.cityId===cityId});
+ }
  if(page==='ResearchTrace'){
   const credential=token,cityId=city.cityId;
   researchTraceView.render($('#view'),{contextKey:credential+'|'+cityId,online:connection==='ONLINE',api,isCurrent:()=>page==='ResearchTrace'&&token===credential&&city?.cityId===cityId});

@@ -4,7 +4,7 @@ import {hostname,networkInterfaces} from 'node:os';
 import {createBridge} from '../capability-bridge/bridge.mjs';
 import {MAX_REQUEST_BYTES,refuse} from '../../contracts/capability-bridge-v1/protocol.mjs';
 import { readFile } from 'node:fs/promises';
-import { randomUUID, randomBytes as randomBytesBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, randomUUID, randomBytes as randomBytesBytes, timingSafeEqual } from 'node:crypto';
 import { WebSocketServer } from 'ws';
 import { Store } from './store.mjs';
 import {createObservation} from './observation.mjs';
@@ -35,7 +35,7 @@ import { browseNearby, browseBluetooth, joinCapability, hostCarrierFacts } from 
 // (cores and memory), so a REMOTE surface can weigh this machine against its own and against other PCs it can see.
 // Nothing here reads identity or user data.
 import { cpus as osCpus, freemem as osFreemem, totalmem as osTotalmem } from 'node:os';
-import { envelope, terminal, validateCommand } from '../../contracts/city-control-v0/protocol.mjs';
+import { envelope, taskTypes, terminal, validateCommand } from '../../contracts/city-control-v0/protocol.mjs';
 // Product closeout (T1–T3): the Room Pack, the canonical Action facade and the
 // deterministic Ask / Do router. The Room Hub is reached over loopback only; nothing here
 // exposes its port, and no route in this phase can reach Boss or Hns.
@@ -62,6 +62,9 @@ import { describeLegacyNode, availabilityFrom, NODE_ROLES } from '../../contract
 // to be reproducible; it owns no work, grants no fault authority, and never invents a default for a missing
 // field. The registry is file-backed and lives outside the task-keyed City store on purpose.
 import { createExperimentRegistry } from './research/registry.mjs';
+// REX-803: the controlled scenario runner. It owns no work of its own - every run it performs is a canonical City
+// task created through the same path the product's own task route uses - and it never touches canonical task truth.
+import { createScenarioRunner, ScenarioRunnerError } from './scenario-runner.mjs';
 import { ARTIFACT_RETENTION, SEED_POLICIES, STOP_CONDITION_KINDS, TOPOLOGIES, ExperimentManifestError } from '../../contracts/experiment-manifest-v1/manifest.mjs';
 // City Core (MB-006). Whether work interrupted by a restart may resume is decided by the
 // migrated checkpoint-gate module instead of an inline state test.
@@ -436,6 +439,11 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   let acceptingTasks=true;
   const createCityTask=(type,options={})=>{
     if(!acceptingTasks)fail(503,'This host is changing City role; no new local work accepted');
+    // REX-803: a campaign run is an ORDINARY canonical task, and this one optional field is the only thing that
+    // distinguishes it. It is written so that after a restart the work a dead campaign started can be found by
+    // reference instead of by guessing which QUEUED task looked like research. It is an annotation, not a new
+    // authority: nothing reads it to decide placement, targeting, or state.
+    const researchRunRef=typeof options.researchRunRef==='string'&&options.researchRunRef.length>0?{researchRunRef:options.researchRunRef.slice(0,180)}:{};
     // Parsed before the transaction: a malformed field is a client error, not a half-written task.
     const intent=readTargetIntent(options.targetDeviceRef);
     if(intent.ok===false)refuse(intent.code,422,intent.message);
@@ -447,14 +455,14 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       const verdict=targetVerdict(intent.value);
       if(verdict.state==='UNKNOWN')refuse(TARGET_REASONS.UNKNOWN,422,`no City node identity "${intent.value}" is known to this City`);
       return atomicWithTrace(()=>{
-        const t={id:'Q-'+randomUUID(),type,domain:'system',state:'QUEUED',createdAt:now(),updatedAt:now(),assignedNodeId:null,progress:0,lastCheckpoint:null,result:null,error:null,
+        const t={id:'Q-'+randomUUID(),type,domain:'system',state:'QUEUED',createdAt:now(),updatedAt:now(),assignedNodeId:null,progress:0,lastCheckpoint:null,result:null,error:null,...researchRunRef,
           [STRICT_TARGET_FIELD]:intent.value,targetIntentAt:now(),targetStateAtCreation:verdict.state};
         store.put('tasks',t);emit('COMMAND_ACCEPTED',t.id);emit('TASK_CREATED',t.id);
         if(verdict.state!=='ELIGIBLE')emit('TASK_TARGET_WAITING',t.id,{targetDeviceRef:intent.value,targetState:verdict.state,reason:verdict.reason},'user');
         return t;
       });
     }
-    return atomicWithTrace(()=>{const t={id:'Q-'+randomUUID(),type,domain:'system',state:'QUEUED',createdAt:now(),updatedAt:now(),assignedNodeId:null,progress:0,lastCheckpoint:null,result:null,error:null};store.put('tasks',t);emit('COMMAND_ACCEPTED',t.id);emit('TASK_CREATED',t.id);return t;});
+    return atomicWithTrace(()=>{const t={id:'Q-'+randomUUID(),type,domain:'system',state:'QUEUED',createdAt:now(),updatedAt:now(),assignedNodeId:null,progress:0,lastCheckpoint:null,result:null,error:null,...researchRunRef};store.put('tasks',t);emit('COMMAND_ACCEPTED',t.id);emit('TASK_CREATED',t.id);return t;});
   };
   const cityTasks={
     terminal,
@@ -528,7 +536,135 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
     dir:resolve(dir,'research','experiments'),
     knownCapabilities:bridge.registry().map(descriptor=>descriptor.capabilityId),
   });
+  // UNION (REX-804 + REX-803 integration): both sides define a controller at this point and neither references the
+  // other, so the union is simply both - read in the order the branches arrived, with no shared state to reconcile.
   faults=createFaultController({dir:resolve(dir,'research','faults'),node:id=>store.get('nodes',id),trace:researchTrace});
+  // REX-803: the controlled campaign surface - the half that EXECUTES the experiments REX-801 only describes.
+  //
+  // WHAT A CAMPAIGN IS HERE. A campaign is one described experiment run as N repetitions of one canonical scenario.
+  // Every run creates an ORDINARY canonical task through `createCityTask`, the same path the product's own task
+  // route uses, and the run's outcome is the terminal state of that real task. The runner owns no work: it never
+  // writes a task, never assigns one, never completes one, and never invents a scenario. A research runner that
+  // simulated execution would be measuring the simulator, which is why there is no simulation path here at all.
+  //
+  // THE SCENARIO VOCABULARY IS THE PRODUCT'S OWN TASK TYPES, read from the frozen wire contract rather than
+  // maintained by hand beside it: a scenario the City cannot execute must not be selectable, and a hand-written
+  // list is a list that drifts from the contract it claims to describe.
+  const campaignScenarios=taskTypes.map(id=>({id,kind:'CANONICAL_TASK',description:`one canonical ${id} task, observed to a terminal state`}));
+  const campaignWorkers=()=>store.list('nodes').filter(node=>node.online===true&&ableNode(node)&&node.sharingEnabled!==false).map(node=>node.id);
+  // TOPOLOGY READINESS IS A MEASUREMENT, NOT A PROMISE. The experiment declares hosts, workers and control surfaces;
+  // a campaign refuses to start unless every declared identity is live in THIS City at that moment. A campaign that
+  // started on a topology it did not actually have would produce numbers nobody could reproduce.
+  const campaignReadiness=context=>{
+    const manifest=context?.manifest??null;
+    if(!manifest)return {state:'READY',missing:[],workers:campaignWorkers(),surfaces:liveSurfaces().map(surface=>surface.clientRef),identitySemantics:'NO_TOPOLOGY_DECLARED'};
+    const workers=campaignWorkers();
+    const surfaces=liveSurfaces().map(surface=>surface.clientRef).filter(Boolean);
+    const missing=[...new Set([...manifest.hosts,...manifest.workers].filter(id=>!workers.includes(id)).concat(manifest.controlSurfaces.filter(id=>!surfaces.includes(id))))];
+    return {state:missing.length===0?'READY':'NOT_READY',missing,workers,surfaces,identitySemantics:'CANONICAL_LIVE_REFS'};
+  };
+  // A run reference is `<campaignId>:<repetition index>`: stable across a restart, unique per repetition, and the
+  // only handle a recovered process has on work whose task id it never saw.
+  const researchRunRef=(campaignId,index)=>`${campaignId}:${index}`;
+  const cancelCampaignTask=taskId=>{const task=store.get('tasks',taskId);if(task&&!terminal.includes(task.state))change(task,'CANCELLED');};
+  const campaigns=createScenarioRunner({
+    dir:resolve(dir,'research'),
+    scenarios:campaignScenarios,
+    readiness:campaignReadiness,
+    runOnce:async({scenario,campaignId,index,seed,control,context})=>{
+      const workers=context?.workers??[];
+      // The seed is USED, not decorative. With no explicit target the repetition's own derived seed selects among the
+      // experiment's declared workers, so the same campaign places the same repetition on the same device, on any
+      // host. With an explicit target the operator's choice wins, and the run says which rule was applied.
+      const target=context?.targetDeviceRef??(workers.length>0?workers[seed%workers.length]:null);
+      let task;
+      try{task=createCityTask(scenario.id,{...(target?{targetDeviceRef:target}:{}),researchRunRef:researchRunRef(campaignId,index)});}
+      catch(error){return {state:'FAILED',reason:`the canonical task could not be created: ${error?.message??error}`};}
+      // Rule: a stop or a timeout must reach the work. The cleanup is registered with the runner, so it runs whether
+      // the stop came from the operator or from the run outliving its timeout.
+      control.onCancel(()=>cancelCampaignTask(task.id));
+      while(true){
+        if(control.cancelled()){
+          cancelCampaignTask(task.id);
+          return {state:'CANCELLED',reason:control.reason(),result:{taskRef:task.id,assignedNodeId:store.get('tasks',task.id)?.assignedNodeId??null}};
+        }
+        const current=store.get('tasks',task.id);
+        if(!current)return {state:'FAILED',reason:'the canonical task disappeared while its campaign was running',result:{taskRef:task.id}};
+        if(terminal.includes(current.state)){
+          // AN OUTSIDE CANCELLATION IS A CANCELLATION, NOT A FAILURE (finding R-2). When an operator cancels the run's
+          // canonical task from outside the campaign, the work did not fail - it was cancelled - and recording that as
+          // FAILED mis-attributed the cause. The reason still names exactly what happened, so a reader can tell a
+          // campaign-stop cancellation from someone else's cancellation.
+          if(current.state==='CANCELLED')return {state:'CANCELLED',reason:'the canonical task was cancelled outside the campaign',result:{taskRef:current.id,state:current.state,assignedNodeId:current.assignedNodeId??null}};
+          return current.state==='COMPLETED'
+            ? {state:'MEASURED',result:{taskRef:current.id,state:current.state,assignedNodeId:current.assignedNodeId??null,result:current.result??null}}
+            : {state:'FAILED',reason:`the canonical task ended ${current.state}${current.error?`: ${current.error}`:''}`,result:{taskRef:current.id,state:current.state,assignedNodeId:current.assignedNodeId??null}};
+        }
+        await new Promise(resolve=>setTimeout(resolve,25));
+      }
+    },
+    // ONE announcement per settled run, emitted by the runner rather than by the run: a run that ended by timeout or
+    // by a stop is announced here too, so the research trace can never be missing the runs that went wrong - which
+    // are precisely the ones a reader needs.
+    onRunRecord:({campaign,run})=>{
+      const dimensions={experimentRunRef:researchRunRef(campaign.campaignId,run.index)};
+      if(campaign.context?.experimentId)dimensions.experimentRef=campaign.context.experimentId;
+      // A dimension is a reference, so the reason travels as a bounded, sanitised code; the full reason stays in the
+      // run row and in the campaign receipt, where free text belongs.
+      if(run.reason)dimensions.failureCode=String(run.reason).slice(0,60).replace(/[^A-Za-z0-9_./:#-]/g,'_');
+      // `deviceRef` belongs to canonicalRefs, not to dimensions: it names the real node that executed the task, and
+      // putting it in the dimension set made every receipt fail validation with TRACE_INPUT_INVALID - which the
+      // collector reported as a failed record rather than as a thrown error, so the campaign looked traced and was
+      // not. Caught by this task's own route test.
+      const canonicalRefs={...(run.result?.taskRef?{taskRef:run.result.taskRef}:{}),...(run.result?.assignedNodeId?{deviceRef:run.result.assignedNodeId}:{})};
+      researchTrace.record({
+        eventId:researchRunRef(campaign.campaignId,run.index),
+        type:'RESEARCH_RUN_RECEIPT',
+        timestamp:now(),
+        sourceClock:'HOST_WALL_UTC',
+        ...(Object.keys(canonicalRefs).length>0?{canonicalRefs}:{}),
+        dimensions,
+        metrics:{latencyMs:run.durationMs??null},
+      });
+    },
+    // Recovery hands the orphaned repetition back as a REFERENCE and the City finds the task by it. Nothing is
+    // inferred from a task's shape, its age, or the order it happens to appear in.
+    cancelRun:({campaignId,index})=>{for(const task of store.list('tasks'))if(task.researchRunRef===researchRunRef(campaignId,index)&&!terminal.includes(task.state))change(task,'CANCELLED');},
+  });
+  // THE EXPERIMENT'S OWN STOP CONDITIONS BOUND THE CAMPAIGN. A campaign that ignored the MAX_FAILURES its manifest
+  // declared would not be the experiment that was described, and a caller may only make a declared bound TIGHTER.
+  // MIN_SUCCESSFUL_RUNS is read from stopConditions and NOT from acceptance.minimumSuccessfulRuns: the latter is a
+  // criterion for judging the result, and turning it into a stop would end the campaign at the first passing subset.
+  const campaignLimits=(manifest,requested=null)=>{
+    // An unknown limit key is REFUSED, not ignored: a caller who typed `maxFailure` must not be left believing they
+    // bounded the campaign when nothing was bounded.
+    for(const key of Object.keys(requested??{}))if(!['wallClockMs','maxFailures','minSuccessfulRuns'].includes(key))refuse('LIMITS_INVALID',422);
+    const declared=kind=>{const found=(manifest.stopConditions??[]).filter(condition=>condition.kind===kind).map(condition=>condition.value);return found.length===0?null:Math.min(...found);};
+    const limits={};
+    for(const [kind,key] of [['MAX_WALL_CLOCK_MS','wallClockMs'],['MAX_FAILURES','maxFailures'],['MIN_SUCCESSFUL_RUNS','minSuccessfulRuns']]){
+      const value=declared(kind);
+      if(value!==null)limits[key]=value;
+    }
+    for(const key of ['wallClockMs','maxFailures','minSuccessfulRuns']){
+      const asked=requested?.[key];
+      if(asked===undefined||asked===null)continue;
+      if(!Number.isSafeInteger(asked)||asked<1)refuse('LIMITS_INVALID',422);
+      if(limits[key]!==undefined&&asked>limits[key])refuse('LIMITS_EXCEED_DECLARED',422);
+      limits[key]=asked;
+    }
+    return Object.keys(limits).length>0?limits:null;
+  };
+  // The receipt has to be readable without the registry, so the experiment's declared facts travel WITH the campaign.
+  // It is a copy of a frozen document, not a second source of truth: the registry remains the only thing that can
+  // answer what the experiment was.
+  //
+  // A SHORT, STABLE IDENTITY RATHER THAN THE REGISTRY'S `digest` FIELD. REX-801's record exposes `digest` as the
+  // CANONICAL SERIALISATION of the manifest, not a hash of it, so using that value directly made every campaign seed
+  // `experimentId@<the entire manifest as JSON>` - found by running the first campaign on real hardware (defect D-7).
+  // Hashing it here gives a 32-character identity that is still a pure function of the registered document, so two
+  // hosts running the same manifest still derive the same seed sequence.
+  const experimentIdentity=record=>createHash('sha256').update(typeof record?.digest==='string'?record.digest:JSON.stringify(record?.manifest??null)).digest('hex').slice(0,32);
+  const campaignContext=(described,targetDeviceRef)=>Object.freeze({experimentId:described.experimentId,manifestIdentity:experimentIdentity(described),manifest:Object.freeze({topology:described.manifest.topology,hosts:described.manifest.hosts,workers:described.manifest.workers,controlSurfaces:described.manifest.controlSurfaces,repetitions:described.manifest.repetitions,seedPolicy:described.manifest.seedPolicy,baseSeed:described.manifest.baseSeed,stopConditions:described.manifest.stopConditions,acceptance:described.manifest.acceptance,softwareRefs:described.manifest.softwareRefs}),targetDeviceRef:targetDeviceRef??null});
   // What a research surface needs in order to build a valid manifest, published with every research response so
   // the contract is discoverable from the contract itself: the topologies this release can describe, the seed
   // policies, the stop-condition kinds, the retention levels, and the LIVE capability vocabulary that the
@@ -620,6 +756,11 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // conditions and acceptance criteria for work that will be placed on those workers. Letting a worker
       // register the experiment it will be judged by would make the acceptance criteria self-certified.
       const researchRoute=path.startsWith('/api/v0/research/');
+      // REX-803: spending the fleet on an experiment is the OWNER's act even more plainly than describing one. An
+      // enrolled installation may read its own City, but it may not start, stop or inspect a campaign: the control
+      // credential is the only thing that reaches these routes, exactly as for the research trace and the execution
+      // profile. Stated as an explicit refusal rather than left to the shape of the credential check above.
+      const campaignRoute=path==='/api/v0/research/campaigns'||path.startsWith('/api/v0/research/campaigns/');
       // INTEGRATION: JOIN-502's OWN auth preamble used to stand here and has been removed. The text-level union
       // kept both, so this earlier one ran FIRST and authenticated before `publicJoin` existed, which made every
       // join route answer 401 while the code behind it was correct (`ask 0 answered 401` in the JOIN-502 suite).
@@ -642,6 +783,8 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       if(!publicJoin&&!legacyPublicPairing&&!selfAuthenticating)auth(req,nodeRoute&&path!=='/api/v0/node/sharing'&&!researchRoute);
       if(path.startsWith('/api/v0/research/faults')&&req.citySession)refuse('RESEARCH_OWNER_REQUIRED',403,'Fault controls require the City owner');
       if(!legacyPublicPairing)version(req);
+      // REX-803: the campaign surface is owner-only, and the refusal names the reason rather than the credential.
+      if(campaignRoute&&req.citySession)refuse('RESEARCH_OWNER_REQUIRED',403);
       let out;
       // JOIN-502 answers first, in the SAME chain as everything below: a second `if` chain would run
       // after a join route had already produced `out` and overwrite it with `undefined`, so every join
@@ -962,6 +1105,64 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         const b=await body(req);assertOwnNode(req,b.id);
         required('nodes',b.id);await faults.before('report',b.id);out=executionBackend().report({taskId:b.taskId,nodeId:b.id,state:b.state,progress:b.progress,lastCheckpoint:b.lastCheckpoint,result:b.result,error:b.error});faults.success('report',b.id);
       }
+      // REX-803 - the campaign control surface, DIRECT_CONTROL per the programme's exposure rules: the owner picks a
+      // described experiment and a scenario, sets the repetitions, starts, stops, and inspects progress including
+      // every run that produced no measurement and the reason it did not. Four operations and nothing else. Like the
+      // REX-801 contract above it, this surface executes only canonical City tasks through the product's own creation
+      // path; it has no second executor and no way to state an outcome the canonical task did not reach.
+      else if(path==='/api/v0/research/campaigns'&&req.method==='GET'){
+        // `topology` publishes the identities this City can actually offer RIGHT NOW, because a manifest has to
+        // declare them and the only honest place to read them is the City. Without it an owner writing a manifest
+        // guesses at the control-surface ref of their own browser (this surface's first browser test did exactly
+        // that and was refused), and a guessed identity produces a campaign that can never start.
+        out={scenarios:campaigns.scenarios(),topology:{workers:campaignWorkers(),surfaces:liveSurfaces().map(surface=>({ref:surface.clientRef,label:surface.clientLabel})).filter(surface=>surface.ref)},live:campaigns.progress(),unfinished:campaigns.unfinished()!==null,receipts:campaigns.receipts(),storeState:campaigns.storeState(),storeReason:campaigns.storeReason(),experiments:experiments.list({status:'VALIDATED'}).experiments,research:researchFacts()};
+      } else if(path==='/api/v0/research/campaigns'&&req.method==='POST'){
+        const b=await body(req);
+        // The experiment must exist and be VALIDATED: an experiment that was rejected has no seed sequence and no
+        // declared topology, so running it would be running a description nobody accepted. `experiments.get` answers a
+        // typed 404 for an unknown id, and a rejected record is refused here rather than turned into a campaign.
+        const described=experiments.get(b.experimentId);
+        if(described.status!=='VALIDATED')throw new ExperimentManifestError('NOT_REGISTERED',`experiment ${String(b.experimentId)} was rejected and cannot be run`,described.issues??[]);
+        const manifest=described.manifest;
+        const scenarioId=String(b.scenarioId??'');
+        if(!campaignScenarios.some(scenario=>scenario.id===scenarioId))refuse('SCENARIO_UNKNOWN',422);
+        // No default is invented: the manifest's own repetition count is the experiment's, and a campaign may only ask
+        // for FEWER repetitions than the experiment described. Asking for more is refused by name, because the
+        // manifest's declared count and its MAX_REPETITIONS stop condition are the description the result is judged by.
+        const repetitions=b.repetitions===undefined||b.repetitions===null?manifest.repetitions:b.repetitions;
+        if(!Number.isSafeInteger(repetitions)||repetitions<1)refuse('REPETITIONS_INVALID',422);
+        if(repetitions>manifest.repetitions)refuse('REPETITIONS_EXCEED_DECLARED',422);
+        if(b.targetDeviceRef!==undefined&&b.targetDeviceRef!==null&&!manifest.workers.includes(b.targetDeviceRef))refuse('INVALID_CAMPAIGN_TARGET',422);
+        if(b.limits!==undefined&&b.limits!==null&&(typeof b.limits!=='object'||Array.isArray(b.limits)))refuse('LIMITS_INVALID',422);
+        // The campaign seed is the experiment's IMMUTABLE IDENTITY unless the operator names one, so two runs of the
+        // same registered manifest on two hosts derive the same seed sequence without anyone passing a number around.
+        const seed=typeof b.seed==='string'&&b.seed.trim().length>0?b.seed.trim().slice(0,120):`${described.experimentId}@${experimentIdentity(described)}`;
+        const started=campaigns.start({
+          scenarioId,
+          repetitions,
+          warmup:b.warmup===undefined||b.warmup===null?0:b.warmup,
+          resume:b.resume===true,
+          abandon:b.abandon===true,
+          seed,
+          timeout:b.timeoutMs===undefined||b.timeoutMs===null?undefined:b.timeoutMs,
+          limits:campaignLimits(manifest,b.limits??null),
+          context:campaignContext(described,b.targetDeviceRef??null),
+        });
+        emit('RESEARCH_CAMPAIGN_STARTED',null,{campaignId:started.campaignId,experimentId:described.experimentId,scenarioId,repetitions,resumed:Boolean(started.resumed)},'user');
+        out={started,progress:campaigns.progress(),research:researchFacts()};
+      } else if(path==='/api/v0/research/campaigns/stop'&&req.method==='POST'){
+        const b=await body(req);
+        const live=campaigns.progress();
+        // A stale surface must not be able to stop a campaign it is not looking at. The guard applies while a campaign
+        // is actually RUNNING: stopping an already-finished campaign is a plain no-op that answers `stopped: false`,
+        // not a conflict, or a UI left open on a finished campaign could never be told the truth.
+        if(live.state==='RUNNING'&&typeof b.campaignId==='string'&&b.campaignId.length>0&&b.campaignId!==live.campaignId)refuse('CAMPAIGN_MISMATCH',409);
+        const stop=campaigns.stop({reason:typeof b.reason==='string'&&b.reason.trim().length>0?b.reason.trim().slice(0,200):'stopped by the City owner'});
+        emit('RESEARCH_CAMPAIGN_STOP_REQUESTED',null,{campaignId:live.campaignId,stopped:stop.stopped},'user');
+        out={stop,progress:campaigns.progress(),research:researchFacts()};
+      } else if(req.method==='GET'&&/^\/api\/v0\/research\/campaigns\/[^/]+$/.test(path)){
+        out={campaign:campaigns.receipt(decodeURIComponent(path.split('/').at(-1))),research:researchFacts()};
+      }
       // REX-801 — the Research control contract. Four stable operations, all authenticated with the control
       // credential: list, inspect, create-or-import (validate then register), and validate-before-run. There is
       // deliberately NO run/stop here: this contract describes experiments, and executing them belongs to
@@ -1023,6 +1224,9 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // every reason at once instead of fixing one field per round trip. The rejection is also persisted by the
       // registry, so this response is a view of stored evidence rather than the only copy of it.
       if(e instanceof ExperimentManifestError){res.writeHead(e.status||400,{'Content-Type':'application/json'});res.end(JSON.stringify(envelope({error:e.code,errorCode:e.code,detail:e.detail,issues:e.issues})));return;}
+      // REX-803: a refused campaign is a typed fact too (which scenario, which repetitions, which topology was
+      // missing), so the refusal travels with its code instead of being flattened into a 500.
+      if(e instanceof ScenarioRunnerError){res.writeHead(e.status||400,{'Content-Type':'application/json'});res.end(JSON.stringify(envelope({error:e.code,errorCode:e.code,detail:e.detail})));return;}
       res.writeHead(e.status||500,{'Content-Type':'application/json'});res.end(JSON.stringify(envelope({error:e.status?e.message:'Gateway error',...(e.code?{errorCode:e.code}:{})})));if(!e.status)console.error(e);}
   });
   // A relay peer is WRITTEN TO by the City (that is the whole point: the City pushes an answer it received down the
@@ -1113,5 +1317,8 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // UNION (JOIN-590 closeout integration): this single return must expose EVERY capability the integrated branches
   // promised, and its teardown must release every side's resources. Enumerated rather than concatenated on purpose -
   // the first mechanical attempt left two returns here and silently hid `researchTrace` behind the earlier one.
-  return {url:pairing.endpoint,store,join,relay,researchTrace,faults,executionProfile,executionBackends,executionBackend,quiesce:value=>{acceptingTasks=!value;},close:async()=>{if(closed)return;closed=true;faults.close();observation.disconnect();bridge.close();join.close();relay.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();await researchTrace.close(100);}};
+  // UNION (REX-804 + REX-803 integration): one return, exposing both sides' capabilities, with a teardown that
+  // releases both sides' resources. `faults.close()` is REX-804's release and `campaigns.close({reason:'CITY_SHUTDOWN'})`
+  // is REX-803's - dropping either would leave a controller holding a store this City is about to close.
+  return {url:pairing.endpoint,store,join,relay,researchTrace,faults,campaigns,executionProfile,executionBackends,executionBackend,quiesce:value=>{acceptingTasks=!value;},close:async()=>{if(closed)return;closed=true;faults.close();await campaigns.close({reason:'CITY_SHUTDOWN'});observation.disconnect();bridge.close();join.close();relay.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();await researchTrace.close(100);}};
 }

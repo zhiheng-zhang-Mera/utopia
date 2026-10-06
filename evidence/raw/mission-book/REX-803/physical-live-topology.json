@@ -1,0 +1,42 @@
+{
+  "observedAt": "2026-10-06T01:26:18.675Z",
+  "workers": [
+    "dev-031fdba6e94c4298a0956ff04a65481d"
+  ],
+  "surfaces": [
+    {
+      "ref": "dev-be7832e35fc34b85966c3bb43a992e1d",
+      "label": "Android · PERM00"
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "WAIT",
+      "kind": "CANONICAL_TASK",
+      "description": "one canonical WAIT task, observed to a terminal state"
+    },
+    {
+      "id": "CREATE_TEMP_ARTIFACT",
+      "kind": "CANONICAL_TASK",
+      "description": "one canonical CREATE_TEMP_ARTIFACT task, observed to a terminal state"
+    },
+    {
+      "id": "HASH_TEMP_ARTIFACT",
+      "kind": "CANONICAL_TASK",
+      "description": "one canonical HASH_TEMP_ARTIFACT task, observed to a terminal state"
+    },
+    {
+      "id": "DELETE_TEMP_ARTIFACT",
+      "kind": "CANONICAL_TASK",
+      "description": "one canonical DELETE_TEMP_ARTIFACT task, observed to a terminal state"
+    },
+    {
+      "id": "CHECKPOINT_DEMO",
+      "kind": "CANONICAL_TASK",
+      "description": "one canonical CHECKPOINT_DEMO task, observed to a terminal state"
+    }
+  ],
+  "registeredExperiments": [
+    "mech-android-canonical-repetition"
+  ]
+}

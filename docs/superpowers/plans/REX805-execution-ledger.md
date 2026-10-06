@@ -26,3 +26,9 @@ Candidate a574e009 retained as reviewed history. Initial independent review requ
 Repairs preserve inherited policy, refuse ineffective repeated ablation and inconsistent source placement, compare effective controls/lineage/registry references, and validate single-run limits before registering an experiment. Only the selected-run success stop changes to one; failure and wall-clock limits remain. Real Gateway regression covers original→ablation→replay, canonical placement and success/failure bounds. Core/Gateway/seed focused suite: 17/17 PASS; enhanced real Gateway: 2/2 PASS. Independent re-review and exact repaired-head full suite/CI remain pending. No physical-host replay acceptance is claimed.
 
 修复保留继承策略，拒绝无效重复消融及不一致的来源落点，比较有效控制项、关联字段和注册引用，并在注册新实验前校验单次执行限制。仅选定单次执行的成功停止条件转为1，失败与墙钟限制保留。真实 Gateway 回归覆盖原始→消融→回放、规范任务落点及成功/失败界限。核心/Gateway/种子聚焦17/17通过，增强真实 Gateway 2/2通过。独立复审和修复后精确版本完整测试/CI待完成；尚未声称实体联机回放验收。
+
+## Empty-limit comparison repair / 空限制集合比较修复
+
+Mech's independent feasibility probe at candidate 4b39468 reported a `limits` difference despite identical recorded bounds. Root traced the mismatch to the runner persisting absent limits as `{}` while Gateway `campaignLimits` returns `null`. A real HTTP original→Replay regression reproduced the false mismatch: Gateway tests 2 PASS / 1 FAIL. Comparison now treats null/absent and the empty set as equivalent while preserving any added or changed bounds as differences. Core/Gateway/seed tests are 18/18 PASS, including existing limit-drift rejection. Exact new-head full suite, hosted CI and independent re-review remain pending. Physical acceptance remains NOT_RUN; the source payload is unchanged.
+
+Mech 在候选 4b39468 的独立可行性探针中发现，记录限制相同却出现 `limits` 差异。根因是 runner 将无额外限制持久化为 `{}`，Gateway 的 `campaignLimits` 对同一集合返回 `null`。真实 HTTP 原始→Replay 回归复现误报：Gateway 2通过、1失败。比较现将 null/未提供与空集合视为同义，新增或改变的限制仍报告差异。核心/Gateway/种子18/18通过，包括既有真实限制漂移拒绝测试。新精确版本完整套件、CI及独立复审待执行；实体门槛仍 NOT_RUN，原始 payload 未改。

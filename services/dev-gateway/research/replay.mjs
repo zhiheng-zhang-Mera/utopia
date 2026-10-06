@@ -105,7 +105,9 @@ export function createReplayEngine({receipt,experiment,register,start,identity,c
     check('campaignSeed',replay.campaignSeed,source.campaignSeed);
     check('seedIndexOffset',replay.seedIndexOffset,(source.seedIndexOffset??0)+lineage.sourceRunIndex);
     check('timeout',replay.timeout,source.timeout);
-    check('limits',replay.limits,limits(expectedManifest,selectedLimits(source)));
+    // The runner persists an absent limit set as {}; the Gateway returns null for that same set.
+    // Compare effective bounds, retaining any actual added/changed limits as differences.
+    check('limits',replay.limits??{},limits(expectedManifest,selectedLimits(source))??{});
     check('targetDeviceRef',replay.context.targetDeviceRef??null,source.context.targetDeviceRef??null);
     check('manifestControls',projection(replay.context.manifest),projection(expectedManifest));
     check('effectivePolicy',lineage.disabledMechanisms,expectedDisabled);

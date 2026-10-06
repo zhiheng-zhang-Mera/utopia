@@ -37,3 +37,17 @@ test('REX805 replay API is Owner-only and lists truthful bounded mechanism suppo
  const worker=await call(app,'research/replays',undefined,'node');assert.equal(worker.status,401);
  const owner=await call(app,'research/replays');assert.equal(owner.status,200);assert.deepEqual(owner.body.mechanisms.filter(entry=>entry.supported).map(entry=>entry.id),['alternate-device']);assert.equal(owner.body.mechanisms.find(entry=>entry.id==='versioned-rule-view').versionedSnapshotRequired,true);
 }));
+
+test('REX805 an unbounded HTTP campaign remains comparable after runner normalizes absent limits',async()=>withCity(async app=>{
+ const unbounded={...manifest,experimentId:'replay-no-extra-limits',stopConditions:[{kind:'MAX_REPETITIONS',value:3}]};
+ assert.equal((await call(app,'research/experiments',{manifest:unbounded})).status,200);
+ const started=await call(app,'research/campaigns',{experimentId:unbounded.experimentId,scenarioId:'WAIT',repetitions:3,seed:'original'});
+ assert.equal(started.status,200);
+ const original=await execute(app,started.body.started.campaignId);assert.deepEqual(original.limits,{});
+ const replayStart=await call(app,'research/replays',{sourceCampaignId:original.campaignId,sourceRunIndex:1,mode:'REPLAY'});
+ assert.equal(replayStart.status,200,JSON.stringify(replayStart.body));
+ const replay=await execute(app,replayStart.body.started.campaignId);assert.deepEqual(replay.limits,{});
+ const compared=await call(app,`research/replays/${replay.campaignId}`);
+ assert.equal(compared.body.comparison.controlledInputsMatch,true,JSON.stringify(compared.body.comparison.controlledInputDifferences));
+ assert.deepEqual(compared.body.comparison.controlledInputDifferences,[]);
+}));

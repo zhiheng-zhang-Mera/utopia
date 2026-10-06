@@ -1,0 +1,20 @@
+✔ fault confirmation, live canonical target and bounded duration required (2.8555ms)
+✔ heartbeat loss refuses only targeted heartbeats, stop and expiry restore requests (26.7661ms)
+✔ provider unavailable refuses targeted claim and records measured recovery after stop (6.3199ms)
+✔ delayed report releases immediately on emergency stop without blocking unrelated requests (9.1519ms)
+✔ duplicate event affects observation only and is absent after emergency stop (5.0865ms)
+✔ restart disables persisted activation and never resumes fault silently (4.8323ms)
+✔ unexercised or stopped fault cannot receive unrelated future detection or recovery measurements (3.9222ms)
+✔ expired fault persistence failure cannot turn normal canonical observation into an error (4.1572ms)
+✔ four fault classes change real Gateway boundaries and emergency stop restores canonical requests (3393.8985ms)
+✔ REX804 repair guard: an unreadable fault receipt is reported and never prevents the City from starting (188.914ms)
+✔ REX804 repair guard: a receipt with no fault identity is reported as broken, not adopted without identity (413.4507ms)
+✔ Research Danger Zone requires explicit confirmation and offers real emergency stop (1746.7996ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7179.8933

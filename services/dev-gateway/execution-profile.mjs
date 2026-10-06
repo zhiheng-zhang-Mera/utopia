@@ -24,6 +24,10 @@ export const PROFILE_CODES = Object.freeze({
   UNKNOWN_PROFILE: 'PROFILE_UNKNOWN',
   NOT_READY: 'PROFILE_NOT_READY',
   RECOVERY_REQUIRED: 'PROFILE_RECOVERY_REQUIRED',
+  // A change the City cannot persist is REFUSED, not half-applied and not reported as a raw errno. The route used to
+  // surface whatever the filesystem threw - `error.code ?? 'PROFILE_CHANGE_REFUSED'` - so an owner saw errorCode EPERM
+  // and an absolute path from the control surface, which is both untyped and a leak.
+  STORE_UNAVAILABLE: 'PROFILE_STORE_UNAVAILABLE',
 });
 
 export class ProfileChangeError extends Error {
@@ -81,11 +85,19 @@ export function createExecutionProfileController({dir, registry = null, readines
   const loaded = load();
   if (loaded.source === 'RECOVERED') profile = DEFAULT_EXECUTION_PROFILE;
 
-  /** Write through a temporary file, so a crash mid-write cannot leave half a profile behind. */
-  function persist() {
+  /** Write through a temporary file, so a crash mid-write cannot leave half a profile behind.
+   *
+   *  `next` is a parameter rather than being read off the module-level `profile` on purpose. change() must not move the
+   *  live profile until the store has accepted the change: rule 2 promises that "a failed activation leaves the CURRENT
+   *  profile in place and ... never half-switches", and with the assignment first and persist() second an unwritable
+   *  store produced exactly that half-switch, hidden by the caller's exception. Measured: with a directory where
+   *  execution-profile.json belongs, change('WORKER_POOL') threw EPERM while profile() had already moved
+   *  STANDARD_DEVICES -> WORKER_POOL.
+   */
+  function persist(next = profile) {
     mkdirSync(dir, {recursive: true});
     const temporary = `${file}.tmp`;
-    writeFileSync(temporary, JSON.stringify({profile, changedAt: clock()}), {mode: 0o600});
+    writeFileSync(temporary, JSON.stringify({profile: next, changedAt: clock()}), {mode: 0o600});
     renameSync(temporary, file);
   }
 
@@ -122,7 +134,9 @@ export function createExecutionProfileController({dir, registry = null, readines
 
   /**
    * Request a change. Order matters and is the contract: unknown profile -> refused; not-ready non-default -> refused and
-   * NOTHING is written; unchanged -> answered as a no-op receipt rather than a silent success.
+   * NOTHING is written; unchanged -> answered as a no-op receipt rather than a silent success; a store that refuses the
+   * write -> the running profile is untouched and the refusal is typed (PROFILE_STORE_UNAVAILABLE). Rule 2 above is only
+   * true if the write happens before the live assignment, which is why persist() takes the value as an argument.
    */
   function change(requested) {
     if (!EXECUTION_PROFILES.includes(requested)) {
@@ -136,9 +150,15 @@ export function createExecutionProfileController({dir, registry = null, readines
         throw new ProfileChangeError(PROFILE_CODES.NOT_READY, `Execution profile ${requested} is not ready (${report?.state ?? 'UNKNOWN'}${report?.reason ? ': ' + report.reason : ''})`, {profile: requested, state: report?.state ?? 'UNKNOWN', reason: report?.reason ?? null, kept: from});
       }
     }
+    // The store first, the live profile second: a change the City cannot persist is a change the City does not make.
+    // The receipt and the running profile therefore agree in every outcome, including the one where the store refuses.
+    // The errno and the path stay in `detail` for a log; the caller gets a typed code.
+    try { persist(requested); }
+    catch (error) {
+      throw new ProfileChangeError(PROFILE_CODES.STORE_UNAVAILABLE, `Execution profile ${requested} could not be persisted; the City keeps running ${from}`, {profile: requested, kept: from, detail: String(error?.code ?? error?.message ?? 'PROFILE_STORE_UNAVAILABLE').slice(0, 120)});
+    }
     profile = requested;
     recovery = null;
-    persist();
     loaded.source = 'PERSISTED';
     loaded.changedAt = clock();
     return {changed: true, from, to: requested, reason: 'ACTIVATED', readiness: readiness()};

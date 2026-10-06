@@ -61,6 +61,21 @@ if (unreadableReceipts.length > 0) {
   for (const row of unreadableReceipts) console.error(`  ${row.name}  ${row.reason}`);
   process.exitCode = 1;
 }
+// A receipt DELETED from the store leaves no trace in the listing at all: there is no tombstone, and the window's
+// own total drops with the file (measured: receipts=1, receiptWindow.total=1 after a deletion). But the live
+// campaign record survives completion and still names the last campaign, so a TERMINAL live campaign whose id is
+// absent from the receipts means the newest receipt was lost. MEASURED: signal available=true on a throwaway City.
+// SCOPE, stated rather than implied: only the newest receipt is detectable this way - deleting an older one while a
+// newer receipt survives remains invisible to any reader, which is why the message says "the newest" and not
+// "a receipt".
+const TERMINAL_CAMPAIGN_STATES = ['COMPLETED', 'STOPPED', 'REFUSED', 'FAILED', 'INTERRUPTED'];
+const liveId = list.live?.campaignId ?? null;
+const liveAccounted = Boolean(liveId) && (receipts.some(row => row.campaignId === liveId)
+  || unreadableReceipts.some(row => String(row.name).startsWith(liveId)));
+if (liveId && TERMINAL_CAMPAIGN_STATES.includes(list.live?.state) && !liveAccounted) {
+  console.error(`the live campaign ${liveId} (state ${list.live.state}) has no receipt in this City's store - the newest receipt is missing, so this artifact describes less than the City ran (an older loss is not detectable at all):`);
+  process.exitCode = 1;
+}
 if (receipts.length === 0) {
   console.error('no campaign receipt is readable from this City; an artifact with no real source is not worth exporting');
   // DEFECT REPAIR (Windows, measured): `process.exit(1)` here asserted in libuv - "!(handle->flags &

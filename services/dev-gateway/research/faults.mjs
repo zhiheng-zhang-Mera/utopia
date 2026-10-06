@@ -6,9 +6,21 @@ const fail=(code,status=400)=>{throw Object.assign(new Error(code),{code,status}
 const operation={HEARTBEAT_LOSS:'heartbeat',PROVIDER_UNAVAILABLE:'claim',DELAY_RESULT:'report',DUPLICATE_EVENT:'trace'};
 // Injections are node-scoped request/observation faults. No OS, network or credential operations.
 export function createFaultController({dir,node,trace,clock=Date.now}={}){
- mkdirSync(dir,{recursive:true});const receipts=new Map(),active=new Map(),timers=new Map(),waiters=new Map();let closed=false;
+ mkdirSync(dir,{recursive:true});const receipts=new Map(),active=new Map(),timers=new Map(),waiters=new Map();const broken=[];let closed=false;
  const persist=row=>{const target=join(dir,row.faultId+'.json');writeFileSync(target+'.tmp',JSON.stringify(row,null,2));renameSync(target+'.tmp',target);};
- for(const name of readdirSync(dir).filter(n=>/^fault-[a-f0-9-]+\.json$/.test(n))){const row=JSON.parse(readFileSync(join(dir,name),'utf8'));if(row.status==='ACTIVE'){row.status='INTERRUPTED';row.endedAt=new Date(clock()).toISOString();row.stopReason='PROCESS_RESTART';persist(row);}receipts.set(row.faultId,row);}
+ // A RECEIPT THIS MODULE CANNOT READ IS REPORTED, NOT FATAL. The first version parsed every matching file unguarded, so
+ // one unreadable receipt made the whole City refuse to start (found by the REX-804 opposite-host review, finding B1).
+ // The write path is atomic, so a torn write is not the expected cause - an external edit, a disk fault or a foreign
+ // tool is - but the consequence must never be a City that will not boot. This follows the pattern the sibling modules
+ // already use: the experiment registry reports `broken` files and the trace collector degrades to PARTIAL.
+ for(const name of readdirSync(dir)){
+  if(!/^fault-[a-f0-9-]{36}\.json$/.test(name))continue;
+  let row=null;
+  try{row=JSON.parse(readFileSync(join(dir,name),'utf8'));}catch{broken.push({file:name,reason:'UNREADABLE_RECEIPT'});continue;}
+  if(row===null||typeof row!=='object'||typeof row.faultId!=='string'||row.faultId+'.json'!==name||typeof row.status!=='string'){broken.push({file:name,reason:'RECEIPT_SHAPE_MISMATCH'});continue;}
+  if(row.status==='ACTIVE'){row.status='INTERRUPTED';row.endedAt=new Date(clock()).toISOString();row.stopReason='PROCESS_RESTART';try{persist(row);}catch{broken.push({file:name,reason:'RECEIPT_REWRITE_FAILED'});}}
+  receipts.set(row.faultId,row);
+ }
  const get=id=>{const row=receipts.get(id);if(!row)fail('FAULT_NOT_FOUND',404);return copy(row);};
  const save=row=>{try{persist(row);}catch{row.storageFailure='FAULT_RECEIPT_WRITE_FAILED';throw Object.assign(new Error('FAULT_RECEIPT_WRITE_FAILED'),{code:'FAULT_RECEIPT_WRITE_FAILED',status:503});}};
  function stop(id,reason='EMERGENCY_STOP'){
@@ -50,5 +62,5 @@ export function createFaultController({dir,node,trace,clock=Date.now}={}){
    const second=trace.captureCanonical(event);row.metrics.duplicateObservationCount++;row.observationAccepted=ok&&second;try{save(row);}catch{}
   }return ok;
  }
- return {start,stop,get,before,success,observeOffline,capture,list:()=>({faults:[...receipts.values()].slice(-128).map(copy),retentionTruncated:receipts.size>128,kinds:FAULT_KINDS,maxDurationMs:30000,automaticResume:false}),close(){closed=true;for(const row of [...active.values()])try{stop(row.faultId,'PROCESS_CLOSE');}catch{}}};
+ return {start,stop,get,before,success,observeOffline,capture,list:()=>({faults:[...receipts.values()].slice(-128).map(copy),retentionTruncated:receipts.size>128,broken:copy(broken),kinds:FAULT_KINDS,maxDurationMs:30000,automaticResume:false}),close(){closed=true;for(const row of [...active.values()])try{stop(row.faultId,'PROCESS_CLOSE');}catch{}}};
 }

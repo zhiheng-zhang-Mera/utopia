@@ -3,6 +3,10 @@ import {renderServices} from './services.js';
 import {renderResearch} from './research.js';
 import {createResearchTraceView} from './research-trace.js';
 const researchTraceView=createResearchTraceView();
+// MON-903: the decision provenance view. A factory rather than a render function for the same reason the trace view is
+// one: it owns an epoch and a bounded refresh timer that must be released when the page is left.
+import {createMonitorDecisionsView} from './monitor-decisions.js';
+const monitorDecisionsView=createMonitorDecisionsView();
 import {schedulerPanel} from './scheduler.js';
 // UXI-301: the scheduler presentation feed, refreshed alongside the snapshot. When it is missing the
 // panel says it is not being reported rather than rendering a healthy or idle surface.
@@ -729,6 +733,7 @@ function assistantSlot(){
 }
 function render(){
  if(page!=='ResearchTrace')researchTraceView.reset();
+ if(page!=='Decisions')monitorDecisionsView.reset();
  const recoveryFocus=document.activeElement?.closest('form[data-rebind]');const recoveryField=recoveryFocus?{id:recoveryFocus.dataset.rebind,name:document.activeElement.name}:null;
  const nextSchedulerContext=token+'|'+(city?.cityId??'');if(nextSchedulerContext!==schedulerContext){schedulerContext=nextSchedulerContext;schedulerEpoch++;schedulerPending.clear();}
  const previousNameForm=$('#city-name-form');
@@ -763,6 +768,10 @@ function render(){
  if(page==='ResearchTrace'){
   const credential=token,cityId=city.cityId;
   researchTraceView.render($('#view'),{contextKey:credential+'|'+cityId,online:connection==='ONLINE',api,isCurrent:()=>page==='ResearchTrace'&&token===credential&&city?.cityId===cityId});
+ }
+ if(page==='Decisions'){
+  const credential=token,cityId=city.cityId;
+  monitorDecisionsView.render($('#view'),{contextKey:credential+'|'+cityId,online:connection==='ONLINE',api,isCurrent:()=>page==='Decisions'&&token===credential&&city?.cityId===cityId});
  }
  if(page==='Settings')loadEnrolledDevices();
  // Terminal pages mount lazily: `terminal` is only created once a terminal page is shown,

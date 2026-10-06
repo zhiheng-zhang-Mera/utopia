@@ -1,7 +1,9 @@
 // MON-901: non-authoritative pull sidecar. No timers, listeners, task mutations or decisions.
+// MON-903: the `decision` field is filled from an injected, read-only decision snapshot provider. The sidecar still
+// decides nothing itself: it projects what the decision overlay recorded, exactly as it projects canonical tasks.
 const ref=value=>typeof value==='string'?value.slice(0,160):null;
-const base=()=>({schemaVersion:1,authoritative:false,eventSource:'CANONICAL_GATEWAY_STORE',health:'NOT_OBSERVED',nodes:[],edges:[],events:[],evidence:[],decision:[],observedAt:null,projectedAt:null,projectionLatencyMs:null,completeness:null,unsupportedSources:['review','test/CI','model/provider switch','Owner escalation']});
-export function createObservation({read,clock=()=>Date.now()}={}) {
+const base=()=>({schemaVersion:1,authoritative:false,eventSource:'CANONICAL_GATEWAY_STORE',health:'NOT_OBSERVED',nodes:[],edges:[],events:[],evidence:[],decision:[],observedAt:null,projectedAt:null,projectionLatencyMs:null,completeness:null,unsupportedSources:['review','test/CI','model/provider switch']});
+export function createObservation({read,decisions=null,clock=()=>Date.now()}={}) {
  if(typeof read!=='function')throw new TypeError('Canonical reader required');
  let view=base(),pending=null,disconnected=false;
  const snapshot=()=>structuredClone(view);
@@ -30,7 +32,11 @@ export function createObservation({read,clock=()=>Date.now()}={}) {
    const completeness={tasksOmitted:counts.tasks-source.tasks.length,nodesOmitted:counts.nodes-source.nodes.length,eventsOmitted:counts.events-source.events.length,historyGap:watermark===null||watermark>counts.events||counts.events>source.events.length||(events.length>0&&events[0].seq!==1)||events.some((e,i)=>i>0&&e.seq!==events[i-1].seq+1),firstSeq:events[0]?.seq??null,lastSeq:events.at(-1)?.seq??null,canonicalHighWatermark:watermark,continuous:false};
    const partial=completeness.tasksOmitted>0||completeness.nodesOmitted>0||completeness.eventsOmitted>0||completeness.historyGap;
    const lag=time-Date.parse(source.observedAt);
-   view={...base(),cityId:ref(source.cityId),health:partial?'PARTIAL':'COMPLETE',scope:'BOUNDED_CANONICAL_WINDOW',safeSummaryAvailable:false,unobservedTaskRisk:completeness.tasksOmitted>0,nodes,edges,events,evidence,observedAt:ref(source.observedAt),projectedAt:new Date(time).toISOString(),projectionLatencyMs:Number.isFinite(lag)&&lag>=0?lag:null,completeness};
+   // MON-903: decisions are projected from the overlay's own bounded receipt window. A provider that throws is a
+   // declared gap, not a broken projection: the monitor must keep answering even when the decision log cannot.
+   let decision=[];let decisionFailure=null;
+   if(typeof decisions==='function'){try{const snap=decisions();decision=Array.isArray(snap?.decisions)?snap.decisions:[];if(snap?.retentionTruncated)decisionFailure='DECISION_WINDOW_RETENTION_TRUNCATED';}catch{decisionFailure='DECISION_SOURCE_UNAVAILABLE';}}
+   view={...base(),cityId:ref(source.cityId),health:partial?'PARTIAL':'COMPLETE',scope:'BOUNDED_CANONICAL_WINDOW',safeSummaryAvailable:false,unobservedTaskRisk:completeness.tasksOmitted>0,nodes,edges,events,evidence,decision,decisionFailure,observedAt:ref(source.observedAt),projectedAt:new Date(time).toISOString(),projectionLatencyMs:Number.isFinite(lag)&&lag>=0?lag:null,completeness};
    return snapshot();
   }).catch(()=>{
    if(!disconnected)view={...view,health:'UNAVAILABLE',failure:'CANONICAL_SOURCE_UNAVAILABLE',stale:true};

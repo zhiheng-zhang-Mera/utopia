@@ -11,6 +11,9 @@ import {createObservation} from './observation.mjs';
 // MON-902: the overview graph builder. It is a pure function of ONE observation view, so the graph route reuses the
 // monitor's single-flight projection instead of inventing a second canonical read path.
 import {buildGraph} from './monitor-graph.mjs';
+// MON-903: the event-triggered decision overlay. It reads canonical events and tasks, writes nothing but its own
+// bounded receipts, and never participates in the execution path except as a non-blocking notification.
+import {createDecisionOverlay, DecisionError} from './decision.mjs';
 import {createExecutionProfileController} from './execution-profile.mjs';
 import {createTraceCollector} from '../research-trace/index.mjs';
 import { Pairing } from './pairing.mjs';
@@ -103,7 +106,11 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   if(!token||!nodeToken||token===nodeToken) throw new Error('Separate control and node tokens are required');
   if(host==='0.0.0.0'||host==='::') throw new Error('Configure an explicit loopback or LAN interface');
   const store=new Store(dir); const wss=new WebSocketServer({noServer:true}); let closed=false;
-  const observation=createObservation({read:()=>store.observationWindow()});
+  // MON-903: the event-triggered decision overlay. It is created BEFORE the observation sidecar so the projection can
+  // read recent decisions, and it receives a task READER only - this module has no writer and therefore cannot become a
+  // second task truth. `observe` is wired into the canonical event path below and never awaited there.
+  const decisions=createDecisionOverlay({dir:resolve(dir,'monitor'),tasks:()=>store.list('tasks')});
+  const observation=createObservation({read:()=>store.observationWindow(),decisions:()=>decisions.snapshot(8)});
   const researchTrace=createTraceCollector({directory:resolve(dir,'research-trace'),sourceStreamRef:store.cityId,storage:researchTraceStorage,softwareRefs:researchTraceSoftwareRefs});
   // MESH-301: WHICH control surfaces are attached to this City, and what each of them calls itself.
   //
@@ -185,7 +192,12 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   const observeResources=b=>{if(!b.telemetry)return;researchTrace.record({eventId:'resource-'+randomUUID(),type:'RESOURCE_OBSERVATION',timestamp:b.telemetry.observedAt,sourceClock:'EXTERNAL_DECLARED_WALL_UTC',canonicalRefs:{nodeRef:b.id},metrics:{cpuPercent:b.telemetry.cpu.usagePercent,memoryBytes:b.telemetry.memory?.usedBytes??null}});};
   let transactionTrace=null;
   const atomicWithTrace=fn=>{const staged=[];transactionTrace=staged;try{const result=store.atomic(fn);transactionTrace=null;for(const event of staged)researchTrace.captureCanonical(event);return result;}finally{transactionTrace=null;}};
-  const emit=(type,id,payload,actor)=>{const e=store.event(type,id,payload,actor);if(transactionTrace)transactionTrace.push(e);else researchTrace.captureCanonical(e);for(const c of wss.clients) if(c.readyState===1)c.send(JSON.stringify(envelope({event:e})));return e;};
+  const emit=(type,id,payload,actor)=>{const e=store.event(type,id,payload,actor);if(transactionTrace)transactionTrace.push(e);else researchTrace.captureCanonical(e);
+    // MON-903: the canonical event path NOTIFIES the decision overlay and never waits for it. `observe` classifies one
+    // event, submits at most one trigger into a per-task queue, and cannot throw - so a decision can never delay,
+    // fail or reorder the task that produced the event. This single line is the whole coupling, on purpose.
+    decisions.observe(e);
+    for(const c of wss.clients) if(c.readyState===1)c.send(JSON.stringify(envelope({event:e})));return e;};
   join=createJoinRequests({file:resolve(dir,'join-requests.json'),clock:pairingClock,credential:token,onChange:(kind,view)=>{
     const type={created:'JOIN_REQUEST_CREATED',approved:'JOIN_REQUEST_APPROVED',rejected:'JOIN_REQUEST_REJECTED',consumed:'JOIN_REQUEST_CONSUMED',updated:'JOIN_REQUEST_UPDATED'}[kind]||'JOIN_REQUEST_UPDATED';
     // The payload is the bounded public row: no claim digest, no secret, nothing that becomes a
@@ -637,6 +649,9 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       const selfAuthenticating=req.method==='POST'&&path==='/api/v0/device/session';
       if(!publicJoin&&!legacyPublicPairing&&!selfAuthenticating)auth(req,nodeRoute&&path!=='/api/v0/node/sharing'&&!researchRoute);
       if(!legacyPublicPairing)version(req);
+      // MON-903: reading the decision log is authenticated like the monitor itself, but ASKING for a decision is an
+      // owner act - an enrolled installation may see what the City decided, it may not put words in its mouth.
+      if(req.method==='POST'&&path==='/api/v0/monitor/decisions'&&req.citySession)refuse('MONITOR_OWNER_REQUIRED',403);
       let out;
       // JOIN-502 answers first, in the SAME chain as everything below: a second `if` chain would run
       // after a join route had already produced `out` and overwrite it with `undefined`, so every join
@@ -819,6 +834,28 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         const collapse=query.get('collapse');
         if(collapse!==null&&(!/^\d+$/.test(collapse)||Number(collapse)<1||Number(collapse)>4096))fail(400,'collapse must be 1..4096');
         out={graph:buildGraph(await observation.refresh(),{...(edgeTypes?.length?{edgeTypes}:{}),...(collapse!==null?{maxVisibleNodes:Number(collapse)}:{})})};
+      }
+      // MON-903 — the decision surface. Three operations and nothing else: read the bounded decision log, read one
+      // receipt, and SUBMIT a trigger for a kind the canonical stream cannot express yet (review readiness, scope
+      // change, merge gate, a retry request). Reading is authenticated like the monitor itself; SUBMITTING is an
+      // owner act, refused for an enrolled member in the auth preamble above. Nothing here can decide a task's fate:
+      // the overlay has no writer, and every receipt says so with `appliedBy: null`.
+      else if(req.method==='GET' && path==='/api/v0/monitor/decisions'){
+        const requested=Number(new URL(req.url,'http://city').searchParams.get('limit'));
+        const limit=Number.isSafeInteger(requested)&&requested>0?Math.min(requested,200):50;
+        // The decision window is NESTED, not spread. Its own `schemaVersion` is the decision-receipt schema version (1),
+        // while the wire envelope's is 0; spreading it flat overwrote the envelope and made every client reject the
+        // response as a protocol mismatch - found by this task's browser probe, which saw a 200 become an error.
+        out={window:decisions.snapshot(limit),metrics:decisions.metrics(),kinds:decisions.kinds,sources:decisions.sources,actions:decisions.actions};
+      } else if(req.method==='POST' && path==='/api/v0/monitor/decisions'){
+        const b=await body(req);
+        const submitted=decisions.submit({kind:b.kind,taskRef:b.taskRef??null,origin:'SUBMITTED',reason:typeof b.reason==='string'?b.reason.slice(0,200):null});
+        // The submission is recorded as a canonical event of its own, so "who asked for this decision" is answerable
+        // from the City's event log rather than only from the receipt.
+        emit('MONITOR_DECISION_REQUESTED',b.taskRef??null,{kind:b.kind,decisionId:submitted.decisionId,queued:submitted.queued},'user');
+        out={submitted};
+      } else if(req.method==='GET' && /^\/api\/v0\/monitor\/decisions\/[^/]+$/.test(path)){
+        out={decision:decisions.receipt(decodeURIComponent(path.split('/').at(-1)))};
       }
       else if(req.method==='POST' && path==='/api/v0/node/sharing'){
         const b=await body(req);if(memberRef(req)!==b.id)fail(403,'Only this device may change its resource sharing');if(typeof b.enabled!=='boolean')fail(400,'Sharing requires enabled boolean');const n=required('nodes',b.id);out=store.put('nodes',{...n,sharingEnabled:b.enabled});emit('NODE_SHARING_CHANGED',null,{nodeId:b.id,enabled:b.enabled});
@@ -1023,6 +1060,8 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // every reason at once instead of fixing one field per round trip. The rejection is also persisted by the
       // registry, so this response is a view of stored evidence rather than the only copy of it.
       if(e instanceof ExperimentManifestError){res.writeHead(e.status||400,{'Content-Type':'application/json'});res.end(JSON.stringify(envelope({error:e.code,errorCode:e.code,detail:e.detail,issues:e.issues})));return;}
+      // MON-903: a refused decision trigger is a typed fact (which kind, which task), not a 500.
+      if(e instanceof DecisionError){res.writeHead(e.status||400,{'Content-Type':'application/json'});res.end(JSON.stringify(envelope({error:e.code,errorCode:e.code,detail:e.detail})));return;}
       res.writeHead(e.status||500,{'Content-Type':'application/json'});res.end(JSON.stringify(envelope({error:e.status?e.message:'Gateway error',...(e.code?{errorCode:e.code}:{})})));if(!e.status)console.error(e);}
   });
   // A relay peer is WRITTEN TO by the City (that is the whole point: the City pushes an answer it received down the
@@ -1113,5 +1152,5 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // UNION (JOIN-590 closeout integration): this single return must expose EVERY capability the integrated branches
   // promised, and its teardown must release every side's resources. Enumerated rather than concatenated on purpose -
   // the first mechanical attempt left two returns here and silently hid `researchTrace` behind the earlier one.
-  return {url:pairing.endpoint,store,join,relay,researchTrace,executionProfile,executionBackends,executionBackend,quiesce:value=>{acceptingTasks=!value;},close:async()=>{if(closed)return;closed=true;observation.disconnect();bridge.close();join.close();relay.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();await researchTrace.close(100);}};
+  return {url:pairing.endpoint,store,join,relay,researchTrace,observation,decisions,executionProfile,executionBackends,executionBackend,quiesce:value=>{acceptingTasks=!value;},close:async()=>{if(closed)return;closed=true;await decisions.close({timeoutMs:300});observation.disconnect();bridge.close();join.close();relay.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();await researchTrace.close(100);}};
 }

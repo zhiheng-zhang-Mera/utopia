@@ -7,6 +7,10 @@ const monitorView=createMonitorGraphView();
 import {renderResearch} from './research.js';
 import {createResearchTraceView} from './research-trace.js';
 const researchTraceView=createResearchTraceView();
+// MON-903: the decision provenance view. A factory rather than a render function for the same reason the trace view is
+// one: it owns an epoch and a bounded refresh timer that must be released when the page is left.
+import {createMonitorDecisionsView} from './monitor-decisions.js';
+const monitorDecisionsView=createMonitorDecisionsView();
 import {schedulerPanel} from './scheduler.js';
 // UXI-301: the scheduler presentation feed, refreshed alongside the snapshot. When it is missing the
 // panel says it is not being reported rather than rendering a healthy or idle surface.
@@ -744,6 +748,7 @@ function renderMonitor(){
 function render(){
  if(page!=='ResearchTrace')researchTraceView.reset();
  if(page!=='Monitor')monitorView.reset();
+ if(page!=='Decisions')monitorDecisionsView.reset();
  const recoveryFocus=document.activeElement?.closest('form[data-rebind]');const recoveryField=recoveryFocus?{id:recoveryFocus.dataset.rebind,name:document.activeElement.name}:null;
  const nextSchedulerContext=token+'|'+(city?.cityId??'');if(nextSchedulerContext!==schedulerContext){schedulerContext=nextSchedulerContext;schedulerEpoch++;schedulerPending.clear();}
  const previousNameForm=$('#city-name-form');
@@ -774,10 +779,14 @@ function render(){
  if(page==='Home')$('#view').innerHTML=assistantSlot()+`<div class="grid" style="margin-top:14px"><section class="panel"><h2>${esc(t('section.runtimeNodes'))}</h2>${nodeRows()}</section><section class="panel"><h2>${esc(t('section.recentActivity'))}</h2>${events(city.events.slice(-4))}</section></div><section class="panel" style="margin-top:12px" id="home-rooms"><h2>${esc(t('section.homeRooms'))}</h2><p class="muted">${esc(t('home.rooms.hint'))}</p><div id="home-rooms-body"><p class="muted">${esc(t('terminal.loading'))}</p></div></section><section class="panel" style="margin-top:12px"><h2>${esc(t('section.recentTasks'))}</h2>${taskRows(tasks.slice(-5))}</section>`;
  if(page==='Home')homeRooms();
  if(page==='Services')renderServices($('#view'),city,connection==='ONLINE',api);
- if(page==='Research')renderResearch($('#view'),connection==='ONLINE',api,city.cityId+':'+generation);
+ if(page==='Research')renderResearch($('#view'),connection==='ONLINE',api,token+'|'+city.cityId);
  if(page==='ResearchTrace'){
   const credential=token,cityId=city.cityId;
   researchTraceView.render($('#view'),{contextKey:credential+'|'+cityId,online:connection==='ONLINE',api,isCurrent:()=>page==='ResearchTrace'&&token===credential&&city?.cityId===cityId});
+ }
+ if(page==='Decisions'){
+  const credential=token,cityId=city.cityId;
+  monitorDecisionsView.render($('#view'),{contextKey:credential+'|'+cityId,online:connection==='ONLINE',api,isCurrent:()=>page==='Decisions'&&token===credential&&city?.cityId===cityId});
  }
  if(page==='Settings')loadEnrolledDevices();
  // Terminal pages mount lazily: `terminal` is only created once a terminal page is shown,

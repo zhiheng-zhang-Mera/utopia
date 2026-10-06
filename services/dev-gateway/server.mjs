@@ -977,7 +977,9 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
           throw new ExperimentManifestError('REJECTED',`${result.record.issues.length} issue(s) in the submitted manifest`,result.record.issues);
         }
         if(!result.replayed)emit('RESEARCH_EXPERIMENT_REGISTERED',null,{experimentId:result.record.experimentId,topology:result.record.manifest.topology,repetitions:result.record.manifest.repetitions},'user');
-        out={registered:true,replayed:result.replayed,persisted:result.persisted,...result.record,research:researchFacts()};
+        // A manifest that was validated but could not be FILED says so: the refusal reason travels with the response
+        // instead of being dropped between the registry and the caller (found by this repair's own guard).
+        out={registered:true,replayed:result.replayed,persisted:result.persisted,...(result.persistFailure?{persistFailure:result.persistFailure}:{}),...result.record,research:researchFacts()};
       } else if(req.method==='POST'&&path==='/api/v0/research/experiments/validate'){
         const b=await body(req,65536);
         const verdict=experiments.validate(b.manifest??b);

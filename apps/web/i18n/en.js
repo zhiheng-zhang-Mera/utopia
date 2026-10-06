@@ -429,6 +429,9 @@ Object.assign(messages,{"members.thisDevice":"This device","members.role.PRIMARY
 Object.assign(messages,{"catalog.hint":"Not sure what you can do?","catalog.open":"View all capabilities","catalog.title":"Available targets — select, then submit your action"});
 Object.assign(messages,{"nav.research":"Research","heading.research":"Research"});
 Object.assign(messages,{"nav.researchTrace":"Research trace","heading.researchtrace":"Research trace","trace.title":"Research recording","trace.hint":"Read-only observations from this City. Recording does not create or execute an experiment.","trace.refresh":"Refresh","trace.offline":"Reconnect to view current research records.","trace.recording":"Recording","trace.stopped":"Recording stopped","trace.types":"Recorded event types","trace.none":"None observed","trace.experiment":"Experiment run","trace.metrics":"Measurement availability","trace.available":"Measured","trace.failures":"Collector failures","trace.dropped":"Dropped records","trace.retention":"Retention truncated","trace.declared":"Software identities are declared references; external verification is required. Missing measurements remain NOT_OBSERVABLE.","trace.ownerRequired":"Only the City owner can view research records. Ask the owner to open Research trace.","trace.unavailable":"Research records are unavailable. Refresh or reconnect."});
+// MON-903: what the City decided and why. The copy states plainly that a decision applies nothing by itself, because a
+// screen that implies otherwise would be the false-affordance defect this programme keeps finding.
+Object.assign(messages,{"nav.decisions":"Decision provenance","heading.decisions":"Decision provenance","dec.title":"Decisions the City recorded","dec.hint":"Where a canonical event genuinely required a choice, the City recorded a bounded decision: what triggered it, who resolved it, how long it took, and whether it needed the owner. A decision applies nothing by itself - it names what should happen next and who must agree.","dec.refresh":"Refresh","dec.offline":"Reconnect to view recorded decisions.","dec.ownerRequired":"Only the City owner can view decision records. Ask the owner to open Decision provenance.","dec.unavailable":"Decision records are unavailable. Refresh or reconnect.","dec.metrics":"{decisions} decision(s) in this window · {owner} owner-required · auto-resolved {auto} · {timeouts} timeout(s)","dec.noBarrier":"Unrelated-task blocking: {value} · {concurrent} task queue(s) active now","dec.ownerRequiredTitle":"Receipts in this window marked owner-required","dec.noOwnerRequired":"No receipt in this window is marked owner-required; current Owner work is not determined here.","dec.recent":"Recent decisions","dec.empty":"No decision has been recorded in this window. Ordinary heartbeats, progress reports and completed work never create a decision.","dec.trigger":"Trigger","dec.task":"Task","dec.source":"Resolved by","dec.action":"Bounded action","dec.owner":"Owner","dec.yes":"yes","dec.no":"no","dec.latency":"Latency (ms)","dec.queueWait":"Queue wait (ms)","dec.provenance":"Provenance","dec.prePost":"State before: {pre} · after: {post}","dec.applied":"Applied by: {applied}","dec.nobody":"nobody - this is a record, not an action","dec.evidence":"Canonical evidence: {refs}","dec.none":"none recorded","dec.unknown":"not observable","dec.cityWide":"whole City","dec.notMeasured":"NOT_MEASURED","dec.notObservable":"Not observable here: {list}","dec.retention":"Showing the most recent {retained} decisions (window limit {limit}).","dec.failures":"Overlay failures recorded: {list}","dec.failuresDropped":"({dropped} earlier entries were dropped from this bounded log.)"});
 // (union) duplicate export default removed: the earlier one belonged to a side that also appended its keys above
 Object.assign(messages, {
 "recovery.conflict":"Device identity conflict",
@@ -443,4 +446,104 @@ Object.assign(messages, {
 });
 // (union) duplicate export default removed
 Object.assign(messages,{'scheduler.choice.explicitPrompt':'Choose how to continue this service','scheduler.choice.alternateDevice':'Keep this service and use another device','scheduler.choice.reason.TARGET_DEVICE_BOUND':'This service is bound to the selected device.','scheduler.choice.reason.ALTERNATE_NOT_AVAILABLE':'No eligible alternative device is available.','scheduler.choice.reason.NO_SWITCH_DECISION':'No device change is currently offered.'});
+// MON-902 — City Work Monitor copy. Risk codes are translated here and nowhere else: the projection emits codes, the
+// surface says what they mean, and the raw code is only visible inside the Technical details disclosure.
+Object.assign(messages, {
+  "nav.monitor": "City monitor",
+  "heading.monitor": "Your city, watched.",
+  "monitor.title": "City monitor",
+  "monitor.error": "The city monitor could not be read. The city itself is unaffected; this is only the observation surface.",
+  "monitor.refresh": "Try again",
+  "monitor.subtitle": "What the city is doing right now, what is at risk, and what this picture cannot see.",
+  "monitor.overview.needsAttention": "Things need attention:",
+  "monitor.overview.nothingActive": "Nothing is failing or blocked in the part of the city this picture can see.",
+  "monitor.overview.cannotSee": "What this picture cannot tell you",
+  "monitor.overview.riskTitle": "At risk now",
+  "monitor.overview.noActiveRisk": "No task is failing, refused, blocked or repeating.",
+  "monitor.overview.watchTitle": "Worth watching",
+  "monitor.overview.noWatch": "Nothing is degraded.",
+  "monitor.overview.unknownTitle": "Cannot be determined",
+  "monitor.overview.workTitle": "Other work",
+  "monitor.overview.noWork": "No other task is in this window.",
+  "monitor.overview.collapsed": "Collapsed",
+  "monitor.overview.containsRisk": "contains risk:",
+  "monitor.overview.budget": "A risk on this page is one click from its reason and its canonical evidence.",
+  "monitor.overview.scope": "Always true of this monitor:",
+  "monitor.scope.ownerObserved": "Owner action is visible only where a task is waiting for confirmation.",
+  "monitor.blind.health": "The observation source is not complete:",
+  "monitor.blind.gap": "Part of the city history is missing from this window.",
+  "monitor.blind.tasks": "Some tasks exist that this picture does not contain:",
+  "monitor.blind.retry": "Whether anything has been retrying cannot be told from this window.",
+  "monitor.blind.owner": "Whether the owner is needed cannot be told from here.",
+  "monitor.blind.edges": "Some paths point at something this picture does not contain:",
+  "monitor.risk.TASK_FAILED": "This task failed",
+  "monitor.risk.TASK_REFUSED": "This task was refused",
+  "monitor.risk.TASK_UNAVAILABLE": "This task cannot run here",
+  "monitor.risk.OWNER_CONFIRMATION_REQUIRED": "Waiting for a person to confirm",
+  "monitor.risk.DEVICE_ROUTE_WAITING": "Waiting for its device",
+  "monitor.risk.PATH_REPEATED": "A path is repeating",
+  "monitor.risk.RETRY_HISTORY_NOT_OBSERVABLE": "Its retry history is not visible here",
+  "monitor.risk.DEVICE_OFFLINE": "This device is offline",
+  "monitor.risk.DEVICE_OFFLINE_HOLDING_WORK": "Offline while holding work",
+  "monitor.risk.DEVICE_STATE_UNKNOWN": "This device's state is unknown",
+  "monitor.risk.WINDOW_INCOMPLETE": "This picture is incomplete",
+  "monitor.risk.HISTORY_GAP": "Part of the history is missing",
+  "monitor.risk.EDGE_CAUSALITY_MISSING": "A path cannot be followed",
+  "monitor.risk.MONITOR_PARTIAL": "The city can only be partly seen",
+  "monitor.risk.MONITOR_UNAVAILABLE": "The city cannot be seen right now",
+  "monitor.risk.MONITOR_DISCONNECTED": "Observation is disconnected",
+  "monitor.risk.MONITOR_STALE": "This picture is out of date",
+  "monitor.state.FAILED": "failed",
+  "monitor.state.REFUSED": "refused",
+  "monitor.state.UNAVAILABLE": "unavailable",
+  "monitor.state.WAITING_CONFIRMATION": "waiting for confirmation",
+  "monitor.state.RUNNING": "running",
+  "monitor.state.QUEUED": "queued",
+  "monitor.state.SUCCEEDED": "done",
+  "monitor.state.CANCELLED": "cancelled",
+  "monitor.state.ONLINE": "online",
+  "monitor.state.OFFLINE": "offline",
+  "monitor.state.UNKNOWN": "unknown",
+  "monitor.state.COMPLETE": "complete",
+  "monitor.state.PARTIAL": "partial",
+  "monitor.state.DISCONNECTED": "disconnected",
+  "monitor.kind.TASK": "Task",
+  "monitor.kind.HOST": "Device",
+  "monitor.kind.OBSERVATION": "Observation",
+  "monitor.next.inspectFailure": "Open the task to see what it reported.",
+  "monitor.next.confirmIt": "Someone has to confirm it before it can continue.",
+  "monitor.next.waitForDevice": "Wait for the device to become ready, or send the work somewhere else.",
+  "monitor.next.breakTheLoop": "This path keeps failing; it needs a different device or a different task.",
+  "monitor.next.deviceOffline": "Bring the device back, or move its work.",
+  "monitor.next.cannotTell": "This cannot be determined from the current picture.",
+  "monitor.next.none": "Nothing is required.",
+  "monitor.inspector.gone": "That item is no longer in this picture.",
+  "monitor.inspector.title": "Details",
+  "monitor.inspector.what": "What",
+  "monitor.inspector.why": "Why",
+  "monitor.inspector.who": "Who",
+  "monitor.inspector.next": "What next",
+  "monitor.inspector.assignedTo": "Assigned to",
+  "monitor.inspector.unassigned": "Not assigned to a device yet",
+  "monitor.inspector.notApplicable": "Not applicable",
+  "monitor.inspector.noReason": "No risk was observed for it in this window.",
+  "monitor.inspector.evidence": "Evidence",
+  "monitor.inspector.paths": "Paths",
+  "monitor.inspector.noPaths": "Nothing connects this to anything else in this picture.",
+  "monitor.path.title": "Path",
+  "monitor.path.type": "Type",
+  "monitor.path.source": "From",
+  "monitor.path.destination": "To",
+  "monitor.path.trigger": "Why",
+  "monitor.path.absent": "not in this picture",
+  "monitor.path.noTrigger": "the city did not state why this path exists",
+  "monitor.path.incomplete": "This path cannot be followed from here, so treat it as unexplained rather than as fine.",
+  "monitor.technical.disclosure": "Technical details",
+  "monitor.technical.note": "Raw projection fields, exact references and counts. This is the monitor's own provenance, not a second source of truth.",
+});
 export default { meta, messages };
+
+Object.assign(messages,{"monitor.state.COMPLETED":"done","monitor.expand":"Expand","monitor.collapse":"Collapse","monitor.filter":"Path type","monitor.filter.all":"All observed paths","monitor.filter.none":"Hide paths","monitor.offline":"Reconnect to view a current City monitor.","monitor.evidence.title":"Canonical evidence","monitor.path.related":"Observed related events (not inferred assignment causes)","monitor.path.unobserved":"Not observable from this projection:"});
+Object.assign(messages,{"dec.persistenceUnavailable":"Decision store unavailable: receipts are held in memory only and may be lost on restart."});
+
+Object.assign(messages,{"monitor.edge.ASSIGNED_TO": "Assigned device", "monitor.edge.HANDOFF": "Handoff", "monitor.edge.RETRY": "Retry", "monitor.edge.REVIEW": "Review", "monitor.edge.DEVICE_ROUTE": "Device route", "monitor.edge.MODEL_ROUTE": "Model route"});

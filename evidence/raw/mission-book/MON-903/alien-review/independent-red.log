@@ -1,0 +1,189 @@
+✖ Alien: model OWNER_REQUIRED is an escalation, not auto-resolution (13.4257ms)
+✖ Alien: canonical observation cannot enqueue decisions after bounded close (11.457ms)
+✖ Alien: retention restart preserves the newest decisions, not UUID lexical order (20.082ms)
+✖ Alien: queue overflow retains canonical evidence and reports failed receipt persistence (1750.1405ms)
+✖ Alien: canonical present-but-ineligible target is escalated, not described as recovering offline (15.8471ms)
+✖ Alien: a timeout remains measurable when the critic subsequently resolves (32.7443ms)
+✖ Alien browser: polling preserves opened provenance and successful retry clears an old error (1090.8236ms)
+✖ Alien browser: unavailable decision persistence is visible even before any write failure (865.5787ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 0
+ℹ fail 8
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6829.2586
+
+✖ failing tests:
+
+test at tests\mon903-alien-review.test.mjs:11:1
+✖ Alien: model OWNER_REQUIRED is an escalation, not auto-resolution (13.4257ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at fixture.fastModel.action (file:///D:/Utopia-MON903/tests/mon903-alien-review.test.mjs:13:51)
+      at async fixture (file:///D:/Utopia-MON903/tests/mon903-alien-review.test.mjs:10:200)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\mon903-alien-review.test.mjs:15:1
+✖ Alien: canonical observation cannot enqueue decisions after bounded close (11.457ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + {
+  +   decisionId: 'decision-c0d815de-d29f-4ca2-aef2-7530947d58c7',
+  +   queueDepth: 1,
+  +   queued: true
+  + }
+  - null
+  
+      at file:///D:/Utopia-MON903/tests/mon903-alien-review.test.mjs:16:31
+      at async fixture (file:///D:/Utopia-MON903/tests/mon903-alien-review.test.mjs:10:200)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { decisionId: 'decision-c0d815de-d29f-4ca2-aef2-7530947d58c7', queued: true, queueDepth: 1 },
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\mon903-alien-review.test.mjs:18:1
+✖ Alien: retention restart preserves the newest decisions, not UUID lexical order (20.082ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(overlay.snapshot().decisions.some(r=>r.decisionId===decisionId))
+  
+      at TestContext.<anonymous> (file:///D:/Utopia-MON903/tests/mon903-alien-review.test.mjs:24:9)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\mon903-alien-review.test.mjs:27:1
+✖ Alien: queue overflow retains canonical evidence and reports failed receipt persistence (1750.1405ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'event-16'
+  
+      at file:///D:/Utopia-MON903/tests/mon903-alien-review.test.mjs:31:9
+      at async fixture (file:///D:/Utopia-MON903/tests/mon903-alien-review.test.mjs:10:200)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'event-16',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\mon903-alien-review.test.mjs:34:1
+✖ Alien: canonical present-but-ineligible target is escalated, not described as recovering offline (15.8471ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at file:///D:/Utopia-MON903/tests/mon903-alien-review.test.mjs:36:51
+      at async fixture (file:///D:/Utopia-MON903/tests/mon903-alien-review.test.mjs:10:200)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\mon903-alien-review.test.mjs:38:1
+✖ Alien: a timeout remains measurable when the critic subsequently resolves (32.7443ms)
+  AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+  
+    assert.ok(row.timeoutOrFallback.includes('RESOLVER_TIMEOUT'))
+  
+      at fixture.fastModel (file:///D:/Utopia-MON903/tests/mon903-alien-review.test.mjs:39:151)
+      at async fixture (file:///D:/Utopia-MON903/tests/mon903-alien-review.test.mjs:10:200)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\mon903-alien-review.test.mjs:42:1
+✖ Alien browser: polling preserves opened provenance and successful retry clears an old error (1090.8236ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at file:///D:/Utopia-MON903/tests/mon903-alien-review.test.mjs:49:20
+      at async browserFixture (file:///D:/Utopia-MON903/tests/mon903-alien-review.test.mjs:33:384)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\mon903-alien-review.test.mjs:51:1
+✖ Alien browser: unavailable decision persistence is visible even before any write failure (865.5787ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /memory|persist|store unavailable/i. Input:
+  
+  '\n' +
+    '        Decisions the City recorded\n' +
+    '        Where a canonical event genuinely required a choice, the City recorded a bounded decision: what triggered it, who resolved it, how long it took, and whether it needed the owner. A decision applies nothing by itself - it names what should happen next and who must agree.\n' +
+    '        \n' +
+    '        \n' +
+    '        \n' +
+    '        Refresh\n' +
+    '        \n' +
+    '        1 decision(s) in this window · 0 owner-required · auto-resolved 100% (1/1) · 0 timeout(s)\n' +
+    '        Unrelated-task blocking: ABSENT_BY_CONSTRUCTION · 0 task queue(s) active now\n' +
+    '        Only the City owner can view decision records. Ask the owner to open Decision provenance.\n' +
+    '        Nothing is waiting for you.\n' +
+    '        Recent decisions\n' +
+    '        No decision has been recorded in this window. Ordinary heartbeats, progress reports and completed work never create a decision.\n' +
+    '        \n' +
+    '        \n' +
+    '        \n' +
+    '        \n' +
+    '      '
+  
+      at file:///D:/Utopia-MON903/tests/mon903-alien-review.test.mjs:53:9
+      at runNextTicks (node:internal/process/task_queues:65:5)
+      at process.processImmediate (node:internal/timers:502:9)
+      at async browserFixture (file:///D:/Utopia-MON903/tests/mon903-alien-review.test.mjs:33:384)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '\n        Decisions the City recorded\n        Where a canonical event genuinely required a choice, the City recorded a bounded decision: what triggered it, who resolved it, how long it took, and whether it needed the owner. A decision applies nothing by itself - it names what should happen next and who must agree.\n        \n        \n        \n        Refresh\n        \n        1 decision(s) in this window · 0 owner-required · auto-resolved 100% (1/1) · 0 timeout(s)\n        Unrelated-task blocking: ABSENT_BY_CONSTRUCTION · 0 task queue(s) active now\n        Only the City owner can view decision records. Ask the owner to open Decision provenance.\n        Nothing is waiting for you.\n        Recent decisions\n        No decision has been recorded in this window. Ordinary heartbeats, progress reports and completed work never create a decision.\n        \n        \n        \n        \n      ',
+    expected: /memory|persist|store unavailable/i,
+    operator: 'match',
+    diff: 'simple'
+  }

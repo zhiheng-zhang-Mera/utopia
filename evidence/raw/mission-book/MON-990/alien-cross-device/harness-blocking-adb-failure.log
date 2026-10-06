@@ -1,0 +1,9 @@
+file:///D:/Utopia-MON990/scripts/mon990-cross-device-capture.mjs:14
+async function tap(label,{desc=false,scroll=false}={}){for(let i=0;i<8;i++){if(hit(await dump(),label,desc)){await pause(500);return}if(scroll)device('shell','input','swipe','540','1830','540','750','350');else await pause(300)}throw Error('Native label not reachable: '+label)}
+                                                                                                                                                                                                                                          ^
+
+Error: Native label not reachable: 等待任务 · 失败
+    at tap (file:///D:/Utopia-MON990/scripts/mon990-cross-device-capture.mjs:14:235)
+    at async file:///D:/Utopia-MON990/scripts/mon990-cross-device-capture.mjs:35:2
+
+Node.js v24.19.0

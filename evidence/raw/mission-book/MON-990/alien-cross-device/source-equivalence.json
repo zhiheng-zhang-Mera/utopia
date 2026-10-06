@@ -1,0 +1,67 @@
+{
+  "capturedSource": "523eb472e8b21d069e914fa6e862406bc33df092",
+  "verifiedSource": "4714ec5da7f87d7ddcba4e91463026a91a72c398",
+  "reviewApkSha256": "e5224b8ef4da21c98711bdde57fdda6264777ea8c4331f3d6ef2a34ef804758f",
+  "reviewApkByteIdentical": true,
+  "observedWebLocale": "en-US",
+  "observedNativeCopy": "Chinese",
+  "runtimeBlobs": [
+    {
+      "path": "apps/android/app/src/main/java/city/utopia/control/MonitorProjection.kt",
+      "gitBlob": "298ad8e531a76093ad61955c551e69cccc7d71e0"
+    },
+    {
+      "path": "apps/android/app/src/main/java/city/utopia/control/MonitorPanel.kt",
+      "gitBlob": "bf06ae327c9b2434fe5256661fc08fc8817af6f1"
+    },
+    {
+      "path": "apps/android/app/src/main/java/city/utopia/control/CityClient.kt",
+      "gitBlob": "a29ebc2be8017f56fbe6fc98a0c25af94045c5d7"
+    },
+    {
+      "path": "apps/android/app/src/main/java/city/utopia/control/MainActivity.kt",
+      "gitBlob": "473ff888bd4337fddc71568dc8bd8bdb738806c6"
+    },
+    {
+      "path": "apps/android/app/build.gradle.kts",
+      "gitBlob": "4a332b64e333b6836fba549aa6bdc76d6cfcbf5e"
+    },
+    {
+      "path": "apps/web/app.js",
+      "gitBlob": "e2b156588a61e68ab4f9dcb1bf65ad6bf3e5359e"
+    },
+    {
+      "path": "apps/web/monitor-graph.js",
+      "gitBlob": "d7457bf651ab78e436fe3c3ba3431d5c4a777172"
+    },
+    {
+      "path": "apps/web/monitor-decisions.js",
+      "gitBlob": "01bb00930190ea627788dd7b9fa54f2a529c67d8"
+    },
+    {
+      "path": "apps/web/i18n/en.js",
+      "gitBlob": "117767831b4cc72e112fb798bbc31b187c0cf268"
+    },
+    {
+      "path": "services/dev-gateway/server.mjs",
+      "gitBlob": "b3f85b763fd70b024e6a0413af9a668fdb77aeb0"
+    },
+    {
+      "path": "services/dev-gateway/decision.mjs",
+      "gitBlob": "aeb38d15e0e8a1c44bb235ae4fa4c4a90e3b6acc"
+    },
+    {
+      "path": "services/dev-gateway/observation.mjs",
+      "gitBlob": "9cf7e4c54a3df5a0f25cfe2777eeda4f71b6d55b"
+    },
+    {
+      "path": "services/dev-gateway/store.mjs",
+      "gitBlob": "e43d11162a345de823205f86e6457e0d4efd26a8"
+    }
+  ],
+  "postCaptureChanges": [
+    "test assertion now checks receipt-window Owner scope",
+    "unobserved zh-CN Web empty-Owner message narrowed to receipt-window scope; locale9 tests pass"
+  ],
+  "canonicalApplicationBuild": "Default build remains separate; review suffix manifest explicitly disclosed"
+}

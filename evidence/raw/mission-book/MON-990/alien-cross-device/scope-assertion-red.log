@@ -1,0 +1,122 @@
+✔ bounded canonical projection exposes active task, binding and exact event evidence without raw secrets (139.0896ms)
+✔ overflow and missing history remain visible; fresh snapshot reflects canonical state, not cached truth (95.6802ms)
+✔ slow/disconnected observation never gates real canonical task persistence (78.8564ms)
+✔ real API claim/report projection follows persisted lifecycle and cannot execute commands (105.7517ms)
+✔ stalled HTTP monitor request and broken reader leave independent create/cancel requests working (80.2677ms)
+✔ invalid limits cannot create unbounded queries, single flight and unknown populations stay honest (67.6525ms)
+✔ deleted historical prefix and tail cannot be reported as complete history (78.151ms)
+✔ Gateway shares outstanding observation and retains stale last view on later source failure (71.8808ms)
+✔ Alien: completed work does not imply an offline host is holding executable work or current retry/wait (11.3858ms)
+✔ Alien: missing coverage metadata cannot yield a calm graph (0.3489ms)
+✔ Alien: collapsed normal work stays collapsed in actual rendered overview, with stable visible order (5.1857ms)
+✔ Alien: a path preserves observed event provenance and explicitly unknown timing (0.4323ms)
+✔ Alien: a failure points to its matching transition, not an unrelated later event (0.1792ms)
+✔ Alien browser: offline invalidates a delayed monitor response (2097.3377ms)
+✔ Alien browser: an old credential response cannot replace the new scope or another page (876.0876ms)
+✔ Alien browser: a newer canonical snapshot arriving during a fetch receives a follow-up projection (932.8629ms)
+✔ Alien browser: heartbeat-only refresh preserves visible row identity (856.8779ms)
+✔ Alien browser: assignment path reaches real canonical event in three interactions (1950.2447ms)
+✔ Alien browser: cluster expands, edge filter is reachable and evidence opens exact canonical reference (2250.8389ms)
+✔ MON-902 graph: every risk level is one of the declared vocabulary and never a boolean (15.2455ms)
+✔ MON-902 graph: a failed task and an offline device holding work are ACTIVE risks that reach the summary (0.9801ms)
+✔ MON-902 graph: an offline device with no work assigned is a WATCH, not an incident (0.2295ms)
+✔ MON-902 graph: absence of retries is NOT claimed from a truncated event window (0.5448ms)
+✔ MON-902 graph: repeated hand-off refusals for one task become one ACTIVE risk with its count (0.4316ms)
+✔ MON-902 graph: a task waiting on a device is a WATCH until that device reports ready (0.2896ms)
+✔ MON-902 graph: a monitor that cannot see must not look calm (0.3777ms)
+✔ MON-902 graph: a path pointing at an absent device is reported as a causality gap (0.3061ms)
+✔ MON-902 graph: the edge filter removes types from the picture and never invents others (0.2556ms)
+✔ MON-902 graph: a large city collapses unremarkable work but never collapses an active risk (2.0967ms)
+✔ MON-902 graph: the layout does not reshuffle because an event arrived (0.5256ms)
+✔ MON-902 graph: the interaction budget from overview to a risk is stated and small (0.2609ms)
+✔ MON-902 graph: owner-required state is reported as observable or explicitly not observable, never as none (0.2789ms)
+✔ MON-902 graph: an invalid view is refused rather than projected into a comfortable empty city (0.5056ms)
+✔ MON-902 panel: an active risk is visible on the overview without opening anything (2.1835ms)
+✔ MON-902 panel: raw projection vocabulary does not render outside the disclosure (11.1106ms)
+✔ MON-902 panel: a calm banner is never printed over a city the projection cannot see (0.5501ms)
+✔ MON-902 panel: a collapsed cluster still reports the risk it contains (1.1569ms)
+✔ MON-902 panel: the node inspector answers what, why, who and what-next, and keeps the exact reference (0.6576ms)
+✔ MON-902 panel: a path with no stated cause is shown as unexplained, not as fine (0.4317ms)
+✔ MON-902 panel: a stale selection says so instead of rendering an empty panel (0.1647ms)
+✔ MON-902 panel: ids and labels from the city are escaped in text and attribute positions (0.2566ms)
+✔ MON-902 panel: every word the surface uses exists in both locale packs, including every risk code (2.1889ms)
+✔ MON-902 panel: the shell exposes the page and fetches the real route (1.0486ms)
+✔ MON-902 panel: the page is wired to the real gateway projection route end to end (144.4771ms)
+✔ Alien: model OWNER_REQUIRED is an escalation, not auto-resolution (16.1836ms)
+✔ Alien: canonical observation cannot enqueue decisions after bounded close (2.8475ms)
+✔ Alien: retention restart preserves the newest decisions, not UUID lexical order (20.5516ms)
+✔ Alien: queue overflow retains canonical evidence and reports failed receipt persistence (1772.226ms)
+✔ Alien: canonical present-but-ineligible target is escalated, not described as recovering offline (16.6935ms)
+✔ Alien: a timeout remains measurable when the critic subsequently resolves (31.0004ms)
+✔ Alien Gateway: an online ineligible strict target produces an Owner decision with real event evidence (145.9671ms)
+✔ Alien browser: polling preserves opened provenance and successful retry clears an old error (1189.461ms)
+✔ Alien browser: unavailable decision persistence is visible even before any write failure (1021.1943ms)
+✔ Alien browser: frequent City rendering cannot starve bounded decision polling (3873.8591ms)
+✔ MON903 route: a canonical failure becomes a decision receipt with canonical provenance, and the task itself is untouched (455.4973ms)
+✔ MON903 route: ordinary City activity produces no decisions at all (193.2856ms)
+✔ MON903 route: reading is authenticated, asking for a decision is the owner's, and refusals are typed (183.7762ms)
+✔ MON903 route: an explicitly submitted owner-boundary trigger is recorded as owner-required and applied by nobody (100.492ms)
+✔ MON903 route: a decision for one task never blocks another task, and the projection carries both (229.8767ms)
+✔ MON903 triggers: only the named canonical events enter the decision path, and ordinary reports do not (39.3313ms)
+✔ MON903 ladder: a deterministic rule resolves first and the model is never consulted for it (28.7108ms)
+✔ MON903 owner boundary: scope, merge, review and owner-candidate triggers escalate WITHOUT any resolver being asked (15.3224ms)
+✔ MON903 fallback: a hanging, throwing or free-text resolver becomes a bounded fallback, never an authority (157.5262ms)
+✔ MON903 queues: decisions are per-task, parallel across tasks, bounded per task, and never a global barrier (565.5059ms)
+✔ MON903 receipts: bounded contract, provenance, measured post-state, and no applied action anywhere (16.1524ms)
+✔ MON903 store: an unusable receipt store degrades the overlay and never prevents the City from starting (finding M-1) (13.7136ms)
+✔ MON903 store: the City itself starts and serves decisions when the decision store is unusable (finding M-1, City level) (118.3186ms)
+✔ MON903 isolation: a reader that throws, a broken receipt file and a failing receipt write cannot break the caller (24.7295ms)
+✔ MON903 close: a closed overlay refuses a trigger with its OWN code, not by blaming the trigger (1.9492ms)
+✔ MON903 rules: the deterministic layer answers each kind from canonical facts, and invents no default (0.2554ms)
+✖ MON903 web: the owner sees the decision the City recorded, its provenance, and that nobody applied it (1373.2855ms)
+✔ MON903 web: an enrolled member may read what the City decided, and is told who can ask for one (1483.5413ms)
+✔ MON903 sweep L1: the bounded failure log reports that it dropped entries, not just the last 16 (81.0155ms)
+✔ MON903 sweep L3: a rejected (queue-full) decision does not publish an unmeasured latency of 0 (17.8174ms)
+✔ MON903 sweep L1: metrics() discloses that its rates are computed over a truncated window (73.4534ms)
+✔ MON903 sweep L1: the published window says what it is a window OVER (77.9687ms)
+✔ MON903 sweep positive control: a well-formed decision is still recorded, receipted and measured (63.38ms)
+✔ MON903 sweep L4: the surface renders a decision with NO measured latency as not-measured, not as a number (1333.9947ms)
+✔ MON990: decision projection binds canonical City and graph/decision failures do not stop task creation (144.4313ms)
+Error: CONTROLLED_OBSERVER_UNAVAILABLE
+    at app.observation.refresh (file:///D:/Utopia-MON990/tests/mon990-cross-surface.test.mjs:8:294)
+    at Server.<anonymous> (file:///D:/Utopia-MON990/services/dev-gateway/server.mjs:836:49)
+    at Server.emit (node:events:509:28)
+    at parserOnIncoming (node:_http_server:1282:12)
+    at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)
+✔ MON990: overview has a working contextual link to advisory decision provenance (1476.0588ms)
+✔ locale contract: supported tokens, fallback and first-run detection (1.4405ms)
+✔ both language packs cover every message key with matching placeholders (3.9313ms)
+✔ every fixed Web UI string is present in the language packs (0.6796ms)
+✔ protocol tokens and City Control state names are never translated (7.8338ms)
+✔ web assets only use message keys that exist in the packs (4.2837ms)
+✔ badge state and display label stay separate in every locale (1.6136ms)
+✔ applyTranslations and setLocale update the document without touching storage contracts (0.3923ms)
+✔ translation fills placeholders and time formatting follows the locale (40.9182ms)
+✔ Web Settings language switch, persistence and protocol stability (real browser) (2319.8157ms)
+ℹ tests 89
+ℹ suites 0
+ℹ pass 88
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 25254.8693
+
+✖ failing tests:
+
+test at tests\mon903-decisions-web.test.mjs:32:1
+✖ MON903 web: the owner sees the decision the City recorded, its provenance, and that nobody applied it (1373.2855ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /Nothing is waiting for you/. Input:
+  
+  'No receipt in this window is marked owner-required; current Owner work is not determined here.'
+  
+      at TestContext.<anonymous> (file:///D:/Utopia-MON990/tests/mon903-decisions-web.test.mjs:44:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'No receipt in this window is marked owner-required; current Owner work is not determined here.',
+    expected: /Nothing is waiting for you/,
+    operator: 'match',
+    diff: 'simple'
+  }

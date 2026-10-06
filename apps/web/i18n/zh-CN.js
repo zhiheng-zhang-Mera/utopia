@@ -424,6 +424,8 @@ Object.assign(messages,{"members.thisDevice":"本机","members.role.PRIMARY":"�
 Object.assign(messages,{"catalog.hint":"不知道能做什么？","catalog.open":"查看全部能力","catalog.title":"能力目录 — 选择后再提交操作"});
 Object.assign(messages,{"nav.research":"研究","heading.research":"研究"});
 Object.assign(messages,{"nav.researchTrace":"研究记录","heading.researchtrace":"研究记录","trace.title":"研究记录","trace.hint":"只读查看本城市的观察记录。记录不会创建或执行实验。","trace.refresh":"刷新","trace.offline":"重新连接后查看当前研究记录。","trace.recording":"正在记录","trace.stopped":"记录已停止","trace.types":"记录的事件类型","trace.none":"尚未观察到","trace.experiment":"实验运行","trace.metrics":"测量可用性","trace.available":"已测量","trace.failures":"采集器故障","trace.dropped":"丢弃记录","trace.retention":"保留窗口已截断","trace.declared":"软件身份为声明的引用，需要外部验证。缺失测量保持 NOT_OBSERVABLE。","trace.ownerRequired":"仅城市所有者可查看研究记录，请由所有者打开此页面。","trace.unavailable":"研究记录暂不可用，请刷新或重新连接。"});
+// MON-903：城市做出的决策及其原因。文案明确说明决策本身不执行任何动作，否则界面就会变成这个工程反复发现的“虚假设可”缺陷。
+Object.assign(messages,{"nav.decisions":"决策溯源","heading.decisions":"决策溯源","dec.title":"城市记录的决策","dec.hint":"当某个规范事件确实需要选择时，城市会记录一条有界决策：由什么触发、谁做出的、耗时多久、是否需要所有者。决策本身不执行任何动作——它只说明下一步应该发生什么，以及必须由谁同意。","dec.refresh":"刷新","dec.offline":"重新连接后查看已记录的决策。","dec.ownerRequired":"仅城市所有者可查看决策记录，请由所有者打开此页面。","dec.unavailable":"决策记录暂不可用，请刷新或重新连接。","dec.metrics":"本窗口 {decisions} 条决策 · 需所有者 {owner} 条 · 自动解决 {auto} · 超时 {timeouts} 次","dec.noBarrier":"无关任务阻塞：{value} · 当前活动任务队列 {concurrent} 个","dec.ownerRequiredTitle":"收据窗口中标记需所有者的决定","dec.noOwnerRequired":"此窗口没有标记需所有者的收据；这里不能判断当前所有者待办。","dec.recent":"最近的决策","dec.empty":"本窗口内没有记录任何决策。普通心跳、进度回报和已完成的工作永远不会产生决策。","dec.trigger":"触发","dec.task":"任务","dec.source":"解决方","dec.action":"有界动作","dec.owner":"所有者","dec.yes":"是","dec.no":"否","dec.latency":"决策耗时（毫秒）","dec.queueWait":"排队等待（毫秒）","dec.provenance":"来源追溯","dec.prePost":"之前状态：{pre} · 之后状态：{post}","dec.applied":"执行方：{applied}","dec.nobody":"无人——这是一条记录，不是一个动作","dec.evidence":"规范证据：{refs}","dec.none":"未记录","dec.unknown":"不可观察","dec.cityWide":"全城","dec.notMeasured":"NOT_MEASURED","dec.notObservable":"此处不可观察：{list}","dec.retention":"仅显示最近 {retained} 条决策（窗口上限 {limit}）。","dec.failures":"已记录的叠加层故障：{list}","dec.failuresDropped":"（此前还有 {dropped} 条记录已从这个有界日志中丢弃。）"});
 // (union) duplicate export default removed: the earlier one belonged to a side that also appended its keys above
 Object.assign(messages, {
 "recovery.conflict":"设备身份冲突",
@@ -438,4 +440,104 @@ Object.assign(messages, {
 });
 // (union) duplicate export default removed
 Object.assign(messages,{'scheduler.choice.explicitPrompt':'选择如何继续这项服务','scheduler.choice.alternateDevice':'保留这项服务，换另一台设备执行','scheduler.choice.reason.TARGET_DEVICE_BOUND':'这项服务绑定了指定设备。','scheduler.choice.reason.ALTERNATE_NOT_AVAILABLE':'目前没有符合条件的替代设备。','scheduler.choice.reason.NO_SWITCH_DECISION':'目前无需选择设备切换。'});
+// MON-902 — 全城工作监视器文案。风险码只在这里翻译：投影只发出代码，界面负责说明含义，
+// 原始代码仅在"技术细节"折叠中可见。
+Object.assign(messages, {
+  "nav.monitor": "全城监视器",
+  "heading.monitor": "你的城市，正在被看着。",
+  "monitor.title": "全城监视器",
+  "monitor.error": "无法读取全城监视器。城市本身不受影响，这只是观察界面。",
+  "monitor.refresh": "重试",
+  "monitor.subtitle": "城市此刻在做什么、哪里有风险，以及这张图看不到什么。",
+  "monitor.overview.needsAttention": "有需要处理的事项：",
+  "monitor.overview.nothingActive": "在这张图能看到的部分里，没有失败或被阻塞的任务。",
+  "monitor.overview.cannotSee": "这张图无法告诉你的事",
+  "monitor.overview.riskTitle": "当前风险",
+  "monitor.overview.noActiveRisk": "没有失败、被拒绝、被阻塞或反复重试的任务。",
+  "monitor.overview.watchTitle": "值得留意",
+  "monitor.overview.noWatch": "没有降级项。",
+  "monitor.overview.unknownTitle": "无法判定",
+  "monitor.overview.workTitle": "其他工作",
+  "monitor.overview.noWork": "此窗口内没有其他任务。",
+  "monitor.overview.collapsed": "已折叠",
+  "monitor.overview.containsRisk": "其中风险：",
+  "monitor.overview.budget": "本页上的任一风险，距其原因与规范证据都只有一次点击。",
+  "monitor.overview.scope": "本监视器始终如此：",
+  "monitor.scope.ownerObserved": "只有当某个任务在等待确认时，才能看到需要 Owner 动作。",
+  "monitor.blind.health": "观察来源并不完整：",
+  "monitor.blind.gap": "这段城市历史在本窗口中缺失一部分。",
+  "monitor.blind.tasks": "存在这张图未包含的任务：",
+  "monitor.blind.retry": "无法从这个窗口判断是否有任何东西一直在重试。",
+  "monitor.blind.owner": "无法从这里判断是否需要 Owner 介入。",
+  "monitor.blind.edges": "有路径指向这张图未包含的对象：",
+  "monitor.risk.TASK_FAILED": "该任务失败",
+  "monitor.risk.TASK_REFUSED": "该任务被拒绝",
+  "monitor.risk.TASK_UNAVAILABLE": "该任务无法在此运行",
+  "monitor.risk.OWNER_CONFIRMATION_REQUIRED": "等待人工确认",
+  "monitor.risk.DEVICE_ROUTE_WAITING": "等待其目标设备",
+  "monitor.risk.PATH_REPEATED": "某条路径正在反复",
+  "monitor.risk.RETRY_HISTORY_NOT_OBSERVABLE": "其重试历史在此不可见",
+  "monitor.risk.DEVICE_OFFLINE": "该设备离线",
+  "monitor.risk.DEVICE_OFFLINE_HOLDING_WORK": "离线但仍持有工作",
+  "monitor.risk.DEVICE_STATE_UNKNOWN": "该设备状态未知",
+  "monitor.risk.WINDOW_INCOMPLETE": "这张图不完整",
+  "monitor.risk.HISTORY_GAP": "历史缺失一部分",
+  "monitor.risk.EDGE_CAUSALITY_MISSING": "有一条路径无法追踪",
+  "monitor.risk.MONITOR_PARTIAL": "只能看到城市的一部分",
+  "monitor.risk.MONITOR_UNAVAILABLE": "当前看不到城市",
+  "monitor.risk.MONITOR_DISCONNECTED": "观察已断开",
+  "monitor.risk.MONITOR_STALE": "这张图已过期",
+  "monitor.state.FAILED": "失败",
+  "monitor.state.REFUSED": "被拒绝",
+  "monitor.state.UNAVAILABLE": "不可用",
+  "monitor.state.WAITING_CONFIRMATION": "等待确认",
+  "monitor.state.RUNNING": "运行中",
+  "monitor.state.QUEUED": "排队中",
+  "monitor.state.SUCCEEDED": "已完成",
+  "monitor.state.CANCELLED": "已取消",
+  "monitor.state.ONLINE": "在线",
+  "monitor.state.OFFLINE": "离线",
+  "monitor.state.UNKNOWN": "未知",
+  "monitor.state.COMPLETE": "完整",
+  "monitor.state.PARTIAL": "部分",
+  "monitor.state.DISCONNECTED": "已断开",
+  "monitor.kind.TASK": "任务",
+  "monitor.kind.HOST": "设备",
+  "monitor.kind.OBSERVATION": "观察",
+  "monitor.next.inspectFailure": "打开该任务，看它报告了什么。",
+  "monitor.next.confirmIt": "需要有人确认之后它才能继续。",
+  "monitor.next.waitForDevice": "等待设备就绪，或把工作改派到别处。",
+  "monitor.next.breakTheLoop": "这条路径持续失败，需要换设备或换任务。",
+  "monitor.next.deviceOffline": "让设备重新上线，或把它的工作移走。",
+  "monitor.next.cannotTell": "以当前这张图无法判定。",
+  "monitor.next.none": "无需处理。",
+  "monitor.inspector.gone": "该项目已不在这张图中。",
+  "monitor.inspector.title": "详情",
+  "monitor.inspector.what": "是什么",
+  "monitor.inspector.why": "为什么",
+  "monitor.inspector.who": "谁负责",
+  "monitor.inspector.next": "下一步",
+  "monitor.inspector.assignedTo": "已分派给",
+  "monitor.inspector.unassigned": "尚未分派到设备",
+  "monitor.inspector.notApplicable": "不适用",
+  "monitor.inspector.noReason": "在此窗口内未观察到它的风险。",
+  "monitor.inspector.evidence": "证据",
+  "monitor.inspector.paths": "路径",
+  "monitor.inspector.noPaths": "在这张图里，它与其他任何东西都没有连接。",
+  "monitor.path.title": "路径",
+  "monitor.path.type": "类型",
+  "monitor.path.source": "起点",
+  "monitor.path.destination": "终点",
+  "monitor.path.trigger": "原因",
+  "monitor.path.absent": "不在这张图中",
+  "monitor.path.noTrigger": "城市没有说明这条路径为何存在",
+  "monitor.path.incomplete": "这条路径从这里追踪不下去，因此应当视为「未解释」，而不是「没问题」。",
+  "monitor.technical.disclosure": "技术细节",
+  "monitor.technical.note": "投影的原始字段、精确引用与计数。这是监视器自身的来源，不是第二套事实来源。",
+});
 export default { meta, messages };
+
+Object.assign(messages,{"monitor.state.COMPLETED":"已完成","monitor.expand":"展开","monitor.collapse":"折叠","monitor.filter":"路径类型","monitor.filter.all":"所有已观测路径","monitor.filter.none":"隐藏路径","monitor.offline":"重新连接后查看当前城市监视器。","monitor.evidence.title":"规范证据","monitor.path.related":"已观测的相关事件（不推断为分配原因）","monitor.path.unobserved":"该投影无法观测："});
+Object.assign(messages,{"dec.persistenceUnavailable":"决定收据存储不可用：收据仅保存在内存中，重启可能丢失。"});
+
+Object.assign(messages,{"monitor.edge.ASSIGNED_TO": "分配的设备", "monitor.edge.HANDOFF": "交接", "monitor.edge.RETRY": "重试", "monitor.edge.REVIEW": "评审", "monitor.edge.DEVICE_ROUTE": "设备路线", "monitor.edge.MODEL_ROUTE": "模型路线"});

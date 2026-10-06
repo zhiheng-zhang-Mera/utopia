@@ -1,0 +1,58 @@
+✔ bounded canonical projection exposes active task, binding and exact event evidence without raw secrets (266.9866ms)
+✔ overflow and missing history remain visible; fresh snapshot reflects canonical state, not cached truth (95.4195ms)
+✔ slow/disconnected observation never gates real canonical task persistence (77.015ms)
+✔ real API claim/report projection follows persisted lifecycle and cannot execute commands (105.673ms)
+✔ stalled HTTP monitor request and broken reader leave independent create/cancel requests working (84.7816ms)
+✔ invalid limits cannot create unbounded queries, single flight and unknown populations stay honest (68.1065ms)
+✔ deleted historical prefix and tail cannot be reported as complete history (78.4936ms)
+✔ Gateway shares outstanding observation and retains stale last view on later source failure (71.886ms)
+✔ MON903 route: a canonical failure becomes a decision receipt with canonical provenance, and the task itself is untouched (160.7263ms)
+✔ MON903 route: ordinary City activity produces no decisions at all (204.3631ms)
+✔ MON903 route: reading is authenticated, asking for a decision is the owner's, and refusals are typed (165.1908ms)
+✔ MON903 route: an explicitly submitted owner-boundary trigger is recorded as owner-required and applied by nobody (98.5595ms)
+✖ MON903 route: a decision for one task never blocks another task, and the projection carries both (109.9792ms)
+✔ MON903 triggers: only the named canonical events enter the decision path, and ordinary reports do not (37.0411ms)
+✔ MON903 ladder: a deterministic rule resolves first and the model is never consulted for it (30.2694ms)
+✔ MON903 owner boundary: scope, merge, review and owner-candidate triggers escalate WITHOUT any resolver being asked (15.264ms)
+✔ MON903 fallback: a hanging, throwing or free-text resolver becomes a bounded fallback, never an authority (161.8387ms)
+✔ MON903 queues: decisions are per-task, parallel across tasks, bounded per task, and never a global barrier (570.4582ms)
+✔ MON903 receipts: bounded contract, provenance, measured post-state, and no applied action anywhere (16.3427ms)
+✔ MON903 store: an unusable receipt store degrades the overlay and never prevents the City from starting (finding M-1) (14.1262ms)
+✔ MON903 store: the City itself starts and serves decisions when the decision store is unusable (finding M-1, City level) (113.8943ms)
+✔ MON903 isolation: a reader that throws, a broken receipt file and a failing receipt write cannot break the caller (11.5345ms)
+✔ MON903 close: a closed overlay refuses a trigger with its OWN code, not by blaming the trigger (1.9434ms)
+✔ MON903 rules: the deterministic layer answers each kind from canonical facts, and invents no default (0.2667ms)
+✔ MON903 web: the owner sees the decision the City recorded, its provenance, and that nobody applied it (11343.4286ms)
+✔ MON903 web: an enrolled member may read what the City decided, and is told who can ask for one (1406.2592ms)
+ℹ tests 26
+ℹ suites 0
+ℹ pass 25
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 18117.0717
+
+✖ failing tests:
+
+test at tests\mon903-decision-route.test.mjs:145:1
+✖ MON903 route: a decision for one task never blocks another task, and the projection carries both (109.9792ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  403 !== 200
+  
+      at runTask (file:///D:/Utopia-MON903/tests/mon903-decision-route.test.mjs:33:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Promise.all (index 0)
+      at async file:///D:/Utopia-MON903/tests/mon903-decision-route.test.mjs:155:39
+      at async withCity (file:///D:/Utopia-MON903/tests/mon903-decision-route.test.mjs:23:12)
+      at async TestContext.<anonymous> (file:///D:/Utopia-MON903/tests/mon903-decision-route.test.mjs:146:3)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 403,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

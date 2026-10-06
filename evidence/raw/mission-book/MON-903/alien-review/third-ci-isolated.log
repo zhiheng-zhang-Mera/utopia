@@ -1,0 +1,14 @@
+✔ JOIN-501 acceptance: no implicit generation, an ACTIVE code that cannot rotate, and both terminal states (15173.2354ms)
+✔ JOIN-501 real-endpoint receiver: a SECOND process (not the owner page) consumes the code the page shows (5181.9529ms)
+✔ JOIN-501 acceptance: expiry ends the display by itself, and the expiry path creates nothing (5329.2553ms)
+✔ JOIN-501: a fresh browser session starts with NO code, and a stored expired record is never exchanged (5895.2077ms)
+✔ Windows history loads detail explicitly, retains it across snapshots and fences late selections (2402.96ms)
+✔ Windows Services invokes real document, knowledge, skill, evidence and theme adapters (3842.3622ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 34255.6302

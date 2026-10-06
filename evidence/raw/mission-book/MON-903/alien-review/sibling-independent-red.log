@@ -1,0 +1,100 @@
+✖ MON903 sweep L1: the bounded failure log reports that it dropped entries, not just the last 16 (76.8402ms)
+✖ MON903 sweep L3: a rejected (queue-full) decision does not publish an unmeasured latency of 0 (18.1127ms)
+✖ MON903 sweep L1: metrics() discloses that its rates are computed over a truncated window (72.9451ms)
+✖ MON903 sweep L1: the published window says what it is a window OVER (77.8803ms)
+✔ MON903 sweep positive control: a well-formed decision is still recorded, receipted and measured (77.1681ms)
+✖ MON903 sweep L4: the surface renders a decision with NO measured latency as not-measured, not as a number (1201.0044ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 1
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4236.5601
+
+✖ failing tests:
+
+test at tests\mon903-sibling-sweep.test.mjs:27:1
+✖ MON903 sweep L1: the bounded failure log reports that it dropped entries, not just the last 16 (76.8402ms)
+  AssertionError [ERR_ASSERTION]: the failure log kept 16 of at least 24 and did NOT say how many it dropped: a reader cannot tell a quiet overlay from a broken one
+      at file:///D:/Utopia-MON903/tests/mon903-sibling-sweep.test.mjs:39:12
+      at async withOverlay (file:///D:/Utopia-MON903/tests/mon903-sibling-sweep.test.mjs:22:9)
+      at async TestContext.<anonymous> (file:///D:/Utopia-MON903/tests/mon903-sibling-sweep.test.mjs:28:3)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\mon903-sibling-sweep.test.mjs:46:1
+✖ MON903 sweep L3: a rejected (queue-full) decision does not publish an unmeasured latency of 0 (18.1127ms)
+  AssertionError [ERR_ASSERTION]: a decision that was never made must not claim a latency of 0 ms
+  
+  0 !== null
+  
+      at file:///D:/Utopia-MON903/tests/mon903-sibling-sweep.test.mjs:59:12
+      at withOverlay (file:///D:/Utopia-MON903/tests/mon903-sibling-sweep.test.mjs:22:15)
+      at async TestContext.<anonymous> (file:///D:/Utopia-MON903/tests/mon903-sibling-sweep.test.mjs:47:3)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\mon903-sibling-sweep.test.mjs:64:1
+✖ MON903 sweep L1: metrics() discloses that its rates are computed over a truncated window (72.9451ms)
+  AssertionError [ERR_ASSERTION]: metrics() publishes a rate over a truncated sample without saying the sample was truncated
+      at file:///D:/Utopia-MON903/tests/mon903-sibling-sweep.test.mjs:74:12
+      at async withOverlay (file:///D:/Utopia-MON903/tests/mon903-sibling-sweep.test.mjs:22:9)
+      at async TestContext.<anonymous> (file:///D:/Utopia-MON903/tests/mon903-sibling-sweep.test.mjs:65:3)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\mon903-sibling-sweep.test.mjs:81:1
+✖ MON903 sweep L1: the published window says what it is a window OVER (77.8803ms)
+  AssertionError [ERR_ASSERTION]: the window field does not state that it spans trigger events, not the canonical event stream
+      at file:///D:/Utopia-MON903/tests/mon903-sibling-sweep.test.mjs:92:12
+      at async withOverlay (file:///D:/Utopia-MON903/tests/mon903-sibling-sweep.test.mjs:22:9)
+      at async TestContext.<anonymous> (file:///D:/Utopia-MON903/tests/mon903-sibling-sweep.test.mjs:82:3)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests\mon903-sibling-sweep.test.mjs:111:1
+✖ MON903 sweep L4: the surface renders a decision with NO measured latency as not-measured, not as a number (1201.0044ms)
+  AssertionError [ERR_ASSERTION]: an unmeasured latency must render as not-measured, never as a number
+  
+  '' !== 'NOT_MEASURED'
+  
+      at TestContext.<anonymous> (file:///D:/Utopia-MON903/tests/mon903-sibling-sweep.test.mjs:134:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: 'NOT_MEASURED',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

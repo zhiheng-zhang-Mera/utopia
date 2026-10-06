@@ -1,8 +1,16 @@
 import {renderDeviceRecovery} from './device-recovery.js';
 import {renderServices} from './services.js';
+// MON-902: the City Work Monitor page renderers. They are pure functions of one graph payload, so this import adds no
+// fetch of its own and no second source of truth.
+import {createMonitorGraphView} from './monitor-graph.js';
+const monitorView=createMonitorGraphView();
 import {renderResearch} from './research.js';
 import {createResearchTraceView} from './research-trace.js';
 const researchTraceView=createResearchTraceView();
+// MON-903: the decision provenance view. A factory rather than a render function for the same reason the trace view is
+// one: it owns an epoch and a bounded refresh timer that must be released when the page is left.
+import {createMonitorDecisionsView} from './monitor-decisions.js';
+const monitorDecisionsView=createMonitorDecisionsView();
 import {schedulerPanel} from './scheduler.js';
 // UXI-301: the scheduler presentation feed, refreshed alongside the snapshot. When it is missing the
 // panel says it is not being reported rather than rendering a healthy or idle surface.
@@ -257,7 +265,7 @@ async function generatePairing(){
 // JOIN-501: navigation is NOT a reason to destroy a temporary pairing code. The old implementation cleared on
 // every `go()`, which is exactly the "code disappears early" behaviour the Owner rule forbids. The session now
 // outlives page navigation and is only ended by consumption, expiry, or an explicit action.
-function go(next){page=next;selected=null;selectedNode=null;externalPage=TERMINAL_PAGES.includes(next);if(terminal&&externalPage)terminal.onNav();document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('selected',b.dataset.page===page));if(!externalPage)homeRoomsData=null;render();if(next==='Pairing'&&nearby===null&&!nearbyBusy)nearbyBrowse();window.scrollTo({top:0});}
+function go(next){page=next;selected=null;selectedNode=null;if(next==='Monitor')monitorView.reset();externalPage=TERMINAL_PAGES.includes(next);if(terminal&&externalPage)terminal.onNav();document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('selected',b.dataset.page===page));if(!externalPage)homeRoomsData=null;render();if(next==='Pairing'&&nearby===null&&!nearbyBusy)nearbyBrowse();window.scrollTo({top:0});}
 // JOIN-502: the joining surface holds no City credential yet - that is what it is asking for - so these
 // three calls authenticate with the CLAIM it generated instead. The envelope carries apiVersion 0 like
 // every other call, and an error message is passed through rather than flattened, because "not approved
@@ -727,8 +735,20 @@ function assistantSlot(){
   const online=city.nodes.filter(n=>n.online);
   return `<section class="operator"><div class="op-frame"><span class="op-side"></span><span class="op-tag">${esc(t('assistant.role'))}</span><div class="op-art">${ASSISTANT_ART}</div><span class="op-slot">SLOT 01</span></div><div class="op-body"><p class="op-role">${esc(t('assistant.role'))} · ASSISTANT</p><p class="op-name">${esc(t('assistant.unassigned'))}</p><p class="op-sub">${esc(t('assistant.note'))}</p><dl class="kv"><dt>${esc(t('assistant.boundDevice'))}</dt><dd>${esc(online[0]?.displayName||t('assistant.pending'))}</dd><dt>${esc(t('assistant.appearance'))}</dt><dd>${esc(t('assistant.placeholderValue'))}</dd><dt>${esc(t('assistant.voice'))}</dt><dd>${esc(t('assistant.disabled'))}</dd><dt>${esc(t('assistant.duty'))}</dt><dd>${esc(t('assistant.pending'))}</dd></dl></div></section>`;
 }
+// MON-902: the City Work Monitor page. The graph is fetched from the same single-flight projection the gateway already
+// exposes, so opening this page adds no second source of truth and no background poll of its own: it reloads when the
+// city snapshot moves. The DOM is rebuilt only when the projection actually changed, and the ROW ORDER comes from the
+// projection's deterministic layout, so a live event cannot reshuffle the graph under the pointer.
+function renderMonitor(){
+ const cityId=city?.cityId??'';
+ const key=token+'|'+generation+'|'+cityId;
+ monitorView.render($('#view'),{contextKey:key,cityId,online:connection==='ONLINE',snapshotAt:city?.updatedAt,api,isCurrent:()=>page==='Monitor'&&key===token+'|'+generation+'|'+(city?.cityId??'')});
+}
+
 function render(){
  if(page!=='ResearchTrace')researchTraceView.reset();
+ if(page!=='Monitor')monitorView.reset();
+ if(page!=='Decisions')monitorDecisionsView.reset();
  const recoveryFocus=document.activeElement?.closest('form[data-rebind]');const recoveryField=recoveryFocus?{id:recoveryFocus.dataset.rebind,name:document.activeElement.name}:null;
  const nextSchedulerContext=token+'|'+(city?.cityId??'');if(nextSchedulerContext!==schedulerContext){schedulerContext=nextSchedulerContext;schedulerEpoch++;schedulerPending.clear();}
  const previousNameForm=$('#city-name-form');
@@ -759,10 +779,14 @@ function render(){
  if(page==='Home')$('#view').innerHTML=assistantSlot()+`<div class="grid" style="margin-top:14px"><section class="panel"><h2>${esc(t('section.runtimeNodes'))}</h2>${nodeRows()}</section><section class="panel"><h2>${esc(t('section.recentActivity'))}</h2>${events(city.events.slice(-4))}</section></div><section class="panel" style="margin-top:12px" id="home-rooms"><h2>${esc(t('section.homeRooms'))}</h2><p class="muted">${esc(t('home.rooms.hint'))}</p><div id="home-rooms-body"><p class="muted">${esc(t('terminal.loading'))}</p></div></section><section class="panel" style="margin-top:12px"><h2>${esc(t('section.recentTasks'))}</h2>${taskRows(tasks.slice(-5))}</section>`;
  if(page==='Home')homeRooms();
  if(page==='Services')renderServices($('#view'),city,connection==='ONLINE',api);
- if(page==='Research')renderResearch($('#view'),connection==='ONLINE',api,city.cityId+':'+generation);
+ if(page==='Research')renderResearch($('#view'),connection==='ONLINE',api,token+'|'+city.cityId);
  if(page==='ResearchTrace'){
   const credential=token,cityId=city.cityId;
   researchTraceView.render($('#view'),{contextKey:credential+'|'+cityId,online:connection==='ONLINE',api,isCurrent:()=>page==='ResearchTrace'&&token===credential&&city?.cityId===cityId});
+ }
+ if(page==='Decisions'){
+  const credential=token,cityId=city.cityId;
+  monitorDecisionsView.render($('#view'),{contextKey:credential+'|'+cityId,online:connection==='ONLINE',api,isCurrent:()=>page==='Decisions'&&token===credential&&city?.cityId===cityId});
  }
  if(page==='Settings')loadEnrolledDevices();
  // Terminal pages mount lazily: `terminal` is only created once a terminal page is shown,
@@ -771,6 +795,7 @@ function render(){
  if(page==='Devices')$('#view').innerHTML=schedulerPanel(schedulerFeed,{isOnline:connection==='ONLINE',advanced:true,busyTasks:new Set(schedulerPending.keys())})+`<section class="panel">${nodeRows()}</section>`;
  if(page==='Tasks')$('#view').innerHTML=`<section class="panel"><h2>${esc(t('section.taskRegistry'))}</h2>${taskRows(tasks)}</section>`;
  if(page==='Activity')$('#view').innerHTML=`<section class="panel"><h2>${esc(t('section.eventTimeline',{count:city.events.length}))}</h2><button data-goto="Actions">${esc(t('nav.actions'))}</button>${events(city.events)}</section>`;
+ if(page==='Monitor')renderMonitor();
  if(page==='Settings')$('#view').innerHTML=`<section class="panel">${cityNameSection()}${deviceSection()}${languageSection()}<h2>${esc(t('section.connectionDiagnostics'))}</h2><p>${esc(t('settings.cityUrl'))}: ${esc(location.origin)}</p><details><summary>${esc(t('common.runDetails'))}</summary><div class="task-id">apiVersion = 0 · schemaVersion = 0</div></details><p class="muted">${esc(t('settings.tokenNote'))}</p><button id="disconnect">${esc(t('settings.changeToken'))}</button></section>`;
  if(recoveryField&&page==='Settings')document.querySelector('form[data-rebind="'+recoveryField.id+'"]')?.elements[recoveryField.name]?.focus({preventScroll:true});
  if(previousNameForm&&nameSelection&&page==='Settings'){$('#city-name-form')?.replaceWith(previousNameForm);const input=$('#city-name');input.focus({preventScroll:true});input.setSelectionRange(nameSelection.start,nameSelection.end);}

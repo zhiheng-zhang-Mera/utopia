@@ -184,7 +184,7 @@ function deriveMetrics({receipts, tasks, events, comparisons}) {
   };
 }
 
-export function buildArtifact({cityId, generatedAt, environment = {}, topology = {}, receipts = [], tasks = [], events = [], traceRecords = [], experiments = [], comparisons = []} = {}) {
+export function buildArtifact({cityId, generatedAt, environment = {}, topology = {}, receipts = [], sourceReadFailures = [], tasks = [], events = [], traceRecords = [], experiments = [], comparisons = []} = {}) {
   if (!Array.isArray(receipts) || receipts.length === 0) {
     throw new ArtifactError(ARTIFACT_CODES.NO_SOURCE, 'an artifact must be built from at least one real campaign receipt; an empty export would be a shape with nothing behind it');
   }
@@ -243,6 +243,9 @@ export function buildArtifact({cityId, generatedAt, environment = {}, topology =
     .filter(receipt => receipt.reason && receipt.reason !== 'REPETITIONS_FINISHED')
     .map(receipt => ({campaignId: receipt.campaignId, state: receipt.state, reason: receipt.reason, planned: receipt.summary?.planned ?? 0, accounted: receipt.summary?.accounted ?? 0, rawPointer: `receipt:${receipt.campaignId}`}));
   const failures = {unmeasuredRuns, warmupRuns, campaignOutcomes};
+  // A downloaded partial study must carry the known source loss itself; stderr is not part of its provenance.
+  // Omit the field for a complete source set, preserving existing complete-package reproduction bytes.
+  if (sourceReadFailures.length) failures.sourceReadFailures = copy(sourceReadFailures);
 
   const exclusions = [
     {what: 'Owner-side metrics', why: 'the canonical City records do not represent Owner actions, so no intervention window can be claimed', wouldRequire: 'an Owner-action log with a declared observation window'},
@@ -327,4 +330,3 @@ export function artifactFiles(artifact) {
 export function checksumsFor(files) {
   return Object.fromEntries(Object.entries(files).map(([name, text]) => [name, {bytes: Buffer.byteLength(text), sha256: createHash('sha256').update(text).digest('hex')}]));
 }
-

@@ -75,6 +75,7 @@ const liveAccounted = Boolean(liveId) && (receipts.some(row => row.campaignId ==
 if (liveId && TERMINAL_CAMPAIGN_STATES.includes(list.live?.state) && !liveAccounted) {
   console.error(`the live campaign ${liveId} (state ${list.live.state}) has no receipt in this City's store - the newest receipt is missing, so this artifact describes less than the City ran (an older loss is not detectable at all):`);
   process.exitCode = 1;
+  unreadableReceipts.push({name: liveId, reason: 'LATEST_RECEIPT_MISSING'});
 }
 if (receipts.length === 0) {
   console.error('no campaign receipt is readable from this City; an artifact with no real source is not worth exporting');
@@ -112,9 +113,10 @@ const artifact = buildArtifact({
   topology: {
     nodes: (city.nodes ?? []).map(node => ({id: node.id, online: node.online === true, sharingEnabled: node.sharingEnabled !== false})),
     controlSurfaces: (city.controlSurfaces ?? []).map(surface => surface.clientRef),
-    members: (city.members ?? []).map(member => member.ref ?? member.devicePrincipalId ?? null).filter(Boolean),
+    members: (city.members ?? []).map(member => member.deviceId ?? member.ref ?? member.devicePrincipalId ?? null).filter(Boolean),
   },
   receipts,
+  sourceReadFailures: unreadableReceipts,
   tasks: city.tasks ?? [],
   events: city.events ?? [],
   traceRecords: scopedTrace,

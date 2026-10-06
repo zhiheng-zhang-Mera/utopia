@@ -46,6 +46,7 @@ export function createExecutionProfileController({dir, registry = null, readines
   // --- how this City's profile was decided, and why ---------------------------------------------------------------
   let recovery = null;
   let profile = DEFAULT_EXECUTION_PROFILE;
+  let selectedProfile = null;   // what the persisted selection asked for, even when it could not be honoured
   if (EXECUTION_PROFILES.includes(initial)) profile = initial;
   else recovery = {code: PROFILE_CODES.UNKNOWN_PROFILE, detail: `initial ${String(initial)} is not a known profile`};
 
@@ -57,6 +58,18 @@ export function createExecutionProfileController({dir, registry = null, readines
       if (!record || !EXECUTION_PROFILES.includes(record.profile)) {
         recovery = {code: PROFILE_CODES.UNKNOWN_PROFILE, detail: `persisted value ${JSON.stringify(record?.profile ?? null)} is not a known profile`};
         return {source: 'RECOVERED'};
+      }
+      selectedProfile = record.profile;
+      // A persisted non-default profile is only adopted when its backend is READY right now. Otherwise the City runs the
+      // rollback profile and keeps the request visible, which is the difference between "conservative recovery" and a
+      // City that starts into a profile it cannot dispatch through.
+      if (record.profile !== DEFAULT_EXECUTION_PROFILE) {
+        let state = 'UNKNOWN';
+        try { state = typeof readProfile(record.profile) === 'string' ? readProfile(record.profile) : readProfile(record.profile)?.state ?? 'UNKNOWN'; } catch { state = 'UNAVAILABLE'; }
+        if (state !== 'READY') {
+          recovery = {code: PROFILE_CODES.NOT_READY, detail: `persisted selection ${record.profile} is ${state}; running ${DEFAULT_EXECUTION_PROFILE}`};
+          return {source: 'DEGRADED_TO_DEFAULT', changedAt: Number.isFinite(record.changedAt) ? record.changedAt : null};
+        }
       }
       profile = record.profile;
       return {source: 'PERSISTED', changedAt: Number.isFinite(record.changedAt) ? record.changedAt : null};
@@ -97,6 +110,8 @@ export function createExecutionProfileController({dir, registry = null, readines
   function state() {
     return {
       profile,
+      selectedProfile: selectedProfile ?? profile,
+      degradedFrom: loaded.source === 'DEGRADED_TO_DEFAULT' ? selectedProfile : null,
       defaultProfile: DEFAULT_EXECUTION_PROFILE,
       profiles: readiness(),
       selection: loaded.source === 'RECOVERED' ? 'RECOVERED_TO_DEFAULT' : loaded.source,

@@ -1,0 +1,12 @@
+{
+ "task":"REX-804","host":"Alien","physicalHost":"Mera-Alianware",
+ "baselineSha":"213f9f9f7087ac4cbfe371a5e273a834cfd8f3ef",
+ "focusedTests":{"passed":10,"failed":0,"log":".runtime/evidence/mission-book/REX-804/focused-green.log"},
+ "faultClasses":["HEARTBEAT_LOSS","PROVIDER_UNAVAILABLE","DELAY_RESULT","DUPLICATE_EVENT"],
+ "runtime":"Real canonical Gateway requests: targeted heartbeat/claim refused, delayed report emergency release, duplicate research observation with one canonical completion",
+ "scope":"Explicit canonical node, owner confirmation, <=30000ms; no OS, credentials, public network or data deletion",
+ "retainedFailures":["missing controller RED","missing HTTP route RED","missing Danger Zone RED","unexercised historical measurement false-positive RED","expiry persistence error escaping canonical observation RED"],
+ "physicalCampaign":"NOT_RUN","formalOppositeHostReview":"NOT_RUN","androidControls":"NOT_RUN: exposure seam retained",
+ "technicalCritique":"storage isolation and measurement attribution findings repaired; not Formal Review",
+ "unknowns":{"physicalHostRecoveryMs":null,"externalProviderRecoveryMs":null,"ownerInterventionCount":null,"contextTokens":null}
+}

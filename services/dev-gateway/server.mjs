@@ -10,6 +10,7 @@ import { Store } from './store.mjs';
 import {createObservation} from './observation.mjs';
 import {createExecutionProfileController} from './execution-profile.mjs';
 import {createTraceCollector} from '../research-trace/index.mjs';
+import {createFaultController} from './research/faults.mjs';
 import { Pairing } from './pairing.mjs';
 // JOIN-503: device enrollment and tokenless routine reconnect. The registrar is a seam over the City's own
 // RF-001 identity lifecycle (see services/dev-gateway/enrollment.mjs) - it mints installation credentials, issues
@@ -185,8 +186,10 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   const telemetry=b=>{if(b.telemetry===undefined)return {};if(b.telemetry===null)return {telemetry:null};try{validateTelemetry(b.telemetry);return {telemetry:b.telemetry};}catch(e){fail(400,e.message);}};
   const observeResources=b=>{if(!b.telemetry)return;researchTrace.record({eventId:'resource-'+randomUUID(),type:'RESOURCE_OBSERVATION',timestamp:b.telemetry.observedAt,sourceClock:'EXTERNAL_DECLARED_WALL_UTC',canonicalRefs:{nodeRef:b.id},metrics:{cpuPercent:b.telemetry.cpu.usagePercent,memoryBytes:b.telemetry.memory?.usedBytes??null}});};
   let transactionTrace=null;
-  const atomicWithTrace=fn=>{const staged=[];transactionTrace=staged;try{const result=store.atomic(fn);transactionTrace=null;for(const event of staged)researchTrace.captureCanonical(event);return result;}finally{transactionTrace=null;}};
-  const emit=(type,id,payload,actor)=>{const e=store.event(type,id,payload,actor);if(transactionTrace)transactionTrace.push(e);else researchTrace.captureCanonical(e);for(const c of wss.clients) if(c.readyState===1)c.send(JSON.stringify(envelope({event:e})));return e;};
+  let faults=null;
+  const captureResearch=e=>faults?faults.capture(e):researchTrace.captureCanonical(e);
+  const atomicWithTrace=fn=>{const staged=[];transactionTrace=staged;try{const result=store.atomic(fn);transactionTrace=null;for(const event of staged)captureResearch(event);return result;}finally{transactionTrace=null;}};
+  const emit=(type,id,payload,actor)=>{const e=store.event(type,id,payload,actor);if(transactionTrace)transactionTrace.push(e);else captureResearch(e);for(const c of wss.clients) if(c.readyState===1)c.send(JSON.stringify(envelope({event:e})));return e;};
   join=createJoinRequests({file:resolve(dir,'join-requests.json'),clock:pairingClock,credential:token,onChange:(kind,view)=>{
     const type={created:'JOIN_REQUEST_CREATED',approved:'JOIN_REQUEST_APPROVED',rejected:'JOIN_REQUEST_REJECTED',consumed:'JOIN_REQUEST_CONSUMED',updated:'JOIN_REQUEST_UPDATED'}[kind]||'JOIN_REQUEST_UPDATED';
     // The payload is the bounded public row: no claim digest, no secret, nothing that becomes a
@@ -674,6 +677,10 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       if(campaigns.storeState()!=='READY')throw new ReplayError('REPLAY_STORE_UNAVAILABLE','campaign receipt storage is unavailable');
       if(campaignReadiness(context).state!=='READY')throw new ReplayError('REPLAY_TOPOLOGY_NOT_READY','the recorded topology is not currently live; unavailable conditions cannot be replayed deterministically');
     }});
+  // UNION (REX series merge, in the owner-granted window): this fault controller and the campaign/replay
+  // controllers above are independent - none of the three references another - so all of them are constructed here,
+  // and the single return at the end of this function exposes every one of them with a teardown that releases all.
+  faults=createFaultController({dir:resolve(dir,'research','faults'),node:id=>store.get('nodes',id),trace:researchTrace});
   // What a research surface needs in order to build a valid manifest, published with every research response so
   // the contract is discoverable from the contract itself: the topologies this release can describe, the seed
   // policies, the stop-condition kinds, the retention levels, and the LIVE capability vocabulary that the
@@ -790,6 +797,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // JOIN-503 enrollment test failed with the same "Invalid pairing token" as an unauthenticated request.
       const selfAuthenticating=req.method==='POST'&&path==='/api/v0/device/session';
       if(!publicJoin&&!legacyPublicPairing&&!selfAuthenticating)auth(req,nodeRoute&&path!=='/api/v0/node/sharing'&&!researchRoute);
+      if(path.startsWith('/api/v0/research/faults')&&req.citySession)refuse('RESEARCH_OWNER_REQUIRED',403,'Fault controls require the City owner');
       if(!legacyPublicPairing)version(req);
       // REX-803: the campaign surface is owner-only, and the refusal names the reason rather than the credential.
       if(campaignRoute&&req.citySession)refuse('RESEARCH_OWNER_REQUIRED',403);
@@ -1093,7 +1101,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
           for(const t of store.list('tasks'))if(isWaitingForTarget(t,terminal)&&t[STRICT_TARGET_FIELD]===b.id)emit('TASK_TARGET_READY',t.id,{targetDeviceRef:b.id},'gateway');
         }
       } else if(req.method==='POST' && path==='/api/v0/node/heartbeat'){
-        const b=await body(req);assertOwnNode(req,b.id);const n=required('nodes',b.id);const metrics=telemetry(b);if(!n.online)emit('NODE_ONLINE',null,{nodeId:n.id});out=store.put('nodes',{...n,...metrics,online:true,lastHeartbeatAt:now()});
+        const b=await body(req);assertOwnNode(req,b.id);const n=required('nodes',b.id);const metrics=telemetry(b);await faults.before('heartbeat',b.id);if(!n.online)emit('NODE_ONLINE',null,{nodeId:n.id});out=store.put('nodes',{...n,...metrics,online:true,lastHeartbeatAt:now()});faults.success('heartbeat',b.id);
       } else if(req.method==='POST' && path==='/api/v0/node/descriptor'){
         // WBC-602: what this City believes about one node's roles, capabilities, resources and availability —
         // read-only and computed at request time, so a node can see the descriptor a future scheduler would read
@@ -1108,10 +1116,10 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         // still strict-target first, then the handoff reservation, then the endpoint's own readiness/busy/sharing
         // gate, and the withheld set is still returned as data. The lookup above is kept so that an unknown node
         // id answers the same typed 404 it answered before the seam existed.
-        out=executionBackend().claim({nodeId:b.id});
+        await faults.before('claim',b.id);out=executionBackend().claim({nodeId:b.id});faults.success('claim',b.id);
       } else if(req.method==='POST' && path==='/api/v0/node/report'){
         const b=await body(req);assertOwnNode(req,b.id);
-        out=executionBackend().report({taskId:b.taskId,nodeId:b.id,state:b.state,progress:b.progress,lastCheckpoint:b.lastCheckpoint,result:b.result,error:b.error});
+        required('nodes',b.id);await faults.before('report',b.id);out=executionBackend().report({taskId:b.taskId,nodeId:b.id,state:b.state,progress:b.progress,lastCheckpoint:b.lastCheckpoint,result:b.result,error:b.error});faults.success('report',b.id);
       }
       // REX-803 - the campaign control surface, DIRECT_CONTROL per the programme's exposure rules: the owner picks a
       // described experiment and a scenario, sets the repetitions, starts, stops, and inspects progress including
@@ -1192,6 +1200,10 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // answers with the full issue list (409 when the id is already taken by different content, 422 when the
       // manifest is invalid), so the caller can see exactly why, and the rejection is persisted as evidence by
       // the registry itself.
+      else if(path==='/api/v0/research/faults'&&req.method==='GET')out=faults.list();
+      else if(path==='/api/v0/research/faults'&&req.method==='POST')out={fault:faults.start(await body(req))};
+      else if(req.method==='GET'&&/^\/api\/v0\/research\/faults\/[^/]+$/.test(path))out={fault:faults.get(decodeURIComponent(path.split('/').at(-1)))};
+      else if(req.method==='POST'&&/^\/api\/v0\/research\/faults\/[^/]+\/stop$/.test(path))out={fault:faults.stop(decodeURIComponent(path.split('/').at(-2)))};
       else if(path==='/api/v0/research/experiments'&&req.method==='GET'){
         const query=new URL(req.url,'http://city').searchParams.get('status');
         out={...experiments.list({status:query&&query.length>0?query:null}),research:researchFacts()};
@@ -1320,7 +1332,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
     }catch(e){socket.write('HTTP/1.1 '+(e.status||400)+' Rejected\r\nConnection: close\r\n\r\n');socket.destroy();}
   });
   const timer=setInterval(()=>{
-    for(const n of store.list('nodes'))if(n.online&&Date.now()-Date.parse(n.lastHeartbeatAt)>heartbeatTimeout){store.put('nodes',{...n,online:false});emit('NODE_OFFLINE',null,{nodeId:n.id});}
+    for(const n of store.list('nodes'))if(n.online&&Date.now()-Date.parse(n.lastHeartbeatAt)>heartbeatTimeout){store.put('nodes',{...n,online:false});emit('NODE_OFFLINE',null,{nodeId:n.id});faults.observeOffline(n.id);}
     // UXI-391 REPAIR A/B: honour a decline that had nowhere to go, and release a reservation whose device died.
     try{honourDeclinedHandoffs();}catch(e){console.error('handoff sweep failed',e);}
   },1000);
@@ -1334,5 +1346,5 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // UNION (JOIN-590 closeout integration): this single return must expose EVERY capability the integrated branches
   // promised, and its teardown must release every side's resources. Enumerated rather than concatenated on purpose -
   // the first mechanical attempt left two returns here and silently hid `researchTrace` behind the earlier one.
-  return {url:pairing.endpoint,store,join,relay,researchTrace,campaigns,executionProfile,executionBackends,executionBackend,quiesce:value=>{acceptingTasks=!value;},close:async()=>{if(closed)return;closed=true;await campaigns.close({reason:'CITY_SHUTDOWN'});observation.disconnect();bridge.close();join.close();relay.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();await researchTrace.close(100);}};
+  return {url:pairing.endpoint,store,join,relay,researchTrace,campaigns,faults,executionProfile,executionBackends,executionBackend,quiesce:value=>{acceptingTasks=!value;},close:async()=>{if(closed)return;closed=true;await campaigns.close({reason:'CITY_SHUTDOWN'});faults.close();observation.disconnect();bridge.close();join.close();relay.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();await researchTrace.close(100);}};
 }

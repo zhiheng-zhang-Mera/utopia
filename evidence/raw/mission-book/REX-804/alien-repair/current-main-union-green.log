@@ -1,0 +1,47 @@
+✔ CEX790 Web reports validated but unfiled registration and degraded store (1985.1594ms)
+✔ Web Research discovers imports validates registers and inspects canonical experiments without running (2691.2266ms)
+✔ a failed list refresh cannot hide a successful canonical registration (2551.5577ms)
+✔ REX801 store guard: a file where research (the registry parent) belongs cannot stop the City (153.5607ms)
+✔ REX801 store guard: a file where research/experiments (the registry itself) belongs cannot stop the City (89.2838ms)
+✔ fault confirmation, live canonical target and bounded duration required (2.609ms)
+✔ heartbeat loss refuses only targeted heartbeats, stop and expiry restore requests (24.9357ms)
+✔ provider unavailable refuses targeted claim and records measured recovery after stop (4.6935ms)
+✔ delayed report releases immediately on emergency stop without blocking unrelated requests (9.7639ms)
+✔ duplicate event affects observation only and is absent after emergency stop (3.9158ms)
+✔ restart disables persisted activation and never resumes fault silently (4.2618ms)
+✔ unexercised or stopped fault cannot receive unrelated future detection or recovery measurements (2.7712ms)
+✔ expired fault persistence failure cannot turn normal canonical observation into an error (3.2688ms)
+✔ four fault classes change real Gateway boundaries and emergency stop restores canonical requests (3404.068ms)
+✔ REX804 repair guard: an unreadable fault receipt is reported and never prevents the City from starting (171.3415ms)
+✔ REX804 repair guard: a receipt with no fault identity is reported as broken, not adopted without identity (87.2563ms)
+✔ REX804 unavailable receipt directory is disclosed and refuses injection without affecting observation (11.0851ms)
+✖ REX804 Web discloses unavailable fault store and prevents injection while normal task creation works (1691.9075ms)
+✔ Research Danger Zone requires explicit confirmation and offers real emergency stop (1746.4045ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 18
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 10693.8596
+
+✖ failing tests:
+
+test at tests\rex804-unavailable-store.test.mjs:16:1
+✖ REX804 Web discloses unavailable fault store and prevents injection while normal task creation works (1691.9075ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  400 !== 200
+  
+      at TestContext.<anonymous> (file:///D:/Utopia-REX804/tests/rex804-unavailable-store.test.mjs:25:143)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 400,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

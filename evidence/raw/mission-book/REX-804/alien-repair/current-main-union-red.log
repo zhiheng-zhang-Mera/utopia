@@ -1,0 +1,34 @@
+✖ CEX790 Web reports validated but unfiled registration and degraded store (82.4929ms)
+✔ Web Research discovers imports validates registers and inspects canonical experiments without running (2049.7046ms)
+✔ a failed list refresh cannot hide a successful canonical registration (1872.4519ms)
+✖ REX801 store guard: a file where research (the registry parent) belongs cannot stop the City (33864.1361ms)
+✔ REX801 store guard: a file where research/experiments (the registry itself) belongs cannot stop the City (146.4469ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 3
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 36131.4094
+
+✖ failing tests:
+
+test at tests\rex801-research-ui.test.mjs:9:1
+✖ CEX790 Web reports validated but unfiled registration and degraded store (82.4929ms)
+  [Error: EBUSY: resource busy or locked, unlink 'C:\Users\15601\AppData\Local\Temp\cex790-store-web-5RKSye\city.sqlite'] { errno: -4082, code: 'EBUSY', syscall: 'unlink', path: 'C:\\Users\\15601\\AppData\\Local\\Temp\\cex790-store-web-5RKSye\\city.sqlite' }
+
+test at tests\rex801-store-guard.test.mjs:25:3
+✖ REX801 store guard: a file where research (the registry parent) belongs cannot stop the City (33864.1361ms)
+  Error: ENOTDIR: not a directory, mkdir 'C:\Users\15601\AppData\Local\Temp\rex801-store-guard-aGIkCG\research\faults'
+      at mkdirSync (node:fs:1411:26)
+      at createFaultController (file:///D:/Utopia-REX804/services/dev-gateway/research/faults.mjs:9:2)
+      at createGateway (file:///D:/Utopia-REX804/services/dev-gateway/server.mjs:531:10)
+      at TestContext.<anonymous> (file:///D:/Utopia-REX804/tests/rex801-store-guard.test.mjs:32:19)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    errno: -4052,
+    code: 'ENOTDIR',
+    syscall: 'mkdir',
+    path: 'C:\\Users\\15601\\AppData\\Local\\Temp\\rex801-store-guard-aGIkCG\\research\\faults'
+  }

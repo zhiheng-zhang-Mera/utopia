@@ -1,0 +1,40 @@
+✖ REX804 repair guard: an unreadable fault receipt is reported and never prevents the City from starting (34003.9286ms)
+✖ REX804 repair guard: a receipt with no fault identity is reported as broken, not adopted without identity (118.6589ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 35241.1386
+
+✖ failing tests:
+
+test at tests\rex804-receipt-guard.test.mjs:18:1
+✖ REX804 repair guard: an unreadable fault receipt is reported and never prevents the City from starting (34003.9286ms)
+  SyntaxError: Expected property name or '}' in JSON at position 1 (line 1 column 2)
+      at JSON.parse (<anonymous>)
+      at createFaultController (file:///D:/Utopia-REX804/services/dev-gateway/research/faults.mjs:11:99)
+      at createGateway (file:///D:/Utopia-REX804/services/dev-gateway/server.mjs:531:10)
+      at TestContext.<anonymous> (file:///D:/Utopia-REX804/tests/rex804-receipt-guard.test.mjs:23:23)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+
+test at tests\rex804-receipt-guard.test.mjs:40:1
+✖ REX804 repair guard: a receipt with no fault identity is reported as broken, not adopted without identity (118.6589ms)
+  AssertionError [ERR_ASSERTION]: a receipt with no identity must not become a fault row
+  
+  1 !== 0
+  
+      at TestContext.<anonymous> (file:///D:/Utopia-REX804/tests/rex804-receipt-guard.test.mjs:48:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

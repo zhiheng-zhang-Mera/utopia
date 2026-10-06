@@ -151,18 +151,27 @@ test('REX804 review P6: the four-class matrix is startable, stoppable, recorded 
     await withCity(async (app, dir) => {
       await registerWorker(app, 'alpha');
       await node(app, 'heartbeat', {id: 'alpha'});
-      const row = (await admin(app, 'research/faults', {kind, nodeId: 'alpha', durationMs: 150, confirmation: `FAULT:${kind}:alpha`})).body.fault;
+      // THE WINDOW IS PART OF THE INSTRUMENT, NOT OF THE PRODUCT. The first version used durationMs 150 and then slept
+      // 350 ms, so the exercise had to land inside 150 ms of host time; it passed in isolation and failed in the full
+      // suite with "DELAY_RESULT recorded that it was exercised (got 0)". That is the same host-scheduling dependence the
+      // reviewer classified in the author's own unit fixture, found the same way - by a green isolated run disagreeing
+      // with a loaded one. The window is now wide enough that the product, not the host, decides the outcome.
+      const durationMs = 1200;
+      const row = (await admin(app, 'research/faults', {kind, nodeId: 'alpha', durationMs, confirmation: `FAULT:${kind}:alpha`})).body.fault;
       assert.equal(row.status, 'ACTIVE', `${kind} starts`);
       const receiptPath = join(dir, 'research', 'faults', row.faultId + '.json');
       const onDisk = JSON.parse(await readFile(receiptPath, 'utf8'));
       assert.equal(onDisk.status, 'ACTIVE', `${kind} is recorded on disk at start`);
       assert.equal(onDisk.scope, 'CANONICAL_NODE_REQUEST_OR_RESEARCH_OBSERVATION_ONLY');
-      // Exercise the class so its counters move, then let it expire by itself.
+      // Exercise the class so its counters move, then let it expire by itself. The delayed report is held by the fault,
+      // so its promise is kept and awaited AFTER the sleep rather than fired and forgotten.
+      let held = null;
       if (kind === 'HEARTBEAT_LOSS') await node(app, 'heartbeat', {id: 'alpha'});
       if (kind === 'PROVIDER_UNAVAILABLE') await node(app, 'claim', {id: 'alpha'});
-      if (kind === 'DELAY_RESULT') { const task = (await admin(app, 'tasks', {type: 'WAIT'})).body; await node(app, 'claim', {id: 'alpha'}); void node(app, 'report', {id: 'alpha', taskId: task.id, state: 'RUNNING', progress: 25}); }
+      if (kind === 'DELAY_RESULT') { const task = (await admin(app, 'tasks', {type: 'WAIT'})).body; await node(app, 'claim', {id: 'alpha'}); held = node(app, 'report', {id: 'alpha', taskId: task.id, state: 'RUNNING', progress: 25}); }
       if (kind === 'DUPLICATE_EVENT') { const task = (await admin(app, 'tasks', {type: 'WAIT'})).body; void task; app.faults.capture({id: 'probe-' + kind, actor: 'alpha', type: 'TASK_RUNNING', timestamp: new Date().toISOString()}); }
-      await sleep(350);
+      await sleep(durationMs + 250);
+      if (held) await held.catch(() => {}); // the fault released it at its own bound; the wait is what the probe measures
       const ended = JSON.parse(await readFile(receiptPath, 'utf8'));
       assert.equal(ended.status, 'EXPIRED', `${kind} stops by its own bound`);
       assert.equal(ended.stopReason, 'DURATION_EXPIRED');

@@ -9,7 +9,7 @@ const fixture=()=>{
  const record={experimentId:manifest.experimentId,status:'VALIDATED',manifest,digest:'identity-original'};
  const source={campaignId:'campaign-original',scenarioId:'WAIT',state:'COMPLETED',campaignSeed:'original',seedIndexOffset:0,warmup:0,timeout:1000,limits:{maxFailures:2},context:{experimentId:manifest.experimentId,manifestIdentity:record.digest,manifest:copy(manifest),targetDeviceRef:null},runs:[{index:1,seed:runSeed('original',1),state:'MEASURED',measured:true,warmup:false,result:{taskRef:'task-original',assignedNodeId:'worker-b'},durationMs:6000}]};
  const receipts=new Map([[source.campaignId,source]]),records=new Map([[record.experimentId,record]]);let count=0;
- const deps={receipt:id=>copy(receipts.get(id)),experiment:id=>copy(records.get(id)),identity:r=>r.digest,context:r=>({experimentId:r.experimentId,manifestIdentity:r.digest,manifest:copy(r.manifest),targetDeviceRef:null}),register:manifest=>{const r={experimentId:manifest.experimentId,status:'VALIDATED',manifest:copy(manifest),digest:'new-identity'};records.set(r.experimentId,r);return {record:copy(r),persisted:true};},start:options=>{const campaignId='campaign-new-'+(++count);const run={index:0,seed:runSeed(options.seed,options.seedIndexOffset),state:'MEASURED',measured:true,result:{assignedNodeId:module.replayTarget(options.context,runSeed(options.seed,options.seedIndexOffset)),taskRef:'new-task-'+count},durationMs:6100};receipts.set(campaignId,{...copy(options),campaignId,state:'COMPLETED',runs:[run]});return {campaignId};}};
+ const deps={receipt:id=>copy(receipts.get(id)),experiment:id=>copy(records.get(id)),identity:r=>r.digest,context:(r,targetDeviceRef=null)=>({experimentId:r.experimentId,manifestIdentity:r.digest,manifest:copy(r.manifest),targetDeviceRef}),register:manifest=>{const r={experimentId:manifest.experimentId,status:'VALIDATED',manifest:copy(manifest),digest:'new-identity'};records.set(r.experimentId,r);return {record:copy(r),persisted:true};},start:options=>{const campaignId='campaign-new-'+(++count);const run={index:0,seed:runSeed(options.seed,options.seedIndexOffset),state:'MEASURED',measured:true,warmup:false,result:{assignedNodeId:module.replayTarget(options.context,runSeed(options.seed,options.seedIndexOffset)),taskRef:'new-task-'+count},durationMs:6100};receipts.set(campaignId,{...copy(options),campaignSeed:options.seed,totalRuns:1,campaignId,state:'COMPLETED',runs:[run]});return {campaignId};}};
  return {source,records,receipts,deps,engine:module.createReplayEngine(deps)};
 };
 const request={sourceCampaignId:'campaign-original',sourceRunIndex:1,mode:'REPLAY',disabledMechanisms:[]};
@@ -46,4 +46,46 @@ test('REX805 unavailable fault conditions and undeclared request switches are re
  f.records.get('original-fixture').manifest.references={faultProfileRef:'fault-not-reconstructed'};
  f.source.context.manifest.references={faultProfileRef:'fault-not-reconstructed'};
  assert.throws(()=>f.engine.start(request),{code:'REPLAY_CONDITION_UNAVAILABLE'});assert.equal(f.records.size,1);
+});
+
+test('REX805 reviewer R1: replay of ablation preserves effective policy and re-ablation refuses',()=>{
+ const f=fixture();const ablation=f.engine.start({...request,mode:'ABLATION',disabledMechanisms:['alternate-device']});
+ const replay=f.engine.start({sourceCampaignId:ablation.campaignId,sourceRunIndex:0,mode:'REPLAY',disabledMechanisms:[]});
+ assert.equal(f.receipts.get(replay.campaignId).runs[0].result.assignedNodeId,'worker-a');
+ assert.deepEqual(replay.replay.disabledMechanisms,['alternate-device']);
+ assert.equal(f.engine.compare(replay.campaignId).controlledInputsMatch,true);
+ assert.throws(()=>f.engine.start({sourceCampaignId:ablation.campaignId,sourceRunIndex:0,mode:'ABLATION',disabledMechanisms:['alternate-device']}),{code:'ABLATION_INEFFECTIVE'});
+});
+
+test('REX805 reviewer R2: comparison cannot certify controlled-input or recorded-placement drift',()=>{
+ for(const change of [r=>r.timeout=999,r=>r.limits={maxFailures:999},r=>r.context.targetDeviceRef='worker-a',r=>r.context.manifest.baseSeed=99,r=>r.runs[0].result.assignedNodeId='worker-a']){
+  const f=fixture(),started=f.engine.start(request);change(f.receipts.get(started.campaignId));
+  assert.equal(f.engine.compare(started.campaignId).controlledInputsMatch,false);
+ }
+});
+
+test('REX805 reviewer R3: inconsistent measured source placement refuses before registration',()=>{
+ const f=fixture();f.source.runs[0].result.assignedNodeId='worker-a';
+ assert.throws(()=>f.engine.start(request),{code:'REPLAY_SOURCE_INVALID'});assert.equal(f.records.size,1);
+});
+
+
+test('REX805 single selected run adjusts the declared success stop without losing failure bounds',()=>{
+ const f=fixture();f.source.limits.minSuccessfulRuns=3;
+ const declared={kind:'MIN_SUCCESSFUL_RUNS',value:3};f.source.context.manifest.stopConditions.push(declared);f.records.get('original-fixture').manifest.stopConditions.push(declared);
+ const strictLimits=(manifest,requested)=>{const maximum=manifest.stopConditions.find(c=>c.kind==='MIN_SUCCESSFUL_RUNS')?.value;if(requested.minSuccessfulRuns>maximum)throw new Error('LIMITS_EXCEED_DECLARED');return requested;};
+ const engine=module.createReplayEngine({...f.deps,limits:strictLimits});const started=engine.start(request);
+ assert.deepEqual(f.receipts.get(started.campaignId).limits,{maxFailures:2,minSuccessfulRuns:1});assert.equal(engine.compare(started.campaignId).controlledInputsMatch,true);
+});
+
+
+test('REX805 comparisons reject fabricated lineage and jointly changed registered references',()=>{
+ for(const change of [r=>r.context.replay.mode='INVENTED',r=>r.context.replay.sourceSeed=0,r=>r.context.replay.sourceExperimentId='unrelated',r=>r.context.replay.exactPolicy='retry@1:DISABLED',r=>r.context.replay.requestedDisabledMechanisms=['retry']]){
+  const f=fixture(),started=f.engine.start(request);change(f.receipts.get(started.campaignId));assert.equal(f.engine.compare(started.campaignId).controlledInputsMatch,false);
+ }
+ for(const key of ['softwareRefs','references']){
+  const f=fixture(),started=f.engine.start(request),r=f.receipts.get(started.campaignId),registered=f.records.get(r.context.experimentId);
+  registered.manifest[key]=key==='softwareRefs'?['utopia@'+'1'.repeat(40)]:{scenarioRef:'different'};r.context.manifest[key]=copy(registered.manifest[key]);
+  assert.equal(f.engine.compare(started.campaignId).controlledInputsMatch,false);
+ }
 });

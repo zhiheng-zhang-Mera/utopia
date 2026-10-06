@@ -15,3 +15,14 @@ Web RED for missing control then GREEN. Further actual defect: parent campaign v
 Ruling: v1 execution is stateless WAIT only; other safe task types consume filesystem/checkpoint state not captured by the receipt. Explicit REPLAY_CONDITION_UNAVAILABLE, not a deterministic replay claim. Referenced faults are refused for the same reason. Source software refs do not attest the new process; lineage currentProcessSoftwareSha remains null with NOT_OBSERVED reason. Canonical parsed receipt SHA256 is explicitly distinguished from exact-byte hashes. Future mechanisms are typed unsupported; unknown request switches refuse.
 
 Current related14/14 PASS; bilingual validation synchronized. Initial full-suite attempt started before final source freeze and with city dependencies missing:3 deterministic reader/audit failures, root frozen install alone was insufficient. city frozen install repaired setup and those12 tests pass;3 host launcher failures also observed while resident coord4389 remains intentionally online. Initial full run is INTERMEDIATE and cannot certify a final exact head. Task5 final full suite, hosted CI, fresh independent review and physical replay/ablation gate remain pending. 不以本地fixture代替实体验收，不把未执行检查写PASS。
+
+
+## Independent review repairs / 独立审查修复
+
+Candidate a574e009 retained as reviewed history. Initial independent review requested changes: derived replay lost inherited ablation policy, comparison omitted effective controls, and inconsistent source placement passed. Three regressions reproduced RED (7/10 pass), then GREEN. A second review identified MIN_SUCCESSFUL_RUNS transformation, fabricated lineage, and normalized registry reference correspondence gaps. The success-stop regression reproduced LIMITS_EXCEED_DECLARED before repair.
+
+候选 a574e009 保留为审查历史。首轮独立审查要求修改：派生回放丢失继承的消融策略、比较遗漏有效控制项、来源落点不一致仍获接纳。三条回归先 RED（7/10通过）再 GREEN。第二轮发现 MIN_SUCCESSFUL_RUNS 转换、虚构关联字段和规范化注册引用对应关系缺口；成功停止条件回归先复现 LIMITS_EXCEED_DECLARED，再修复。
+
+Repairs preserve inherited policy, refuse ineffective repeated ablation and inconsistent source placement, compare effective controls/lineage/registry references, and validate single-run limits before registering an experiment. Only the selected-run success stop changes to one; failure and wall-clock limits remain. Real Gateway regression covers original→ablation→replay, canonical placement and success/failure bounds. Core/Gateway/seed focused suite: 17/17 PASS; enhanced real Gateway: 2/2 PASS. Independent re-review and exact repaired-head full suite/CI remain pending. No physical-host replay acceptance is claimed.
+
+修复保留继承策略，拒绝无效重复消融及不一致的来源落点，比较有效控制项、关联字段和注册引用，并在注册新实验前校验单次执行限制。仅选定单次执行的成功停止条件转为1，失败与墙钟限制保留。真实 Gateway 回归覆盖原始→消融→回放、规范任务落点及成功/失败界限。核心/Gateway/种子聚焦17/17通过，增强真实 Gateway 2/2通过。独立复审和修复后精确版本完整测试/CI待完成；尚未声称实体联机回放验收。

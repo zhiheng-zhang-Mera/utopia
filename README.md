@@ -50,8 +50,13 @@ Node.js 24+, pnpm, Java 17+ and Android SDK 36.
 
 ```powershell
 pnpm install --frozen-lockfile
+pnpm --dir city install --frozen-lockfile   # 必须单独执行：city/ 有自己的第三方解析器，不是 pnpm workspace
 .\scripts\start-city.ps1 -BindAddress <your-LAN-IPv4>
 ```
+
+`city/` 有意不是 pnpm workspace，它自己的锁文件声明了 `mammoth` / `pdfjs-dist` / `fflate` / `yaml`。只做根安装也能启动 City，但 `pnpm test` 会失败：`tests/capability-adapters.test.mjs` 与 `tests/city-roads.test.mjs` 会从 `../city/...` 载入文档解析器，缺依赖时报 `CORRUPT_INPUT`，看上去像产品缺陷。CI 同样分两步安装（`.github/workflows/ci.yml`）。
+
+`city/` is deliberately not a pnpm workspace; its own lockfile declares `mammoth` / `pdfjs-dist` / `fflate` / `yaml`. A root-only install still starts the City, but `pnpm test` then fails: `tests/capability-adapters.test.mjs` and `tests/city-roads.test.mjs` load document readers from `../city/...` and report `CORRUPT_INPUT` when those packages are missing, which reads like a product defect. CI installs in the same two steps (`.github/workflows/ci.yml`).
 
 浏览器访问输出的 URL，使用 `.runtime/local-config.json` 的 `token` 登录 Web，然后在 Pairing 页面生成临时二维码或短码。Android 支持扫码、局域网发现、蓝牙发现及手动连接。不得分享该文件或永久 token。局域网开发用途，禁止公网暴露。
 

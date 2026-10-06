@@ -1,0 +1,33 @@
+✔ REX803 Alien: malformed interrupted state degrades instead of preventing construction (7.2766ms)
+✔ REX803 Alien: resume cannot rename the scenario while executing the old campaign (3.0329ms)
+✔ REX803 Alien: a timed-out run keeps its own cleanup scope after the next run begins (106.9046ms)
+✖ REX803 Alien: contradictory run measurement cannot manufacture an early successful stop (3.9795ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 3
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1109.7886
+
+✖ failing tests:
+
+test at tests\rex803-alien-review.test.mjs:52:1
+✖ REX803 Alien: contradictory run measurement cannot manufacture an early successful stop (3.9795ms)
+  AssertionError [ERR_ASSERTION]: state FAILED cannot count as a successful measurement
+  + actual - expected
+  
+  + undefined
+  - true
+  
+      at TestContext.<anonymous> (file:///D:/Utopia-REX803-Review/tests/rex803-alien-review.test.mjs:57:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

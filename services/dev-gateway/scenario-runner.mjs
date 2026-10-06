@@ -36,6 +36,7 @@
 // seeds depend only on the campaign seed and the run index. The runner executes nothing itself; `runOnce` is supplied.
 import {existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync} from 'node:fs';
 import {randomUUID} from 'node:crypto';
+import {performance} from 'node:perf_hooks';
 import {resolve} from 'node:path';
 
 export const RUN_STATES = Object.freeze(['MEASURED', 'WARMUP', 'TIMEOUT', 'FAILED', 'EXCLUDED', 'CANCELLED', 'SKIPPED', 'INTERRUPTED']);
@@ -99,9 +100,8 @@ export function createScenarioRunner({dir = '.runtime/research', scenarios = [],
   /** Set to the operator's reason while a stop is in flight. It is the reason every later run cites. */
   let cancelled = null;
   /** Cleanups registered by the run that is executing right now. Replaced at the start of every run. */
-  let runHandles = new Set();
+  let runScope = null;
   /** Non-null once the current run has been torn down (timed out or stopped), so a LATE registration still runs. */
-  let runAborted = null;
   /** True while a drive loop is draining. A campaign is not replaceable until its own loop has written its last row. */
   let driving = false;
   /** Set once close() has begun. A closed runner accepts no new campaign (finding F-S8). */
@@ -194,9 +194,10 @@ export function createScenarioRunner({dir = '.runtime/research', scenarios = [],
 
   /** Fire every cleanup the current run registered, once, and forget them. A throwing cleanup must not stop the rest. */
   function fireCancels(reason) {
-    runAborted = reason;
-    const handles = [...runHandles];
-    runHandles = new Set();
+    if (!runScope) return [];
+    runScope.aborted = reason;
+    const handles = [...runScope.handles];
+    runScope.handles.clear();
     const failures = [];
     for (const handle of handles) {
       try { handle(reason); } catch (error) { failures.push(String(error?.message ?? error)); }
@@ -232,8 +233,25 @@ export function createScenarioRunner({dir = '.runtime/research', scenarios = [],
     if (!existsSync(file)) return null;
     try {
       const record = JSON.parse(readFileSync(file, 'utf8'));
-      return record?.state === 'RUNNING' || record?.state === 'INTERRUPTED' ? record : null;
-    } catch { return {state: 'INTERRUPTED', campaignId: null, unreadable: true}; }
+      if (record?.state !== 'RUNNING' && record?.state !== 'INTERRUPTED') return null;
+      if (!Array.isArray(record.runs) || !Number.isSafeInteger(record.totalRuns) || record.totalRuns < 1 ||
+          !Number.isSafeInteger(record.repetitions) || record.repetitions < 1 || record.repetitions > 10000 ||
+          !Number.isSafeInteger(record.warmup) || record.warmup < 0 || record.warmup > record.repetitions ||
+          record.totalRuns !== record.repetitions + record.warmup || record.runs.length > record.totalRuns ||
+          !Number.isSafeInteger(record.timeout) || record.timeout < 1 || record.timeout > 3600000 ||
+          !Number.isFinite(record.startedAt) || !['string', 'number'].includes(typeof record.campaignSeed) ||
+          typeof record.scenarioId !== 'string' || !RECEIPT_FILE.test(`${record.campaignId}.json`) ||
+          record.runs.some((run, index) => !run || run.index !== index || !RUN_STATES.includes(run.state) ||
+            run.measured !== (run.state === 'MEASURED') ||
+            (run.state === 'MEASURED' && index < record.warmup) ||
+            (run.state === 'WARMUP' && index >= record.warmup) ||
+            (run.warmup !== undefined && run.warmup !== (index < record.warmup)))) {
+        noteStoreFailure('CAMPAIGN_STATE_INVALID');
+        return {state: 'INTERRUPTED', campaignId: null, unreadable: true};
+      }
+      normalizeLimits(record.limits);
+      return record;
+    } catch (error) { noteStoreFailure(error); return {state: 'INTERRUPTED', campaignId: null, unreadable: true}; }
   }
 
   /**
@@ -289,9 +307,18 @@ export function createScenarioRunner({dir = '.runtime/research', scenarios = [],
     // continued a campaign, while the runner actually started a different one, has lost the thread of its own evidence.
     if (resume === true && !previous) throw new ScenarioRunnerError(RUNNER_CODES.NOTHING_TO_RESUME, 'there is no unfinished campaign to resume');
 
-    const readinessReport = scenario.readiness ? scenario.readiness(context) : readiness(context);
+    if (resume === true && previous) {
+      if (previous.unreadable || previous.scenarioId !== scenarioId) throw new ScenarioRunnerError(RUNNER_CODES.RESUME_CONFLICT, 'resume requires the readable original campaign and its original scenario');
+      if (Number.isSafeInteger(repetitions) && repetitions !== previous.repetitions) throw new ScenarioRunnerError(RUNNER_CODES.RESUME_CONFLICT, 'a resumed campaign keeps its declared repetition count', {declared: previous.repetitions, requested: repetitions});
+      if (Number.isSafeInteger(warmup) && warmup !== previous.warmup) throw new ScenarioRunnerError(RUNNER_CODES.RESUME_CONFLICT, 'a resumed campaign keeps its declared warmup count', {declared: previous.warmup, requested: warmup});
+      if (seed !== null && seed !== previous.campaignSeed) throw new ScenarioRunnerError(RUNNER_CODES.RESUME_CONFLICT, 'a resumed campaign keeps its campaign seed, or it is a different campaign', {declared: previous.campaignSeed, requested: seed});
+    }
+    const executionContext = resume === true ? previous.context ?? null : context;
+    const readinessReport = scenario.readiness ? scenario.readiness(executionContext) : readiness(executionContext);
     const state = typeof readinessReport === 'string' ? readinessReport : readinessReport?.state ?? 'UNKNOWN';
     if (state !== 'READY') {
+      // A transient topology refusal must not destroy an interrupted campaign's only continuation record.
+      if (previous) throw new ScenarioRunnerError(RUNNER_CODES.NOT_READY, `topology is not ready for ${scenarioId}: ${state}`, readinessReport);
       campaign = {campaignId: `campaign-${randomUUID()}`, scenarioId, state: 'REFUSED', reason: RUNNER_CODES.NOT_READY, detail: state, totalRuns: warmup + repetitions, runs: [], startedAt: clock(), finishedAt: clock(), context, limits: boundedLimits, readiness: readinessReport, summary: null};
       campaign.summary = summaryOf(campaign);
       persist();
@@ -299,12 +326,8 @@ export function createScenarioRunner({dir = '.runtime/research', scenarios = [],
       throw new ScenarioRunnerError(RUNNER_CODES.NOT_READY, `topology is not ready for ${scenarioId}: ${state}`, readinessReport);
     }
 
-    // RESUMING CONTINUES THE SAME CAMPAIGN. Bounds and seed come from the record, not from this call: a campaign
-    // whose repetition count or seed could be changed halfway through would not be one campaign.
+    // Resume executes the already validated immutable campaign context.
     if (resume === true && previous) {
-      if (Number.isSafeInteger(repetitions) && repetitions !== previous.repetitions) throw new ScenarioRunnerError(RUNNER_CODES.RESUME_CONFLICT, 'a resumed campaign keeps its declared repetition count', {declared: previous.repetitions, requested: repetitions});
-      if (Number.isSafeInteger(warmup) && warmup !== previous.warmup) throw new ScenarioRunnerError(RUNNER_CODES.RESUME_CONFLICT, 'a resumed campaign keeps its declared warmup count', {declared: previous.warmup, requested: warmup});
-      if (seed !== null && seed !== previous.campaignSeed) throw new ScenarioRunnerError(RUNNER_CODES.RESUME_CONFLICT, 'a resumed campaign keeps its campaign seed, or it is a different campaign', {declared: previous.campaignSeed, requested: seed});
       campaign = {...previous, state: 'RUNNING', reason: null, finishedAt: null, receipt: null, resumeCount: (previous.resumeCount ?? 0) + 1, resumedAt: clock()};
       cancelled = null;
       persist();
@@ -362,21 +385,21 @@ export function createScenarioRunner({dir = '.runtime/research', scenarios = [],
       const isWarmup = index < campaign.warmup;
       const seed = runSeed(campaign.campaignSeed, index);
       const began = clock();
-      runHandles = new Set();
-      runAborted = null;
+      const scope = {handles: new Set(), aborted: null};
+      runScope = scope;
       const control = {
-        cancelled: () => Boolean(cancelled),
-        reason: () => cancelled,
+        cancelled: () => scope.aborted !== null,
+        reason: () => scope.aborted,
         onCancel: handle => {
           // A run that registers its cleanup AFTER it has been torn down is cleaned up immediately: a late
           // registration must not become work nobody is watching. (The timeout path is exactly this case - the
           // runner stops waiting while the run's own promise is still alive.)
-          if (runAborted !== null) {
-            try { handle(runAborted); } catch { /* the run reports its own cleanup failure to the runner */ }
+          if (scope.aborted !== null) {
+            try { handle(scope.aborted); } catch { /* the run reports its own cleanup failure to the runner */ }
             return () => {};
           }
-          runHandles.add(handle);
-          return () => runHandles.delete(handle);
+          scope.handles.add(handle);
+          return () => scope.handles.delete(handle);
         },
       };
       let outcome;
@@ -391,7 +414,8 @@ export function createScenarioRunner({dir = '.runtime/research', scenarios = [],
           outcome = {state: 'FAILED', reason: error?.message ?? 'run failed'};
         }
       }
-      runHandles = new Set();
+      scope.handles.clear();
+      if (runScope === scope) runScope = null;
       const run = {index, state: outcome.state === 'MEASURED' && isWarmup ? 'WARMUP' : outcome.state, reason: outcome.reason ?? null, seed, warmup: isWarmup, measured: outcome.state === 'MEASURED' && !isWarmup, durationMs: Math.max(0, clock() - began), result: outcome.result ?? null};
       campaign.runs.push(run);
       persist();
@@ -517,8 +541,8 @@ export function createScenarioRunner({dir = '.runtime/research', scenarios = [],
   async function close({reason = 'runner closed', timeoutMs = 750} = {}) {
     closed = true;
     if (campaign?.state === 'RUNNING') stop({reason});
-    const until = clock() + Math.max(1, Math.min(Number(timeoutMs) || 1, 10000));
-    while (driving && clock() < until) await new Promise(resolveWait => setTimeout(resolveWait, 5));
+    const until = performance.now() + Math.max(1, Math.min(Number(timeoutMs) || 1, 10000));
+    while (driving && performance.now() < until) await new Promise(resolveWait => setTimeout(resolveWait, 5));
     return {drained: !driving, state: campaign?.state ?? 'IDLE'};
   }
 

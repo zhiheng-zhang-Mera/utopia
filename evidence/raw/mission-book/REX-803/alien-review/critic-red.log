@@ -1,0 +1,82 @@
+✖ critic: unavailable topology on resume preserves original unfinished campaign (13.0465ms)
+✖ critic: resume readiness checks persisted execution context (18.3562ms)
+✖ critic: malformed persisted bounds cannot bypass resumed repetition and timeout limits (3.2932ms)
+✖ critic: bounded close uses elapsed wall time with frozen research clock (74.0177ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 0
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1173.1598
+
+✖ failing tests:
+
+test at tests\rex803-critic-review.test.mjs:15:1
+✖ critic: unavailable topology on resume preserves original unfinished campaign (13.0465ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - 'campaign-aaaaaaaa-0000-0000-0000-000000000000'
+  
+      at TestContext.<anonymous> (file:///D:/Utopia-REX803-Review/tests/rex803-critic-review.test.mjs:19:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 'campaign-aaaaaaaa-0000-0000-0000-000000000000',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\rex803-critic-review.test.mjs:22:1
+✖ critic: resume readiness checks persisted execution context (18.3562ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (file:///D:/Utopia-REX803-Review/tests/rex803-critic-review.test.mjs:26:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests\rex803-critic-review.test.mjs:30:1
+✖ critic: malformed persisted bounds cannot bypass resumed repetition and timeout limits (3.2932ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + undefined
+  - true
+  
+      at TestContext.<anonymous> (file:///D:/Utopia-REX803-Review/tests/rex803-critic-review.test.mjs:33:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests\rex803-critic-review.test.mjs:37:1
+✖ critic: bounded close uses elapsed wall time with frozen research clock (74.0177ms)
+  AssertionError [ERR_ASSERTION]: close must return within wall-clock bound even when injected clock is frozen
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///D:/Utopia-REX803-Review/tests/rex803-critic-review.test.mjs:44:10)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

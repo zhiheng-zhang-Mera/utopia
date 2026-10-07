@@ -1018,6 +1018,25 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         if(req.citySession)refuse('RESEARCH_OWNER_REQUIRED',403,'Research trace requires the City owner');
         out={trace:researchTrace.snapshot()};
       }
+      // Resolve SPECIFIC trace records out of the durable store, because `snapshot()` above is a bounded window and a
+      // published pointer older than that window reads as missing when its bytes are still on disk. An artifact package
+      // publishes exact pointers as evidence, so a reproduction host on ANOTHER machine - which can reach nothing but
+      // this API - must be able to ask about them and get an answer that separates "not in the window" from "not in the
+      // store". Owner-only, read-only, bounded, and it never claims the store is complete.
+      else if(req.method==='GET' && path==='/api/v0/research/trace/records'){
+        if(req.citySession)refuse('RESEARCH_OWNER_REQUIRED',403,'Research trace requires the City owner');
+        const query=new URL(req.url,'http://city').searchParams;
+        const ids=(query.get('ids')??'').split(',').map(x=>x.trim()).filter(Boolean);
+        // A bad request is answered as a BAD REQUEST. Letting the collector's own refusal escape would reach the outer
+        // handler, which has no status to work with and would answer 500 "Gateway error" - turning "you asked nothing"
+        // into "the City is broken".
+        if(ids.length===0)refuse('TRACE_LOOKUP_IDS_REQUIRED',400,'name at least one trace record id in ?ids=');
+        if(ids.length>1024)refuse('TRACE_LOOKUP_TOO_MANY_IDS',400,'trace record lookup is bounded to 1024 ids');
+        if(ids.some(id=>id.length>180))refuse('TRACE_LOOKUP_ID_INVALID',400,'a trace record id is at most 180 characters');
+        const include=query.get('include')==='records'?'RECORDS':'PRESENCE_ONLY';
+        try{out={lookup:await researchTrace.lookup(ids,{include})};}
+        catch(error){refuse(error?.code??'TRACE_LOOKUP_FAILED',503,`the trace store could not answer: ${error?.code??'TRACE_LOOKUP_FAILED'}`);}
+      }
       else if(req.method==='GET' && path==='/api/v0/capabilities')out={capabilities:bridge.registry()};
       else if(req.method==='GET' && path==='/api/v0/capability-invocations')out={invocations:bridge.list(new URL(req.url,'http://city').searchParams.get('limit')??undefined)};
       else if(req.method==='GET' && /^\/api\/v0\/capability-invocations\/[^/]+$/.test(path))out=bridge.get(decodeURIComponent(path.split('/').at(-1)))||refuse('INVOCATION_NOT_FOUND',404);

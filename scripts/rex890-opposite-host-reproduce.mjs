@@ -176,16 +176,46 @@ const pointerChecks = {};
 for (const [name, listed] of Object.entries(pointers)) {
   if (!Array.isArray(listed)) continue;
   if (name === 'traceRecords') {
-    // The trace is a ROLLING WINDOW, so a pointer that is gone is not automatically a defect. It is reported as a
-    // measured number together with what the City's own trace says about its completeness, and the package's claim is
-    // only contradicted if the City says nothing was dropped while pointers are missing.
+    // The trace SURFACE is a ROLLING WINDOW, so a pointer missing from it is not automatically a defect. It is reported
+    // as a measured number together with what the City's own trace says about its completeness, and the package's claim
+    // is only contradicted if the City says nothing was dropped while pointers are missing.
+    //
+    // MEASURED, and the reason this second question exists: the package publishes 206 pointers, and once the window has
+    // moved on the snapshot resolves NONE of them while all 206 are still in the City's durable store. Reporting only
+    // the window number tells a reader "0/206" and nothing about whether the evidence is gone or merely unasked - and a
+    // reproduction host on ANOTHER machine cannot go behind the API to find out. So the pointers the window cannot
+    // serve are asked for BY ID, and absence from BOTH is the only absence that means the records are really gone.
     const ids = listed.map(p => String(p).replace(/^trace:/, ''));
-    const present = ids.filter(id => tracedIds.has(id)).length;
-    pointerChecks.traceRecords = {listed: ids.length, presentInCityTrace: present, absent: ids.length - present,
+    const inWindow = ids.filter(id => tracedIds.has(id));
+    const outside = ids.filter(id => !tracedIds.has(id));
+    let inStore = [], storeScope = null, storeTruncated = null, storeFailure = null;
+    if (outside.length) {
+      // Asked in CHUNKS: 206 ids in one query string is a ~7.6 KB URL, uncomfortably close to the header limit, and a
+      // refusal there would look like a City fault rather than a client that asked too much at once.
+      const CHUNK = 100;
+      for (let i = 0; i < outside.length; i += CHUNK) {
+        const slice = outside.slice(i, i + CHUNK);
+        const response = await ask('research/trace/records?ids=' + encodeURIComponent(slice.join(',')));
+        const answer = response.json?.lookup ?? null;
+        if (!answer) { storeFailure = response.json?.errorCode ?? `HTTP_${response.status}`; break; }
+        inStore.push(...(answer.found ?? []));
+        storeScope = answer.storeScope ?? storeScope;
+        storeTruncated = answer.storeTruncated ?? storeTruncated;
+      }
+    }
+    const resolvable = inWindow.length + inStore.length;
+    pointerChecks.traceRecords = {listed: ids.length, presentInRetainedWindow: inWindow.length,
+      presentInDurableStore: inStore.length, resolvable, absent: ids.length - resolvable,
+      storeScope, storeTruncated, storeFailure,
       cityCompleteness: traceNow?.completeness ?? null, cityDropped: traceNow?.droppedRecords ?? null, cityTruncated: traceNow?.retentionTruncated ?? null};
-    note(`trace pointers: ${present}/${ids.length} still in the City trace (city completeness=${traceNow?.completeness ?? 'n/a'} dropped=${JSON.stringify(traceNow?.droppedRecords ?? null)})`);
-    if (present < ids.length && traceNow?.completeness === 'COMPLETE' && traceNow?.retentionTruncated !== true) {
-      disagree('trace pointers missing while the City call its own trace complete', ids.length, present);
+    note(`trace pointers: ${inWindow.length}/${ids.length} in the retained window, +${inStore.length} resolved from the durable store = ${resolvable}/${ids.length} (city completeness=${traceNow?.completeness ?? 'n/a'} dropped=${JSON.stringify(traceNow?.droppedRecords ?? null)})`);
+    // VACUOUS IS NOT VERIFIED. If the window moved on and the store could not be asked, this element compared NOTHING,
+    // and saying "0 inconsistencies" without saying that would be the exact overclaim this programme exists to avoid.
+    if (inWindow.length === 0 && outside.length && inStore.length === 0 && storeFailure) {
+      note(`trace comparison is VACUOUS: the retained window holds none of the pointers and the durable store could not be asked (${storeFailure})`);
+    }
+    if (resolvable < ids.length && traceNow?.completeness === 'COMPLETE' && traceNow?.retentionTruncated !== true) {
+      disagree('trace pointers missing while the City call its own trace complete', ids.length, resolvable);
     }
     continue;
   }

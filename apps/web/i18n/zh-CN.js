@@ -447,4 +447,5 @@ Object.assign(messages,{
  'rr.ablation':'消融备选设备选择','rr.noRuns':'当前没有可观测的已记录运行。','rr.comparison':'原始 → 重放比较',
  'rr.value':'观测值','rr.original':'原始运行','rr.replayed':'新运行','rr.worker':'执行节点','rr.inputs':'受控输入一致','rr.unavailable':'重放暂不可用，请刷新或重新连接。'
 });
+Object.assign(messages, {'nav.governance':'审议治理', 'heading.governance':'审议治理过程'});
 export default { meta, messages };

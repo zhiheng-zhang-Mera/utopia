@@ -1,6 +1,8 @@
 import {renderDeviceRecovery} from './device-recovery.js';
 import {renderServices} from './services.js';
 import {renderResearch} from './research.js';
+import {createGovernanceView} from './governance.js';
+const governanceView=createGovernanceView();
 import {createResearchTraceView} from './research-trace.js';
 const researchTraceView=createResearchTraceView();
 // REX-803: the campaign control surface. Imported as a view factory for the same reason the trace view is: it holds
@@ -732,6 +734,7 @@ function assistantSlot(){
   return `<section class="operator"><div class="op-frame"><span class="op-side"></span><span class="op-tag">${esc(t('assistant.role'))}</span><div class="op-art">${ASSISTANT_ART}</div><span class="op-slot">SLOT 01</span></div><div class="op-body"><p class="op-role">${esc(t('assistant.role'))} · ASSISTANT</p><p class="op-name">${esc(t('assistant.unassigned'))}</p><p class="op-sub">${esc(t('assistant.note'))}</p><dl class="kv"><dt>${esc(t('assistant.boundDevice'))}</dt><dd>${esc(online[0]?.displayName||t('assistant.pending'))}</dd><dt>${esc(t('assistant.appearance'))}</dt><dd>${esc(t('assistant.placeholderValue'))}</dd><dt>${esc(t('assistant.voice'))}</dt><dd>${esc(t('assistant.disabled'))}</dd><dt>${esc(t('assistant.duty'))}</dt><dd>${esc(t('assistant.pending'))}</dd></dl></div></section>`;
 }
 function render(){
+ if(page!=='Governance')governanceView.reset();
  if(page!=='ResearchTrace')researchTraceView.reset();
  // The campaign view polls while a campaign runs, so it must be reset when the page is left - the same rule the
  // trace view follows, and the reason both are views rather than plain render functions.
@@ -767,6 +770,10 @@ function render(){
  if(page==='Home')homeRooms();
  if(page==='Services')renderServices($('#view'),city,connection==='ONLINE',api);
  if(page==='Research')renderResearch($('#view'),connection==='ONLINE',api,city.cityId+':'+generation);
+ if(page==='Governance'){
+  const credential=token,cityId=city.cityId;
+  governanceView.render($('#view'),{contextKey:credential+'|'+cityId,online:connection==='ONLINE',api,isCurrent:()=>page==='Governance'&&token===credential&&city?.cityId===cityId});
+ }
  if(page==='ResearchCampaign'){
   const credential=token,cityId=city.cityId;
   researchCampaignView.render($('#view'),{contextKey:credential+'|'+cityId,online:connection==='ONLINE',api,isCurrent:()=>page==='ResearchCampaign'&&token===credential&&city?.cityId===cityId});

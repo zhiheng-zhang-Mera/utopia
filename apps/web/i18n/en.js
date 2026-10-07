@@ -453,4 +453,5 @@ Object.assign(messages,{
  'rr.ablation':'Ablate alternate-device selection','rr.noRuns':'No observable recorded run is available.','rr.comparison':'Original → replay comparison',
  'rr.value':'Observation','rr.original':'Original','rr.replayed':'New run','rr.worker':'Executing worker','rr.inputs':'Controlled inputs match','rr.unavailable':'Replay is unavailable; refresh or reconnect.'
 });
+Object.assign(messages, {'nav.governance':'Governance', 'heading.governance':'Governance process'});
 export default { meta, messages };

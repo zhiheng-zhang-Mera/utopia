@@ -224,6 +224,8 @@ throw CapabilityRequestException(error?.optString("errorCode")?.takeIf { it.isNo
  /** T1 — GET /api/v0/rooms. The returned hubUrl is loopback-only and is never used by Android. */
  fun rooms(done: (JSONObject) -> Unit) { submit { deliver(row("rooms"),done) } }
  fun researchTrace(done:(JSONObject)->Unit) { submit { deliver(row("research/trace"),done) } }
+ // REX-807: run observation. Read-only like researchTrace above - the phone observes, the Web authorises.
+ fun researchCampaigns(done:(JSONObject)->Unit) { submit { deliver(row("research/campaigns"),done) } }
  fun actions(limit: Int, done: (JSONObject) -> Unit) { submit { deliver(row("actions?limit="+limit.coerceIn(1,200)),done) } }
  fun actionDetail(actionId: String, done: (JSONObject) -> Unit) { submit { deliver(row("actions/"+java.net.URLEncoder.encode(actionId,"UTF-8")),done) } }
  /**

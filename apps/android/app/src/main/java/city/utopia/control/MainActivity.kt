@@ -90,6 +90,7 @@ class MainActivity : ComponentActivity() {
    "Activity" to UtopiaIcons.Activity,
   )
   val advancedNav = listOf(
+   "ResearchRun" to "研究运行",
    "ResearchTrace" to "研究记录",
    "Services" to "能力服务",
    "Tasks" to "任务",
@@ -143,6 +144,10 @@ class MainActivity : ComponentActivity() {
      }
      else nodes.filter { it.optString("id")==selectedNode }.forEach { n -> item { DeviceCard(n,online,now,true,tasks,events) { selectedNode=n.optString("id") } } }
      if(selectedNode!=null) item { OutlinedButton(onClick={selectedNode=null}) { Text("All devices") } }
+    } else if (page == "ResearchRun") {
+     // REX-807: observation only. The advanced navigation lists it beside the trace page so the phone can see what the
+     // City is running, while authoring (create/start/stop/fault injection) stays on the Web where the owner is.
+     item { ResearchRunPanel(state,client) }
     } else if (page == "ResearchTrace") {
      item { ResearchTracePanel(state,client) }
     } else if (page == "Services") {

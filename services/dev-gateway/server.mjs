@@ -8,6 +8,8 @@ import { createHash, randomUUID, randomBytes as randomBytesBytes, timingSafeEqua
 import { WebSocketServer } from 'ws';
 import { Store } from './store.mjs';
 import {createObservation} from './observation.mjs';
+import {createGovernanceService} from './governance.mjs';
+import {createPcfGovernancePort} from './governance-pcf-port.mjs';
 import {createExecutionProfileController} from './execution-profile.mjs';
 import {createTraceCollector} from '../research-trace/index.mjs';
 import {createFaultController} from './research/faults.mjs';
@@ -104,11 +106,12 @@ const claimNodeFor=n=>({nodeId:n.id,state:n.online?'READY':'OFFLINE',capabilitie
 // enrollment registry reads the second. Dropping either one produces a ReferenceError at request time rather than
 // at load time, which is why this is stated here: the first attempt at this merge kept only `deviceClock` and every
 // JOIN-502 test failed with "nearbyTimeoutMs is not defined".
-export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',token,nodeToken,heartbeatTimeout=8000,pairingClock=Date.now,pairingTtlMs=300000,discoveryEnabled=false,nearbyTimeoutMs=2000,roomHubUrl=process.env.CITY_ROOMS_URL,roomsDisabled=process.env.CITY_ROOMS_DISABLED==='1',hostId=process.env.CITY_HOST_ID,roomFetch,deviceClock=Date.now,hostDeviceId:requestedHostDeviceId,hostJoin=null,researchTraceStorage,researchTraceSoftwareRefs={}}) {
+export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',token,nodeToken,heartbeatTimeout=8000,pairingClock=Date.now,pairingTtlMs=300000,discoveryEnabled=false,nearbyTimeoutMs=2000,roomHubUrl=process.env.CITY_ROOMS_URL,roomsDisabled=process.env.CITY_ROOMS_DISABLED==='1',hostId=process.env.CITY_HOST_ID,roomFetch,deviceClock=Date.now,hostDeviceId:requestedHostDeviceId,hostJoin=null,researchTraceStorage,researchTraceSoftwareRefs={},governancePorts={}}) {
   if(!token||!nodeToken||token===nodeToken) throw new Error('Separate control and node tokens are required');
   if(host==='0.0.0.0'||host==='::') throw new Error('Configure an explicit loopback or LAN interface');
   const store=new Store(dir); const wss=new WebSocketServer({noServer:true}); let closed=false;
   const observation=createObservation({read:()=>store.observationWindow()});
+  const governance=createGovernanceService({dir:resolve(dir,'governance'),readTask:ref=>store.get('tasks',ref.replace(/^task:/,'')),ports:{...governancePorts,pcf:governancePorts.pcf??createPcfGovernancePort(governancePorts)}});
   const researchTrace=createTraceCollector({directory:resolve(dir,'research-trace'),sourceStreamRef:store.cityId,storage:researchTraceStorage,softwareRefs:researchTraceSoftwareRefs});
   // MESH-301: WHICH control surfaces are attached to this City, and what each of them calls itself.
   //
@@ -992,7 +995,17 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
           out={receipt,executionProfile:profileController.state()};
         }catch(error){refuse(error.code??'PROFILE_CHANGE_REFUSED',409,error.message);}
       }
-      else if(req.method==='GET' && path==='/api/v0/monitor')out={monitor:await observation.refresh()};
+      else if(req.method==='GET' && path==='/api/v0/monitor')out={monitor:await observation.refresh(),governance:req.headers.authorization==='Bearer '+token?governance.overview():{authoritative:false,health:'OWNER_ONLY'}};
+      else if(path==='/api/v0/governance'||/^\/api\/v0\/governance\/[^/]+(?:\/actions)?$/.test(path)){
+        if(req.headers.authorization!=='Bearer '+token)fail(403,'Only the City owner may inspect governance evidence');
+        try{
+          if(req.method==='GET'&&path==='/api/v0/governance')out={governance:governance.list()};
+          else if(req.method==='POST'&&path==='/api/v0/governance')out={governance:governance.create(await body(req))};
+          else if(req.method==='GET'&&!path.endsWith('/actions'))out={governance:governance.inspect(decodeURIComponent(path.split('/').at(-1)))};
+          else if(req.method==='POST'&&path.endsWith('/actions'))out={governance:governance.act(decodeURIComponent(path.split('/').at(-2)),await body(req))};
+          else fail(405,'Governance method unavailable');
+        }catch(error){refuse(error.code??'GOVERNANCE_DOCUMENT_UNAVAILABLE',409,error.message);}
+      }
       else if(req.method==='POST' && path==='/api/v0/node/sharing'){
         const b=await body(req);if(memberRef(req)!==b.id)fail(403,'Only this device may change its resource sharing');if(typeof b.enabled!=='boolean')fail(400,'Sharing requires enabled boolean');const n=required('nodes',b.id);out=store.put('nodes',{...n,sharingEnabled:b.enabled});emit('NODE_SHARING_CHANGED',null,{nodeId:b.id,enabled:b.enabled});
       }

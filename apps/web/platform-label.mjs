@@ -9,43 +9,26 @@
 // guess, and a missing architecture is simply absent from the summary.
 const text = value => (typeof value === 'string' && value.trim().length ? value.trim() : null);
 
-/** Windows release numbers as published by Microsoft: the NT major.minor maps to a name, and for 10.0.x the BUILD is
- *  what separates Windows 11 (>= 22000) from Windows 10. */
-const windowsName = release => {
-  const parts = String(release ?? '').split('.').map(part => Number.parseInt(part, 10));
-  const major = parts[0];
-  const minor = parts[1];
-  const build = parts[2];
-  if (!Number.isFinite(major)) return 'Windows';
-  if (major === 10) return Number.isFinite(build) ? (build >= 22000 ? 'Windows 11' : 'Windows 10') : 'Windows 10 or 11';
-  if (major === 6) {
-    if (minor === 3) return 'Windows 8.1';
-    if (minor === 2) return 'Windows 8';
-    if (minor === 1) return 'Windows 7';
-    if (minor === 0) return 'Windows Vista';
-    return 'Windows';
-  }
-  if (major === 5) {
-    if (minor === 1) return 'Windows XP';
-    if (minor === 0) return 'Windows 2000';
-    return 'Windows';
-  }
-  return 'Windows';
+/** Windows desktop and Server share kernel builds; the measured product name identifies the edition. */
+const windowsName = (release, productVersion) => {
+  // Desktop and Server share NT builds. Only a measured product name identifies the edition.
+  const product = text(productVersion);
+  if (product && /^Windows\b/i.test(product)) return product;
+  return text(release) ? `Windows (kernel ${text(release)})` : 'Windows';
 };
 
 const macName = release => {
   const major = Number.parseInt(String(release ?? '').split('.')[0], 10);
-  // Darwin 20 == macOS 11, and the offset has been +9 since, so this is a real mapping rather than a guess. Older
-  // Darwin versions are reported generically instead of being mislabelled.
-  return Number.isFinite(major) && major >= 20 ? `macOS ${major - 9}` : 'macOS';
+  // The known Darwin 20..24 mapping ends at macOS 15. Newer numbering must not be guessed.
+  return Number.isFinite(major) && major >= 20 && major <= 24 ? `macOS ${major - 9}` : text(release) ? `macOS (Darwin ${text(release)})` : 'macOS';
 };
 
 /** e.g. "Windows 11" / "macOS 15" / "Linux (kernel 6.8.0-31-generic)" / "Unknown operating system". */
-export const operatingSystemName = ({platform, release} = {}) => {
+export const operatingSystemName = ({platform, release, productVersion} = {}) => {
   const token = text(platform);
   const rel = text(release);
   if (!token) return 'Unknown operating system';
-  if (token === 'win32') return windowsName(rel);
+  if (token === 'win32') return windowsName(rel, productVersion);
   if (token === 'darwin') return macName(rel);
   // A Linux kernel version is not a distribution version, so the name stays generic and the kernel is shown as its
   // own fact instead of being presented as "Ubuntu 24.04".

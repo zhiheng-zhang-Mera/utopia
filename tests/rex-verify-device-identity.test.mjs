@@ -13,15 +13,15 @@ import {memberSnapshot, isHostOwnNode} from '../services/dev-gateway/members.mjs
 import {isSelfAdvertisement} from '../services/dev-gateway/nearby.mjs';
 import {buildConnectList} from '../apps/web/connect-surface.js';
 
-test('V1 the operating system is named, and a Windows build number separates 11 from 10', () => {
-  assert.equal(operatingSystemName({platform: 'win32', release: '10.0.26200'}), 'Windows 11');
-  assert.equal(operatingSystemName({platform: 'win32', release: '10.0.26100'}), 'Windows 11');
-  assert.equal(operatingSystemName({platform: 'win32', release: '10.0.19045'}), 'Windows 10');
-  assert.equal(operatingSystemName({platform: 'win32', release: '6.3.9600'}), 'Windows 8.1');
+test('V1 the operating system is named from product evidence rather than ambiguous NT builds', () => {
+  assert.equal(operatingSystemName({platform: 'win32', release: '10.0.26200', productVersion: 'Windows 11'}), 'Windows 11');
+  assert.equal(operatingSystemName({platform: 'win32', release: '10.0.26100', productVersion: 'Windows 11'}), 'Windows 11');
+  assert.equal(operatingSystemName({platform: 'win32', release: '10.0.19045', productVersion: 'Windows 10'}), 'Windows 10');
+  assert.equal(operatingSystemName({platform: 'win32', release: '6.3.9600', productVersion: 'Windows 8.1'}), 'Windows 8.1');
   assert.equal(operatingSystemName({platform: 'darwin', release: '24.1.0'}), 'macOS 15');
   assert.match(operatingSystemName({platform: 'linux', release: '6.8.0-31-generic'}), /^Linux \(kernel 6\.8/);
   // An unrecognised release degrades to a BROADER TRUE statement rather than a guess.
-  assert.equal(operatingSystemName({platform: 'win32', release: '99.1.2'}), 'Windows');
+  assert.equal(operatingSystemName({platform: 'win32', release: '99.1.2'}), 'Windows (kernel 99.1.2)');
   assert.equal(operatingSystemName({platform: 'win32'}), 'Windows');
   assert.equal(operatingSystemName({}), 'Unknown operating system');
 });
@@ -39,7 +39,7 @@ test('V2 the architecture is spelled out, and unknown parts are omitted rather t
 });
 
 test('V3 the fact set read from a host carries name, release, architecture, hostname and runtime', () => {
-  const facts = platformFacts({os: {platform: () => 'win32', release: () => '10.0.26200', arch: () => 'x64', hostname: () => 'MEGA-REP'}, version: 'v24.14.0'});
+  const facts = platformFacts({os: {platform: () => 'win32', release: () => '10.0.26200', version: () => 'Windows 11', arch: () => 'x64', hostname: () => 'MEGA-REP'}, version: 'v24.14.0'});
   assert.equal(facts.platform, 'win32');
   assert.equal(facts.osName, 'Windows 11');
   assert.equal(facts.osRelease, '10.0.26200');

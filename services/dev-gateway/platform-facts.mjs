@@ -13,20 +13,21 @@ import {operatingSystemName, archLabel, platformSummary} from '../../apps/web/pl
 export {operatingSystemName, archLabel, platformSummary};
 
 /** The full platform fact set carried on node metadata and shown on the device surface. */
-export const platformFacts = ({os, platform, release, arch, hostname, version} = {}) => {
+export const platformFacts = ({os, platform, release, arch, hostname, version, productVersion} = {}) => {
   const value = typeof os?.platform === 'function' ? {
     platform: os.platform(),
     release: typeof os.release === 'function' ? os.release() : undefined,
     arch: typeof os.arch === 'function' ? os.arch() : undefined,
     hostname: typeof os.hostname === 'function' ? os.hostname() : undefined,
-  } : {platform, release, arch, hostname};
+    productVersion: typeof os.version === 'function' ? os.version() : undefined,
+  } : {platform, release, arch, hostname, productVersion};
   const text = input => (typeof input === 'string' && input.trim().length ? input.trim() : null);
   const osToken = text(value.platform);
   const releaseToken = text(value.release);
   const archToken = text(value.arch);
   return {
     platform: osToken ?? 'unknown',
-    osName: operatingSystemName({platform: osToken, release: releaseToken}),
+    osName: operatingSystemName({platform: osToken, release: releaseToken, productVersion: value.productVersion}),
     osRelease: releaseToken,
     arch: archToken ?? 'unknown',
     archName: archLabel(archToken),

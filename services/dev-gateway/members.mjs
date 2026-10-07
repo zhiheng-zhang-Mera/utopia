@@ -29,14 +29,17 @@ export function memberSnapshot({store,installations,surfaces,hostDeviceId,hostna
  const retired=new Set(installations.filter(i=>i.deviceId&&i.state==='RETIRED'&&!installations.some(other=>other.deviceId===i.deviceId&&other.state==='BOUND')).map(i=>i.deviceId));
  const add=(id,patch)=>members.set(id,{deviceId:id,online:false,computeOnline:false,sharingEnabled:false,capabilities:[],...members.get(id),...patch});
  // The host principal exists from the start, but presence is EARNED below by a connected surface or a live node.
- const hostNode=nodes.find(n=>isHostOwnNode(n,{hostDeviceId,hostnames}));
+ // Persistent history can contain both launcher and reference-agent identities. Pick one live execution target,
+ // preferring the canonical principal on ties; an offline alias must not overwrite its capabilities or presence.
+ const hostNode=nodes.filter(n=>!retired.has(n.id)&&isHostOwnNode(n,{hostDeviceId,hostnames})).sort((a,b)=>
+  Number(b.online===true)-Number(a.online===true)||Number(b.id===hostDeviceId)-Number(a.id===hostDeviceId)||String(a.id).localeCompare(String(b.id)))[0];
  add(hostDeviceId,{displayName:hostNode?.displayName||store.cityName,role:'PRIMARY',nodeId:hostNode?.id??null,online:false});
  for(const i of installations)if(i.deviceId&&i.state==='BOUND')add(i.deviceId,{displayName:i.displayName,role:i.deviceId===hostDeviceId?'PRIMARY':'MEMBER',installationId:i.installationId});
  // Node rows that are NOT this machine's own node are separate compute members. This machine's node row is folded into
  // the host principal above instead of appearing twice.
  for(const n of nodes){
   if(retired.has(n.id))continue;
-  if(isHostOwnNode(n,{hostDeviceId,hostnames})){const prior=members.get(hostDeviceId);add(hostDeviceId,{nodeId:n.id,computeOnline:n.online===true,sharingEnabled:n.sharingEnabled!==false,capabilities:n.capabilities,telemetry:n.telemetry,lastHeartbeatAt:n.lastHeartbeatAt,metadata:n.metadata,agentVersion:n.agentVersion});continue;}
+  if(isHostOwnNode(n,{hostDeviceId,hostnames})){if(n===hostNode)add(hostDeviceId,{nodeId:n.id,computeOnline:n.online===true,sharingEnabled:n.sharingEnabled!==false,capabilities:n.capabilities,telemetry:n.telemetry,lastHeartbeatAt:n.lastHeartbeatAt,metadata:n.metadata,agentVersion:n.agentVersion});continue;}
   const prior=members.get(n.id);
   add(n.id,{displayName:prior?.displayName||n.displayName,role:prior?.role||'COMPUTE_NODE',nodeId:n.id,computeOnline:n.online===true,online:prior?.online||n.online===true,sharingEnabled:n.sharingEnabled!==false,capabilities:n.capabilities,telemetry:n.telemetry,lastHeartbeatAt:n.lastHeartbeatAt,metadata:n.metadata,agentVersion:n.agentVersion});
  }

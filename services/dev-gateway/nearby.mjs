@@ -50,7 +50,8 @@ export function isSelfAdvertisement(candidate, { selfCityId = null, selfAddresse
   if (!address) return false;
   const candidatePort = Number(candidate.port);
   if (!Number.isInteger(candidatePort) || !Number.isInteger(selfPort)) return false;
-  const mine = new Set((Array.isArray(selfAddresses) ? selfAddresses : []).filter(isText).map(value => value.trim().toLowerCase()));
+  const addresses = Array.isArray(selfAddresses) || selfAddresses instanceof Set ? [...selfAddresses] : [];
+  const mine = new Set(addresses.filter(isText).map(value => value.trim().toLowerCase()));
   return candidatePort === selfPort && mine.has(address);
 }
 

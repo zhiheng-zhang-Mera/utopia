@@ -1,6 +1,6 @@
 import { FilesystemAdapter } from '../../platform/windows/filesystem.mjs';
 import { executeTask } from './runner.mjs';
-import { platform,release,arch,hostname } from 'node:os';
+import { platform,release,arch,hostname,version as osVersion } from 'node:os';
 import { createTelemetrySampler } from './telemetry.mjs';
 import { platformFacts } from '../../services/dev-gateway/platform-facts.mjs';
 export async function startAgent({url,token,workspace='.runtime/workspace',id='host-'+hostname().replace(/[^a-zA-Z0-9-]/g,'-'),displayName=hostname(),interval=1000,stepDelay=1200,telemetryEnabled=process.env.CITY_TELEMETRY_DISABLED!=='1',credentialProvider=null}){
@@ -11,7 +11,7 @@ export async function startAgent({url,token,workspace='.runtime/workspace',id='h
  // The owner's requirement: confirming a machine when it joins includes its OPERATING SYSTEM and version, not only
  // its hardware. `platform()` alone is Node's internal token ("win32") and cannot tell Windows 11 from Windows 10, so
  // the full fact set (name, release, architecture, hostname, runtime) travels with registration.
- const facts=()=>platformFacts({os:{platform,release,arch,hostname}});
+ const facts=()=>platformFacts({os:{platform,release,arch,hostname,version:osVersion}});
  const register=()=>api('register',{id,displayName,metadata:facts(),capabilities:['task.execute.safe','filesystem.temp'],...metrics()});
  const tick=async()=>{
   if(stopped)return;

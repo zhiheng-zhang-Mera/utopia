@@ -12,6 +12,8 @@ export function createAdjudication(input){
  // Supplied floor can strengthen, never disable these minimum dimensions.
  Object.assign(floor,{role_authorship_independence:true,agent_or_session_independence:true,conflict_of_interest_recusal:true});
  requireThat(checkIndependence(c.adjudicator,c.origin,floor,c.node_ref).eligible,'ADJUDICATOR_NOT_INDEPENDENT');
+ requireThat(list(c.party_origins,p=>ref(p.participant_ref))&&c.party_origins.length===c.parties.length&&c.parties.every(id=>c.party_origins.some(p=>p.participant_ref===id)),'ALL_PARTY_ORIGINS_REQUIRED');
+ requireThat(c.party_origins.every(p=>checkIndependence(c.adjudicator,p,floor,c.node_ref).eligible),'ADJUDICATOR_NOT_INDEPENDENT');
  const snapshot=createSnapshot(c.snapshot);
  requireThat(list(c.canonical_evidence_refs,ref),'CANONICAL_EVIDENCE_REQUIRED');
  let findings=null,receipt=null;const defences=[];
@@ -32,6 +34,7 @@ export function createAdjudication(input){
  const passBInput=()=>{requireThat(findings,'PASS_A_REQUIRED');return structuredClone({...passAInput(),pass_a_findings:findings,defences});};
  const finalize=input=>{
   requireThat(findings&&!receipt,'PASS_A_REQUIRED_OR_FINAL');const r=safe(input);
+  requireThat(Object.keys(r).every(k=>['participant_ref','new_information_from_defence','changed_findings','unchanged_findings','final_verdict','evidence_refs','resolved_missing_evidence_refs'].includes(k)),'FINAL_PROVENANCE_OVERRIDE');
   requireThat(ADJUDICATION_VERDICTS.includes(r.final_verdict),'INVALID_ADJUDICATION_VERDICT');
   for(const k of ['new_information_from_defence','changed_findings','unchanged_findings','evidence_refs'])requireThat(list(r[k]),'PASS_B_'+k.toUpperCase());
   const unresolved=['MORE_EVIDENCE_REQUIRED','OWNER_REQUIRED'].includes(r.final_verdict);
@@ -40,7 +43,7 @@ export function createAdjudication(input){
    requireThat(r.evidence_refs.length>0,'VERDICT_EVIDENCE_REQUIRED');
    requireThat(findings.needs_more_evidence.length===0&&findings.missing_evidence.length===0||list(r.resolved_missing_evidence_refs,ref)&&r.resolved_missing_evidence_refs.length>0,'MORE_EVIDENCE_REQUIRED');
   }
-  receipt=freeze({schema_version:2,case_ref:c.case_ref,conflict_ref:c.conflict_ref,adjudicator_ref:c.adjudicator.participant_ref,independence_profile:floor,pass_a_findings:findings,defences:[...defences],...r,domain_review_replacement:false});return structuredClone(receipt);
+  receipt=freeze({...r,schema_version:2,case_ref:c.case_ref,conflict_ref:c.conflict_ref,adjudicator_ref:c.adjudicator.participant_ref,independence_profile:floor,pass_a_findings:findings,defences:[...defences],domain_review_replacement:false});return structuredClone(receipt);
  };
  return {passAInput,recordPassA,submitDefence,passBInput,finalize,snapshot:()=>structuredClone({case_ref:c.case_ref,conflict_ref:c.conflict_ref,state:receipt?'FINAL':findings?'PASS_B':'PASS_A',pass_a_findings:findings,defences,receipt})};
 }

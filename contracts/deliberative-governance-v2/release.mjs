@@ -32,8 +32,9 @@ export function evaluateRelease(input,ports={}){
  }
  const domainReceipts=r.domain_receipt_refs.map(x=>resolve(ports.readDomainReceipt,x,r));
  block(r.required_domain_gates.length>0,'DOMAIN_GATES_REQUIRED');
- for(const domain of r.required_domain_gates)block(domainReceipts.some(x=>x?.domain===domain&&x?.candidate_sha===r.candidate_sha&&x?.state==='PASS'),'DOMAIN_GATE_NOT_PASS:'+domain);
- block(r.independence_receipt_refs.length>0&&r.independence_receipt_refs.every(x=>{const v=resolve(ports.readIndependenceReceipt,x,r);return v?.eligible===true&&v?.candidate_sha===r.candidate_sha;}),'INDEPENDENCE_UNVERIFIED');
+ for(const domain of r.required_domain_gates)block(domainReceipts.some(x=>x?.domain===domain&&x?.case_ref===r.case_ref&&x?.candidate_sha===r.candidate_sha&&x?.state==='PASS'),'DOMAIN_GATE_NOT_PASS:'+domain);
+ const independence=r.independence_receipt_refs.map(x=>resolve(ports.readIndependenceReceipt,x,r));
+ block(independence.length>0&&independence.every(v=>v?.eligible===true&&v?.case_ref===r.case_ref&&v?.candidate_sha===r.candidate_sha&&list(v?.participant_refs,ref))&&r.participants.every(p=>independence.some(v=>v?.participant_refs?.includes(p))),'INDEPENDENCE_UNVERIFIED');
  block(r.integration_claims_supported===true&&resolve(ports.verifyIntegration,r)===true,'INTEGRATION_CLAIMS_UNSUPPORTED');
  block(typeof r.owner_only==='boolean','OWNER_BOUNDARY_UNKNOWN');
  const ownerMissing=r.owner_only===true&&!(ref(r.owner_authorization_ref)&&resolve(ports.verifyOwnerAuthorization,r.owner_authorization_ref,r)===true);
@@ -43,7 +44,7 @@ export function createAppealPolicy({max_appeals=2}={}){
  requireThat(Number.isSafeInteger(max_appeals)&&max_appeals>=1&&max_appeals<=5,'APPEAL_BOUND_REQUIRED');
  const records=new Map();
  return {submit(input){
-  const a=safe(input);requireThat(ref(a.case_ref)&&text(a.reason)&&list(a.new_evidence_refs,ref),'APPEAL_CONTRACT_REQUIRED');
+  const a=safe(input);requireThat(Object.keys(a).every(k=>['case_ref','reason','new_evidence_refs','procedure_violation','factual_error'].includes(k)),'APPEAL_AUTHORITY_FIELD_FORBIDDEN');requireThat(ref(a.case_ref)&&text(a.reason)&&list(a.new_evidence_refs,ref),'APPEAL_CONTRACT_REQUIRED');
   requireThat(a.new_evidence_refs.length>0||text(a.procedure_violation)||text(a.factual_error),'APPEAL_NEW_BASIS_REQUIRED');
   const prior=records.get(a.case_ref)??[];
   requireThat(!prior.some(p=>JSON.stringify([p.new_evidence_refs,p.procedure_violation,p.factual_error])===JSON.stringify([a.new_evidence_refs,a.procedure_violation,a.factual_error])),'DUPLICATE_APPEAL');

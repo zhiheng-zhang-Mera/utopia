@@ -29,6 +29,7 @@ export function safe(value){
 }
 export function createSnapshot(input){
  const s=safe(input);
+ requireThat(Object.keys(s).every(k=>['request_ref','accepted_requirements','canonical_state_refs','evidence_refs','domain_constraints','known_unknowns','snapshot_version','schema_version'].includes(k)),'SNAPSHOT_UNKNOWN_FIELD');
  requireThat(ref(s.request_ref)&&Number.isSafeInteger(s.snapshot_version)&&s.snapshot_version>0,'SNAPSHOT_ID_REQUIRED');
  for(const key of ['accepted_requirements','canonical_state_refs','evidence_refs','domain_constraints','known_unknowns'])requireThat(list(s[key]),'SNAPSHOT_'+key.toUpperCase());
  requireThat(s.accepted_requirements.length>0,'OWNER_INTENT_REQUIRED');

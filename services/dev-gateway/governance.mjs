@@ -38,8 +38,9 @@ export function createGovernanceService({dir,readTask,ports={}}={}){
  const create=input=>{
   const d=safe(input);pathOf(d.case_ref);requireThat(!existsSync(pathOf(d.case_ref)),'CASE_ALREADY_EXISTS');requireThat(inventory().cases.length<32,'CASE_CAPACITY');
   requireThat(Object.hasOwn(DOMAIN_PROFILES,d.domain)&&/^[a-f0-9]{40}$/.test(d.candidate_sha),'DOMAIN_EXACT_HEAD_REQUIRED');
+  requireThat(d.owner_only===undefined||typeof d.owner_only==='boolean','OWNER_BOUNDARY_REQUIRED');
   const snapshot=createSnapshot(d.snapshot),graph=validateGraph(d.graph,snapshot);
-  const c={schema_version:2,case_ref:d.case_ref,domain:d.domain,candidate_sha:d.candidate_sha,snapshot,graph,revision:1,participants:[],assignments:[],results:[],conflicts:[],adjudication_sessions:[],adjudications:[],validation:[],reviews:[],appeals:[],dissent:[],claims:[],objections:[],technical_evidence:[],release:{state:'NOT_RUN',blocks:['INDEPENDENT_EVIDENCE_NOT_OBSERVED']}};
+  const c={schema_version:2,case_ref:d.case_ref,domain:d.domain,candidate_sha:d.candidate_sha,owner_only:d.owner_only??true,snapshot,graph,revision:1,participants:[],assignments:[],results:[],conflicts:[],adjudication_sessions:[],adjudications:[],validation:[],reviews:[],appeals:[],dissent:[],claims:[],objections:[],technical_evidence:[],release:{state:'NOT_RUN',blocks:['INDEPENDENT_EVIDENCE_NOT_OBSERVED']}};
   save(c);return inspect(c.case_ref);
  };
  const verifyParticipant=(receipt,c)=>{requireThat(typeof ports.verifyParticipantReceipt==='function','PARTICIPANT_RECEIPT_UNAVAILABLE');requireThat(ports.verifyParticipantReceipt(receipt,c)===true,'PARTICIPANT_RECEIPT_REJECTED');};
@@ -117,7 +118,7 @@ export function createGovernanceService({dir,readTask,ports={}}={}){
    }
    case 'EVALUATE_RELEASE':{
     // Case identity, participants and collected results cannot be replaced by request JSON.
-    c.release=evaluateRelease({...a.input,case_ref:c.case_ref,candidate_sha:c.candidate_sha,participants:c.participants.map(p=>p.participant_ref),reviews:c.reviews,objections:c.conflicts,dissent:c.dissent,unresolved_uncertainty:[...c.snapshot.known_unknowns,...c.results.flatMap(x=>x.uncertainty)],required_domain_gates:[c.domain]},ports.release);
+    c.release=evaluateRelease({...a.input,case_ref:c.case_ref,candidate_sha:c.candidate_sha,owner_only:c.owner_only??true,participants:c.participants.map(p=>p.participant_ref),reviews:c.reviews,objections:c.conflicts,dissent:c.dissent,unresolved_uncertainty:[...c.snapshot.known_unknowns,...c.results.flatMap(x=>x.uncertainty)],required_domain_gates:[c.domain]},ports.release);
     if(c.results.length!==c.graph.nodes.length)c.release={...c.release,state:'BLOCKED',blocks:[...c.release.blocks,'NODE_RESULTS_INCOMPLETE']};break;
    }
    default:requireThat(false,'UNKNOWN_GOVERNANCE_ACTION');

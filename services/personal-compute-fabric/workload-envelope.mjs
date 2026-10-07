@@ -31,6 +31,15 @@ export const RESOURCE_UNITS = Object.freeze({cpu: 'millicores', memory: 'bytes',
 /** Bounds are published so a caller can see the ceiling it is being held to, rather than discovering it by refusal. */
 export const ENVELOPE_LIMITS = Object.freeze({maxCapabilities: 32, maxInputs: 64, maxWriteScopes: 64, maxResourceKinds: 8, maxLabelLength: 512, maxNestingDepth: 8});
 
+/**
+ * The CLOSED field set of a normalized envelope. It is published because it is load-bearing: the envelope is a
+ * projection with exactly these keys, so a field that is not here cannot travel into execution at all. That is what
+ * stops a control principal (or any other out-of-contract attribute) from being promoted into a worker declaration.
+ */
+export const ENVELOPE_FIELDS = Object.freeze(['envelopeVersion', 'taskId', 'actionId', 'originDeviceId', 'parentSessionId', 'appId', 'targetDeviceRef',
+  'executor', 'inputSchema', 'outputSchema', 'capabilities', 'inputRefs', 'writeScope', 'platform', 'resources', 'qos', 'deadlineAt', 'missPolicy',
+  'retrySafety', 'checkpointCapabilityRef', 'dataScope', 'consent', 'privilegeRequests', 'labels']);
+
 const isPlainObject = value => Boolean(value) && typeof value === 'object' && !Array.isArray(value) && [Object.prototype, null].includes(Object.getPrototypeOf(value));
 const ref = value => text(value) && value.length <= 256;
 /** A provider reference is an IDENTIFIER. Free text is refused so a command line cannot travel inside an envelope. */

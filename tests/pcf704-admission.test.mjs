@@ -4,9 +4,12 @@
 // (English mirror under en/). Every test names the workbook line it covers, and the assertions are the workbook's own
 // counterexamples - "it throws" is never the check, the typed refusal and the resource arithmetic are.
 //
-// Two workbook sentences cannot be settled in this checkout and are marked rather than dropped: bounded contention on
-// two real hosts (NOT_RUN: one host here) and the "at least one foreground budget" reservation (NOT_IMPLEMENTED: the
-// admission path consumes the candidate's whole observed free vector and defines no foreground reserve).
+// One workbook sentence cannot be settled in this checkout and is marked rather than dropped: bounded contention on two
+// real hosts (NOT_RUN: one host here). The second sentence this header used to mark NOT_IMPLEMENTED - the "at least one
+// foreground budget" reservation - was implemented by PCF series completion increment 14 and is asserted below by code
+// (FOREGROUND_RESERVE_MINIMUM / _EXCEEDS_QUOTA / _UNAUTHORISED / _HELD), so leaving the old note here contradicted the
+// file's own assertions and the series' "no NOT_IMPLEMENTED remains" claim. Corrected during the four-series
+// integration acceptance, which is where the contradiction was measured.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp, rm} from 'node:fs/promises';

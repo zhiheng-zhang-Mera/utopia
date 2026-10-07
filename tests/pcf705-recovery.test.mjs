@@ -6,8 +6,11 @@
 // duplicate recovery events, oscillating load and an offline strict target - each as a typed refusal by code, never
 // as "it throws".
 //
-// The physical half of the workbook ("双机真断链/进程崩溃的安全样本") needs two hosts and is marked NOT_RUN; the
-// missing retry budget is marked NOT_IMPLEMENTED on the exact sub-task line.
+// The physical half of the workbook ("双机真断链/进程崩溃的安全样本") needs two hosts and is marked NOT_RUN. The retry
+// budget this header used to call NOT_IMPLEMENTED was implemented by PCF series completion increment 14 and is asserted
+// below by code (RETRY_BUDGET_EXHAUSTED / _INVALID, DATA_LOCATION_INCOMPATIBLE, MIGRATION_COST_UNKNOWN and the
+// hysteresis refusal); the stale note contradicted those assertions and the series' "no NOT_IMPLEMENTED remains" claim.
+// Corrected during the four-series integration acceptance, which is where the contradiction was measured.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp, rm, writeFile} from 'node:fs/promises';

@@ -1,4 +1,5 @@
 import {safe,requireThat,ref,list,freeze} from './core.mjs';
+import {DOMAIN_PROFILES} from './profiles.mjs';
 export const INDEPENDENCE_DIMENSIONS=Object.freeze(['role_authorship_independence','agent_or_session_independence','model_family_independence','host_independence','environment_independence','hardware_or_toolchain_independence','conflict_of_interest_recusal']);
 const differ=(a,b)=>ref(a)&&ref(b)&&a!==b;
 export function checkIndependence(candidate,origin,profile,nodeRef){
@@ -23,7 +24,16 @@ export function assignParticipant(input,candidateInputs,{scoringAvailable=true}=
  const ids=new Set();for(const c of candidates){requireThat(ref(c.participant_ref)&&!ids.has(c.participant_ref),'DUPLICATE_PARTICIPANT');ids.add(c.participant_ref);}
  const floor={...r.independence_floor};
  // This is the existing domain floor, not DGX's future Review Independence v2.
- if(r.domain==='ENGINEERING'&&r.role==='DOMAIN_REVIEW')Object.assign(floor,{host_independence:true,role_authorship_independence:true,agent_or_session_independence:true,conflict_of_interest_recusal:true});
+ //
+ // The ENGINEERING floor is a property of the DOMAIN, and it used to be selected by the literal `role==='DOMAIN_REVIEW'`
+ // while the profile's own `required_reviewer_roles` was read by nobody. `governance.mjs` passes `role` straight through
+ // from HTTP JSON, so an acceptance probe showed the same ENGINEERING review task selecting a SAME-HOST reviewer once the
+ // caller spelled the role `REVIEW`: the floor came out `{}` and `host_independence` was never checked. A floor that can
+ // be dropped by relabelling the task is not a floor. Every role in an ENGINEERING case that the profile does not declare
+ // as an EXECUTOR role is now held to the profile's own floor, so the vocabulary lives in one place and cannot be
+ // sidestepped by spelling.
+ const domainProfile=DOMAIN_PROFILES[r.domain];
+ if(r.domain==='ENGINEERING'&&!(domainProfile?.required_executor_roles??[]).includes(r.role))Object.assign(floor,domainProfile.independence_floor);
  if(r.role==='GOVERNANCE_ADJUDICATOR')Object.assign(floor,{role_authorship_independence:true,agent_or_session_independence:true,conflict_of_interest_recusal:true});
  // Validate vocabulary even when no candidates are available.
  requireThat(Object.entries(floor).every(([k,v])=>INDEPENDENCE_DIMENSIONS.includes(k)&&typeof v==='boolean'),'INVALID_INDEPENDENCE_PROFILE');

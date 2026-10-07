@@ -11,7 +11,13 @@ export { diagnose, appendCaseRevision, validateCaseHistory, reconcileBoss, route
 const sha = text => createHash('sha256').update(text).digest('hex');
 const fullSha = x => typeof x === 'string' && /^[a-f0-9]{40}$/.test(x);
 const slash = x => x.replace(/\\/g, '/');
-const sensitivePath = x => /(?:^|\/)(?:\.env(?:\..*)?|credentials?|secrets?|tokens?|node_modules|\.git)(?:\/|$)|\.(?:pem|key|p12|keystore)$/i.test(x);
+// A health check reads the repository it audits, so the credential files a developer machine actually carries must be
+// named here. The first version covered `.env*`, a `credentials`/`secrets`/`tokens` path segment and a few key
+// extensions; an acceptance probe then declared `config/id_rsa` and `.npmrc` as an implementation path and the check
+// READ both and wrote their sha256 into source-manifest.json. Shell keys, `.npmrc`/`.netrc`/`.pgpass`, an `.ssh` or
+// `.aws` directory and the remaining certificate containers are therefore filtered too. This is a filter on PATHS, not
+// a scanner: it is the reason the check can promise it does not read these files, so it has to name their real shapes.
+const sensitivePath = x => /(?:^|\/)(?:\.env(?:\..*)?|\.npmrc|\.netrc|\.pgpass|\.git-credentials|\.htpasswd|\.ssh|\.aws|\.gnupg|id_(?:rsa|dsa|ecdsa|ed25519)|credentials?|secrets?|tokens?|node_modules|\.git)(?:\/|$)|\.(?:pem|key|p12|pfx|p8|jks|keystore|crt|cer|kdbx)$/i.test(x);
 function git(root, args, timeout = 5000) { return execFileSync('git', ['--no-optional-locks', ...args], { cwd: root, encoding: 'utf8', timeout, maxBuffer: 8 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] }).trim(); }
 function identity(root) { return { head_sha: git(root, ['rev-parse', 'HEAD']), dirty: git(root, ['status', '--porcelain']).length > 0 }; }
 function parse(text) { return YAML.parse(text, { maxAliasCount: 20 }); }
@@ -63,7 +69,12 @@ export async function runHealthCheck({ utopiaRoot, cityRoot, mode = 'small', max
     const paths = git(root, ['ls-files', '-z']).split('\0').filter(Boolean).map(slash);
     for (const path of paths) {
       if (!withinDeadline()) break;
-      if (sensitivePath(path)) continue;
+      // A sensitive path is DROPPED here, at selection, before any registry reference is known. Dropping it silently
+      // was a defect: an acceptance probe tracked `.env`, `.env.production` and `secrets/token.json` in a fixture whose
+      // registry never named them, and the report came back with `skipped: []` and `static_scan_complete: true` - so
+      // "the sensitive-path filter ran" was unobservable exactly when it mattered. The drop is now recorded, so a
+      // reader can see what was refused instead of having to trust that nothing was.
+      if (sensitivePath(path)) { skipped.push({ path: `${repo}:${path}`, reason: 'UNSAFE_PATH' }); continue; }
       const registry = repo === 'city' && /^capability-registry\/.*\.(?:yaml|yml|json)$/.test(path);
       const mission = repo === 'city' && /^mission-book\/(?:mission-group|future-plans|finished)\/.*\.md$/.test(path) && !path.includes('/en/') && !path.includes('/zh-CN/');
       const progress = repo === 'city' && ['mission-book/MISSION_PROGRESS.json', 'mission-book/PROGRESS_MANIFEST.json'].includes(path);
@@ -118,7 +129,15 @@ export async function runHealthCheck({ utopiaRoot, cityRoot, mode = 'small', max
       if (directoryMatches.length) { for (const file of directoryMatches) { claimedPaths.add(file.path); observed.push(file); } continue; }
       claimedPaths.add(path);
       const pointer = `utopia:${path}`, file = files.get(pointer) ?? await boundedRead('utopia', path);
-      if (!file) { finding(truncated ? 'IMPLEMENTATION_NOT_OBSERVED' : 'DEAD_CAPABILITY_RECORD', owner, record.pointer, `Implementation path unavailable: ${path}`); continue; }
+      if (!file) {
+        // A declared path that is REFUSED because it is sensitive is not a dead capability record. Reporting both was
+        // self-contradictory: one finding said "implementation path unavailable" while `coverage.skipped` said the path
+        // was deliberately never read, and an operator reading only the findings would conclude the capability was
+        // missing. The two facts now have two codes, and the refusal keeps its own reason visible.
+        if (skipped.some(x => x.path === pointer && x.reason === 'UNSAFE_PATH')) finding('CAPABILITY_PATH_NOT_READ', owner, record.pointer, `Declared implementation path is sensitive and was deliberately not read: ${path}`, 'WARNING', 'CAPABILITY_LINKED_MISSION');
+        else finding(truncated ? 'IMPLEMENTATION_NOT_OBSERVED' : 'DEAD_CAPABILITY_RECORD', owner, record.pointer, `Implementation path unavailable: ${path}`);
+        continue;
+      }
       observed.push(file);
     }
     for (const symbol of symbols) if (typeof symbol === 'string' && observed.length && !observed.some(x => new RegExp(`\\b${symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`).test(x.content))) finding('DEAD_CAPABILITY_SYMBOL', owner, record.pointer, `Claimed symbol absent from observed paths: ${symbol}`);

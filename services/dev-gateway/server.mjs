@@ -179,7 +179,14 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // rather than silently shrinking the list.
       const selfCityId=store.cityId;
       const selfAddresses=new Set([...(Array.isArray(found.selfAddresses)?found.selfAddresses:[]),...Object.values(networkInterfaces()).flat().map(n=>n?.address),host,'127.0.0.1','::1','localhost'].filter(value=>typeof value==='string'&&value.trim().length).map(value=>value.trim().toLowerCase()));
-      const isSelf=candidate=>isSelfAdvertisement(candidate,{selfCityId,selfAddresses,selfPort:server.address().port});
+      // The scan can OUTLIVE the listener: the browse above waits for up to nearbyTimeoutMs, and a City that is being
+      // closed inside that window has already released its socket, so `server.address()` returns null. Reading `.port`
+      // off it threw a bare TypeError out of a public request handler, and because nothing catches it the whole process
+      // died - a discovery scan must never be able to kill the City. A port we cannot read is "this City's own address
+      // cannot decide self"; identity still can, and `isSelfAdvertisement` already treats a non-integer selfPort that
+      // way, so the neighbour list stays correct instead of crashing.
+      const selfPort=()=>{const address=server.address();return address&&Number.isInteger(address.port)?address.port:null;};
+      const isSelf=candidate=>isSelfAdvertisement(candidate,{selfCityId,selfAddresses,selfPort:selfPort()});
       const candidates=found.candidates.filter(candidate=>!isSelf(candidate));
       const excludedSelf=found.candidates.length-candidates.length;
       return {nearby:candidates.map(c=>({cityRef:c.cityId??c.cityRef,displayName:c.displayName,address:c.address,port:c.port,transport:c.transport,lastSeenAt:c.lastSeenAt,stale:c.stale,grantsTrust:false,carrierFacts:c.carrierFacts??null})),bounded:found.bounded===true,discovered:found.discovered??0,excludedSelf,unavailable:found.unavailable===true,reason:found.reason??(found.unavailable?'MDNS_UNAVAILABLE':null)};

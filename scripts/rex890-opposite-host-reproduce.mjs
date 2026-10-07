@@ -19,7 +19,7 @@
 //
 // EXIT  0 = this host reproduced every recomputed value and the package verifies
 //       1 = it did not, and every disagreement is named
-//       2 = the harness could not run (missing package, unreachable City, refused execution) - NOT an acceptance
+//       2 = the harness could not run or evidence could not be fully compared - NOT an acceptance
 import {readFile, readdir, mkdir, writeFile} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {resolve, join} from 'node:path';
@@ -38,6 +38,7 @@ const LABEL = flag('label', hostname());
 
 const NOTES = [];
 const INCONSISTENCIES = [];
+const EVIDENCE_GAPS = [];
 const note = m => { NOTES.push(m); console.log('  ' + m); };
 const disagree = (what, packageValue, recomputed) => { INCONSISTENCIES.push({what, packageValue, recomputed}); console.log(`  INCONSISTENT  ${what}: package=${JSON.stringify(packageValue)} recomputed=${JSON.stringify(recomputed)}`); };
 const sha256 = text => createHash('sha256').update(text).digest('hex');
@@ -122,6 +123,7 @@ for (const campaignId of manifest.campaignIds) {
   }
 }
 note(`rebuilt ${rebuilt.length} run references from ${receiptsSeen.length} receipts (the package claims ${manifest.runCount})`);
+if (rebuilt.length !== manifest.runCount) disagree('rebuilt run count', manifest.runCount, rebuilt.length);
 
 console.log('\n--- recompute the metrics by the definitions the package states ---');
 const measuredCompleted = rebuilt.filter(r => r.measured && r.taskState === 'COMPLETED' && typeof r.durationMs === 'number');
@@ -146,7 +148,7 @@ const reported = parseCsv(await readFile(join(ARTIFACT, 'metrics.csv'), 'utf8'))
 const byMetric = new Map(reported.map(r => [r.metric, r]));
 const compare = (name, value) => {
   const row = byMetric.get(name);
-  if (!row) { note(`${name}: the package reports no row`); return; }
+  if (!row) { disagree(`${name}: required metric row missing`, 'present', null); return; }
   if (row.value === 'NOT_MEASURED') {
     // A NOT_MEASURED claim must be reproduced TOO. If this host can measure it, that is itself a finding.
     if (value !== null && value !== undefined) disagree(`${name} is reported NOT_MEASURED but is measurable here`, 'NOT_MEASURED', value);
@@ -155,7 +157,9 @@ const compare = (name, value) => {
     return;
   }
   const claimedValue = Number(row.value);
-  if (Number.isFinite(claimedValue) && typeof value === 'number' && claimedValue !== value) disagree(name, claimedValue, value);
+  if (!row.value.trim() || !Number.isFinite(claimedValue)) disagree(`${name}: invalid measured value`, 'finite number', row.value);
+  else if (typeof value !== 'number' || !Number.isFinite(value)) disagree(`${name}: recomputation unavailable`, claimedValue, value);
+  else if (claimedValue !== value) disagree(name, claimedValue, value);
   else note(`${name}: ${row.value} agrees`);
 };
 compare('completion_time_ms', recomputed.completion_time_ms);
@@ -204,6 +208,7 @@ for (const [name, listed] of Object.entries(pointers)) {
       }
     }
     const resolvable = inWindow.length + inStore.length;
+    if (resolvable < ids.length) EVIDENCE_GAPS.push({what: 'trace comparison incomplete', listed: ids.length, resolvable, storeFailure});
     pointerChecks.traceRecords = {listed: ids.length, presentInRetainedWindow: inWindow.length,
       presentInDurableStore: inStore.length, resolvable, absent: ids.length - resolvable,
       storeScope, storeTruncated, storeFailure,
@@ -299,6 +304,12 @@ else {
     executed.runs = (campaign?.runs ?? []).map(r => ({index: r.index, state: r.state, measured: r.measured === true, device: r.result?.assignedNodeId ?? null}));
     executed.devices = [...new Set(executed.runs.map(r => r.device).filter(Boolean))];
     note(`independent campaign ${campaignId} -> ${executed.state} runs=${executed.runs.length} devices=${executed.devices.join(',') || 'none'}`);
+    if (executed.state !== 'COMPLETED') disagree('independent campaign terminal state', 'COMPLETED', executed.state);
+    if (executed.runs.length !== REPETITIONS) disagree('independent campaign repetition count', REPETITIONS, executed.runs.length);
+    const incomplete = executed.runs.filter(r => r.state !== 'COMPLETED' || !r.measured || !r.device);
+    if (incomplete.length) disagree('independent runs without completed measured device evidence', 0, incomplete);
+    const missingDevices = nodes.filter(id => !executed.devices.includes(id));
+    if (missingDevices.length) disagree('declared devices not exercised independently', [], missingDevices);
   }
 }
 
@@ -309,7 +320,8 @@ const report = {
   city: CITY, artifact: ARTIFACT, artifactId: manifest.artifactId,
   packageIntegrity: integrity, recipe: recipe.steps,
   rebuilt, receiptsSeen, recomputed, reportedMetrics: reported, pointerChecks,
-  executed, inconsistencies: INCONSISTENCIES, notes: NOTES,
+  executed, inconsistencies: INCONSISTENCIES, evidenceGaps: EVIDENCE_GAPS, notes: NOTES,
+  reproductionComplete: executed.attempted && INCONSISTENCIES.length === 0 && EVIDENCE_GAPS.length === 0,
   // This harness is the OPPOSITE HOST's instrument, not an acceptance: the verdict belongs to the record holder.
   authority: 'REPRODUCTION_EVIDENCE_ONLY',
 };
@@ -318,7 +330,8 @@ await writeFile(join(OUT, 'opposite-host-reproduction.json'), JSON.stringify(rep
 console.log(`\n${INCONSISTENCIES.length} inconsistenc${INCONSISTENCIES.length === 1 ? 'y' : 'ies'} found`);
 console.log(`report: ${join(OUT, 'opposite-host-reproduction.json')}`);
 if (!executed.attempted) console.log('INDEPENDENT EXECUTION DID NOT RUN - this is not an acceptance');
+if (EVIDENCE_GAPS.length) console.log('COMPARISON INCOMPLETE - missing evidence is not a successful reproduction');
 // Set the code and let the process drain: calling process.exit() here crashed libuv on Windows with
 // "Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)" because this harness has just finished many fetches. The
 // exit code is what a caller reads, so the abrupt exit bought nothing and cost a crash after a successful run.
-process.exitCode = !executed.attempted ? 2 : (INCONSISTENCIES.length ? 1 : 0);
+process.exitCode = INCONSISTENCIES.length ? 1 : (!executed.attempted || EVIDENCE_GAPS.length ? 2 : 0);

@@ -21,7 +21,9 @@ try {
   await mkdir(out, { recursive: false });
   const runs = [];
   for (const [name, args] of [['chk990', ['--test', 'city/02-engineering/05-city-self-health-check/city-self-health-check/tests/health-check.test.mjs', 'city/02-engineering/05-city-self-health-check/city-self-health-check/tests/boundaries.test.mjs']], ['small', ['scripts/city-health-check.mjs', '--utopia', utopia, '--city', city, '--out', resolve(out, 'small'), '--mode', 'small']], ['full', ['scripts/city-health-check.mjs', '--utopia', utopia, '--city', city, '--out', resolve(out, 'full'), '--mode', 'full', '--max-duration-ms', '120000']]]) {
-    const result = spawnSync(process.execPath, args, { cwd: utopia, encoding: 'utf8', timeout: 180000, maxBuffer: 16_000_000 });
+    // A replay invoked by a test harness must start a fresh Node test context.
+    const childEnv = { ...process.env }; delete childEnv.NODE_TEST_CONTEXT;
+    const result = spawnSync(process.execPath, args, { cwd: utopia, env: childEnv, encoding: 'utf8', timeout: 180000, maxBuffer: 16_000_000 });
     const log = redactText(`${result.stdout ?? ''}${result.stderr ?? ''}`); await writeFile(resolve(out, `${name}.log`), log, { flag: 'wx' }); runs.push({ name, exit_code: result.status, status: result.status === 0 ? 'PASS' : 'FAIL', sha256: createHash('sha256').update(log).digest('hex') });
   }
   const after = { utopia: snapshot(utopia), city: snapshot(city) }, cleanAfter = after.utopia.clean && after.city.clean;

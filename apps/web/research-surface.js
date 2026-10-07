@@ -60,16 +60,52 @@ export const summariseRun = (live = {}, locale = 'en') => {
   };
 };
 
-/** Fault injection is a high-impact control: it lands in the Danger Zone and must be confirmed. */
+/** Fault injection is a high-impact control: it lands in the Danger Zone and must be confirmed by the exact gateway token. */
 export const faultSection = (faults = [], locale = 'en') => ({
   id: 'advanced-faults',
   title: L(locale, 'Danger Zone · Fault injection', '危险区 · 故障注入'),
   level: SURFACE_LEVELS.ADVANCED_CONTROL,
   collapsed: true,
   requiresConfirmation: true,
-  confirmation: L(locale, 'Type the campaign id to confirm: this injects a real fault into a running City', '输入 campaign id 以确认：这会向运行中的 City 注入真实故障'),
+  confirmation: L(locale, 'Type FAULT:<kind>:<target> exactly: this injects a real fault into a running City', '请原样输入 FAULT:<故障类型>:<目标>：这会向运行中的 City 注入真实故障'),
+  confirmationShape: 'FAULT:<kind>:<nodeId>',
   items: (Array.isArray(faults) ? faults : []).map(fault => ({id: text(fault?.faultId ?? fault?.id), label: text(fault?.kind ?? fault?.mechanism ?? fault?.faultId), detail: text(fault?.reason ?? '')})),
 });
+
+/**
+ * A high-impact control must not be triggerable by accident, and "must be confirmed" has to be a REFUSING function
+ * rather than a sentence in a data structure. The exact token is the one the gateway itself enforces in
+ * services/dev-gateway/research/faults.mjs (`FAULT:<kind>:<nodeId>`); building it here rather than phrasing it in prose
+ * is what keeps the page from asking the operator for something the gateway will reject. An earlier revision of this
+ * module told the operator to "type the campaign id" while the gateway required the kind/node token, so an operator who
+ * followed the instruction exactly was refused with FAULT_CONFIRMATION_REQUIRED - a safety prompt that cannot be
+ * satisfied is worse than no prompt, because it teaches the operator to paste whatever makes it go away. The token is
+ * NOT invented here: tests/rex807-danger-confirmation.test.mjs proves it against a real gateway.
+ */
+export const faultConfirmationToken = ({kind = '', nodeId = ''} = {}) => `FAULT:${text(kind)}:${text(nodeId)}`;
+
+/** The gateway refuses anything that is not exactly the expected token; the client refuses it first, by the same rule. */
+export const confirmationSatisfied = (expected, typed) => typeof expected === 'string' && expected.length > 0 && typed === expected;
+
+/**
+ * NO ADVANCED CONTROL MAY BE UNCONFIRMED. Every section and every control at ADVANCED_CONTROL level must declare
+ * requiresConfirmation, so a later addition cannot quietly become one-click. Returns the view for chaining and throws
+ * with the offending ids named.
+ */
+export const assertAdvancedControlsConfirmed = view => {
+  const unconfirmed = [];
+  for (const section of view.sections ?? []) {
+    if (section.level === SURFACE_LEVELS.ADVANCED_CONTROL && section.requiresConfirmation !== true) unconfirmed.push(`section:${section.id}`);
+    for (const control of section.controls ?? []) {
+      if (control.level === SURFACE_LEVELS.ADVANCED_CONTROL && control.requiresConfirmation !== true) unconfirmed.push(`control:${section.id}/${control.id}`);
+    }
+  }
+  for (const control of view.controls ?? []) {
+    if (control.level === SURFACE_LEVELS.ADVANCED_CONTROL && control.requiresConfirmation !== true) unconfirmed.push(`control:${control.id}`);
+  }
+  if (unconfirmed.length) throw new Error(`ADVANCED_CONTROL_UNCONFIRMED: ${unconfirmed.join(', ')}`);
+  return view;
+};
 
 /**
  * Build the whole surface: ordered sections, visible alerts, folded diagnostics.
@@ -154,7 +190,7 @@ export const researchView = (payload = {}, {locale = 'en', primarySurfaces = []}
     },
   ];
 
-  return Object.freeze({
+  const view = {
     entry: Object.freeze({id: 'research', label: L(locale, 'Research / Experiments', '研究与实验'), level: 'SECONDARY', section: 'advanced'}),
     // The primary product surfaces must stay free of research controls; the guard is data, not a convention.
     primarySurfaces: Object.freeze([...primarySurfaces]),
@@ -162,7 +198,11 @@ export const researchView = (payload = {}, {locale = 'en', primarySurfaces = []}
     sections: Object.freeze(sections),
     defaultOpen: Object.freeze(sections.filter(section => !section.collapsed).map(section => section.id)),
     confirmationRequired: Object.freeze(sections.filter(section => section.requiresConfirmation).map(section => section.id)),
-  });
+  };
+  // The surface REFUSES to exist in a shape where a high-impact control would be one click. Throwing here (rather than
+  // only asserting in a test) means a later section cannot be added unconfirmed and still render.
+  assertAdvancedControlsConfirmed(view);
+  return Object.freeze(view);
 };
 
 /** A research control may not appear on a primary product surface. Throws with the offending ids named. */

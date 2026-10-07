@@ -40,7 +40,10 @@ test('REX807 S2: fault injection is a Danger Zone control that requires confirma
   assert.equal(danger.level, SURFACE_LEVELS.ADVANCED_CONTROL);
   assert.equal(danger.requiresConfirmation, true, 'a real fault injection must be confirmed');
   assert.equal(danger.collapsed, true);
-  assert.match(danger.confirmation, /campaign id/i, 'the confirmation must be concrete, not a generic OK');
+  // The confirmation must name the EXACT token the gateway enforces, not a paraphrase. An earlier revision asked for
+  // the campaign id while the gateway required FAULT:<kind>:<nodeId>, so following the instruction was refused.
+  assert.match(danger.confirmation, /FAULT:<kind>:<target>/, 'the confirmation must state the real token shape');
+  assert.equal(danger.confirmationShape, 'FAULT:<kind>:<nodeId>');
   assert.ok(view.confirmationRequired.includes('advanced-faults'));
   assert.ok(!view.defaultOpen.includes('advanced-faults'), 'the Danger Zone is never open by default');
 });

@@ -167,6 +167,54 @@ if (provenanceMissing.length) disagree('measured metrics without provenance', 0,
 else note('every measured metric carries provenance');
 note(`the package declares ${exclusions.exclusions?.length ?? 0} exclusion(s); this host does not claim them either`);
 
+console.log('\n--- compare trace and provenance with the City ---');
+const pointers = await pkg('raw-pointers.json');
+const traceNow = (await ask('research/trace')).json?.trace ?? null;
+const tracedIds = new Set((traceNow?.records ?? []).map(r => r.eventId).filter(Boolean));
+const taskIdsNow = new Set(taskById.keys());
+const pointerChecks = {};
+for (const [name, listed] of Object.entries(pointers)) {
+  if (!Array.isArray(listed)) continue;
+  if (name === 'traceRecords') {
+    // The trace is a ROLLING WINDOW, so a pointer that is gone is not automatically a defect. It is reported as a
+    // measured number together with what the City's own trace says about its completeness, and the package's claim is
+    // only contradicted if the City says nothing was dropped while pointers are missing.
+    const ids = listed.map(p => String(p).replace(/^trace:/, ''));
+    const present = ids.filter(id => tracedIds.has(id)).length;
+    pointerChecks.traceRecords = {listed: ids.length, presentInCityTrace: present, absent: ids.length - present,
+      cityCompleteness: traceNow?.completeness ?? null, cityDropped: traceNow?.droppedRecords ?? null, cityTruncated: traceNow?.retentionTruncated ?? null};
+    note(`trace pointers: ${present}/${ids.length} still in the City trace (city completeness=${traceNow?.completeness ?? 'n/a'} dropped=${JSON.stringify(traceNow?.droppedRecords ?? null)})`);
+    if (present < ids.length && traceNow?.completeness === 'COMPLETE' && traceNow?.retentionTruncated !== true) {
+      disagree('trace pointers missing while the City call its own trace complete', ids.length, present);
+    }
+    continue;
+  }
+  if (name === 'canonicalTasks') {
+    const ids = listed.map(p => String(p).replace(/^task:/, ''));
+    const present = ids.filter(id => taskIdsNow.has(id)).length;
+    pointerChecks.canonicalTasks = {listed: ids.length, presentInCity: present, absent: ids.length - present};
+    note(`canonical task pointers: ${present}/${ids.length} still exist in this City`);
+    // A distinct task that the package points at and the City no longer has would mean the export describes state the
+    // City cannot reproduce - so it is only a note when the task was never part of the runs this reproduction checks.
+    continue;
+  }
+  if (name === 'canonicalTaskRuns') {
+    // The join the package asks for, re-done here from the pointers: each run reference must map to a task that exists.
+    const broken = listed.filter(p => !p?.taskRef || !taskIdsNow.has(p.taskRef));
+    pointerChecks.canonicalTaskRuns = {listed: listed.length, broken: broken.length};
+    note(`run-to-task join: ${listed.length - broken.length}/${listed.length} pointers still resolve`);
+    if (broken.length) disagree('run-to-task pointers that no longer resolve', listed.length, broken.length);
+    continue;
+  }
+  pointerChecks[name] = {listed: listed.length};
+  note(`${name}: ${listed.length} pointer(s) listed`);
+}
+// Every run reference in the rebuilt dataset must carry the pointer it came from: provenance that cannot be followed
+// is not provenance, and the package's own recipe starts by reading these pointers.
+const withoutPointer = rebuilt.filter(r => !r.rawPointer || !r.taskRef);
+if (withoutPointer.length) disagree('run references with no followable pointer', 0, withoutPointer.map(r => `${r.campaignId}:${r.index}`));
+else note('every rebuilt run reference carries both its receipt pointer and its canonical task reference');
+
 console.log('\n--- execute independently on this host ---');
 const executed = {attempted: false, reason: null, campaignId: null, state: null, runs: [], devices: []};
 const topology = await pkg('topology.json').catch(() => null);
@@ -230,7 +278,7 @@ const report = {
   host: LABEL, hostname: hostname(), platform: process.platform, node: process.version,
   city: CITY, artifact: ARTIFACT, artifactId: manifest.artifactId,
   packageIntegrity: integrity, recipe: recipe.steps,
-  rebuilt, receiptsSeen, recomputed, reportedMetrics: reported,
+  rebuilt, receiptsSeen, recomputed, reportedMetrics: reported, pointerChecks,
   executed, inconsistencies: INCONSISTENCIES, notes: NOTES,
   // This harness is the OPPOSITE HOST's instrument, not an acceptance: the verdict belongs to the record holder.
   authority: 'REPRODUCTION_EVIDENCE_ONLY',

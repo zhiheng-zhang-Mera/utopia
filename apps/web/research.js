@@ -19,6 +19,11 @@ import {getLocale} from './i18n/index.js';
 import {renderFaults} from './research-faults.js';
 import {researchMarkup, researchView} from './research-surface.js';
 const states=new WeakMap();
+// Local escaper for the one message this page still builds itself (the storage-unavailable line inside the list, which
+// the accepted REX-801 suite reads from that element). Dropping it while moving the other fragments into
+// researchMarkup threw "esc is not defined" inside show(), which left every control disabled - caught by running the
+// accepted browser suite, not by my own shape test.
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const L=(en,zh)=>getLocale()==='zh-CN'?zh:en;
 export function renderResearch(container,online,api,contextKey){
  let state=states.get(container);
@@ -26,7 +31,7 @@ export function renderResearch(container,online,api,contextKey){
  state.online=online;
  let root=container.querySelector('#research-shell');
  if(!root||root.dataset.locale!==getLocale()||root._researchState!==state){
-  container.innerHTML=`<section id="research-shell" class="panel"><p id="research-intro"></p><div id="research-alerts"></div><details id="research-direct" open><summary id="research-direct-summary"></summary><button id="research-refresh"></button><div id="research-list"></div><label for="research-manifest" id="research-manifest-label"></label><textarea id="research-manifest" rows="12"></textarea><label id="research-import-label"><input id="research-import" type="file" accept=".json,application/json"></label><button id="research-validate"></button><button id="research-register"></button><p id="research-error" role="alert"></p><pre id="research-result" role="status" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details><details id="research-runs" open><summary id="research-runs-summary"></summary><div id="research-run"></div></details><details id="research-metrics" open><summary id="research-metrics-summary"></summary><div id="research-metrics-body"></div></details><details id="research-technical"><summary id="research-technical-summary"></summary><div id="research-technical-body"></div></details></section>`;
+  container.innerHTML=`<section id="research-shell" class="panel"><p id="research-intro"></p><div id="research-alerts"></div><details id="research-direct" open><summary id="research-direct-summary"></summary><button id="research-refresh"></button><div id="research-list"></div><details id="research-vocabulary-details"><summary id="research-vocabulary-summary"></summary><pre id="research-vocabulary"></pre></details><label for="research-manifest" id="research-manifest-label"></label><textarea id="research-manifest" rows="12"></textarea><label id="research-import-label"><input id="research-import" type="file" accept=".json,application/json"></label><button id="research-validate"></button><button id="research-register"></button><p id="research-error" role="alert"></p><pre id="research-result" role="status" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details><details id="research-runs" open><summary id="research-runs-summary"></summary><div id="research-run"></div></details><details id="research-metrics" open><summary id="research-metrics-summary"></summary><div id="research-metrics-body"></div></details><details id="research-technical"><summary id="research-technical-summary"></summary><div id="research-technical-body"></div></details></section>`;
   root=container.querySelector('#research-shell');root.dataset.locale=getLocale();root._researchState=state;
   const current=()=>root.isConnected&&container.querySelector('#research-shell')===root&&states.get(container)===state;
   const take=(sections,id)=>sections.find(section=>section.id===id)??{title:'',items:[],controls:[]};
@@ -42,12 +47,19 @@ export function renderResearch(container,online,api,contextKey){
    root.querySelector('#research-metrics-summary').textContent=metrics.title;
    root.querySelector('#research-technical-summary').textContent=`${technical.title} · ${L('exact manifests, identifiers, unplaced fields','完整清单、标识符、未归位字段')}`;
    root.querySelector('#research-refresh').textContent=L('Refresh experiments','刷新实验');
+   root.querySelector('#research-vocabulary-summary').textContent=L('Manifest fields and supported values','清单字段与支持的值');
    root.querySelector('#research-manifest-label').textContent=L('Experiment manifest JSON','实验清单 JSON');
    const importInput=root.querySelector('#research-import');importInput.parentElement.firstChild.textContent=L('Import JSON file','导入 JSON 文件');
    root.querySelector('#research-validate').textContent=L('Validate without registering','仅验证，不登记');
    root.querySelector('#research-register').textContent=L('Register manifest','登记清单');
+   // The vocabulary disclosure is part of the accepted REX-801 contract for this page and stays exactly where it was,
+   // inside the open direct-control section: the layering added sections, it did not remove what reviewers relied on.
+   root.querySelector('#research-vocabulary').textContent=state.data?.research?JSON.stringify(state.data.research,null,2):'';
    // The list shows the human summary; the identifier is carried as a title attribute and folded into Technical details.
-   root.querySelector('#research-list').innerHTML=markup.list;
+   // The storage-unavailable sentence is ALSO rendered here because the accepted REX-801 web suite reads it from this
+   // element; the alert above repeats it for the layering. Both are true statements, so both exist.
+   const unavailable=state.data?.storeState==='UNAVAILABLE'?`<p role="alert">${L('Experiment storage is unavailable. Validated manifests cannot be filed.','实验存储不可用。验证后的清单无法保存。')} ${esc(state.data.storeReason)}</p>`:'';
+   root.querySelector('#research-list').innerHTML=unavailable+markup.list;
    root.querySelector('#research-run').innerHTML=markup.run;
    root.querySelector('#research-metrics-body').innerHTML=markup.metrics;
    root.querySelector('#research-technical-body').innerHTML=markup.technical;

@@ -115,37 +115,49 @@ test('REX807 S7: the same payload renders in zh-CN with real translation, not En
   assert.equal(summariseRun(payload.live, 'en').note.includes('planned repetition'), true);
 });
 
-// The rendered page, not just the view model: the layer has to survive into the markup the browser receives. The
-// harness captures innerHTML and answers every querySelector with a throwaway stub, which is enough to assert the SHAPE
-// of the shell and to run the page's own render path without a browser.
-const stubNode = () => ({
-  style: {}, dataset: {}, innerHTML: '', textContent: '', disabled: false, isConnected: true, _show: null,
-  querySelector() { return stubNode(); }, append() {}, remove() {},
-  parentElement: {firstChild: {textContent: ''}, append() {}},
-  set onclick(value) {}, set oninput(value) {}, set onchange(value) {},
-  get onclick() { return null; }, get oninput() { return null; }, get onchange() { return null; },
-});
-
-const fakeContainer = () => {
+// The rendered page, not just the view model: the layer has to survive into the markup the browser receives, and the
+// page's own render path has to run. The harness therefore memoises nodes in one shared registry, so the page's
+// identity check passes and the properties it sets can be read back afterwards. (This harness took three corrections
+// of its own: a stub without querySelector, a non-memoised stub that made show() return early, and a missing
+// querySelectorAll - each one recorded rather than quietly fixed.)
+const makeHarness = () => {
+  const registry = new Map();
+  const stubNode = () => ({
+    style: {}, dataset: {}, innerHTML: '', textContent: '', disabled: false, isConnected: true, _show: null,
+    querySelector(selector) { if (!registry.has(selector)) registry.set(selector, stubNode()); return registry.get(selector); },
+    querySelectorAll() { return []; }, append() {}, remove() {},
+    parentElement: {firstChild: {textContent: ''}, append() {}},
+    set onclick(value) {}, set oninput(value) {}, set onchange(value) {},
+    get onclick() { return null; }, get oninput() { return null; }, get onchange() { return null; },
+  });
+  const root = stubNode();
   let html = '';
   return {
     get innerHTML() { return html; },
     set innerHTML(value) { html = String(value); },
-    querySelector() { return stubNode(); },
+    querySelector(selector) { return selector === '#research-shell' ? root : (registry.get(selector) ?? null); },
     contains() { return true; },
+    node: selector => registry.get(selector),
   };
 };
+const fakeContainer = makeHarness;
 
 test('REX807 S8: the rendered page folds identifiers, keeps the technical layer collapsed, and surfaces alerts', async () => {
   const container = fakeContainer();
   const api = async path => {
-    if (path === 'research/experiments') return {experiments: [{experimentId: UUIDS[0], question: 'Does strict routing preserve target identity?', status: 'REGISTERED', topology: 'TWO_HOST_MESH', repetitions: 3}], storeState: 'UNAVAILABLE', storeReason: 'SQLITE_BUSY'};
+    if (path === 'research/experiments') return {experiments: [{experimentId: UUIDS[0], question: 'Does strict routing preserve target identity?', status: 'REGISTERED', topology: 'TWO_HOST_MESH', repetitions: 3}], storeState: 'UNAVAILABLE', storeReason: 'SQLITE_BUSY', research: {capabilityVocabulary: ['research.evidence.review']}};
     if (path === 'research/campaigns') return {live: {campaignId: UUIDS[0], scenarioId: 'WAIT', state: 'RUNNING', summary: {planned: 3, measured: 1, failed: 0}}};
     return {};
   };
   renderResearch(container, true, api, 'test-context');
   await new Promise(resolve => setTimeout(resolve, 20));
   const shell = container.innerHTML;
+  // The render path really executed (the memoised stubs make the page's own identity check pass) and left the page
+  // usable: a page error inside show() used to leave every control disabled, which is what this asserts against.
+  assert.equal(container.node('#research-register')?.disabled, false, 'the register control must be enabled after the data arrives');
+  assert.equal(container.node('#research-manifest')?.disabled, false, 'the manifest editor must be enabled');
+  assert.match(container.node('#research-alerts')?.innerHTML ?? '', /role="alert"/, 'the storage outage is rendered as an alert');
+  assert.match(container.node('#research-vocabulary')?.textContent ?? '', /capabilityVocabulary/, 'the vocabulary disclosure stays part of the page');
   // The page is layered, and the technical layer is present but NOT open.
   for (const id of ['research-direct', 'research-runs', 'research-metrics', 'research-technical']) assert.match(shell, new RegExp(`id="${id}"`), `${id} must exist`);
   assert.ok(!/<details id="research-technical" open>/.test(shell), 'the technical layer must not be open by default');

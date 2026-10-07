@@ -11,6 +11,9 @@ import {createObservation} from './observation.mjs';
 import {createExecutionProfileController} from './execution-profile.mjs';
 import {createTraceCollector} from '../research-trace/index.mjs';
 import {createFaultController} from './research/faults.mjs';
+// REX-806: the artifact exporter. It derives every metric from records this City holds, or reports NOT_MEASURED with a
+// reason - it never fills a gap with a zero, which is why the export lives behind its own module rather than inline here.
+import {buildArtifact, artifactFiles, checksumsFor, NOT_MEASURED} from './research/artifact.mjs';
 import { Pairing } from './pairing.mjs';
 // JOIN-503: device enrollment and tokenless routine reconnect. The registrar is a seam over the City's own
 // RF-001 identity lifecycle (see services/dev-gateway/enrollment.mjs) - it mints installation credentials, issues
@@ -18,7 +21,7 @@ import { Pairing } from './pairing.mjs';
 import { createEnrollmentRegistrar, EnrollmentError, DEFAULT_SESSION_TTL_MS } from './enrollment.mjs';
 import {memberSnapshot} from './members.mjs';
 // The identity lifecycle's own error type. A refusal from RF-001's rules (`rebind_proof_required`, `clone_detected`,
-// `already_bound`, …) is a typed client error, not a gateway fault, so it must not surface as a 500.
+// `already_bound`, 鈥? is a typed client error, not a gateway fault, so it must not surface as a 500.
 import { DeviceIdentityError } from '../../city/00-foundation/02-city-node-network/device-identity/index.mjs';
 import { validateTelemetry } from '../../contracts/pairing-v1/descriptor.mjs';
 import { startDiscovery } from './discovery.mjs';
@@ -36,7 +39,7 @@ import { browseNearby, browseBluetooth, joinCapability, hostCarrierFacts } from 
 // Nothing here reads identity or user data.
 import { cpus as osCpus, freemem as osFreemem, totalmem as osTotalmem } from 'node:os';
 import { envelope, taskTypes, terminal, validateCommand } from '../../contracts/city-control-v0/protocol.mjs';
-// Product closeout (T1–T3): the Room Pack, the canonical Action facade and the
+// Product closeout (T1鈥揟3): the Room Pack, the canonical Action facade and the
 // deterministic Ask / Do router. The Room Hub is reached over loopback only; nothing here
 // exposes its port, and no route in this phase can reach Boss or Hns.
 import { createRoomPack } from './rooms.mjs';
@@ -298,7 +301,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // migrated checkpoint-gate module, not by an inline state test. Utopia's policy travels as
   // data: a task that was still QUEUED never started, so no checkpoint is required and the
   // gate authorizes it (it stays queued); a task that had started would lose work, and
-  // Utopia binds no checkpoint port, so the donor's fail-closed default refuses it — the
+  // Utopia binds no checkpoint port, so the donor's fail-closed default refuses it 鈥?the
   // same outcome, error text and event the inline sweep produced. timeoutMs is 0 because the
   // unbound port answers synchronously and a timeout budget would be meaningless.
   const resumeGate=checkpointGate({port:unboundCheckpointPort(),timeoutMs:0});
@@ -389,7 +392,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // still reports refusals when a user action produces one.
     }
   };
-  // Product closeout (T1–T3). The Room Hub is reached over loopback only, and the Action
+  // Product closeout (T1鈥揟3). The Room Hub is reached over loopback only, and the Action
   // facade is the single user-facing record over Rooms, capabilities and City tasks.
   const rooms=createRoomPack({baseUrl:roomHubUrl,disabled:roomsDisabled,fetchImpl:roomFetch});
   // WBC-602: the Node Role / Capability / Resource descriptor, projected READ-ONLY.
@@ -410,7 +413,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
     const busy=store.list('tasks').some(task=>task.assignedNodeId===node.id&&!terminal.includes(task.state));
     // DEFECT FOUND BY THIS TASK'S OWN TEST, REPAIRED HERE. The first version of this projection passed the
     // Core's verdict straight through, so a device whose owner had withdrawn sharing reported
-    // `acceptingWork: true` beside `sharingEnabled: false` — a descriptor that contradicts itself on the one
+    // `acceptingWork: true` beside `sharingEnabled: false` 鈥?a descriptor that contradicts itself on the one
     // question a scheduler reads it for. `acceptingWork` is now the conjunction the claim path actually
     // applies: the Core accepts this node AND its owner still shares it. "This is an execution resource"
     // (isExecutionResource), "the Core accepts it" (the node's capabilities/liveness) and "it will take work
@@ -528,7 +531,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // REX-801: the research experiment registry.
   //
   // The capability vocabulary is taken from the LIVE bridge rather than from a constant, so "this manifest
-  // requires a capability nobody provides" is decided against what this City can actually do right now — the
+  // requires a capability nobody provides" is decided against what this City can actually do right now 鈥?the
   // workbook's unknown-capability gate is only meaningful if it is answered by the real provider list. The
   // documents live under the git-ignored runtime directory as files (see research/registry.mjs for why the City's
   // task-keyed store is the wrong home for a description), and nothing here executes anything: the routes can
@@ -978,7 +981,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       }
       else if(req.method==='POST' && path==='/api/v0/members/messages'){
         const b=await body(req);const sender=memberRef(req);const target=members().find(m=>m.deviceId===b.targetDeviceId);if(!target)fail(404,'Target is not a member of this City');
-        if(typeof b.text!=='string'||!b.text.trim()||b.text.length>4096)fail(400,'Message must contain 1–4096 characters');
+        if(typeof b.text!=='string'||!b.text.trim()||b.text.length>4096)fail(400,'Message must contain 1鈥?096 characters');
         const rows=store.list('member_messages');if(rows.length>=256){const old=rows.find(m=>m.state==='RECEIVED');if(!old)fail(429,'Message capacity reached');store.db.prepare('DELETE FROM member_messages WHERE id=?').run(old.id);}
         const message=store.put('member_messages',{id:randomUUID(),senderDeviceId:sender,targetDeviceId:b.targetDeviceId,text:b.text.trim(),state:'PENDING',createdAt:now(),receivedAt:null});out={message};emit('MEMBER_MESSAGE_AVAILABLE',null,{messageId:message.id,targetDeviceId:message.targetDeviceId});
       }
@@ -991,7 +994,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // contract so the UI can show user language instead of scheduler vocabulary. Finished tasks are
       // excluded by default because a scheduler status surface is about work in flight.
       else if(req.method==='GET' && path==='/api/v0/presentation')out=buildPresentationFeed({tasks:store.list('tasks'),nodes:store.list('nodes'),generatedAt:now()});
-      // --- Pre-assistant product closeout (T1–T3) --------------------------------
+      // --- Pre-assistant product closeout (T1鈥揟3) --------------------------------
       // Rooms: truthful availability plus the catalog, through the authenticated path.
       else if(req.method==='GET' && path==='/api/v0/rooms')out={rooms:await rooms.probe()};
       // Canonical Action facade. Repeating an idempotency key replays, never re-executes.
@@ -1103,8 +1106,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       } else if(req.method==='POST' && path==='/api/v0/node/heartbeat'){
         const b=await body(req);assertOwnNode(req,b.id);const n=required('nodes',b.id);const metrics=telemetry(b);await faults.before('heartbeat',b.id);if(!n.online)emit('NODE_ONLINE',null,{nodeId:n.id});out=store.put('nodes',{...n,...metrics,online:true,lastHeartbeatAt:now()});faults.success('heartbeat',b.id);
       } else if(req.method==='POST' && path==='/api/v0/node/descriptor'){
-        // WBC-602: what this City believes about one node's roles, capabilities, resources and availability —
-        // read-only and computed at request time, so a node can see the descriptor a future scheduler would read
+        // WBC-602: what this City believes about one node's roles, capabilities, resources and availability 鈥?        // read-only and computed at request time, so a node can see the descriptor a future scheduler would read
         // without this route gaining any authority over its own role or resources. A POST is used because the
         // node credential authenticates the node route family; nothing is written.
         const b=await body(req);assertOwnNode(req,b.id);required('nodes',b.id);
@@ -1126,6 +1128,58 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // every run that produced no measurement and the reason it did not. Four operations and nothing else. Like the
       // REX-801 contract above it, this surface executes only canonical City tasks through the product's own creation
       // path; it has no second executor and no way to state an outcome the canonical task did not reach.
+      // REX-806: the artifact export surfaces. Owner-only for the same reason the trace and fault surfaces are - an
+      // artifact exposes the City's whole research history, and a member session must not read it.
+      //
+      // The artifact is built from what this City actually holds: its campaign receipts, the canonical tasks those runs
+      // produced, the experiment registry and the trace records scoped to those campaigns. Metrics that cannot be
+      // derived from those records leave as NOT_MEASURED with their reason; nothing here fills a gap with a zero.
+      else if(path==='/api/v0/research/artifacts'||path==='/api/v0/research/artifacts/preview'){
+        if(req.citySession)refuse('RESEARCH_OWNER_REQUIRED',403,'Research artifact export requires the City owner');
+        const held=[],sourceReadFailures=[];
+        const receiptWindow=campaigns.receiptWindow();
+        if(receiptWindow.truncated)sourceReadFailures.push({name:'campaign-receipt-window',reason:'RECEIPT_WINDOW_TRUNCATED',total:receiptWindow.total,returned:receiptWindow.receipts.length});
+        for(const entry of receiptWindow.receipts){
+          if(entry.state==='UNREADABLE'||entry.reason==='RECEIPT_UNREADABLE'){
+            sourceReadFailures.push({name:entry.file??entry.campaignId??'<unidentified receipt>',reason:entry.reason??'RECEIPT_UNREADABLE'});
+            continue;
+          }
+          try{
+            const receipt=campaigns.receipt(entry.campaignId);
+            if(!receipt||receipt.state==='UNREADABLE'||receipt.reason==='RECEIPT_UNREADABLE')sourceReadFailures.push({name:entry.campaignId??entry.file,reason:'RECEIPT_UNREADABLE'});
+            else held.push(receipt);
+          }
+          catch{sourceReadFailures.push({name:entry.campaignId??entry.file??'<unidentified receipt>',reason:'RECEIPT_UNREADABLE'});}
+        }
+        const live=campaigns.progress();
+        if(live?.campaignId&&['COMPLETED','STOPPED','REFUSED','FAILED','INTERRUPTED'].includes(live.state)
+          &&!held.some(row=>row.campaignId===live.campaignId)&&!sourceReadFailures.some(row=>String(row.name).startsWith(live.campaignId))){
+          sourceReadFailures.push({name:live.campaignId,reason:'LATEST_RECEIPT_MISSING'});
+        }
+        if(held.length===0)refuse('ARTIFACT_NO_SOURCE',422,'no readable campaign receipt is held by this City');
+        const artifact=buildArtifact({
+          cityId:store.cityId,
+          generatedAt:new Date().toISOString(),
+          environment:{cityEndpoint:null,nodeRuntime:process.version,platform:process.platform,surface:'CITY_ROUTE'},
+          topology:{nodes:store.list('nodes').map(node=>({id:node.id,online:node.online===true})),controlSurfaces:liveSurfaces().map(surface=>surface.clientRef),members:members().map(member=>member.deviceId).filter(Boolean)},
+          receipts:held,
+          sourceReadFailures,
+          tasks:store.list('tasks'),
+          experiments:experiments.list().experiments,
+          traceRecords:researchTrace.snapshot().records,
+        });
+        if(path==='/api/v0/research/artifacts/preview'){
+          // Bounded on purpose: a preview that returned everything would be the export wearing a smaller name.
+          const limit=Math.max(1,Math.min(Number(new URL(req.url,'http://city').searchParams.get('limit')??10)||10,100));
+          out={preview:{manifest:artifact.manifest,metricAvailability:artifact.metrics.map(row=>({metric:row.metric,scope:row.scope,available:row.value!==NOT_MEASURED})),exclusions:artifact.exclusions,rows:artifact.dataset.slice(0,limit),rowsShown:Math.min(limit,artifact.dataset.length),rowsTotal:artifact.dataset.length}};
+        } else if(new URL(req.url,'http://city').searchParams.get('format')==='csv'){
+          const files=artifactFiles(artifact);
+          out={metricsCsv:files['metrics.csv'],checksums:checksumsFor(files),sourceCoverage:artifact.manifest.sourceCoverage??{status:'NO_KNOWN_SOURCE_LOSS'}};
+        } else {
+          const files=artifactFiles(artifact);
+          out={artifact,checksums:checksumsFor(files)};
+        }
+      }
       else if(path==='/api/v0/research/replays'&&req.method==='GET'){
         out={mechanisms:replays.mechanisms(),supportedScenarios:['WAIT'],sources:campaigns.receipts(),receiptWindow:campaigns.receiptWindow(),research:researchFacts()};
       } else if(path==='/api/v0/research/replays'&&req.method==='POST'){
@@ -1191,7 +1245,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       } else if(req.method==='GET'&&/^\/api\/v0\/research\/campaigns\/[^/]+$/.test(path)){
         out={campaign:campaigns.receipt(decodeURIComponent(path.split('/').at(-1))),research:researchFacts()};
       }
-      // REX-801 — the Research control contract. Four stable operations, all authenticated with the control
+      // REX-801 鈥?the Research control contract. Four stable operations, all authenticated with the control
       // credential: list, inspect, create-or-import (validate then register), and validate-before-run. There is
       // deliberately NO run/stop here: this contract describes experiments, and executing them belongs to
       // REX-803. A caller that expects a run endpoint will get a typed 404 rather than a surprise.

@@ -60,8 +60,15 @@ export function createGovernanceService({dir,readTask,ports={}}={}){
    }
    case 'RESULT':{
     requireThat(ports.pcf,'PCF_726_UNAVAILABLE');verifyParticipant(a.receipt,c);const n=node(a.node_ref);
-    const capsule=compileTaskCapsule(n,c.snapshot,ports.pcf,a.canonical_refs);const r=validateGovernanceResult(capsule,a.receipt,ports.pcf);
-    requireThat(!c.results.some(x=>x.node_ref===n.node_id),'NODE_RESULT_IMMUTABLE');c.results.push(r);break;
+    requireThat(!c.results.some(x=>x.node_ref===n.node_id),'NODE_RESULT_IMMUTABLE');
+    // Canonical execution identities are resolved by the trusted host, never overridden by action JSON.
+    const executionRefs=typeof ports.readExecutionRefs==='function'?safe(ports.readExecutionRefs(n,c,a.receipt)):a.canonical_refs;
+    requireThat(executionRefs?.candidate_sha===undefined||executionRefs.candidate_sha===c.candidate_sha,'RESULT_CANDIDATE_MISMATCH');
+    const capsule=compileTaskCapsule(n,c.snapshot,ports.pcf,executionRefs);const r=validateGovernanceResult(capsule,a.receipt,ports.pcf);
+    requireThat(ref(r.participant_ref),'RESULT_PARTICIPANT_REQUIRED');c.results.push(r);
+    if(!c.participants.some(p=>p.participant_ref===r.participant_ref))c.participants.push({participant_ref:r.participant_ref,role:'EXECUTOR'});
+    c.validation.push({node_ref:n.node_id,state:'STRUCTURED_RESULT_VALIDATED',acceptance_authority:false,evidence_refs:r.evidence_refs});
+    c.technical_evidence.push({node_ref:n.node_id,capsule_ref:capsule.substrate.capsule_ref,snapshot_version:capsule.snapshot_version,candidate_sha:c.candidate_sha,evidence_refs:r.evidence_refs});break;
    }
    case 'CLAIM':{
     verifyParticipant(a.receipt,c);const claim=validateClaim(a.receipt);node(claim.node_ref);

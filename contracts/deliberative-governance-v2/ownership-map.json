@@ -134,8 +134,8 @@
       "duplication_or_conflict": false,
       "migration_required": false,
       "classification": "REFERENCE",
-      "implementation_ref": null,
-      "notes": "unavailable accepted upstream; typed port only"
+      "implementation_ref": "contracts/personal-compute-fabric-v1/execution-capsule.mjs",
+      "notes": "PCF-owned required schema slice implemented on DGX branch; independent formal acceptance pending, entire PCF programme not activated"
     },
     {
       "capability": "domain capsule/result extension",

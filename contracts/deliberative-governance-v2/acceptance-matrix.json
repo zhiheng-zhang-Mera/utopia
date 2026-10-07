@@ -1,7 +1,8 @@
 {
   "schema_version": 2,
   "freeze": "NOT_RUN",
-  "pcf726_integration": "WAITING_DEPENDENCIES",
+  "pcf726_integration": "DEVELOPMENT_IMPLEMENTED_FORMAL_SERIES_REVIEW_PENDING",
+  "acceptance_scope": "WHOLE_SERIES_SECOND_HOST",
   "scenarios": [
     {
       "scenario": 1,
@@ -65,9 +66,12 @@
     },
     {
       "scenario": 7,
-      "requirement": "Shared snapshot and thin result extension",
+      "requirement": "Shared snapshot and real PCF substrate result extension",
       "tests": [
-        "tests/dgx-core.test.mjs"
+        "tests/dgx-core.test.mjs",
+        "tests/dgx-substrate.test.mjs",
+        "tests/dgx-pcf-port.test.mjs",
+        "tests/pcf726-capsule.test.mjs"
       ],
       "evidence_class": "CONTROLLED_CONFORMANCE",
       "formal_independent_acceptance": "NOT_RUN"

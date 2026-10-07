@@ -63,6 +63,7 @@ export function compileTaskCapsule(node,snapshot,pcfPort,canonicalRefs){
  requireThat(typeof pcfPort?.compileExecutionCapsule==='function','PCF_726_UNAVAILABLE');
  const s=createSnapshot(snapshot);safe(node);safe(canonicalRefs);
  requireThat(ref(node.node_id)&&text(node.stop_condition),'BOUNDED_NODE_REQUIRED');
+ requireThat(ref(node.canonical_task_ref)&&canonicalRefs?.task_ref===node.canonical_task_ref,'TASK_CAPSULE_CANONICAL_MISMATCH');
  const substrate=safe(pcfPort.compileExecutionCapsule(canonicalRefs,{input_refs:node.input_refs,output_contract:node.expected_output_contract,stop_condition:node.stop_condition,independence_floor_ref:node.node_id}));
  return freeze({schema_version:VERSION,substrate,node_ref:node.node_id,snapshot_version:s.snapshot_version,request_ref:s.request_ref,question:node.question_or_verification,independence_floor:node.independence_floor,domain_constraints:s.domain_constraints});
 }

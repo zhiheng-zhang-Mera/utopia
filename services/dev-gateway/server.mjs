@@ -9,6 +9,7 @@ import { WebSocketServer } from 'ws';
 import { Store } from './store.mjs';
 import {createObservation} from './observation.mjs';
 import {createGovernanceService} from './governance.mjs';
+import {createPcfGovernancePort} from './governance-pcf-port.mjs';
 import {createExecutionProfileController} from './execution-profile.mjs';
 import {createTraceCollector} from '../research-trace/index.mjs';
 import {createFaultController} from './research/faults.mjs';
@@ -105,12 +106,12 @@ const claimNodeFor=n=>({nodeId:n.id,state:n.online?'READY':'OFFLINE',capabilitie
 // enrollment registry reads the second. Dropping either one produces a ReferenceError at request time rather than
 // at load time, which is why this is stated here: the first attempt at this merge kept only `deviceClock` and every
 // JOIN-502 test failed with "nearbyTimeoutMs is not defined".
-export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',token,nodeToken,heartbeatTimeout=8000,pairingClock=Date.now,pairingTtlMs=300000,discoveryEnabled=false,nearbyTimeoutMs=2000,roomHubUrl=process.env.CITY_ROOMS_URL,roomsDisabled=process.env.CITY_ROOMS_DISABLED==='1',hostId=process.env.CITY_HOST_ID,roomFetch,deviceClock=Date.now,hostDeviceId:requestedHostDeviceId,hostJoin=null,researchTraceStorage,researchTraceSoftwareRefs={}}) {
+export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',token,nodeToken,heartbeatTimeout=8000,pairingClock=Date.now,pairingTtlMs=300000,discoveryEnabled=false,nearbyTimeoutMs=2000,roomHubUrl=process.env.CITY_ROOMS_URL,roomsDisabled=process.env.CITY_ROOMS_DISABLED==='1',hostId=process.env.CITY_HOST_ID,roomFetch,deviceClock=Date.now,hostDeviceId:requestedHostDeviceId,hostJoin=null,researchTraceStorage,researchTraceSoftwareRefs={},governancePorts={}}) {
   if(!token||!nodeToken||token===nodeToken) throw new Error('Separate control and node tokens are required');
   if(host==='0.0.0.0'||host==='::') throw new Error('Configure an explicit loopback or LAN interface');
   const store=new Store(dir); const wss=new WebSocketServer({noServer:true}); let closed=false;
   const observation=createObservation({read:()=>store.observationWindow()});
-  const governance=createGovernanceService({dir:resolve(dir,'governance'),readTask:ref=>store.get('tasks',ref.replace(/^task:/,''))});
+  const governance=createGovernanceService({dir:resolve(dir,'governance'),readTask:ref=>store.get('tasks',ref.replace(/^task:/,'')),ports:{...governancePorts,pcf:governancePorts.pcf??createPcfGovernancePort(governancePorts)}});
   const researchTrace=createTraceCollector({directory:resolve(dir,'research-trace'),sourceStreamRef:store.cityId,storage:researchTraceStorage,softwareRefs:researchTraceSoftwareRefs});
   // MESH-301: WHICH control surfaces are attached to this City, and what each of them calls itself.
   //

@@ -90,6 +90,25 @@ test('CAJ-WEB 1: the entry is discoverable, the typed confirmation gates the req
     assert.match(await report.innerText(),/did not verify/);
     //    And the City's OWN word for the task is a different word, in its own block.
     assert.equal(await page.locator('[data-aj-state]').innerText(),'COMPLETED');
+    assert.match(await report.innerText(),/agent.s own claim/);
+    assert.match(await report.innerText(),/did not verify/);
+
+    // 5b. TAKING DELIVERY is the owner's own act and is shown as its own state, with the receipt's own authority line -
+    //     so delivery can never be read as agreement with what the agent said.
+    assert.equal(await page.locator('[data-aj-consumed]').count(),0,'an answer nobody has collected must not look collected');
+    await page.locator('[data-aj-consume]').click();
+    await page.locator('[data-aj-consumed]').waitFor();
+    const collected=await page.locator('[data-aj-consumed]').innerText();
+    assert.match(collected,/ACKNOWLEDGEMENT_NOT_VERIFICATION/);
+    assert.equal(await page.locator('[data-aj-consume]').count(),0,'the control is gone once the act is recorded');
+    // A recorded delivery is not rewritten: the receipt's digest is on the surface and is stable across a reload.
+    const digest=await page.locator('[data-aj-consumed]').getAttribute('data-aj-consumed');
+    assert.match(digest,/^[a-f0-9]{64}$/);
+    await page.reload();
+    await page.locator('#connection.online').waitFor();
+    await page.locator('nav [data-page="AgentJobs"]').click();
+    await page.locator('[data-aj-consumed]').waitFor();
+    assert.equal(await page.locator('[data-aj-consumed]').getAttribute('data-aj-consumed'),digest);
 
     // 6. The guard for this surface's own navigation: EVERY nav entry is reachable on this viewport, and every page
     //    title is real translated copy rather than a raw key. Both halves failed when this page was added.

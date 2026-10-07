@@ -156,6 +156,51 @@ export function validateAgentJobReport(job, report, {now = Date.now()} = {}) {
 export const isJobExpired = (job, now = Date.now()) => Boolean(job) && !TERMINAL_JOB_STATES.includes(job.state)
   && Number.isFinite(Date.parse(job.createdAt)) && now - Date.parse(job.createdAt) > job.deadlineMs;
 
+/**
+ * Taking delivery of a report is its OWN act with its OWN record, not a flag on the job.
+ *
+ * "The agent answered" and "the answer was taken" are different facts, and an answer nobody has taken delivery of is
+ * exactly the one that gets asked for twice: without a receipt there is no way to tell a report that was read and acted
+ * on from one that is still sitting there, and no way for the far side to know its work was received at all.
+ *
+ * It is also the one place PCF-715's rule lands directly: A CALLER ACKNOWLEDGING A RESULT IS NOT THE AGENT CONSUMING IT.
+ * So the receipt says which of those it is (`authority`), states that it is not a verification, and carries
+ * `agentConsumption: false` rather than leaving a reader to infer that delivery meant agreement.
+ */
+export const CONSUMPTION_AUTHORITY = 'ACKNOWLEDGEMENT_NOT_VERIFICATION';
+
+/**
+ * The receipt, derived rather than invented. Every field is either an input or a consequence of one, and `receiptDigest`
+ * covers the whole thing so two receipts can be compared without trusting either copy.
+ *
+ * `reportDigest` binds it to the EXACT report that was stored, which is what stops a receipt being moved to a different
+ * answer: the City re-derives it from the report it holds, so a receipt that does not match the stored bytes is
+ * detectable rather than merely unlikely.
+ */
+export function consumptionReceipt({taskId, job, report, consumedAt, consumedBy, note = null}) {
+  const body = {schemaVersion: AGENT_JOB_VERSION, taskId, jobDigest: job?.jobDigest ?? null,
+    reportDigest: report === undefined || report === null ? null : jobDigest(report),
+    consumedAt, consumedBy, note,
+    authority: CONSUMPTION_AUTHORITY,
+    verification: 'AGENT_OBSERVATION_NOT_CITY_VERIFICATION',
+    // Said out loud because the tempting misreading is that taking delivery means the City accepted the claim.
+    agentConsumption: false};
+  return Object.freeze({...body, receiptDigest: jobDigest(body)});
+}
+
+/**
+ * A receipt may only be issued for a report that EXISTS and passes the same validation the City applied when it arrived.
+ * A job with no report has nothing to take delivery of, and saying so by name is the difference between "you collected
+ * nothing" and "there was nothing to collect".
+ */
+export function validateConsumptionRequest(job, report) {
+  if (!job || typeof job !== 'object') return Object.freeze({ok: false, code: 'JOB_REQUIRED'});
+  if (report === undefined || report === null) return Object.freeze({ok: false, code: 'CONSUMPTION_REQUIRES_A_REPORT'});
+  const verdict = validateAgentJobReport(job, report);
+  if (verdict.valid !== true) return Object.freeze({ok: false, code: verdict.code});
+  return Object.freeze({ok: true, code: null});
+}
+
 export const AGENT_JOB_EXPOSURE = Object.freeze({
   capabilityId: 'CAP-CITY-AGENT-JOB-001',
   exposureClass: 'DIRECT_CONTROL',

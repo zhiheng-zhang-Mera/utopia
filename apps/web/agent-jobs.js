@@ -74,6 +74,11 @@ export function createAgentJobsView(){
       ${report.reason?`<p role="alert">${L('Reason given','给出的原因')}: ${esc(report.reason)}</p>`:''}
       <p role="note">${L('This is the agent\u2019s own claim. The City did not verify it.','这是智能体自己的说法，本城并未验证。')}</p>
       ${validation&&validation.valid===false?`<p role="alert">${L('The City refused this report','本城拒绝了该回执')}: ${esc(validation.code)}</p>`:''}</div>`:`<p>${L('No report yet.','尚无答复。')}</p>`;
+    // Taking delivery is shown as its OWN state, because "the agent answered" and "the answer was taken" are different
+    // facts: an answer nobody has collected is the one that gets asked for twice. The receipt is printed with its own
+    // authority line so delivery can never be read as agreement with what the agent said.
+    const delivery=job.consumption?`<p data-aj-consumed="${esc(job.consumption.receiptDigest)}">${L('Collected','已收讫')}: ${esc(job.consumption.consumedAt)} · <code>${esc(job.consumption.authority)}</code>${job.consumption.note?` · ${esc(job.consumption.note)}`:''}</p>`
+      :(report?`<button data-aj-consume="${esc(job.taskId)}">${L('Mark the report as collected','标记该报告已收讫')}</button>`:'');
     const running=['QUEUED','ASSIGNED','RUNNING'].includes(job.state);
     return `<article class="aj-row" data-job="${esc(job.taskId)}"><p><strong>${esc(job.job?.title??L('untitled job','未命名任务'))}</strong></p>
      ${cityFacts}
@@ -81,6 +86,7 @@ export function createAgentJobsView(){
      ${job.error?`<p role="alert">${esc(typeof job.error==='string'?job.error:JSON.stringify(job.error))}</p>`:''}
      <details><summary>${L('What was asked','请求内容')}</summary><pre>${esc(job.job?.instruction??'')}</pre>${(job.job?.inputs??[]).length?`<pre>${esc((job.job.inputs??[]).map(i=>i.name+'='+(i.ref??i.text??'')).join('\n'))}</pre>`:''}</details>
      ${agentClaims}
+     ${delivery}
      ${running?`<button data-aj-stop="${esc(job.taskId)}">${L('Withdraw the request','撤回请求')}</button>`:''}</article>`;
    }).join(''):`<p>${L('No agent job has been dispatched from this City.','本城尚未派发过智能体任务。')}</p>`;
    for(const button of root.querySelectorAll('button'))button.disabled=s.busy||!s.online;
@@ -104,6 +110,10 @@ export function createAgentJobsView(){
    // Withdrawing is the CANONICAL cancel route every task already uses - the job has no second control plane, and the
    // City's record of the owner's decision is the one the task state machine keeps.
    if(stop)run(async()=>{await api('tasks/'+encodeURIComponent(stop.dataset.ajStop)+'/cancel',{});await load();});
+   // Taking delivery is the owner's own act, recorded as a receipt by the City. It is NOT a verification, and the
+   // receipt says so on its face; the button therefore never reads "accept".
+   const consume=e.target.closest('[data-aj-consume]');
+   if(consume)run(async()=>{await api('node/jobs/'+encodeURIComponent(consume.dataset.ajConsume)+'/consumed',{});await load();});
   };
   root.querySelector('#aj-dispatch').onclick=()=>run(async()=>{
    // A reference line is `name=ref`. A line without `=` is refused here rather than sent as a nameless input, because

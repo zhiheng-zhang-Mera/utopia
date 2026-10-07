@@ -35,7 +35,7 @@ import { normalizeRemoteOperation, validateRemoteOperationReceipt, REMOTE_OPERAT
 import { requiredCapabilitiesForTask } from './node-task-capabilities.mjs';
 // The sibling channel: the City hands a remote AGENT a request and takes back a report it cannot verify, so the report
 // must declare what kind of claim it is rather than arriving looking like a verification.
-import { normalizeAgentJob, validateAgentJobReport, isJobExpired, REPORT_STATE_TO_TASK_STATE, AGENT_REPORTABLE_STATES, AGENT_JOB_EXPOSURE } from '../../contracts/city-agent-job-v1/job.mjs';
+import { normalizeAgentJob, validateAgentJobReport, isJobExpired, consumptionReceipt, validateConsumptionRequest, REPORT_STATE_TO_TASK_STATE, AGENT_REPORTABLE_STATES, AGENT_JOB_EXPOSURE } from '../../contracts/city-agent-job-v1/job.mjs';
 // JOIN-502: the approval seam for a nearby PC. It records an ASK and releases the existing City
 // credential only after an already trusted device approves - it is not a second trust store, and
 // discovery grants nothing on its own.
@@ -867,7 +867,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // The operation log is an OWNER surface, not a node surface: it is reached with the City's control token, so it
       // is excluded from the node-token requirement exactly as `/node/sharing` already was. Leaving it inside
       // `nodeRoute` would have made the owner's own read surface unreachable to the owner.
-      const ownerNodeRoute=path==='/api/v0/node/operations'||path==='/api/v0/node/jobs';
+      const ownerNodeRoute=path==='/api/v0/node/operations'||path==='/api/v0/node/jobs'||path.startsWith('/api/v0/node/jobs/');
       if(!publicJoin&&!legacyPublicPairing&&!selfAuthenticating)auth(req,nodeRoute&&path!=='/api/v0/node/sharing'&&!ownerNodeRoute&&!researchRoute);
       if(path.startsWith('/api/v0/research/faults')&&req.citySession)refuse('RESEARCH_OWNER_REQUIRED',403,'Fault controls require the City owner');
       if(!legacyPublicPairing)version(req);
@@ -1176,10 +1176,39 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
               jobDigest:task.job?.jobDigest??null,
               jobState:task.job?null:'JOB_RECORD_MISSING',
               deadline:{deadlineAt,expired:expired===true,projectedState:task.job&&expired&&!terminal.includes(task.state)?'EXPIRED':null},
+              // Taking delivery is a fact about the READER, so it is reported beside the report rather than inside it,
+              // and the three states are distinguishable: there is nothing to collect yet / it is waiting to be
+              // collected / it was collected. Collapsing those into a boolean would make "nobody has read this" and
+              // "this failed" look the same.
+              consumptionState:task.result?(task.consumptionReceipt?'COLLECTED':'AWAITING_COLLECTION'):'NOTHING_TO_COLLECT',
+              consumption:task.consumptionReceipt??null,
               error:task.error??null,report:task.result??null,
               reportValidation:task.job&&task.result?validateAgentJobReport(task.job,task.result):null};
           });
         out={exposure:AGENT_JOB_EXPOSURE,config:{enabled:agentJobConfig.enabled},jobs:rows};
+      }
+      // The owner TAKES DELIVERY of a report. Owner-only, and idempotent by construction: the FIRST consumption is the
+      // record, and a later call carrying a different note is refused rather than allowed to rewrite what was recorded.
+      // A recorded act is not edited - the same rule the rest of this City follows for user decisions.
+      else if(req.method==='POST' && /^\/api\/v0\/node\/jobs\/[^/]+\/consumed$/.test(path)){
+        if(req.citySession)refuse('AGENT_JOB_OWNER_REQUIRED',403,'Agent jobs require the City owner');
+        const taskId=decodeURIComponent(path.split('/').at(-2));
+        const t=required('tasks',taskId);
+        if(t.type!=='AGENT_JOB')refuse('NOT_AN_AGENT_JOB',409,`task ${taskId} is not an agent job`);
+        const b=await body(req);
+        const wanted=typeof b?.note==='string'&&b.note.trim()!==''?b.note.trim():null;
+        if(t.consumptionReceipt){
+          // Re-taking delivery of the same report is not an error - a caller may simply repeat itself - but it returns
+          // the receipt that was recorded rather than issuing a new one.
+          if(wanted!==null&&wanted!==(t.consumptionNote??null))refuse('CONSUMPTION_ALREADY_RECORDED',409,'this report was already taken; a recorded delivery is not rewritten');
+          out={consumption:t.consumptionReceipt,idempotent:true,consumptionState:'COLLECTED'};
+        } else {
+          const verdict=validateConsumptionRequest(t.job,t.result);
+          if(verdict.ok!==true)refuse(verdict.code,409,`there is nothing to take delivery of: ${verdict.code}`);
+          const receipt=consumptionReceipt({taskId,job:t.job,report:t.result,consumedAt:now(),consumedBy:hostDeviceId??null,note:wanted});
+          change(t,t.state,{consumedAt:receipt.consumedAt,consumedBy:receipt.consumedBy,consumptionNote:receipt.note,consumptionReceipt:receipt},'AGENT_JOB_REPORT_CONSUMED');
+          out={consumption:receipt,idempotent:false,consumptionState:'COLLECTED'};
+        }
       }
       else if(req.method==='GET' && path==='/api/v0/events')out={events:store.events()};
       // JOIN-502 owner decisions. These are AUTHENTICATED: deciding who joins is exactly the authority

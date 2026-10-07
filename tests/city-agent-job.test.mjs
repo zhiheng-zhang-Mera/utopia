@@ -13,7 +13,7 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {createGateway} from '../services/dev-gateway/server.mjs';
 import {normalizeAgentJob, validateAgentJobReport, jobDigest, isJobExpired, AGENT_JOB_EXPOSURE,
-  MAX_DEADLINE_MS, EVIDENCE_CLASSES} from '../contracts/city-agent-job-v1/job.mjs';
+  MAX_DEADLINE_MS, EVIDENCE_CLASSES, consumptionReceipt, validateConsumptionRequest} from '../contracts/city-agent-job-v1/job.mjs';
 import {AGENT_NODE_CAPABILITIES, claimJob, describeClaimedJob, registerNode, reportJob, saveClaimedJob, sha256File} from '../scripts/agent-job.mjs';
 
 const V={'X-City-Api-Version':'0','X-City-Schema-Version':'0'};
@@ -400,4 +400,89 @@ test('CAJ 12: the CLI really runs as a COMMAND - which is the only way the far s
   assert.equal(task.state,'COMPLETED');
   assert.equal(task.result.summary,'ran through the real command line');
   assert.equal(task.result.artifacts[0].sha256,sha256File(file),'the digest is of the real file the command was given');
+});
+
+test('CAJ 13: taking delivery of a report is its own recorded act, and it is an acknowledgement - not a verification',async t=>{
+  const {app}=await rig(t);
+  await register(app,NODE_ID,AGENT_NODE_CAPABILITIES);
+  const dispatched=(await (await dispatch(app)).json()).action;
+  const taskId=dispatched.backendRef.taskId;
+  const claimed=await claimJob({url:app.url,token:NODE_TOKEN,id:NODE_ID});
+  const consume=(body,credential=owner)=>fetch(app.url+`/api/v0/node/jobs/${encodeURIComponent(taskId)}/consumed`,{method:'POST',headers:credential,body:JSON.stringify(body??{})});
+  const rowOf=async()=>(await jobs(app)).jobs.find(x=>x.taskId===taskId);
+
+  // NOTHING TO COLLECT YET is named, not silently accepted: a job with no report has nothing to take delivery of, and
+  // the three states stay distinguishable - nothing to collect / waiting to be collected / collected.
+  assert.equal((await rowOf()).consumptionState,'NOTHING_TO_COLLECT','a claimed job with no report has nothing to collect');
+  const early=await consume({});
+  assert.equal(early.status,409);
+  assert.match(JSON.stringify(await early.json()),/CONSUMPTION_REQUIRES_A_REPORT/);
+  assert.equal((await rowOf()).consumption,null);
+
+  // The agent answers, then the OWNER takes delivery.
+  await reportJob({url:app.url,token:NODE_TOKEN,id:NODE_ID,taskId,jobDigest:claimed.job.jobDigest,state:'SUCCEEDED',
+    evidence:'OBSERVED_HERE',summary:'the four metrics agreed on the opposite host'});
+  assert.equal((await rowOf()).consumptionState,'AWAITING_COLLECTION','an answer nobody has taken is exactly the one that gets asked for twice');
+  const taken=await consume({note:'read on the development host'});
+  assert.equal(taken.status,200,JSON.stringify(await taken.clone().json().catch(()=>null)));
+  const first=(await taken.json());
+  assert.equal(first.idempotent,false);
+  const receipt=first.consumption;
+  // The receipt says WHAT IT IS, on its face: an acknowledgement by a reader, never a verification of the work.
+  assert.equal(receipt.authority,'ACKNOWLEDGEMENT_NOT_VERIFICATION');
+  assert.equal(receipt.verification,'AGENT_OBSERVATION_NOT_CITY_VERIFICATION');
+  assert.equal(receipt.agentConsumption,false,'a caller acknowledging a result is not the agent consuming it');
+  assert.equal(receipt.taskId,taskId);
+  assert.equal(receipt.jobDigest,claimed.job.jobDigest);
+  assert.equal(receipt.note,'read on the development host');
+  // BOUND TO THE EXACT REPORT: the City derives the digest from the report it HOLDS, so the receipt cannot be moved to a
+  // different answer. Checked against an independent computation of the stored report rather than against itself.
+  const stored=(await taskOf(app,taskId)).result;
+  assert.equal(receipt.reportDigest,jobDigest(stored),'the receipt must bind to the stored bytes');
+  assert.equal((await rowOf()).consumptionState,'COLLECTED');
+  assert.equal((await rowOf()).consumption.receiptDigest,receipt.receiptDigest);
+
+  // IDEMPOTENT: repeating returns the receipt that was RECORDED, with the same digest and the same timestamp.
+  const again=(await (await consume({})).json());
+  assert.equal(again.idempotent,true);
+  assert.equal(again.consumption.receiptDigest,receipt.receiptDigest);
+  assert.equal(again.consumption.consumedAt,receipt.consumedAt);
+  // A DIFFERENT note is REFUSED rather than allowed to rewrite a recorded act - the same rule this City follows for
+  // every other user decision.
+  const rewritten=await consume({note:'a different story'});
+  assert.equal(rewritten.status,409);
+  assert.match(JSON.stringify(await rewritten.json()),/CONSUMPTION_ALREADY_RECORDED/);
+  assert.equal((await taskOf(app,taskId)).consumptionNote,'read on the development host');
+
+  // A MEMBER CANNOT TAKE DELIVERY, and a task that is not an agent job cannot be collected at all.
+  const enrollment=await (await fetch(app.url+'/api/v0/device/enroll',{method:'POST',headers:owner,body:JSON.stringify({displayName:'Member'})})).json();
+  const session=(await (await fetch(app.url+'/api/v0/device/session',{method:'POST',headers:V,
+    body:JSON.stringify({installationId:enrollment.installation.installationId,instanceId:enrollment.installation.instanceId,...enrollment.credential})})).json()).credential;
+  const member={...V,Authorization:'Bearer '+session,'Content-Type':'application/json'};
+  const refused=await consume({},member);
+  assert.equal(refused.status,403);
+  assert.match(JSON.stringify(await refused.json()),/AGENT_JOB_OWNER_REQUIRED/);
+  const notAJob=(await (await fetch(app.url+'/api/v0/tasks',{method:'POST',headers:owner,body:JSON.stringify({type:'WAIT'})})).json()).id;
+  const wrong=await fetch(app.url+`/api/v0/node/jobs/${encodeURIComponent(notAJob)}/consumed`,{method:'POST',headers:owner,body:'{}'});
+  assert.equal(wrong.status,409);
+  assert.match(JSON.stringify(await wrong.json()),/NOT_AN_AGENT_JOB/);
+});
+
+test('CAJ 14: the receipt is DERIVED, so it can be recomputed instead of trusted',()=>{
+  const job=normalizeAgentJob(jobSpec(),{enabled:true});
+  const report={jobDigest:job.jobDigest,state:'SUCCEEDED',evidence:'OBSERVED_HERE',summary:'s',artifacts:[]};
+  const args={taskId:'Q-x',job,report,consumedAt:'2026-10-08T00:00:00.000Z',consumedBy:'dev-host',note:'n'};
+  const a=consumptionReceipt(args),b=consumptionReceipt({...args});
+  assert.equal(a.receiptDigest,b.receiptDigest,'the same facts must give the same receipt');
+  // Any field that changes the meaning changes the digest - including the report it is bound to.
+  assert.notEqual(consumptionReceipt({...args,note:'other'}).receiptDigest,a.receiptDigest);
+  assert.notEqual(consumptionReceipt({...args,report:{...report,summary:'different'}}).receiptDigest,a.receiptDigest);
+  assert.ok(Object.isFrozen(a));
+  assert.equal(a.reportDigest,jobDigest(report));
+  // The request validator refuses by name rather than throwing, and re-applies the SAME report validation the City used
+  // when the report arrived - a receipt cannot be issued for something that was never accepted.
+  assert.equal(validateConsumptionRequest(job,undefined).code,'CONSUMPTION_REQUIRES_A_REPORT');
+  assert.equal(validateConsumptionRequest(undefined,report).code,'JOB_REQUIRED');
+  assert.equal(validateConsumptionRequest(job,{...report,jobDigest:'0'.repeat(64)}).code,'REPORT_JOB_MISMATCH');
+  assert.equal(validateConsumptionRequest(job,report).ok,true);
 });

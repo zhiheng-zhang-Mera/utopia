@@ -14,6 +14,9 @@ export {
   MAX_ARTIFACTS,
   normalizeAgentJob,
   validateAgentJobReport,
+  consumptionReceipt,
+  validateConsumptionRequest,
+  CONSUMPTION_AUTHORITY,
   jobDigest,
   isJobExpired,
 } from './job.mjs';

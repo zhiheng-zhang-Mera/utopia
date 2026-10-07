@@ -25,13 +25,16 @@ const states=new WeakMap();
 // accepted browser suite, not by my own shape test.
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const L=(en,zh)=>getLocale()==='zh-CN'?zh:en;
-export function renderResearch(container,online,api,contextKey){
+export function renderResearch(container,online,api,contextKey,capabilities={}){
  let state=states.get(container);
- if(!state||state.key!==contextKey){state={key:contextKey,draft:'',data:null,campaigns:null,result:null,error:'',busy:false};states.set(container,state);}
+ if(!state||state.key!==contextKey){state={key:contextKey,draft:'',data:null,campaigns:null,result:null,error:'',busy:false,exported:''};states.set(container,state);}
  state.online=online;
+ // The artifact export needs the session credential, which lives in the page shell; passing the capability in keeps this
+ // module from reaching for a token it does not own.
+ state.exportArtifact=typeof capabilities.exportArtifact==='function'?capabilities.exportArtifact:null;
  let root=container.querySelector('#research-shell');
  if(!root||root.dataset.locale!==getLocale()||root._researchState!==state){
-  container.innerHTML=`<section id="research-shell" class="panel"><p id="research-intro"></p><div id="research-alerts"></div><details id="research-direct" open><summary id="research-direct-summary"></summary><button id="research-refresh"></button><div id="research-list"></div><details id="research-vocabulary-details"><summary id="research-vocabulary-summary"></summary><pre id="research-vocabulary"></pre></details><label for="research-manifest" id="research-manifest-label"></label><textarea id="research-manifest" rows="12"></textarea><label id="research-import-label"><input id="research-import" type="file" accept=".json,application/json"></label><button id="research-validate"></button><button id="research-register"></button><p id="research-error" role="alert"></p><pre id="research-result" role="status" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details><details id="research-runs" open><summary id="research-runs-summary"></summary><div id="research-run"></div></details><details id="research-metrics" open><summary id="research-metrics-summary"></summary><div id="research-metrics-body"></div></details><details id="research-technical"><summary id="research-technical-summary"></summary><div id="research-technical-body"></div></details></section>`;
+  container.innerHTML=`<section id="research-shell" class="panel"><p id="research-intro"></p><div id="research-alerts"></div><details id="research-direct" open><summary id="research-direct-summary"></summary><button id="research-refresh"></button><div id="research-list"></div><details id="research-vocabulary-details"><summary id="research-vocabulary-summary"></summary><pre id="research-vocabulary"></pre></details><label for="research-manifest" id="research-manifest-label"></label><textarea id="research-manifest" rows="12"></textarea><label id="research-import-label"><input id="research-import" type="file" accept=".json,application/json"></label><button id="research-validate"></button><button id="research-register"></button><p id="research-error" role="alert"></p><pre id="research-result" role="status" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details><details id="research-runs" open><summary id="research-runs-summary"></summary><div id="research-run"></div></details><details id="research-metrics" open><summary id="research-metrics-summary"></summary><div id="research-metrics-body"></div></details><details id="research-export"><summary id="research-export-summary"></summary><p id="research-export-hint"></p><button id="research-export-json"></button><button id="research-export-csv"></button><p id="research-export-status" role="status"></p></details><details id="research-technical"><summary id="research-technical-summary"></summary><div id="research-technical-body"></div></details></section>`;
   root=container.querySelector('#research-shell');root.dataset.locale=getLocale();root._researchState=state;
   const current=()=>root.isConnected&&container.querySelector('#research-shell')===root&&states.get(container)===state;
   const take=(sections,id)=>sections.find(section=>section.id===id)??{title:'',items:[],controls:[]};
@@ -46,6 +49,11 @@ export function renderResearch(container,online,api,contextKey){
    root.querySelector('#research-runs-summary').textContent=runs.title;
    root.querySelector('#research-metrics-summary').textContent=metrics.title;
    root.querySelector('#research-technical-summary').textContent=`${technical.title} · ${L('exact manifests, identifiers, unplaced fields','完整清单、标识符、未归位字段')}`;
+   root.querySelector('#research-export-summary').textContent=L('Export research artifact','导出研究工件');
+   root.querySelector('#research-export-hint').textContent=L('The artifact is built from the campaign receipts this City holds. Metrics it cannot derive leave as NOT_MEASURED with their reason.','工件由本城持有的 campaign 回执生成；无法推导的指标以 NOT_MEASURED 带原因交出。');
+   root.querySelector('#research-export-json').textContent=L('Download artifact (JSON)','下载工件（JSON）');
+   root.querySelector('#research-export-csv').textContent=L('Download metrics (CSV)','下载指标（CSV）');
+   root.querySelector('#research-export-status').textContent=L('Owner session required.','需要 Owner 会话。');
    root.querySelector('#research-refresh').textContent=L('Refresh experiments','刷新实验');
    root.querySelector('#research-vocabulary-summary').textContent=L('Manifest fields and supported values','清单字段与支持的值');
    root.querySelector('#research-manifest-label').textContent=L('Experiment manifest JSON','实验清单 JSON');
@@ -70,6 +78,12 @@ export function renderResearch(container,online,api,contextKey){
    for(const button of root.querySelectorAll('button'))button.disabled=state.busy||!state.online;
    importInput.disabled=state.busy||!state.online;
    root.querySelector('#research-manifest').disabled=state.busy;
+   // Export needs a session credential, not only a live connection, so it is disabled with a stated reason rather than
+   // failing silently when the shell does not supply the capability.
+   const exportReady=typeof state.exportArtifact==='function';
+   for(const id of ['#research-export-json','#research-export-csv']){const button=root.querySelector(id);if(button)button.disabled=state.busy||!state.online||!exportReady;}
+   const exportStatus=root.querySelector('#research-export-status');
+   if(exportStatus)exportStatus.textContent=(exportReady?L("Owner session detected: the export reads this City's own receipts.",'已检测到 Owner 会话：导出读取本城自己的回执。'):L('Owner session required.','需要 Owner 会话。'))+(state.exported?` ${L('Last export:','上次导出：')} ${state.exported}`:'');
   };
   const run=async operation=>{
    if(state.busy||!state.online)return;
@@ -88,6 +102,19 @@ export function renderResearch(container,online,api,contextKey){
   root.querySelector('#research-result').style.maxHeight='28rem';root.querySelector('#research-result').style.overflow='auto';
   root.querySelector('#research-manifest').oninput=e=>{state.draft=e.target.value;};
   root.querySelector('#research-refresh').onclick=()=>run(list);
+  // Export is a DIRECT_CONTROL the workbook names, and before this it existed only as an HTTP endpoint: the workbook's
+  // rule is that the research capability is usable WITHOUT a console or raw API call, so the control is real here and
+  // downloads what the gateway answers.
+  const exportArtifact=async format=>{
+   if(!state.exportArtifact)throw Error(L('This session cannot export.','当前会话无法导出。'));
+   // The capability answers with what it wrote; storing the NAME is what lets the page show which artifact the
+   // operator just downloaded. Reading a string here silently stored '' and the page reported nothing.
+   const result=await state.exportArtifact(format);
+   if(current())state.exported=result?.name??'';
+   return result;
+  };
+  root.querySelector('#research-export-json').onclick=()=>run(()=>exportArtifact('json'));
+  root.querySelector('#research-export-csv').onclick=()=>run(()=>exportArtifact('csv'));
   root.querySelector('#research-list').onclick=e=>{const button=e.target.closest('[data-experiment]');if(button)run(()=>api('research/experiments/'+encodeURIComponent(button.dataset.experiment)));};
   root.querySelector('#research-import').onchange=e=>run(async()=>{const file=e.target.files?.[0];if(!file)return null;if(file.size>256*1024)throw Error(L('File exceeds 256 KiB','文件超过 256 KiB'));const draft=await file.text();JSON.parse(draft);if(current()){state.draft=draft;root.querySelector('#research-manifest').value=draft;}return {imported:true,registered:false};});
   root.querySelector('#research-validate').onclick=()=>run(()=>api('research/experiments/validate',{manifest:JSON.parse(state.draft)}));

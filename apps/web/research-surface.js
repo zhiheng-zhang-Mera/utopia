@@ -170,9 +170,14 @@ export const researchView = (payload = {}, {locale = 'en', primarySurfaces = []}
       level: SURFACE_LEVELS.DIRECT_CONTROL,
       collapsed: false,
       items: [],
+      // Replay and ablation live on the campaign surface (apps/web/research-replay.js); artifact export is implemented
+      // HERE, because the workbook requires the research capability to be usable without a raw API call and export was
+      // the one DIRECT_CONTROL that existed only as an endpoint. A control listed but not wired is a false button, so
+      // every control declares where it is actually implemented.
+      note: L(locale, 'Replay and ablation are on the Campaign surface. The artifact export is here.', '回放与消融在 Campaign 面；工件导出在本页。'),
       controls: [
-        {id: 'replay', label: L(locale, 'Replay selected run', '回放所选运行'), level: SURFACE_LEVELS.DIRECT_CONTROL, requiresConfirmation: false},
-        {id: 'export', label: L(locale, 'Export artifact', '导出工件'), level: SURFACE_LEVELS.DIRECT_CONTROL, requiresConfirmation: false},
+        {id: 'replay', label: L(locale, 'Replay selected run', '回放所选运行'), level: SURFACE_LEVELS.DIRECT_CONTROL, requiresConfirmation: false, wired: false, wiredAt: 'research-replay'},
+        {id: 'export', label: L(locale, 'Export artifact', '导出工件'), level: SURFACE_LEVELS.DIRECT_CONTROL, requiresConfirmation: false, wired: true, wiredAt: 'research-export'},
       ],
     },
     faultSection(payload.faults, locale),

@@ -84,7 +84,12 @@ test('Web freshness, device detail, node offline and pairing expiry',async()=>{
  assert.equal((await fetch(app.url+'/api/v0/node/heartbeat',{method:'POST',headers,body:JSON.stringify({id:'test-device',telemetry:stale})})).status,200);
  await page.locator('#view .telemetry.cached').waitFor();assert.equal(await page.locator('[data-member-card="test-device"] .badge.ONLINE').count(),0);
  const node=app.store.get('nodes','test-device');app.store.put('nodes',{...node,online:false});
- await page.locator('[data-member-card="test-device"] .badge.OFFLINE').waitFor();
+ // An OFFLINE device is not a device you can reach, so it leaves the LIVE list rather than sitting there as a dead row
+ // (the owner's report: "in the connected state it should not show old or offline devices"). It is not forgotten: the
+ // City still holds and reports it, which is what the second assertion pins down.
+ await page.locator('[data-member-card="test-device"]').waitFor({state:'detached'});
+ const reported=(await(await fetch(app.url+'/api/v0/city',{headers:{Authorization:'Bearer web-test','X-City-Api-Version':'0','X-City-Schema-Version':'0'}})).json()).nodes.some(n=>n.id==='test-device');
+ assert.equal(reported,true,'an offline device is hidden from the live list, not dropped from the City');
  await page.locator('[data-page="Pairing"]').click();await page.getByRole('button',{name:'Generate pairing session',exact:true}).click();await page.locator('#pairing-qr svg').waitFor();
  // JOIN-501: expiry removes the material, says so, and offers generation again - it does not auto-generate.
  await page.locator('#pairing-code').waitFor({state:'detached',timeout:5000});assert.match(await page.locator('#view').innerText(),/expired/);

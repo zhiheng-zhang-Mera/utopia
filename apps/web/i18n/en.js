@@ -299,6 +299,7 @@ export const messages = {
   'section.taskEvents': 'Task events',
 
   'empty.noTasks': 'No tasks yet. Run your first test task.',
+  'empty.noDevicesHere': 'No device is present right now.',
   'empty.waitingRuntimeNode': 'Waiting for a runtime node.',
 
   'task.cancel': 'Cancel task',

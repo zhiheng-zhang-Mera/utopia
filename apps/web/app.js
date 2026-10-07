@@ -1,3 +1,4 @@
+import {platformSummary} from './platform-label.mjs';
 import {renderDeviceRecovery} from './device-recovery.js';
 import {renderServices} from './services.js';
 import {renderResearch} from './research.js';
@@ -632,12 +633,33 @@ const nodeState=n=>connection!=='ONLINE'?'UNKNOWN':!n.online?'OFFLINE':fresh(n)?
 const nodeBadge=n=>{const state=nodeState(n);const label=state==='UNKNOWN'?t('node.unknown'):t('connection.'+state.toLowerCase());return badge(state,label);};
 const fresh=n=>connection==='ONLINE'&&n.online&&Number.isFinite(Date.parse(n.telemetry?.observedAt))&&Date.now()-Date.parse(n.telemetry.observedAt)<=10000&&Date.now()>=Date.parse(n.telemetry.observedAt);
 const metrics=n=>{const sample=n.telemetry||{},valid=fresh(n);return `<div class="telemetry ${valid?'fresh':'cached'}"><p class="muted">${valid?t('device.live'):t('device.cached')} · ${esc(t('device.observed'))} ${esc(age(sample.observedAt))}</p><dl class="metrics"><div><dt>CPU</dt><dd>${Number.isFinite(sample.cpu?.usagePercent)?esc(sample.cpu.usagePercent.toFixed(1))+'%':t('device.unknown')}</dd></div><div><dt>${esc(t('device.memory'))}</dt><dd>${bytes(sample.memory?.usedBytes)} / ${bytes(sample.memory?.totalBytes)}</dd></div><div><dt>${esc(t('device.disk'))}</dt><dd>${bytes(sample.disk?.usedBytes)} / ${bytes(sample.disk?.totalBytes)}<small>${esc(t('device.free'))} ${bytes(sample.disk?.freeBytes)}</small></dd></div><div><dt>${esc(t('device.uptime'))}</dt><dd>${Number.isFinite(sample.uptimeSeconds)?Math.floor(sample.uptimeSeconds/3600)+'h '+Math.floor(sample.uptimeSeconds%3600/60)+'m':t('device.unknown')}</dd></div></dl></div>`;};
-const legacyNodeRows=()=>city.nodes.map(n=>`<article class="device-card"><div class="row"><div class="node-info"><span class="node-icon" aria-hidden="true"></span><div><button class="task-open" data-node="${esc(n.id)}">${esc(n.displayName)}</button><p class="muted">${esc(n.metadata?.platform)} · ${esc(t('device.agent'))} ${esc(n.agentVersion||t('device.unknown'))}</p><small>${connection==='ONLINE'?'':t('device.cachedPrefix')}${esc(t('device.lastSeen'))} ${esc(age(n.lastHeartbeatAt))}</small></div></div>${nodeBadge(n)}</div>${metrics(n)}</article>`).join('')||`<p class="muted">${esc(t('empty.waitingRuntimeNode'))}</p>`;
+// WHICH DEVICES BELONG ON THE DEVICES SURFACE. While connected, a row must mean "this device is here": an offline
+// machine, a stale heartbeat or a device this City no longer knows about is not a device you can reach, and listing it
+// beside a live one is how a user came to believe a machine was present when it was not. The RAW rows stay available in
+// Technical details, because hiding a fact and forgetting it are different things.
+const memberIsHere=m=>Boolean(m)&&(m.online===true||m.controlOnline===true||m.computeOnline===true);
+const nodeIsHere=n=>Boolean(n)&&(n.online===true||fresh(n));
+const visibleMembers=()=>{
+ if(!Array.isArray(city.members))return null;
+ const rows=city.members.filter(memberIsHere);
+ // While connected, an OFFLINE device is not a device you can reach, so it leaves the live list instead of sitting
+ // there as a dead row (the report: "in the connected state it should not show old or offline devices"). The host row
+ // itself is NOT removed: the accepted contract for this surface is that a member sees ITSELF FIRST among the City's
+ // devices, and hiding it would answer a different question than the one the page is for. The defect that made the
+ // host row wrong was that its presence was ASSERTED - fixed where presence is decided (memberSnapshot), not here, so
+ // a host with no computing agent renders as a device without an agent rather than as an online one.
+ return connection==='ONLINE'?rows:[...city.members];
+};
+const visibleNodes=()=>{
+ const rows=city.nodes.filter(nodeIsHere);
+ return connection==='ONLINE'?rows:[...city.nodes];
+};
+const legacyNodeRows=()=>visibleNodes().map(n=>`<article class="device-card"><div class="row"><div class="node-info"><span class="node-icon" aria-hidden="true"></span><div><button class="task-open" data-node="${esc(n.id)}">${esc(n.displayName)}</button><p class="muted">${esc(platformSummary(n.metadata) || t('device.unknown'))} · ${esc(t('device.agent'))} ${esc(n.agentVersion||t('device.unknown'))}</p><small>${connection==='ONLINE'?'':t('device.cachedPrefix')}${esc(t('device.lastSeen'))} ${esc(age(n.lastHeartbeatAt))}</small></div></div>${nodeBadge(n)}</div>${metrics(n)}</article>`).join('')||`<p class="muted">${esc(t('empty.waitingRuntimeNode'))}</p>`;
 const ownMemberRef=()=>city?.currentMemberRef||webClientRef();
-const nodeRows=()=>!city.members?legacyNodeRows():[...city.members].sort((a,b)=>(a.deviceId===ownMemberRef()?-1:b.deviceId===ownMemberRef()?1:0)).map(m=>{
+const nodeRows=()=>!city.members?legacyNodeRows():[...(visibleMembers()??[])].sort((a,b)=>(a.deviceId===ownMemberRef()?-1:b.deviceId===ownMemberRef()?1:0)).map(m=>{
  const n=city.nodes.find(n=>n.id===m.nodeId);const title=(m.deviceId===ownMemberRef()?t('members.thisDevice')+' · ':'')+m.displayName;
- return '<article class="device-card" data-member-card="'+esc(m.deviceId)+'"><div class="row"><div><button class="task-open" data-member="'+esc(m.deviceId)+'"'+(n?' data-node="'+esc(n.id)+'"':'')+'>'+esc(title)+'</button><p class="muted">'+esc(t('members.role.'+m.role))+' · '+esc(m.computeOnline?(m.sharingEnabled?t('members.sharing'):t('members.notSharing')):t('members.noAgent'))+'</p></div>'+(n?nodeBadge(n):connection!=='ONLINE'?badge('UNKNOWN',t('node.unknown')):badge(m.online?'ONLINE':'OFFLINE',t('connection.'+(m.online?'online':'offline'))))+'</div>'+(n?metrics(n):'')+'</article>';
-}).join('');
+ return '<article class="device-card" data-member-card="'+esc(m.deviceId)+'"><div class="row"><div><button class="task-open" data-member="'+esc(m.deviceId)+'"'+(n?' data-node="'+esc(n.id)+'"':'')+'>'+esc(title)+'</button><p class="muted">'+esc(t('members.role.'+m.role))+' · '+esc(m.computeOnline?(m.sharingEnabled?t('members.sharing'):t('members.notSharing')):t('members.noAgent'))+'</p>'+(n?'<p class="muted">'+esc(platformSummary(n.metadata))+'</p>':'')+'</div>'+(n?nodeBadge(n):connection!=='ONLINE'?badge('UNKNOWN',t('node.unknown')):badge(m.online?'ONLINE':'OFFLINE',t('connection.'+(m.online?'online':'offline'))))+'</div>'+(n?metrics(n):'')+'</article>';
+}).join('')||`<p class="muted">${esc(t('empty.noDevicesHere'))}</p>`;
 function memberDetail(m){
  const mine=m.deviceId===ownMemberRef();const history=memberMessages.filter(x=>(x.senderDeviceId===m.deviceId&&x.targetDeviceId===ownMemberRef())||(x.targetDeviceId===m.deviceId&&x.senderDeviceId===ownMemberRef()));
  return '<section id="member-detail" data-member-detail="'+esc(m.deviceId)+'">'+(m.nodeId?'':'<h2>'+esc(m.displayName)+'</h2>')+'<p>'+esc(t('members.role.'+m.role))+'</p>'+(mine&&m.nodeId?'<button id="member-sharing" data-enabled="'+String(!m.sharingEnabled)+'">'+esc(t(m.sharingEnabled?'members.stopSharing':'members.startSharing'))+'</button>':'')+'<h3>'+esc(t('members.messages'))+'</h3><div id="member-message-history">'+history.map(x=>'<p>'+esc(x.text)+' · '+esc(t(x.state==='RECEIVED'?'members.received':'members.pending'))+'</p>').join('')+'</div>'+(!mine?'<form id="member-message-form"><label for="member-message-text">'+esc(t('members.message'))+'</label><input id="member-message-text" maxlength="4096" required value="'+esc(memberDrafts.get(m.deviceId)||'')+'"><button id="member-message-send" type="submit">'+esc(t('members.send'))+'</button></form>':'')+'</section>';
@@ -769,7 +791,22 @@ function render(){
  if(page==='Home')$('#view').innerHTML=assistantSlot()+`<div class="grid" style="margin-top:14px"><section class="panel"><h2>${esc(t('section.runtimeNodes'))}</h2>${nodeRows()}</section><section class="panel"><h2>${esc(t('section.recentActivity'))}</h2>${events(city.events.slice(-4))}</section></div><section class="panel" style="margin-top:12px" id="home-rooms"><h2>${esc(t('section.homeRooms'))}</h2><p class="muted">${esc(t('home.rooms.hint'))}</p><div id="home-rooms-body"><p class="muted">${esc(t('terminal.loading'))}</p></div></section><section class="panel" style="margin-top:12px"><h2>${esc(t('section.recentTasks'))}</h2>${taskRows(tasks.slice(-5))}</section>`;
  if(page==='Home')homeRooms();
  if(page==='Services')renderServices($('#view'),city,connection==='ONLINE',api);
- if(page==='Research')renderResearch($('#view'),connection==='ONLINE',api,city.cityId+':'+generation);
+ if(page==='Research')renderResearch($('#view'),connection==='ONLINE',api,city.cityId+':'+generation,{owner:!city.enrolledDevice&&!token.startsWith('sess:'),exportArtifact:async format=>{
+    // REX-807: the workbook names Export as a DIRECT_CONTROL and requires the capability to be usable WITHOUT a raw API
+    // call. Before this it existed only as an HTTP endpoint. The request is the same owner-only surface REX-806
+    // published - this only puts a real control in front of it, and nothing here decides trust or fills a missing metric.
+    const path='/api/v0/research/artifacts'+(format==='csv'?'?format=csv':'');
+    const response=await fetch(path,{headers:{Authorization:'Bearer '+token,'X-City-Api-Version':'0','X-City-Schema-Version':'0'},signal:AbortSignal.timeout(20000)});
+    if(!response.ok){const body=await response.json().catch(()=>null);throw Object.assign(Error(body?.error??('Export refused ('+response.status+')')),{status:response.status,code:body?.errorCode});}
+    const body=await response.json();
+    if(format==='csv'&&typeof body.metricsCsv!=='string')throw Error('Artifact response did not contain a CSV metric table');
+    const text=format==='csv'?body.metricsCsv:JSON.stringify(body,null,2)+'\n';
+    const stamp=new Date().toISOString().replace(/[:.]/g,'-');
+    const name=format==='csv'?('research-metrics-'+stamp+'.csv'):('research-artifact-'+stamp+'.json');
+    const url=URL.createObjectURL(new Blob([text],{type:format==='csv'?'text/csv':'application/json'}));
+    const link=document.createElement('a');link.href=url;link.download=name;document.body.append(link);link.click();link.remove();URL.revokeObjectURL(url);
+    return {name, format, bytes: text.length};
+  }});
  if(page==='Governance'){
   const credential=token,cityId=city.cityId;
   governanceView.render($('#view'),{contextKey:credential+'|'+cityId,online:connection==='ONLINE',api,isCurrent:()=>page==='Governance'&&token===credential&&city?.cityId===cityId});
@@ -807,7 +844,7 @@ function render(){
  // owner's approval cards from JOIN-502 are added to it there rather than re-rendering the page a second time.
  const messageField=$('#member-message-text');const messageFocus=messageField===document.activeElement?{start:messageField.selectionStart,end:messageField.selectionEnd}:null;
  const detail=city.tasks.find(t=>t.id===selected);$('#detail').hidden=!detail;if(detail)$('#detail').innerHTML=`<h2>${esc(detail.type)}</h2><div class="task-id">${esc(detail.id)}</div><p>${badge(detail.state)} · ${esc(detail.assignedNodeId||t('status.waitingNode'))}</p><progress max="100" value="${detail.progress}"></progress><h3>${esc(t('section.checkpoint'))}</h3><pre>${esc(JSON.stringify(detail.lastCheckpoint,null,2))}</pre><h3>${esc(t('section.result'))}</h3><pre>${esc(JSON.stringify(detail.result||detail.error,null,2))}</pre>${!finished(detail)?`<button id="cancel">${esc(t('task.cancel'))}</button>`:''}<h3>${esc(t('section.taskEvents'))}</h3>${events(city.events.filter(e=>e.taskId===detail.id))}`;
- const device=city.nodes.find(n=>n.id===selectedNode);if(device){$('#detail').hidden=false;$('#detail').innerHTML=`<h2>${esc(device.displayName)}</h2><p>${nodeBadge(device)} · ${esc(device.metadata?.platform)} · ${esc(t('device.agent'))} ${esc(device.agentVersion||t('device.unknown'))}</p><p class="task-id">${esc(device.id)}</p><p>${esc(t('device.lastSeen'))} ${esc(age(device.lastHeartbeatAt))}</p>${metrics(device)}<h3>${esc(t('device.capabilities'))}</h3><p>${esc(device.capabilities.join(' / '))}</p><h3>${esc(t('device.currentTasks'))}</h3>${taskRows(tasks.filter(t=>t.assignedNodeId===device.id&&!finished(t)),t('device.noTasks'))}<h3>${esc(t('device.recentEvents'))}</h3>${events(city.events.filter(e=>e.payload?.nodeId===device.id||tasks.some(t=>t.id===e.taskId&&t.assignedNodeId===device.id)).slice(-12),true)||`<p class="muted">${esc(t('device.noEvents'))}</p>`}`;}
+ const device=city.nodes.find(n=>n.id===selectedNode);if(device){$('#detail').hidden=false;$('#detail').innerHTML=`<h2>${esc(device.displayName)}</h2><p>${nodeBadge(device)} · ${esc(platformSummary(device.metadata) || t('device.unknown'))} · ${esc(t('device.agent'))} ${esc(device.agentVersion||t('device.unknown'))}</p><p class="task-id">${esc(device.id)}</p><p>${esc(t('device.lastSeen'))} ${esc(age(device.lastHeartbeatAt))}</p>${metrics(device)}<h3>${esc(t('device.capabilities'))}</h3><p>${esc(device.capabilities.join(' / '))}</p><h3>${esc(t('device.currentTasks'))}</h3>${taskRows(tasks.filter(t=>t.assignedNodeId===device.id&&!finished(t)),t('device.noTasks'))}<h3>${esc(t('device.recentEvents'))}</h3>${events(city.events.filter(e=>e.payload?.nodeId===device.id||tasks.some(t=>t.id===e.taskId&&t.assignedNodeId===device.id)).slice(-12),true)||`<p class="muted">${esc(t('device.noEvents'))}</p>`}`;}
  const member=city.members?.find(m=>m.deviceId===(selectedMember||selectedNode));if(member){$('#detail').hidden=false;if(!selectedNode)$('#detail').innerHTML='';$('#detail').insertAdjacentHTML('beforeend',memberDetail(member));if(messageFocus){const field=$('#member-message-text');field?.focus({preventScroll:true});field?.setSelectionRange(messageFocus.start,messageFocus.end);}}
 
 }

@@ -295,6 +295,7 @@ export const messages = {
   'section.taskEvents': '任务事件',
 
   'empty.noTasks': '还没有任务。运行第一个测试任务。',
+  'empty.noDevicesHere': '当前没有已接入的设备。',
   'empty.waitingRuntimeNode': '正在等待运行时节点。',
 
   'task.cancel': '取消任务',

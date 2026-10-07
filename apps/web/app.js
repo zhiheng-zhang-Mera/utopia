@@ -788,7 +788,20 @@ function render(){
  if(page==='Home')$('#view').innerHTML=assistantSlot()+`<div class="grid" style="margin-top:14px"><section class="panel"><h2>${esc(t('section.runtimeNodes'))}</h2>${nodeRows()}</section><section class="panel"><h2>${esc(t('section.recentActivity'))}</h2>${events(city.events.slice(-4))}</section></div><section class="panel" style="margin-top:12px" id="home-rooms"><h2>${esc(t('section.homeRooms'))}</h2><p class="muted">${esc(t('home.rooms.hint'))}</p><div id="home-rooms-body"><p class="muted">${esc(t('terminal.loading'))}</p></div></section><section class="panel" style="margin-top:12px"><h2>${esc(t('section.recentTasks'))}</h2>${taskRows(tasks.slice(-5))}</section>`;
  if(page==='Home')homeRooms();
  if(page==='Services')renderServices($('#view'),city,connection==='ONLINE',api);
- if(page==='Research')renderResearch($('#view'),connection==='ONLINE',api,city.cityId+':'+generation);
+ if(page==='Research')renderResearch($('#view'),connection==='ONLINE',api,city.cityId+':'+generation,{exportArtifact:async format=>{
+    // REX-807: the workbook names Export as a DIRECT_CONTROL and requires the capability to be usable WITHOUT a raw API
+    // call. Before this it existed only as an HTTP endpoint. The request is the same owner-only surface REX-806
+    // published - this only puts a real control in front of it, and nothing here decides trust or fills a missing metric.
+    const path='/api/v0/research/artifacts'+(format==='csv'?'?format=csv':'');
+    const response=await fetch(path,{headers:{Authorization:'Bearer '+token,'X-City-Api-Version':'0','X-City-Schema-Version':'0'},signal:AbortSignal.timeout(20000)});
+    if(!response.ok){const body=await response.json().catch(()=>null);throw Object.assign(Error(body?.error??('Export refused ('+response.status+')')),{status:response.status,code:body?.errorCode});}
+    const text=await response.text();
+    const stamp=new Date().toISOString().replace(/[:.]/g,'-');
+    const name=format==='csv'?('research-metrics-'+stamp+'.csv'):('research-artifact-'+stamp+'.json');
+    const url=URL.createObjectURL(new Blob([text],{type:format==='csv'?'text/csv':'application/json'}));
+    const link=document.createElement('a');link.href=url;link.download=name;document.body.append(link);link.click();link.remove();URL.revokeObjectURL(url);
+    return {name, format, bytes: text.length};
+  }});
  if(page==='ResearchCampaign'){
   const credential=token,cityId=city.cityId;
   researchCampaignView.render($('#view'),{contextKey:credential+'|'+cityId,online:connection==='ONLINE',api,isCurrent:()=>page==='ResearchCampaign'&&token===credential&&city?.cityId===cityId});

@@ -1,4 +1,8 @@
 import {getLocale} from './i18n/index.js';
+// The confirmation token is NOT spelled out here. It is built by research-surface.js from the same shape the gateway
+// enforces (FAULT:<kind>:<nodeId>), because a page that phrases its own confirmation can drift away from the gateway
+// and then refuse an operator who followed the instruction exactly.
+import {faultConfirmationToken} from './research-surface.js';
 const states=new WeakMap(),L=(en,zh)=>getLocale()==='zh-CN'?zh:en;
 export function renderFaults(container,online,api,key){
  let state=states.get(container);if(!state||state.key!==key){state={key,active:null,busy:false,data:null};states.set(container,state);}state.online=online;
@@ -13,18 +17,27 @@ export function renderFaults(container,online,api,key){
   const current=()=>root.isConnected&&states.get(container)===state&&container.querySelector('#fault-danger')===root;
   const show=()=>{if(!current())return;root.querySelector('#fault-output').textContent=state.data?JSON.stringify(state.data,null,2):'';root.querySelector('#fault-start').disabled=state.busy||!state.online||state.storeUnavailable;root.querySelector('#fault-store-status').textContent=state.storeUnavailable?L('Fault storage is unavailable. Injection is disabled; normal City tasks remain available.','故障存储不可用，注入已禁用；普通City任务仍可使用。'):'';root.querySelector('#fault-refresh').disabled=state.busy||!state.online;root.querySelector('#fault-stop').disabled=!state.online||!state.active;};
   const action=async(fn,emergency=false)=>{if(!state.online||state.busy&&!emergency)return;state.busy=true;root.querySelector('#fault-error').textContent='';show();try{const data=await fn();if(current())state.data=data;}catch(error){if(current())root.querySelector('#fault-error').textContent=error.message;}finally{state.busy=false;show();}};
-  const hint=()=>{root.querySelector('#fault-confirmation-hint').textContent=L('Required confirmation: ','必须输入的确认内容：')+'FAULT:'+root.querySelector('#fault-kind').value+':'+root.querySelector('#fault-node').value;root.querySelector('#fault-confirmation').value='';};
+  const expectedToken=()=>faultConfirmationToken({kind:root.querySelector('#fault-kind').value,nodeId:root.querySelector('#fault-node').value});
+  const hint=()=>{root.querySelector('#fault-confirmation-hint').textContent=L('Required confirmation: ','必须输入的确认内容：')+expectedToken();root.querySelector('#fault-confirmation').value='';};
   const refresh=async()=>{
    const [data,nodes]=await Promise.all([api('research/faults'),api('nodes')]);if(!current())return data;
    state.storeUnavailable=data.storeState==='UNAVAILABLE';
    const kinds=root.querySelector('#fault-kind');if(!kinds.options.length)for(const kind of data.kinds){const option=document.createElement('option');option.value=kind;option.textContent=kind;kinds.append(option);}
    const selected=root.querySelector('#fault-node').value;const target=root.querySelector('#fault-node');target.replaceChildren();for(const node of nodes.nodes.filter(n=>n.online)){const option=document.createElement('option');option.value=node.id;option.textContent=node.displayName+' · '+node.id;target.append(option);}if([...target.options].some(o=>o.value===selected))target.value=selected;
-   root.querySelector('#fault-confirmation-hint').textContent=L('Required confirmation: ','必须输入的确认内容：')+'FAULT:'+kinds.value+':'+target.value;
+   root.querySelector('#fault-confirmation-hint').textContent=L('Required confirmation: ','必须输入的确认内容：')+expectedToken();
    const list=root.querySelector('#fault-list');list.replaceChildren();for(const row of data.faults){const button=document.createElement('button');button.textContent=row.kind+' · '+row.nodeId+' · '+row.status;button.onclick=()=>action(async()=>{state.active=row.faultId;return api('research/faults/'+row.faultId);});list.append(button);}
    return state.active?api('research/faults/'+state.active):data;
   };
   root.querySelector('#fault-node').onchange=hint;root.querySelector('#fault-kind').onchange=hint;
-  root.querySelector('#fault-start').onclick=()=>action(async()=>{const data=await api('research/faults',{kind:root.querySelector('#fault-kind').value,nodeId:root.querySelector('#fault-node').value,durationMs:Number(root.querySelector('#fault-duration').value),confirmation:root.querySelector('#fault-confirmation').value});if(current()){state.active=data.fault.faultId;root.querySelector('#fault-confirmation').value='';}return data;});
+  root.querySelector('#fault-start').onclick=()=>action(async()=>{
+   const typed=root.querySelector('#fault-confirmation').value;const expected=expectedToken();
+   // An EMPTY confirmation is not a confirmation attempt, it is an unfilled form: it is refused locally so no request is
+   // made at all. Any NON-EMPTY confirmation is submitted, because the gateway is the authority on the token - its typed
+   // 403 FAULT_CONFIRMATION_REQUIRED reaches the operator rather than being pre-empted by a client guess. (An earlier
+   // revision of this change refused every mismatch locally, which silently displaced the accepted REX-804 boundary that
+   // tests/rex804-web.test.mjs asserts; an accepted test is not redefined to accommodate a UI change.)
+   if(typed.trim().length===0)throw Error('FAULT_CONFIRMATION_REQUIRED: '+L('the fault was not injected; type exactly ','未注入故障；请原样输入 ')+expected);
+   const data=await api('research/faults',{kind:root.querySelector('#fault-kind').value,nodeId:root.querySelector('#fault-node').value,durationMs:Number(root.querySelector('#fault-duration').value),confirmation:typed});if(current()){state.active=data.fault.faultId;root.querySelector('#fault-confirmation').value='';}return data;});
   root.querySelector('#fault-stop').onclick=()=>action(()=>api('research/faults/'+state.active+'/stop',{}),true);
   root.querySelector('#fault-refresh').onclick=()=>action(refresh);
   const poll=()=>{if(!current())return;if(state.online&&!state.busy&&root.open)action(refresh);setTimeout(poll,1000);};root._show=show;show();action(refresh);setTimeout(poll,1000);

@@ -18,4 +18,6 @@ node scripts/verify-dgx-series.mjs --expected-sha <full-40-character-SHA> --seco
 
 命令一次跑完十三场景受控验证包，包含本地真实 Gateway/Web 与真实 PCF 底层集成；记录物理 hostname、exact SHA、Node 版本、运行前后干净状态、日志及 checksum。输出目录必须为源码外新目录。开发机不能使用 `--second-host`。受控运行 PASS 是供复检人使用的证据，不自动生成正式验收 marker；第二机操作人统一审查整个系列、全套 CI 和剩余生产/领域接缝后，在 Digital-City 记录一份系列 verdict，八本工作书共同引用，无需逐本停顿。
 
+结果 receipt 必须匹配 case/node/snapshot，`readExecutionRefs` 必填。最终复核需携带当前 `content_revision`。集成内容变化会归档旧复核、要求重新复核，保留初始判断与修正历史。Release 选择必须引用已收集 claims/evidence/assumptions，声明不确定性与 unresolved questions 继续可见。
+
 临床模拟、自主执行/晋升、生产 release 不属于本次开发声明。unknown、dissent 与 fail-closed 门槛继续可见。没有新建 scheduler、reputation store、device identity 或 canonical task 生命周期。

@@ -62,7 +62,9 @@ export function createGovernanceService({dir,readTask,ports={}}={}){
     requireThat(ports.pcf,'PCF_726_UNAVAILABLE');verifyParticipant(a.receipt,c);const n=node(a.node_ref);
     requireThat(!c.results.some(x=>x.node_ref===n.node_id),'NODE_RESULT_IMMUTABLE');
     // Canonical execution identities are resolved by the trusted host, never overridden by action JSON.
-    const executionRefs=typeof ports.readExecutionRefs==='function'?safe(ports.readExecutionRefs(n,c,a.receipt)):a.canonical_refs;
+    requireThat(typeof ports.readExecutionRefs==='function','CANONICAL_EXECUTION_REFS_UNAVAILABLE');
+    requireThat(a.receipt.case_ref===c.case_ref&&a.receipt.node_ref===n.node_id&&a.receipt.snapshot_version===c.snapshot.snapshot_version,'RESULT_CASE_NODE_SNAPSHOT_MISMATCH');
+    const executionRefs=safe(ports.readExecutionRefs(n,c,a.receipt));
     requireThat(executionRefs?.candidate_sha===undefined||executionRefs.candidate_sha===c.candidate_sha,'RESULT_CANDIDATE_MISMATCH');
     const capsule=compileTaskCapsule(n,c.snapshot,ports.pcf,executionRefs);const r=validateGovernanceResult(capsule,a.receipt,ports.pcf);
     requireThat(ref(r.participant_ref),'RESULT_PARTICIPANT_REQUIRED');c.results.push(r);
@@ -110,6 +112,7 @@ export function createGovernanceService({dir,readTask,ports={}}={}){
    }
    case 'FINAL_REVIEW':{
     verifyParticipant(a.receipt,c);requireThat(a.receipt.case_ref===c.case_ref&&a.receipt.candidate_sha===c.candidate_sha&&c.participants.some(p=>p.participant_ref===a.receipt.participant_ref),'REVIEW_CASE_MISMATCH');
+    requireThat(a.receipt.content_revision===(c.content_revision??1),'REVIEW_CONTENT_REVISION_REQUIRED');
     requireThat(!c.reviews.some(r=>r.participant_ref===a.receipt.participant_ref),'FINAL_REVIEW_IMMUTABLE');c.reviews.push(a.receipt);break;
    }
    case 'DISSENT':verifyParticipant(a.receipt,c);requireThat(c.participants.some(p=>p.participant_ref===a.receipt.participant_ref)&&ref(a.receipt.statement),'DISSENT_PARTICIPANT_REQUIRED');c.dissent.push(a.receipt);break;
@@ -125,12 +128,18 @@ export function createGovernanceService({dir,readTask,ports={}}={}){
    }
    case 'EVALUATE_RELEASE':{
     // Case identity, participants and collected results cannot be replaced by request JSON.
-    c.release=evaluateRelease({...a.input,case_ref:c.case_ref,candidate_sha:c.candidate_sha,owner_only:c.owner_only??true,participants:c.participants.map(p=>p.participant_ref),reviews:c.reviews,objections:c.conflicts,dissent:c.dissent,unresolved_uncertainty:[...c.snapshot.known_unknowns,...c.results.flatMap(x=>x.uncertainty)],required_domain_gates:[c.domain]},ports.release);
+    c.release=evaluateRelease({...a.input,case_ref:c.case_ref,candidate_sha:c.candidate_sha,owner_only:c.owner_only??true,participants:c.participants.map(p=>p.participant_ref),reviews:c.reviews,objections:c.conflicts,dissent:c.dissent,unresolved_uncertainty:[...c.snapshot.known_unknowns,...c.results.flatMap(x=>[...x.uncertainty,...x.unresolved_questions]),...c.claims.flatMap(x=>x.uncertainty)],required_domain_gates:[c.domain]},ports.release);
+    const claims=new Set(c.claims.map(x=>x.claim_ref)),evidence=new Set([...c.snapshot.evidence_refs,...c.claims.flatMap(x=>x.evidence_refs),...c.results.flatMap(x=>x.evidence_refs)]),assumptions=new Set([...c.claims.flatMap(x=>x.assumptions),...c.results.flatMap(x=>x.assumptions)]);
+    if(![ ['accepted_claim_refs',claims],['accepted_evidence_refs',evidence],['accepted_assumptions',assumptions] ].every(([key,known])=>Array.isArray(a.input[key])&&a.input[key].every(x=>known.has(x))))c.release={...c.release,state:'BLOCKED',blocks:[...c.release.blocks,'ACCEPTED_REFERENCES_OUTSIDE_COLLECTED_CANDIDATE']};
     if(c.results.length!==c.graph.nodes.length)c.release={...c.release,state:'BLOCKED',blocks:[...c.release.blocks,'NODE_RESULTS_INCOMPLETE']};break;
    }
    default:requireThat(false,'UNKNOWN_GOVERNANCE_ACTION');
   }
   // Any change invalidates a previous candidate release verdict.
+  if(!['FINAL_REVIEW','DISSENT','EVALUATE_RELEASE'].includes(a.action)){
+   c.content_revision=(c.content_revision??1)+1;
+   c.review_history=[...(c.review_history??[]),...c.reviews];c.reviews=[];
+  }
   if(!['EVALUATE_RELEASE','APPEAL'].includes(a.action))c.release={state:'NOT_RUN',blocks:['CASE_CHANGED_REVALIDATION_REQUIRED']};
   if(c.appeal_escalation||c.appeals.some(x=>!ref(x.resolution_receipt_ref)))c.release={...c.release,state:c.appeal_escalation?'OWNER_REQUIRED':'BLOCKED',blocks:[...c.release.blocks,'APPEAL_PENDING']};
   c.revision++;save(c);return inspect(id);

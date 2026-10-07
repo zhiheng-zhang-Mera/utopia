@@ -1,5 +1,5 @@
 import {spawnSync} from 'node:child_process';
-import {readFileSync,writeFileSync,mkdirSync,existsSync} from 'node:fs';
+import {readFileSync,writeFileSync,mkdirSync,existsSync,readdirSync} from 'node:fs';
 import {resolve,relative,isAbsolute} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {hostname,tmpdir} from 'node:os';
@@ -18,7 +18,7 @@ const rel=relative(root,out);if(rel===''||(!rel.startsWith('..')&&!isAbsolute(re
 if(existsSync(out))throw Error('EVIDENCE_DIRECTORY_MUST_BE_NEW');mkdirSync(out,{recursive:true});
 const matrix=JSON.parse(readFileSync(resolve(root,'contracts/deliberative-governance-v2/acceptance-matrix.json'),'utf8'));
 if(matrix.scenarios.length!==13||new Set(matrix.scenarios.map(x=>x.scenario)).size!==13)throw Error('SERIES_SCENARIO_COVERAGE_REQUIRED');
-const tests=[...new Set([...matrix.scenarios.flatMap(x=>x.tests),'tests/dgx-substrate.test.mjs','tests/dgx-pcf-port.test.mjs','tests/pcf726-capsule.test.mjs'])];
+const tests=[...new Set([...matrix.scenarios.flatMap(x=>x.tests),...readdirSync(resolve(root,'tests')).filter(x=>/^dgx-[a-z0-9-]+\.test\.mjs$/.test(x)).map(x=>'tests/'+x),'tests/pcf726-capsule.test.mjs'])];
 for(const path of tests)if(!/^tests\/[a-z0-9-]+\.test\.mjs$/.test(path)||!existsSync(resolve(root,path)))throw Error('TEST_EVIDENCE_MISSING');
 const started=Date.now(),run=spawnSync(process.execPath,['--test',...tests],{cwd:root,encoding:'utf8',timeout:180000,maxBuffer:8*1024*1024});
 const after=git('status','--porcelain'),endSha=git('rev-parse','HEAD'),success=run.status===0&&!after&&sha===endSha;

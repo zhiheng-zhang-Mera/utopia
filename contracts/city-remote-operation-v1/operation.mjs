@@ -14,6 +14,14 @@
 //   "dangerous command" regex would be an infinite game; an allowlist is one decision made once, by the person who
 //   owns the machines, and it is refused by NAME so the operator learns the list instead of guessing it.
 //
+//   WHAT THE ALLOWLIST DOES *NOT* PROMISE, said here rather than left to be discovered: it does not make the listed
+//   programs harmless. `node`, `python` and `cmd` are each a general-purpose runtime, and an owner who lists one has
+//   chosen to grant exactly that power - correctly, when the purpose is to run a repository's own tooling on another
+//   machine. The guarantee this module really provides is narrower and true: the CITY never inserts a shell, never
+//   names a path the owner did not allow, never leaves the declared workspace, never runs unbounded, and records all
+//   of it. The safety is those four things plus the owner's one startup decision, NOT pretending the list cannot
+//   contain an interpreter.
+//
 //   A WORKSPACE, NOT A FREE PATH. The working directory must live inside a declared workspace root. `..`, an absolute
 //   path outside every root, and a path that normalises outside are all the same refusal.
 //

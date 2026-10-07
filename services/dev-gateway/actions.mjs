@@ -565,7 +565,9 @@ export function createActions({ store, rooms, bridge, cityTasks, host = 'utopia-
     if (intent.present) {
       // The target verdict is asked for BEFORE the fleet availability gate: "no such device" and "no device
       // can take work right now" are different truths and the more precise one has to win the refusal.
-      verdict = cityTasks.targetVerdict(intent.value);
+      // Asked PER TASK TYPE: a machine may be perfectly able to run an ordinary City task and still not implement the
+      // node half of a remote operation, and the Owner has to learn that here rather than from a nonsense receipt.
+      verdict = cityTasks.targetVerdict(intent.value, type);
       if (verdict.state === 'UNKNOWN') {
         const failure = { code: 'TARGET_DEVICE_UNKNOWN', message: `no City node identity "${intent.value}" is known to this City` };
         return persist(withHistory({ ...action, error: failure, progress: 0 }, 'REFUSED', failure.message));

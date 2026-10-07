@@ -67,6 +67,7 @@ export function createRemoteOperationView(){
      <p>${L('State','状态')}: <span data-rop-state="${esc(op.state)}">${esc(op.state)}</span> · ${L('on','于')} ${esc(op.assignedNodeId??L('unassigned','未分配'))} · ${L('exit','退出码')} ${receipt&&receipt.valid?esc(String(receipt.exitCode)):'—'}</p>
      <p>${L('Why','目的')}: ${esc(op.purpose??'')}</p>
      <p>${esc(verdict)}${receipt&&receipt.valid&&receipt.timedOut?L(' · timed out',' · 已超时'):''}</p>
+     ${op.targetStateDetail?`<p role="alert">${L('Waiting: the target cannot take this operation yet','等待中：目标暂时无法执行该操作')} — ${esc(op.targetStateDetail)}</p>`:(op.targetStateAtCreation==='INELIGIBLE'?`<p role="alert">${L('The target was not eligible for this operation.','目标不具备执行该操作的资格。')}</p>`:'')}
      ${op.error?`<p role="alert">${esc(typeof op.error==='string'?op.error:JSON.stringify(op.error))}</p>`:''}
      <details><summary>${L('What came back','返回内容')}</summary><pre>${esc(op.result?.stdout??'')}</pre><pre>${esc(op.result?.stderr??'')}</pre>${op.result?.truncated?`<p role="alert">${L('The output was truncated at the declared cap.','输出已在声明的上限处截断。')}</p>`:''}</details>
      ${running?`<button data-rop-stop="${esc(op.taskId)}">${L('Stop','停止')}</button>`:''}</article>`;

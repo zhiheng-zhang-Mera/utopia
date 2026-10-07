@@ -158,6 +158,44 @@ test('CR-OP 7: output over the declared ceiling is truncated and SAYS SO',async 
  }finally{await r.agent?.stop();await r.app?.close();await rm(r.dir,{recursive:true,force:true});}
 });
 
+test('CR-OP 9: a node that does not implement the node half is never handed the task, and is told what it lacks',async t=>{
+ // Measured failure this pins: on the first real deployment the City sent an operation to a machine running an OLDER
+ // agent. That agent fell through to its legacy path and reported `{bytes, operation}` - a truthful-looking receipt
+ // for a question it had never been asked. The City rejected it, which is the contract working, but the Owner should
+ // never have been able to send it. Eligibility now asks per task TYPE, at dispatch AND at claim.
+ const r=await rig(t);
+ try{
+  const OLD='dev-old-agent';
+  const registered=await fetch(r.app.url+'/api/v0/node/register',{method:'POST',headers:{...V,Authorization:'Bearer op-node','Content-Type':'application/json'},
+   body:JSON.stringify({id:OLD,displayName:'Old agent',capabilities:['task.execute.safe','filesystem.temp'],metadata:{platform:'win32'}})});
+  assert.equal(registered.status,200,'the old node registers exactly as an older agent would');
+  const action=(await (await dispatch(r.app,spec({cwd:r.workspace}),owner,{targetDeviceRef:OLD})).json()).action;
+  // The Action is created and WAITS rather than being refused: a machine may legitimately be updated later, and the
+  // product's rule is that a named device is never silently swapped for another. What must NOT happen is the task
+  // being claimed by that node, or the reason being invisible.
+  assert.equal(action.status,'QUEUED',JSON.stringify(action.error??null));
+  const taskId=action.backendRef.taskId;
+  const listed=(await operations(r.app)).operations.find(x=>x.taskId===taskId);
+  assert.equal(listed.targetStateAtCreation,'INELIGIBLE','the target was not eligible for THIS task type');
+  assert.match(String(listed.targetStateDetail),/NODE_MISSING_CAPABILITY:city\.remote-operation\.v1/,'the refusal names the missing capability');
+  const claim=await (await fetch(r.app.url+'/api/v0/node/claim',{method:'POST',headers:{...V,Authorization:'Bearer op-node','Content-Type':'application/json'},body:JSON.stringify({id:OLD})})).json();
+  assert.equal(claim.task,null,'an incapable node must not be handed the operation');
+  const still=await taskOf(r.app,taskId);
+  assert.equal(still.state,'QUEUED','the operation waits for a capable node instead of being consumed');
+  // STRICT TARGET WINS, so the capable node must NOT take it either: the owner named a machine, and rerouting a named
+  // target is the silent fallback this product forbids. The task waits for that machine to be updated.
+  await sleep(400);
+  assert.equal((await taskOf(r.app,taskId)).state,'QUEUED','a named target is never silently swapped for another');
+  assert.equal((await taskOf(r.app,taskId)).assignedNodeId,null);
+  // An UNTARGETED operation, by contrast, is picked up by the capable node - so the gate withholds rather than breaks.
+  const untargeted=(await (await dispatch(r.app,spec({cwd:r.workspace}),owner,{targetDeviceRef:null})).json()).action;
+  assert.equal(untargeted.status,'QUEUED');
+  const second=await until(async()=>{const task=await taskOf(r.app,untargeted.backendRef.taskId);return task&&['COMPLETED','FAILED'].includes(task.state)?task:null;});
+  assert.equal(second.state,'COMPLETED');
+  assert.equal(second.assignedNodeId,NODE_ID,'the capable node is the one that ran it');
+ }finally{await r.agent?.stop();await r.app?.close();await rm(r.dir,{recursive:true,force:true});}
+});
+
 test('CR-OP 8: the owner can stop a running operation, and the node really kills the program',async t=>{
  // The exposure decision declares this capability cancellable, so cancellation is not a nice-to-have: a remote
  // program nobody can stop is the failure mode this whole surface exists to avoid. The child writes a marker file

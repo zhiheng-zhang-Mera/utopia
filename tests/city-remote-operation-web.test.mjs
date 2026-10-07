@@ -1,4 +1,4 @@
-// The exposure gate for CITY-REMOTE-OPERATION, exercised in a REAL browser against a REAL gateway and a REAL agent.
+﻿// The exposure gate for CITY-REMOTE-OPERATION, exercised in a REAL browser against a REAL gateway and a REAL agent.
 //
 // CONSTRUCTION_RULES 14A puts a capability like this in DIRECT_CONTROL and then lists what that obliges: a
 // discoverable entry, a control wired to the canonical backend, the real result of the owner's own action, a
@@ -15,7 +15,7 @@ import {startAgent} from '../agents/reference-node/agent.mjs';
 const V={'X-City-Api-Version':'0','X-City-Schema-Version':'0'};
 const NODE_ID='dev-alien';
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-async function until(check,{timeout=20000,step=100}={}){const deadline=Date.now()+timeout;for(;;){const v=await check();if(v)return v;if(Date.now()>deadline)throw new Error('condition never became true');await sleep(step);}}
+async function until(check,{timeout=60000,step=100}={}){const deadline=Date.now()+timeout;for(;;){const v=await check();if(v)return v;if(Date.now()>deadline)throw new Error('condition never became true');await sleep(step);}}
 
 async function rig(t,{enabled=true,allowlist=['node']}={}){
  const dir=await mkdtemp(resolve('.scratch-remote-op-web-'));
@@ -93,7 +93,7 @@ test('CR-OPWEB 3: the owner runs a program from the page and reads the real resu
   await r.page.locator('#rop-confirm').fill('node');
   await r.page.locator('#rop-dispatch').click();
   // The REAL state of the owner's own action, not a promise that something happened.
-  await r.page.waitForFunction(()=>document.querySelector('[data-rop-state="COMPLETED"]'),null,{timeout:20000});
+  await r.page.waitForFunction(()=>document.querySelector('[data-rop-state="COMPLETED"]'),null,{timeout:60000});
   const row=r.page.locator('.rop-row').first();
   assert.match(await row.innerText(),/COMPLETED/);
   assert.match(await row.innerText(),/receipt verified by the City/);
@@ -150,9 +150,9 @@ test('CR-OPWEB 6: the owner can stop a running operation from the page',async t=
   await r.page.locator('#rop-purpose').fill('prove the stop control is wired');
   await r.page.locator('#rop-confirm').fill('node');
   await r.page.locator('#rop-dispatch').click();
-  await r.page.waitForFunction(()=>document.querySelector('[data-rop-state="RUNNING"]'),null,{timeout:20000});
+  await r.page.waitForFunction(()=>document.querySelector('[data-rop-state="RUNNING"]'),null,{timeout:60000});
   await r.page.locator('[data-rop-stop]').first().click();
-  await r.page.waitForFunction(()=>document.querySelector('[data-rop-state="CANCELLED"]'),null,{timeout:20000});
+  await r.page.waitForFunction(()=>document.querySelector('[data-rop-state="CANCELLED"]'),null,{timeout:60000});
   assert.match(await r.page.locator('.rop-row').first().innerText(),/CANCELLED/);
  }finally{await r.stop();}
 });

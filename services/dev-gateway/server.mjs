@@ -32,6 +32,7 @@ import { validateTelemetry } from '../../contracts/pairing-v1/descriptor.mjs';
 import { startDiscovery } from './discovery.mjs';
 // The ONE place the City can make another machine run a program. Off by default; the contract owns every refusal.
 import { normalizeRemoteOperation, validateRemoteOperationReceipt, REMOTE_OPERATION_EXPOSURE } from '../../contracts/city-remote-operation-v1/operation.mjs';
+import { requiredCapabilitiesForTask } from './node-task-capabilities.mjs';
 // JOIN-502: the approval seam for a nearby PC. It records an ASK and releases the existing City
 // credential only after an already trusted device approves - it is not a second trust store, and
 // discovery grants nothing on its own.
@@ -100,6 +101,10 @@ const equals=(a,b)=>Buffer.byteLength(a)===Buffer.byteLength(b)&&timingSafeEqual
 // Exported so the consumption test asserts against the gateway's real policy instead of
 // restating it (a restated copy could be wrong in the same way the policy is wrong).
 export const REQUIRED_TASK_CAPABILITIES=['task.execute.safe','filesystem.temp'];
+// The node-side support vocabulary lives in its own module because the execution backend needs the same rule at claim
+// time and may not import this file. See node-task-capabilities.mjs for why the rule exists at all.
+export const REMOTE_OPERATION_CAPABILITY='city.remote-operation.v1';
+const requiredCapabilitiesFor=type=>requiredCapabilitiesForTask(type,REQUIRED_TASK_CAPABILITIES);
 // S1: a pipe is a doorway, so it is rate-limited. Sized generously for a join handshake (which is a handful of
 // calls over minutes) and tightly enough that a peer cannot use the City's join routes as a request amplifier.
 export const RELAY_REQUESTS_PER_SECOND=20;
@@ -474,7 +479,9 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // (`validateCommand` rejects every other key), so strict targeting reaches the City through the Action
   // facade, where idempotency already exists - that is the "user-level path first" option the workbook
   // prefers, and it avoids reopening a frozen wire contract.
-  const targetVerdict=targetDeviceRef=>classifyTarget({targetDeviceRef,nodes:store.list('nodes'),claimNodeFor,acceptsWork,requiredCapabilities:REQUIRED_TASK_CAPABILITIES});
+  // The verdict is asked per TASK TYPE, not one fleet-wide rule: a machine that can run an ordinary City task may not
+  // implement the node half of a remote operation, and "eligible" has to mean "eligible for THIS task".
+  const targetVerdict=(targetDeviceRef,type)=>classifyTarget({targetDeviceRef,nodes:store.list('nodes'),claimNodeFor,acceptsWork,requiredCapabilities:requiredCapabilitiesFor(type)});
   let acceptingTasks=true;
   // The owner's remote-operation configuration, frozen at startup. Nothing a request can send may widen it: the
   // allowlist and the workspace roots are decisions made by the person who owns the machines, once, at launch.
@@ -504,11 +511,11 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // identity. OFFLINE and INELIGIBLE are NOT refusals: the task is created and WAITS, because a user may
       // legitimately queue work for a device that is currently away, and pretending otherwise would be the
       // silent rerouting this task forbids. The distinction is persisted, not merely decided.
-      const verdict=targetVerdict(intent.value);
+      const verdict=targetVerdict(intent.value,type);
       if(verdict.state==='UNKNOWN')refuse(TARGET_REASONS.UNKNOWN,422,`no City node identity "${intent.value}" is known to this City`);
       return atomicWithTrace(()=>{
         const t={id:'Q-'+randomUUID(),type,domain:'system',state:'QUEUED',createdAt:now(),updatedAt:now(),assignedNodeId:null,progress:0,lastCheckpoint:null,result:null,error:null,...researchRunRef,...remoteOperationField,
-          [STRICT_TARGET_FIELD]:intent.value,targetIntentAt:now(),targetStateAtCreation:verdict.state};
+          [STRICT_TARGET_FIELD]:intent.value,targetIntentAt:now(),targetStateAtCreation:verdict.state,targetStateDetail:verdict.detail??null};
         store.put('tasks',t);emit('COMMAND_ACCEPTED',t.id);emit('TASK_CREATED',t.id);
         if(verdict.state!=='ELIGIBLE')emit('TASK_TARGET_WAITING',t.id,{targetDeviceRef:intent.value,targetState:verdict.state,reason:verdict.reason},'user');
         return t;
@@ -1119,6 +1126,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         const rows=store.list('tasks').filter(task=>task.type==='OWNER_REMOTE_OPERATION')
           .sort((a,b)=>String(b.createdAt??'').localeCompare(String(a.createdAt??''))).slice(0,limit)
           .map(task=>({taskId:task.id,state:task.state,progress:task.progress,assignedNodeId:task.assignedNodeId,createdAt:task.createdAt,updatedAt:task.updatedAt,
+            targetStateAtCreation:task.targetStateAtCreation??null,targetStateDetail:task.targetStateDetail??null,
             executable:task.operation?.executable??null,argv:task.operation?.argv??[],cwd:task.operation?.cwd??null,purpose:task.operation?.purpose??null,
             timeoutMs:task.operation?.timeoutMs??null,maxOutputBytes:task.operation?.maxOutputBytes??null,shell:task.operation?.shell??null,
             operationDigest:task.operation?.operationDigest??null,error:task.error??null,result:task.result??null,

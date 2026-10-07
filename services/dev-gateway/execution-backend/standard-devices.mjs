@@ -33,6 +33,9 @@ import {
   executionEndpoint,
 } from '../../../contracts/execution-backend-v1/execution-backend.mjs';
 import { acceptsWork } from '../../../city/00-foundation/01-city-core/fleet-routing/index.mjs';
+// A task type may need the NODE to implement something. The same rule is asked at dispatch time in server.mjs; keeping
+// the vocabulary in one module is what stops "eligible to be sent" and "eligible to be claimed" from diverging.
+import { nodeSupportsTask } from '../node-task-capabilities.mjs';
 
 /** The backend id, as a stable machine-readable name. */
 export const STANDARD_DEVICES_BACKEND_ID = 'standard-devices';
@@ -209,6 +212,7 @@ export function createStandardDevicesBackend({
     const ready = nodeAcceptsWork(target);
     const busy = tasks().some(task => task.assignedNodeId === target.id && !isTerminal(task));
     const claimable = task => task.executionBackendId !== 'pcf-v1' && task.state === 'QUEUED'
+      && nodeSupportsTask(task, target)
       && claimAllowedByTarget(task, target.id)
       && handoffClaimAllowed({
         subjectRef: task.id,

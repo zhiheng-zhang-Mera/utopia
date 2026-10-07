@@ -53,6 +53,7 @@ const EXPECTED_MODULES = [
   'city/02-engineering/04-restart-recovery-station/restart-lock',
   'city/02-engineering/04-restart-recovery-station/checkpoint-gate',
   'city/02-engineering/04-restart-recovery-station/restart-ticket',
+  'city/02-engineering/05-city-self-health-check/city-self-health-check',
   'city/06-research/01-research-institute/evidence-engine',
   'city/06-research/01-research-institute/research-protocol',
   'city/06-research/01-research-institute/research-provenance',
@@ -154,7 +155,7 @@ test('the manifest and the city tree agree on what exists', async () => {
 
 /** Mission-book task id shapes. */
 const MIGRATION_TASK_ID = /^MB-[0-9]{3}$/;
-const PROGRAMME_TASK_ID = /^(?:BA|RF|GAI|EM)-[0-9]{3}$/;
+const PROGRAMME_TASK_ID = /^(?:BA|RF|GAI|EM|CHK)-[0-9]{3}$/;
 
 /** A mission-book incubator room id: `mb-` + an optional programme prefix + digits + module + `-lab`. */
 const MISSION_ROOM_ID = /^mb-(?:[a-z]{2,4}-)?[0-9]{3}-[a-z0-9-]+-lab$/;

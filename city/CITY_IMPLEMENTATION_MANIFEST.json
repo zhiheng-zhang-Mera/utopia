@@ -529,6 +529,30 @@
               }
             }
           ]
+        },
+        {
+          "id": "05-city-self-health-check",
+          "zh": "城市只读自检站",
+          "en": "City Read-only Self Health Check",
+          "modules": [
+            {
+              "id": "city-self-health-check",
+              "zh": "城市只读自检",
+              "en": "City Read-only Self Health Check",
+              "path": "city/02-engineering/05-city-self-health-check/city-self-health-check",
+              "lifecycle": "ACTIVE",
+              "capabilityProvider": false,
+              "donor": null,
+              "incubationRooms": [
+                "mb-chk-101-city-self-health-check-lab"
+              ],
+              "mission": {
+                "missionId": "CHK-101",
+                "programme": "CITY_SELF_HEALTH_CHECK",
+                "cluster": "bounded reconciliation, census, diagnosis, case records and non-authoritative routing across CHK-101/201/301/401/990"
+              }
+            }
+          ]
         }
       ]
     },

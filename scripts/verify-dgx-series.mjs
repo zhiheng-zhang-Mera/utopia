@@ -20,10 +20,16 @@ const matrix=JSON.parse(readFileSync(resolve(root,'contracts/deliberative-govern
 if(matrix.scenarios.length!==13||new Set(matrix.scenarios.map(x=>x.scenario)).size!==13)throw Error('SERIES_SCENARIO_COVERAGE_REQUIRED');
 const tests=[...new Set([...matrix.scenarios.flatMap(x=>x.tests),...readdirSync(resolve(root,'tests')).filter(x=>/^dgx-[a-z0-9-]+\.test\.mjs$/.test(x)).map(x=>'tests/'+x),'tests/pcf726-capsule.test.mjs'])];
 for(const path of tests)if(!/^tests\/[a-z0-9-]+\.test\.mjs$/.test(path)||!existsSync(resolve(root,path)))throw Error('TEST_EVIDENCE_MISSING');
-const started=Date.now(),run=spawnSync(process.execPath,['--test',...tests],{cwd:root,encoding:'utf8',timeout:180000,maxBuffer:8*1024*1024});
-const after=git('status','--porcelain'),endSha=git('rev-parse','HEAD'),success=run.status===0&&!after&&sha===endSha;
-const log=(run.stdout??'')+(run.stderr??'');writeFileSync(resolve(out,'tests.txt'),log);
-const report={schema_version:1,series:'DGX',workbooks:['DGX-001','DGX-002','DGX-003','DGX-004','DGX-005','DGX-006','DGX-007','DGX-990'],source_sha:sha,branch,physical_host:hostname(),development_physical_host:'Mera-Alianware',mode,source_clean_before:!before,source_clean_after:!after,source_unchanged:sha===endSha,duration_ms:Date.now()-started,node_version:process.version,command:[process.execPath,'--test',...tests],result:success?'PASS':'FAIL',exit_code:run.status,scenarios:matrix.scenarios.map(s=>({...s,controlled_conformance:success?'PASS':'FAIL',formal_independent_acceptance:'NOT_RUN'})),formal_series_acceptance:'NOT_RUN',terminal_marker:null,merge_authority:false,release_execution_authority:false};
+// A parent node:test harness marks child context; inheriting it silently skips nested test files.
+const childTestEnv={...process.env};delete childTestEnv.NODE_TEST_CONTEXT;
+const command=['--test','--test-reporter=tap',...tests];
+const started=Date.now(),run=spawnSync(process.execPath,command,{cwd:root,env:childTestEnv,encoding:'utf8',timeout:180000,maxBuffer:8*1024*1024});
+const after=git('status','--porcelain'),endSha=git('rev-parse','HEAD'),endBranch=git('branch','--show-current');
+const log=(run.stdout??'')+(run.stderr??'');
+const count=key=>Number([...log.matchAll(new RegExp('^# '+key+' (\\d+)$','gm'))].at(-1)?.[1]??-1);
+const executedTests=count('tests'),summaryVerified=executedTests>0&&count('pass')===executedTests&&['fail','cancelled','skipped','todo'].every(k=>count(k)===0);
+const success=run.status===0&&summaryVerified&&!after&&sha===endSha&&branch===endBranch;writeFileSync(resolve(out,'tests.txt'),log);
+const report={schema_version:1,series:'DGX',workbooks:['DGX-001','DGX-002','DGX-003','DGX-004','DGX-005','DGX-006','DGX-007','DGX-990'],source_sha:sha,branch,physical_host:hostname(),development_physical_host:'Mera-Alianware',mode,source_clean_before:!before,source_clean_after:!after,source_unchanged:sha===endSha&&branch===endBranch,duration_ms:Date.now()-started,node_version:process.version,command:[process.execPath,...command],executed_tests:executedTests,test_summary_verified:summaryVerified,result:success?'PASS':'FAIL',exit_code:run.status,scenarios:matrix.scenarios.map(s=>({...s,controlled_conformance:success?'PASS':'FAIL',formal_independent_acceptance:'NOT_RUN'})),formal_series_acceptance:'NOT_RUN',terminal_marker:null,merge_authority:false,release_execution_authority:false};
 writeFileSync(resolve(out,'SERIES_EVIDENCE.json'),JSON.stringify(report,null,2)+'\n');
 const checksums=Object.fromEntries(['tests.txt','SERIES_EVIDENCE.json'].map(name=>[name,createHash('sha256').update(readFileSync(resolve(out,name))).digest('hex')]));writeFileSync(resolve(out,'SHA256.json'),JSON.stringify(checksums,null,2)+'\n');
 console.log(JSON.stringify({result:report.result,source_sha:sha,physical_host:hostname(),mode,evidence_directory:out,formal_series_acceptance:'NOT_RUN'}));process.exitCode=success?0:1;

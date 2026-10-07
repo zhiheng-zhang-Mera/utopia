@@ -297,7 +297,7 @@ test('PCF-714 line 48: cancel/approval/completion races resolve through one term
     const {attempt} = await runningAttempt({store, owner});
     // A late cancel of side-effecting work is not a retry: recovery demands attention rather than claiming withdrawal.
     assert.deepEqual(planRecovery({taskId: 'T', retryClass: 'SIDE_EFFECT_UNKNOWN'}, {authorized: true, previousStopped: true, now: 0}),
-      {action: 'ATTENTION', reason: 'SIDE_EFFECT_OR_COMPATIBILITY_UNKNOWN', taskId: 'T'});
+      {action: 'ATTENTION', reason: 'SIDE_EFFECT_OR_COMPATIBILITY_UNKNOWN', taskId: 'T', retryClass: 'SIDE_EFFECT_UNKNOWN', distinguisher: 'SIDE_EFFECT_UNKNOWN_BY_OBSERVATION'});
     assert.equal(planRecovery({taskId: 'T', retryClass: 'PURE', strictTargetDeviceId: 'alien'}, {authorized: true, previousStopped: true, now: 0, newDeviceId: 'phone'}).reason, 'STRICT_TARGET_NEW_APPROVAL_REQUIRED');
 
     // The worker completes with an UNKNOWN outcome: one canonical truth that IS "unknown", not a cancelled success.

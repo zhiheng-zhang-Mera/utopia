@@ -88,7 +88,14 @@ export async function runLocalStudy(input,{directory,deviceId='local-cpu',readAu
   const replay=createTraceCollector({directory:traceDirectory,recordLimit:1024,queueLimit:256,byteLimit:16777216});try{ok(await replay.flush(5000),'STUDY_REPLAY_FLUSH_TIMEOUT');const replayed=replay.snapshot();trace.replayValidated=replayed.storageState==='READY'&&JSON.stringify(replayed.records)===JSON.stringify(observed.records);if(!trace.replayValidated)fail('TRACE_REPLAY',Object.assign(new Error('Trace replay mismatch'),{code:'STUDY_TRACE_REPLAY_FAILED'}));}finally{await replay.close();}
  }catch(error){fail('TRACE_REPLAY',error);}
  try{sourceAfter=await readSourceIdentity();if(sourceIdentity&&sourceAfter.snapshotDigest!==sourceIdentity.snapshotDigest)fail('SOURCE_AFTER',Object.assign(new Error('Source changed during study'),{code:'STUDY_SOURCE_CHANGED'}));}catch(error){fail('SOURCE_AFTER',error);}
- const report={version:1,runId,configDigest,sourceIdentity,sourceAfter,evidenceClass:'ACTUAL_LOCAL_CPU',trials,summary:summarizeTrials(trials),infrastructureFailures,trace,physicalAcceptance:'NOT_RUN',requiredEvidence:{mechIndependentRebuild:'NOT_RUN',rexRunnerFaultReplayExport:'NOT_RUN',mixedEngineeringMLWorkloads:'NOT_RUN',crossHost:'NOT_RUN',statisticalBenefit:'NOT_RUN'}};
+ const report={version:1,runId,configDigest,sourceIdentity,sourceAfter,evidenceClass:'ACTUAL_LOCAL_CPU',trials,summary:summarizeTrials(trials),
+  // PCF-721 line 49: clock-skew handling has to be REPRODUCIBLE from the pack. Durations are measured with the
+  // monotonic clock, so they cannot be skewed by a wall-clock step, and the one thing this host cannot measure - the
+  // skew BETWEEN hosts - is recorded as NOT_MEASURED with what it would take, instead of being left absent.
+  clocks:{perTrialSource:'HOST_WALL_UTC_FOR_TIMESTAMPS',durationSource:'PROCESS_HRTIME_MONOTONIC',
+    durationHandling:'per-trial durations are monotonic differences, never wall-clock subtraction',
+    crossHostSkew:{status:'NOT_MEASURED',reason:'SINGLE_HOST_HAS_NO_INDEPENDENT_REFERENCE',requires:'a second host with an independent clock source and a recorded comparison'}},
+  infrastructureFailures,trace,physicalAcceptance:'NOT_RUN',requiredEvidence:{mechIndependentRebuild:'NOT_RUN',rexRunnerFaultReplayExport:'NOT_RUN',mixedEngineeringMLWorkloads:'NOT_RUN',crossHost:'NOT_RUN',statisticalBenefit:'NOT_RUN'}};
  try{await writeFile(join(directory,runId+'-report.json'),JSON.stringify(report,null,2),{flag:'wx'});}catch(error){fail('REPORT_WRITE',error);throw Object.assign(new Error('Study report persistence failed; recover in-memory ledger from error.report'),{code:'STUDY_REPORT_WRITE_FAILED',cause:error,report});}
  return report;
 }

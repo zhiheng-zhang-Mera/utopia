@@ -32,6 +32,16 @@ export function buildFabricProjection(snapshot, {backendConfigured = false, serv
     // The bubble PCF-715 line 47 asks for: unknown, stale, partial data and ACTIVE RISK all reach the overview.
     activeRisk: freeze({present: risky.length > 0, count: risky.length, items: freeze(risky.slice(-10)),
       bubblesToOverview: true, definition: 'the canonical task attention field, carried verbatim'}),
+    // PCF-715 line 45: the overview shows capability scope, queue state, reservations, running work and background
+    // health. Two items of that list are NOT derivable from these inputs and are named rather than faked: a per-task
+    // placement rejection reason would require persisting the proposals (they are per-submission today), and a
+    // per-observation freshness would require the observation snapshots rather than the canonical state.
+    queue: freeze({reservations: (reservations ?? []).length, running: (attempts ?? []).filter(attempt => attempt.state === 'RUNNING').length,
+      queued: rows.filter(task => task.state === 'QUEUED').length, completed: rows.filter(task => task.state === 'COMPLETED').length}),
+    stateFreshness: freeze({canonicalVersion: Number.isSafeInteger(snapshot?.version) ? snapshot.version : null, completeness: partial ? 'PARTIAL' : 'COMPLETE',
+      observations: 'NOT_AVAILABLE_IN_CANONICAL_SNAPSHOT', candidateRejectionReasons: 'NOT_PERSISTED_PER_TASK'}),
+    background: freeze({backendConfigured, serviceState: serviceState ?? 'UNKNOWN'}),
+    capabilityScope: 'APPROVED_LOCAL_CPU_ONLY',
     resultReturned: rows.filter(task => task.pcfDeliveredSessionId === task.parentSessionId).length,
     agentConsumed: 'NOT_OBSERVED',
     callerAcknowledged: rows.filter(task => task.pcfConsumedSessionId === task.parentSessionId).length,

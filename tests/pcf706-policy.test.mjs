@@ -11,7 +11,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {Store} from '../services/dev-gateway/store.mjs';
 import {createFabricService} from '../services/personal-compute-fabric/service.mjs';
-import {resolveEffectivePolicy, assertPolicy} from '../services/personal-compute-fabric/policy.mjs';
+import {resolveEffectivePolicy, assertPolicy, createAllowanceLedger} from '../services/personal-compute-fabric/policy.mjs';
 import {feasibility} from '../services/personal-compute-fabric/placement.mjs';
 import {normalizeWorkload} from '../services/personal-compute-fabric/workload.mjs';
 import {compileExecutionCapsule, validateResultEnvelope} from '../services/personal-compute-fabric/execution-capsule.mjs';
@@ -270,7 +270,47 @@ test('PCF706-10 consent is revalidated at artifact transfer, not only at submiss
   } finally { await service.stop(); store.db.close(); await rm(dir, {recursive: true, force: true}); }
 });
 
-// Workbook acceptance: "多请求竞争额度仍不越界" - there is no allowance ledger in PCF to enforce the aggregate.
-test('PCF706 acceptance: concurrent requests competing for one allowance cannot exceed it', {skip: 'NOT_IMPLEMENTED: PCF-706 验收 "多请求竞争额度仍不越界" - policy.mjs is a pure resolver: it re-derives budget from the authority facts on every call and keeps no remaining-allowance state, and assertPolicy checks each request against the full budget (fee<=policy.budget), so two concurrent requests each claiming the whole allowance are both authorised; aggregate non-exceedance is not enforced anywhere in the PCF modules.'}, () => {
-  assert.fail('a spend ledger must refuse the second concurrent claim once the allowance is committed');
+// Workbook acceptance: "多请求竞争额度仍不越界". FIXED: the pure resolver still answers per request (which is why the
+// aggregate needed a ledger), and createAllowanceLedger() now enforces non-exceedance for concurrent claims.
+test('PCF706 acceptance: concurrent requests competing for one allowance cannot exceed it', () => {
+  const ledger = createAllowanceLedger({budget: 100, maxClaims: 8});
+  // Two concurrent requests each asking for the whole allowance: the first is claimed, the second cannot be.
+  assert.equal(ledger.claim({requestId: 'r1', fee: 100, taskId: 'T1', now: NOW}).claimed, true);
+  const second = ledger.claim({requestId: 'r2', fee: 100, taskId: 'T2', now: NOW});
+  assert.equal(second.claimed, false);
+  assert.equal(second.reason, 'ALLOWANCE_EXCEEDED');
+  assert.equal(second.wouldBe, 200);
+  assert.equal(ledger.snapshot().remaining, 0);
+  // Partial claims compose, and the last one that does not fit is refused rather than partially granted.
+  const partial = createAllowanceLedger({budget: 100});
+  assert.equal(partial.claim({requestId: 'a', fee: 60, now: NOW}).claimed, true);
+  assert.equal(partial.claim({requestId: 'b', fee: 40, now: NOW}).claimed, true);
+  assert.equal(partial.claim({requestId: 'c', fee: 1, now: NOW}).reason, 'ALLOWANCE_EXCEEDED');
+  assert.deepEqual(partial.snapshot(), {budget: 100, spent: 100, remaining: 0, unit: 'minor', claims: 2, maxClaims: 64, scope: 'SINGLE_PROCESS_SINGLE_WRITER', holdsTaskTruth: false});
+  // A duplicate claim is the SAME claim: no double charge, and a changed amount is a conflict rather than a new charge.
+  assert.equal(partial.claim({requestId: 'a', fee: 60, now: NOW}).duplicate, true);
+  assert.equal(partial.claim({requestId: 'a', fee: 60, now: NOW}).spent, 100);
+  assert.equal(partial.claim({requestId: 'a', fee: 61, now: NOW}).reason, 'ALLOWANCE_CLAIM_CONFLICT');
+  assert.equal(partial.snapshot().spent, 100);
+  // Releasing refunds exactly what was committed, so a cancelled request does not consume the allowance.
+  assert.equal(partial.release({requestId: 'b'}).refunded, 40);
+  assert.equal(partial.snapshot().remaining, 40);
+  assert.equal(partial.release({requestId: 'b'}).reason, 'ALLOWANCE_CLAIM_UNKNOWN');
+  // A zero allowance cannot be spent at all, and the ledger is bounded and says so.
+  const free = createAllowanceLedger({budget: 0});
+  assert.equal(free.claim({requestId: 'x', fee: 0, now: NOW}).claimed, true, 'a zero-cost claim is not a spend');
+  assert.equal(free.claim({requestId: 'y', fee: 1, now: NOW}).reason, 'ALLOWANCE_NOT_AUTHORISED');
+  const tiny = createAllowanceLedger({budget: 10, maxClaims: 1});
+  assert.equal(tiny.claim({requestId: 'one', fee: 1, now: NOW}).claimed, true);
+  assert.equal(tiny.claim({requestId: 'two', fee: 1, now: NOW}).reason, 'ALLOWANCE_LEDGER_FULL');
+  // The ledger holds no task truth and does not replace the pure per-request check.
+  assert.equal(ledger.snapshot().holdsTaskTruth, false);
+  assert.throws(() => createAllowanceLedger({budget: -1}), {code: 'ALLOWANCE_LEDGER_CONFIG'});
+  assert.throws(() => ledger.claim({requestId: '', fee: 1, now: NOW}), {code: 'ALLOWANCE_CLAIM_INVALID'});
+  assert.throws(() => ledger.claim({requestId: 'r3', fee: 1}), {code: 'ALLOWANCE_CLOCK_REQUIRED'});
+  // The two layers stay honest about their own scope: assertPolicy answers for ONE request against the whole budget.
+  const policy = resolveEffectivePolicy({mode: 'APPROVED_CLOUD', budget: 100}, authority({expiresAt: NOW + 60_000, cloudConsent: true, budget: 100, dataScopes: ['PUBLIC']}), NOW);
+  assertPolicy(policy, {deviceId: 'alien', dataScope: 'PUBLIC', fee: 100, cloud: true}, NOW);
+  assertPolicy(policy, {deviceId: 'alien', dataScope: 'PUBLIC', fee: 100, cloud: true}, NOW);
+  assert.equal(ledger.snapshot().scope, 'SINGLE_PROCESS_SINGLE_WRITER', 'aggregate non-exceedance is a ledger property, and the ledger says what its scope is');
 });

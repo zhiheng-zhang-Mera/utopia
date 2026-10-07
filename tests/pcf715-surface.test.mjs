@@ -117,8 +117,18 @@ test('715 active canonical risk bubbles to the overview', () => {
   // The panel that consumes the projection shows it too, so the bubble does not stop at the JSON boundary.
   assert.ok(renderFabricPanel(projection, 'en').includes('SIDE_EFFECT_UNKNOWN'), 'the rendered panel shows the risk');
   // A calm fleet says so explicitly rather than leaving the field absent.
-  assert.equal(running([]).activeRisk.present, false);
-  assert.equal(running([]).activeRisk.bubblesToOverview, true);
+  // The overview's own display list (workbook line 45): queue state, reservations, running work, background health
+  // and capability scope are carried, and the two items these inputs CANNOT derive are named instead of faked.
+  const display = running([pcfTask({state: 'QUEUED'}), pcfTask({state: 'COMPLETED'})]);
+  assert.equal(display.queue.queued, 1);
+  assert.equal(display.queue.completed, 1);
+  assert.equal(display.queue.reservations, snapshot.reservations.length);
+  assert.equal(display.background.backendConfigured, true);
+  assert.equal(display.capabilityScope, 'APPROVED_LOCAL_CPU_ONLY');
+  assert.equal(display.stateFreshness.completeness, 'COMPLETE');
+  assert.equal(display.stateFreshness.observations, 'NOT_AVAILABLE_IN_CANONICAL_SNAPSHOT');
+  assert.equal(display.stateFreshness.candidateRejectionReasons, 'NOT_PERSISTED_PER_TASK');
+  assert.equal(running([]).background.serviceState, 'RUNNING');
 });
 
 // Workbook line 47: partial/stale observations must bubble upward rather than break the overview read.

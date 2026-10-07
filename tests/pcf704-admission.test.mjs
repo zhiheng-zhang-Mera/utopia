@@ -369,9 +369,49 @@ test('PCF704-10 a reservation survives a store restart because it lives in the c
   } finally { store.db.close(); await rm(dir, {recursive: true, force: true}); }
 });
 
-// Workbook spec rev 2: "至少保留一个foreground预算" - not implemented in the admission path.
-test('PCF704 spec-rev2: at least one foreground budget is reserved against admission', {skip: 'NOT_IMPLEMENTED: PCF-704 spec rev 2 "至少保留一个foreground预算" - admission.mjs admits against the candidate\'s whole observed free vector (c.free) and defines no foreground/owner reserve, so a background reservation can consume the last unit; the only foreground protection in the tree is the 713 interference controller reducing service parallelism, which is a different layer.'}, () => {
-  assert.fail('admission must leave a foreground budget unspendable by reserved work');
+// Workbook spec rev 2: "至少保留一个foreground预算". FIXED: admission now holds a declared foreground reserve so a
+// BATCH/BACKGROUND reservation can never spend the last unit an interactive task needs. The reserve is DECLARED by the
+// caller (a workload without the extension keeps its legacy behaviour, per PCF-708), and when declared it must be at
+// least one unit - which is exactly what the spec sentence asks for.
+test('PCF704 spec-rev2: at least one foreground budget is reserved against admission', async () => {
+  await fixture(async (store, owner) => {
+    // One roomy device, so the reserve is what decides each case rather than the device's own free vector.
+    const big = candidate('alien', {free: {cpu: 64, memory: 100000}});
+    // A quota of 1 cpu with a one-unit reserve: interactive work may take it, batch work may not.
+    store.put('tasks', task('T-batch'));
+    store.put('tasks', task('T-interactive'));
+    const batch = request(workload('T-batch', {qos: 'BATCH', appId: 'batch'}), big, {foregroundReserve: {cpu: 1}, appQuota: {cpu: 1, memory: 10}});
+    const held = (() => { try { return admit(owner, batch); } catch (error) { return error; } })();
+    assert.equal(held.code, 'FOREGROUND_RESERVE_HELD:cpu');
+    const interactive = request(workload('T-interactive', {qos: 'INTERACTIVE', appId: 'chat'}), big, {foregroundReserve: {cpu: 1}, appQuota: {cpu: 1, memory: 10}});
+    assert.equal(admit(owner, interactive).reservation.state, 'LEASED', 'the reserve is there for interactive work');
+    // With a quota of 2 and a reserve of 1, one batch unit fits and the second does not (same app, so the quota is shared).
+    store.put('tasks', task('T-batch-1'));
+    store.put('tasks', task('T-batch-2'));
+    const quota = {foregroundReserve: {cpu: 1}, appQuota: {cpu: 2, memory: 10}};
+    assert.equal(admit(owner, request(workload('T-batch-1', {qos: 'BACKGROUND', appId: 'batch2'}), big, {...quota, idempotencyKey: 'k1'})).reservation.state, 'LEASED');
+    const second = (() => { try { return admit(owner, request(workload('T-batch-2', {qos: 'BACKGROUND', appId: 'batch2'}), big, {...quota, idempotencyKey: 'k2'})); } catch (error) { return error; } })();
+    assert.equal(second.code, 'FOREGROUND_RESERVE_HELD:cpu', 'the last unit stays unspendable by background work');
+    // A declared reserve must be real: zero, negative or non-integer is refused, and a reserve larger than the quota is
+    // not a reserve at all.
+    for (const bad of [{cpu: 0}, {cpu: -1}, {cpu: 1.5}]) {
+      const attempt = (() => { try { return admit(owner, request(workload('T-bad-' + JSON.stringify(bad), {appId: 'bad' + JSON.stringify(bad)}), big, {foregroundReserve: bad, appQuota: {cpu: 2, memory: 10}})); } catch (error) { return error; } })();
+      assert.match(attempt.code, /FOREGROUND_RESERVE_MINIMUM:cpu/, JSON.stringify(bad));
+    }
+    const oversized = (() => { try { return admit(owner, request(workload('T-over', {appId: 'over'}), big, {foregroundReserve: {cpu: 3}, appQuota: {cpu: 2, memory: 10}})); } catch (error) { return error; } })();
+    assert.equal(oversized.code, 'FOREGROUND_RESERVE_EXCEEDS_QUOTA:cpu');
+    // Reserving the whole quota is a coherent (if extreme) declaration: everything is reserved for interactive work.
+    store.put('tasks', task('T-all-fg'));
+    store.put('tasks', task('T-none-bg'));
+    assert.equal(admit(owner, request(workload('T-all-fg', {qos: 'INTERACTIVE', appId: 'allres'}), big, {foregroundReserve: {cpu: 1}, appQuota: {cpu: 1, memory: 10}, idempotencyKey: 'fg'})).reservation.state, 'LEASED');
+    const allReserved = (() => { try { return admit(owner, request(workload('T-none-bg', {qos: 'BATCH', appId: 'allres'}), big, {foregroundReserve: {cpu: 1}, appQuota: {cpu: 1, memory: 10}, idempotencyKey: 'bg'})); } catch (error) { return error; } })();
+    assert.equal(allReserved.code, 'FOREGROUND_RESERVE_HELD:cpu');
+    const unquotaed = (() => { try { return admit(owner, request(workload('T-unquotaed', {appId: 'unq'}), big, {foregroundReserve: {memory: 1}, appQuota: {cpu: 2}})); } catch (error) { return error; } })();
+    assert.equal(unquotaed.code, 'FOREGROUND_RESERVE_UNAUTHORISED:memory');
+    // A caller that declares no reserve is unchanged: the legacy quota path still applies.
+    store.put('tasks', task('T-legacy'));
+    assert.equal(admit(owner, request(workload('T-legacy', {appId: 'legacy'}), big, {appQuota: {cpu: 1, memory: 10}})).reservation.state, 'LEASED');
+  });
 });
 
 // Workbook acceptance, second paragraph: "真实双机施加有界竞争，比较观测、reservation与实际执行占用".

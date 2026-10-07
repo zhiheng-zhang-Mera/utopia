@@ -1,8 +1,16 @@
 import {randomUUID} from 'node:crypto';import {feasibility} from './placement.mjs';import {requireThat as ok,finite,text,copy,freeze,digest} from './validation.mjs';
+const plain=v=>Boolean(v)&&typeof v==='object'&&!Array.isArray(v)&&[Object.prototype,null].includes(Object.getPrototypeOf(v));
 export function admit(owner,r){
  const {workload:w,proposal:p,policy,candidate:c,now}=r;ok(p.state==='PROPOSED'&&p.taskId===w.taskId&&p.deviceId===c.deviceId&&p.providerId===c.provider.id&&p.bootId===c.bootId,'PROPOSAL_BINDING');
  ok(now<p.validUntil&&p.policyVersion===policy.version&&p.observationVersion===c.observationVersion,'STALE_PROPOSAL');ok(feasibility(w,c,policy,now)===null,'REVALIDATION_FAILED');
  ok(text(r.idempotencyKey)&&finite(r.ttlMs)&&r.ttlMs>0&&r.ttlMs<=60000,'RESERVATION_INPUT');
+ // PCF-704 rev 2: "at least one foreground budget". A caller that declares foreground protection must reserve at
+ // least one unit per resource, and a BATCH/BACKGROUND reservation may not spend the reserved part of the app quota -
+ // so interactive work always has a slot even when background work is queued behind it. A caller that declares NO
+ // reserve keeps the legacy behaviour exactly (PCF-708's rule about callers without the extension). This is a
+ // REQUEST-shape check, so it is made before the canonical transaction is opened.
+ const reserve=r.foregroundReserve??null;
+ if(reserve){ok(plain(reserve),'FOREGROUND_RESERVE_INVALID');for(const [key,amount]of Object.entries(reserve)){ok(Number.isSafeInteger(amount)&&amount>=1,'FOREGROUND_RESERVE_MINIMUM:'+key);ok(finite(r.appQuota?.[key]),'FOREGROUND_RESERVE_UNAUTHORISED:'+key);ok(amount<=r.appQuota[key],'FOREGROUND_RESERVE_EXCEEDS_QUOTA:'+key);}}
  return owner.transaction(r.expectedVersion,(s,{getTask})=>{
   const task=getTask(w.taskId);ok(task&&['QUEUED','RUNNING'].includes(task.state),'CANONICAL_TASK_NOT_EXECUTABLE');for(const key of ['actionId','originDeviceId','parentSessionId'])ok(task[key]===w[key]&&text(w[key]),'CANONICAL_OWNERSHIP_'+key);if(task.pcfAppId!==undefined)ok(task.pcfAppId===w.appId,'CANONICAL_APP_AUTHORITY');if(task.targetDeviceRef)ok(task.targetDeviceRef===c.deviceId,'CANONICAL_STRICT_TARGET');
   const prior=s.reservations.find(x=>x.key===r.idempotencyKey);if(prior){ok(prior.taskId===w.taskId&&prior.deviceId===c.deviceId&&prior.actionId===w.actionId&&prior.originDeviceId===w.originDeviceId&&prior.parentSessionId===w.parentSessionId&&JSON.stringify(prior.resources)===JSON.stringify(w.resources),'IDEMPOTENCY_CONFLICT');return {reservation:copy(prior)};}
@@ -10,9 +18,11 @@ export function admit(owner,r){
   ok(s.reservations.length<256,'QUEUE_FULL');ok(!s.reservations.some(x=>x.taskId===w.taskId),'TASK_ALREADY_RESERVED');
   // Expired RUNNING reservations remain charged until the holder is fenced/stopped; timeout is not proof of stop.
   const active=s.reservations.filter(x=>x.state==='RUNNING'||x.expiresAt>now);
+  const foreground=['INTERACTIVE','SOFT_DEADLINE'].includes(w.qos);
   for(const [key,value]of Object.entries(w.resources)){
    const deviceUsed=active.filter(x=>x.deviceId===c.deviceId).reduce((sum,x)=>sum+(x.resources[key]??0),0);const appUsed=active.filter(x=>x.appId===w.appId).reduce((sum,x)=>sum+(x.resources[key]??0),0);
-   ok(finite(r.appQuota?.[key])&&appUsed+value<=r.appQuota[key],'APP_QUOTA');ok(deviceUsed+value<=c.free[key],'CAPACITY_RESERVED');
+   const held=foreground?0:(reserve?.[key]??0);
+   ok(finite(r.appQuota?.[key])&&appUsed+value<=r.appQuota[key]-held,held>0?'FOREGROUND_RESERVE_HELD:'+key:'APP_QUOTA');ok(deviceUsed+value<=c.free[key],'CAPACITY_RESERVED');
   }
   ok(!active.some(x=>x.writeScope.some(path=>w.writeScope.some(other=>path===other||path.startsWith(other+'/')||other.startsWith(path+'/')))),'WRITE_SCOPE_CONFLICT');
   const reservation={id:randomUUID(),key:r.idempotencyKey,taskId:w.taskId,actionId:w.actionId,originDeviceId:w.originDeviceId,parentSessionId:w.parentSessionId,appId:w.appId,deviceId:c.deviceId,bootId:c.bootId,providerId:c.provider.id,resources:copy(w.resources),writeScope:[...w.writeScope],policyVersion:policy.version,expiresAt:Math.min(now+r.ttlMs,p.validUntil),state:'LEASED'};s.reservations.push(reservation);return {reservation:copy(reservation)};

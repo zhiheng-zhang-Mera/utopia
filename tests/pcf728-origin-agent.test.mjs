@@ -257,7 +257,7 @@ test('728 duplicate submit, cancel and late results obey one canonical terminal'
     assert.equal(uncertain.state, 'RUNNING', 'an unknown effect does not become a terminal success or failure');
     assert.equal(uncertain.pcfAttention, 'SIDE_EFFECT_UNKNOWN', 'the active risk stays visible on the canonical task');
     assert.equal(owner.snapshot().reservations.length, 1, 'the reservation is retained for reconciliation, not released for a replay');
-    assert.deepEqual(planRecovery({taskId: 'T-unknown', retryClass: 'SIDE_EFFECT_UNKNOWN'}, {authorized: true, previousStopped: true, now: 0, cooldownUntil: 0}), {action: 'ATTENTION', reason: 'SIDE_EFFECT_OR_COMPATIBILITY_UNKNOWN', taskId: 'T-unknown'}, 'unknown effects are never auto-replayed');
+    assert.deepEqual(planRecovery({taskId: 'T-unknown', retryClass: 'SIDE_EFFECT_UNKNOWN'}, {authorized: true, previousStopped: true, now: 0, cooldownUntil: 0}), {action: 'ATTENTION', reason: 'SIDE_EFFECT_OR_COMPATIBILITY_UNKNOWN', taskId: 'T-unknown', retryClass: 'SIDE_EFFECT_UNKNOWN', distinguisher: 'SIDE_EFFECT_UNKNOWN_BY_OBSERVATION'}, 'unknown effects are never auto-replayed');
     assert.equal(planRecovery({taskId: 'T-unknown', retryClass: 'NON_RETRYABLE'}, {authorized: true, previousStopped: true, now: 0, cooldownUntil: 0}).action, 'ATTENTION');
     assert.equal(planRecovery({taskId: 'T-unknown', retryClass: 'CHECKPOINTABLE'}, {authorized: true, previousStopped: true, now: 0, cooldownUntil: 0}).action, 'ATTENTION', 'an incompatible checkpoint is not restored');
     const proposed = planRecovery({taskId: 'T-pure', retryClass: 'PURE'}, {authorized: true, previousStopped: true, now: 0, cooldownUntil: 0});

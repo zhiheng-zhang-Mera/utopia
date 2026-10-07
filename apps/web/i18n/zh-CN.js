@@ -241,7 +241,7 @@ export const messages = {
   'home.rooms.open': '打开 工具 / 房间',
 
   'pair.title': '连接你的城市。',
-  'pair.hint': '请输入本地 Gateway 提供的配对令牌。',
+  'pair.hint': '输入 Gateway 令牌、6 位配对码或邀请链接。连接其他电脑时，请先选择附近城市。',
   'pair.token': '配对令牌',
   'pair.inviteHint': '粘贴邀请令牌，即可切换到它所属的城市。',
   'pair.codeTitle': '有另一台 PC 给的配对码或链接？',

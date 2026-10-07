@@ -245,7 +245,7 @@ export const messages = {
   'home.rooms.open': 'Open Tools / Rooms',
 
   'pair.title': 'Connect to your city.',
-  'pair.hint': 'Enter the pairing token from your local Gateway to begin.',
+  'pair.hint': 'Enter a Gateway token, a six-digit pairing code, or an invite link. Select the nearby City first when connecting to another PC.',
   'pair.token': 'Pairing token',
   'pair.inviteHint': 'Paste an invite token to switch to the City it belongs to.',
   'pair.codeTitle': 'Have a code or a link from the other PC?',

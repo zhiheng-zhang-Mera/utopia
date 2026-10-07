@@ -109,7 +109,7 @@ const claimNodeFor=n=>({nodeId:n.id,state:n.online?'READY':'OFFLINE',capabilitie
 // enrollment registry reads the second. Dropping either one produces a ReferenceError at request time rather than
 // at load time, which is why this is stated here: the first attempt at this merge kept only `deviceClock` and every
 // JOIN-502 test failed with "nearbyTimeoutMs is not defined".
-export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',token,nodeToken,heartbeatTimeout=8000,pairingClock=Date.now,pairingTtlMs=300000,discoveryEnabled=false,nearbyTimeoutMs=2000,roomHubUrl=process.env.CITY_ROOMS_URL,roomsDisabled=process.env.CITY_ROOMS_DISABLED==='1',hostId=process.env.CITY_HOST_ID,roomFetch,deviceClock=Date.now,hostDeviceId:requestedHostDeviceId,hostJoin=null,researchTraceStorage,researchTraceSoftwareRefs={},governancePorts={},pcf=null}) {
+export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',token,nodeToken,heartbeatTimeout=8000,pairingClock=Date.now,pairingTtlMs=300000,discoveryEnabled=false,nearbyTimeoutMs=2000,roomHubUrl=process.env.CITY_ROOMS_URL,roomsDisabled=process.env.CITY_ROOMS_DISABLED==='1',hostId=process.env.CITY_HOST_ID,roomFetch,deviceClock=Date.now,hostDeviceId:requestedHostDeviceId,hostJoin=null,researchTraceStorage,researchTraceSoftwareRefs={},governancePorts={},pcf=null,nearbyBrowser=browseNearby}) {
   if(!token||!nodeToken||token===nodeToken) throw new Error('Separate control and node tokens are required');
   if(host==='0.0.0.0'||host==='::') throw new Error('Configure an explicit loopback or LAN interface');
   if(pcf?.enabled===true&&!requestedHostDeviceId)throw new Error('PCF_LOCAL_APPROVAL_REQUIRED: explicit hostDeviceId required');
@@ -170,7 +170,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
     if(!['lan','ble'].includes(transport))fail(400,'Unknown discovery transport');
     if(nearbyScans.has(transport))return nearbyScans.get(transport);
     const scan=(async()=>{
-      const found=transport==='ble'?await browseBluetooth():await browseNearby({interface:host,timeoutMs:nearbyTimeoutMs});
+      const found=transport==='ble'?await browseBluetooth():await nearbyBrowser({interface:host==='localhost'||host==='::1'||/^127\./.test(host)?undefined:host,timeoutMs:nearbyTimeoutMs});
       // A CITY MUST NOT DISCOVER ITSELF. mDNS/DNS-SD returns every advertisement on the segment, including this City's
       // own, so the City appeared in its own neighbour list - the complaint "I can search up my own main city, it is a
       // duplicate". Self is decided by IDENTITY (the City id the advertisement carries) and, when an advertisement does

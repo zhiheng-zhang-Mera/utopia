@@ -885,7 +885,26 @@ if(e.target.id==='pair-invite-accept'||e.target.id==='swap-invite-accept'){await
 // because a share button that does nothing in an insecure context is the same defect as no button.
 if(e.target.id==='copy-invite'){const link=$('#pairing-link'),note=$('#copy-note');const url=link?link.getAttribute('href'):'';const done=ok=>{if(note)note.textContent=t(ok?'pairing.copied':'pairing.copyManual');};const fallback=()=>{try{const range=document.createRange();range.selectNodeContents(link);const sel=getSelection();sel.removeAllRanges();sel.addRange(range);return document.execCommand('copy');}catch{return false;}};if(navigator.clipboard?.writeText&&url){navigator.clipboard.writeText(url).then(()=>done(true)).catch(()=>done(fallback()));}else done(fallback());}
 if(e.target.id==='copy-raw'){const box=$('#pairing-invite'),note=$('#copy-note');const done=ok=>{if(note)note.textContent=t(ok?'pairing.copied':'pairing.copyManual');};const fallback=()=>{try{box.focus();box.select();return document.execCommand('copy');}catch{return false;}};if(navigator.clipboard?.writeText){navigator.clipboard.writeText(box.value).then(()=>done(true)).catch(()=>done(fallback()));}else done(fallback());}if(e.target.dataset?.revoke){await revokeDevice(e.target.dataset.revoke);}if(e.target.id==='cancel'){try{await api('tasks/'+selected+'/cancel',{});await refresh();}catch(err){$('#error').textContent=err.message;}}if(e.target.id==='disconnect'){clearPairing();token='';$('#token').value='';sessionStorage.removeItem('city-token');forgetSession();++generation;clearTimeout(timer);ws?.close();$('#pair').hidden=false;$('#content').hidden=true;go('Home');status('OFFLINE');}});
-$('#connect').onclick=async()=>{const value=$('#token').value.trim();$('#token').value='';const invite=parseInvite(value);if(invite){try{const done=await exchangeInvite(invite);if(done?.navigating)return;if(!done?.credential)throw Error('the City returned no credential for that invite');token=done.credential;sessionStorage.setItem('city-token',token);$('#pair').hidden=true;$('#content').hidden=false;connect();}catch(err){$('#error').textContent=err.message;}return;}token=value;sessionStorage.setItem('city-token',token);connect();};
+$('#connect').onclick=async()=>{
+ const value=$('#token').value.trim();
+ if(/^\d{6}$/.test(value)){await pairWithCode(value,'pair');return;}
+ if(/^https?:\/\//i.test(value)){
+  try{if(beginPairingFromInvite(value,'pair'))return;}catch{/* malformed invitation is not a credential */}
+  pairNote('pair','pair.codeBad');return;
+ }
+ $('#token').value='';
+ const invite=parseInvite(value);
+ if(invite){
+  try{
+   const done=await exchangeInvite(invite);if(done?.navigating)return;
+   if(!done?.credential)throw Error('the City returned no credential for that invite');
+   token=done.credential;sessionStorage.setItem('city-token',token);
+   $('#pair').hidden=true;$('#content').hidden=false;connect();
+  }catch(err){$('#error').textContent=err.message;}
+  return;
+ }
+ token=value;sessionStorage.setItem('city-token',token);connect();
+};
 $('#ask-form').addEventListener('submit',e=>{e.preventDefault();ask($('#ask-text').value);});
 $('#run').onclick=async()=>{try{$('#run').disabled=true;const target=$('#run-target')?.value||'';if(target){const created=await api('actions',{route:'CITY_TASK',target:'city.task',operation:'CHECKPOINT_DEMO',input:{targetDeviceRef:target},idempotencyKey:(crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random())});const id=created?.action?.backendRef?.taskId;if(!id)throw new Error(created?.action?.error?.message||'the City refused the targeted task');selectedNode=null;selected=id;}else{const task=await api('tasks',{type:'CHECKPOINT_DEMO'});selectedNode=null;selected=task.id;}await refresh();}catch(e){$('#error').textContent=e.message;}finally{$('#run').disabled=connection!=='ONLINE';}};
 window.addEventListener('offline',()=>{disconnected();ws?.close();});window.addEventListener('online',connect);
@@ -932,7 +951,7 @@ if(bootShortPair){
  pairTarget={endpoint:location.origin,cityRef:expected,displayName:expected||location.host,transport:method==='ble'?'BLE_BOOTSTRAP':'LAN'};
  try{
   if(!expected||expected.length>128||!/^\d{6}$/.test(code)||!['mdns','ble'].includes(method))throw Object.assign(Error('Invalid pairing handoff'),{status:400});
-  const done=await exchangeShortCode({code,cityRef:expected,method});
+  const done=await exchangeShortCode({code,cityRef:expected,method,installation:{displayName:webClientLabel(),platform:navigator.platform,browserOnly:true}});
   token=done.credential;sessionStorage.setItem('city-token',token);pairDrafts.pair.value='';pairTarget=null;
  }catch(error){pairNote('pair',pairingErrorKey(error));}
  // The disconnected entry was already mounted before the boot exchange; sync its draft too.

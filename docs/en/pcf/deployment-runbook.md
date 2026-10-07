@@ -1,0 +1,15 @@
+# PCF-716 deployment candidate
+
+[中文](../../zh-CN/pcf/deployment-runbook.md)
+
+The existing Windows launcher and Utopia.cmd retain City authority. This opt-in candidate does not install an OS service, request administrator privilege, register autostart, or replace the resident City. Candidate manifests contain enrollment references only; never pass tokens or passwords. Use a separate user-writable candidate directory, never the resident D:/utopia runtime.
+
+`scripts/pcf-service.ps1 -Action INSTALL -CandidateDirectory <isolated-dir> -ConfigFile <reference-only-json> -OptIn` defaults to dry run. `-Apply` permits candidate metadata INSTALL, STANDARD_DEVICES and UNINSTALL only. All runtime actions refuse with RUNTIME_ADAPTER_REQUIRED. Uninstall removes only the owned manifest, preserving configuration and logs. Config requires version, integer schemaVersion, port 1024..65535 and credentialReference; existing enrollment material stays in its original protected file.
+
+For integration, createDeploymentController accepts a runtime adapter with start, stop, drain, checkpoint, canary, switchVersion, verify and rollback methods. Each must return true after actual success. Drain and checkpoint must finish before UPDATE. Preflight requires explicit observed writable, portAvailable, freeBytes (at least 1 MiB), versionsCompatible checks; an absent observation refuses. The caller supplies fresh checks for its host, not guesses. UPDATE only allows compatible schema and restores previous manifest/config through rollback after switch or verification failure. Rollback failure stays ATTENTION. A schema change needs a separate gate. STANDARD_DEVICES always restores the profile for an installed candidate; no monthly task is registered.
+
+Bounded health probes allow 100..10000 ms and credential-free HTTP(S) URLs. appendBoundedLog projects only action/state/reason, caps entries and bytes; the runtime adapter must use this for its own persisted rotation and separately bound child stdout. No unlimited production log writer is installed here.
+
+Validation: node --test tests/pcf716-deployment.test.mjs. The independent owned-child fixture demonstrates opt-in start/drain/stop/uninstall without a browser. It is not evidence of an installed Windows service, unattended login, disconnected notebook, reboot restart, production disk rotation, or real City rollback. Those acceptance cases remain NOT_RUN and require an authorized real service adapter and opposite-host complete-flow review. Preserve the resident City and never use broad process-kill or recursive-delete operations.
+
+Restored running manifests require an opaque runtimeIdentity and adapter.reconcileOwnedRuntime(identity) returning true before runtime mutation or uninstall. Unknown ownership refuses; duplicate START refuses without starting another child. Rollback validates the full reference-only target config before invoking the adapter. Candidate writes reject reparse points at every existing ancestor and the manifest itself.

@@ -1,7 +1,7 @@
 import {requireThat as ok} from './validation.mjs';
 export function reconcileExecution(snapshot,observations,now){
  ok(snapshot.reservations.length<=256&&snapshot.attempts.length<=256&&observations.length<=256,'RECONCILE_LIMIT');const actions=[];
- for(const r of snapshot.reservations){const attempt=snapshot.attempts.find(a=>a.taskId===r.taskId&&a.state==='RUNNING');if(attempt){const live=observations.find(o=>o.holder===attempt.holder&&o.bootId===attempt.bootId);if(live?.alive!==true)actions.push({action:'ATTENTION_UNKNOWN_WORKER',taskId:r.taskId,attemptId:attempt.id});continue;}if(r.state==='LEASED')actions.push({action:r.expiresAt>now?'START_APPROVED_ATTEMPT':'RELEASE_EXPIRED_LEASE',taskId:r.taskId,reservationId:r.id});}
+ for(const r of snapshot.reservations){const attempt=snapshot.attempts.find(a=>a.taskId===r.taskId&&a.state==='RUNNING');if(attempt){if(attempt.pendingOutcome==='UNKNOWN'){actions.push({action:'ATTENTION_UNCERTAIN_OUTCOME',taskId:r.taskId,attemptId:attempt.id});continue;}const live=observations.find(o=>o.holder===attempt.holder&&o.bootId===attempt.bootId);if(live?.alive!==true)actions.push({action:'ATTENTION_UNKNOWN_WORKER',taskId:r.taskId,attemptId:attempt.id});continue;}if(r.state==='LEASED')actions.push({action:r.expiresAt>now?'START_APPROVED_ATTEMPT':'RELEASE_EXPIRED_LEASE',taskId:r.taskId,reservationId:r.id});}
  return actions;
 }
 export function startSupervision({snapshot,observations,reconcile,intervalMs=1000,signal}){

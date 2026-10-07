@@ -27,7 +27,7 @@ test('704/712: canonical CAS admission, idempotence, epoch fencing, commit and r
     assert.equal(owner.snapshot().reservations.length,1);
     assert.throws(()=>commitResult(owner,{taskId:'T',attemptId:a.id,epoch:a.epoch-1,holder:'worker',bootId:'b',outcome:'SUCCEEDED',outputDigest:'a'.repeat(64),now:1200}));
     commitResult(owner,{taskId:'T',attemptId:a.id,epoch:a.epoch,holder:'worker',bootId:'b',outcome:'SUCCEEDED',outputDigest:'a'.repeat(64),now:1200});
-    assert.equal(store.get('tasks','T').state,'SUCCEEDED');assert.equal(owner.snapshot().reservations.length,0);
+    assert.equal(store.get('tasks','T').state,'COMPLETED');assert.equal(owner.snapshot().reservations.length,0);
     assert.throws(()=>release(owner,{reservationId:first.reservation.id,now:1200}));
   }finally{store?.db.close();await rm(dir,{recursive:true,force:true});}
 });

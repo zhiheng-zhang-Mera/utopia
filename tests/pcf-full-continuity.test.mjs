@@ -25,12 +25,12 @@ test('713: stale SLO observations and unknown preference cannot trigger irrevers
  assert.equal(evaluateInterference({...settings,allowedOptions:['PAID_CLOUD']},{observedAt:90,validUntil:200,latencyMs:150},state,100).action,'SLO_UNSATISFIABLE');
 });
 test('714: origin projection requires current session ownership and bounded gap-aware deduplicated cursor',()=>{
- const task={id:'T',actionId:'A',originDeviceId:'alien',parentSessionId:'S',state:'SUCCEEDED',pcfResult:{value:42}};const auth={authorized:true,sessionId:'S',deviceId:'alien'};
+ const task={id:'T',actionId:'A',originDeviceId:'alien',parentSessionId:'S',state:'COMPLETED',pcfResult:{value:42}};const auth={authorized:true,sessionId:'S',deviceId:'alien'};
  const events=[{seq:3,taskId:'T',type:'done'},{seq:3,taskId:'T',type:'done'}];const p=projectOrigin(task,events,{auth,after:0,limit:10});assert.equal(p.gap,true);assert.equal(p.events.length,1);assert.equal(p.result.value,42);
  assert.throws(()=>projectOrigin(task,events,{auth:{...auth,sessionId:'other'},after:0,limit:10}));
 });
 test('728: bridge uses canonical methods; result delivery is distinct from explicit session consumption',async()=>{
- const task={id:'T',actionId:'A',originDeviceId:'alien',parentSessionId:'S',state:'SUCCEEDED',pcfResult:{digest:'a'.repeat(64)}};let consumed=false;
+ const task={id:'T',actionId:'A',originDeviceId:'alien',parentSessionId:'S',state:'COMPLETED',pcfResult:{digest:'a'.repeat(64)}};let consumed=false;
  const bridge=createOriginAgentBridge({submit:async()=>task,get:async()=>task,cancel:async()=>task,markConsumed:async()=>{consumed=true;}},{authorize:async c=>c.sessionId==='S'&&c.deviceId==='alien'});
  const context={sessionId:'S',deviceId:'alien'};assert.equal((await bridge.collect('T',context)).consumed,false);assert.equal(consumed,false);await bridge.acknowledge('T',context,task.pcfResult.digest);assert.equal(consumed,true);await assert.rejects(()=>bridge.collect('T',{...context,sessionId:'other'}));
 });

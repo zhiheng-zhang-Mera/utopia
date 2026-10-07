@@ -6,7 +6,7 @@ export function createOriginAgentBridge(canonical,{authorize}){
   async submitRemoteJob(spec,context){ok(await authorize(context),'ORIGIN_UNAUTHORIZED');ok(spec.parentSessionId===context.sessionId&&spec.originDeviceId===context.deviceId,'SESSION_BINDING');return canonical.submit(copy(spec),context);},
   async inspect(id,context){return copy(await access(id,context));},
   async cancel(id,context){await access(id,context);return canonical.cancel(id,context);},
-  async collect(id,context){const task=await access(id,context);ok(task.state==='SUCCEEDED'&&task.pcfResult,'RESULT_NOT_READY');return {taskId:task.id,result:copy(task.pcfResult),delivered:true,consumed:task.pcfConsumedSessionId===context.sessionId};},
-  async acknowledge(id,context,digest){const task=await access(id,context);ok(task.state==='SUCCEEDED'&&task.pcfResult?.digest===digest,'CONSUMPTION_DIGEST');return canonical.markConsumed(id,context,digest);},
+  async collect(id,context){const task=await access(id,context);ok(task.state==='COMPLETED'&&task.pcfResult,'RESULT_NOT_READY');return {taskId:task.id,result:copy(task.pcfResult),delivered:true,consumed:task.pcfConsumedSessionId===context.sessionId};},
+  async acknowledge(id,context,digest){const task=await access(id,context);ok(task.state==='COMPLETED'&&task.pcfResult?.digest===digest,'CONSUMPTION_DIGEST');return canonical.markConsumed(id,context,digest);},
  };
 }

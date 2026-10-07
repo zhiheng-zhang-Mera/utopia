@@ -189,6 +189,7 @@ export function createStandardDevicesBackend({
     if (!row) throw new ExecutionBackendError('UNKNOWN_ENDPOINT', `no execution endpoint ${String(endpointRef)} is registered with this City`, { endpointRef: endpointRef ?? null });
     if (!row.ready) throw new ExecutionBackendError('ENDPOINT_NOT_READY', `execution endpoint ${row.endpointRef} cannot accept work (${row.readinessReason})`, { endpointRef: row.endpointRef, readinessReason: row.readinessReason });
     const task = requireRecord('tasks', taskId);
+    if(task.executionBackendId==='pcf-v1')throw new ExecutionBackendError('TASK_NOT_CLAIMABLE','PCF attempts require capsule and epoch validation at their own backend');
     if (task.state !== 'QUEUED') throw new ExecutionBackendError('INVALID_TRANSITION', `task ${taskId} is already ${task.state}`, { taskId, state: task.state });
     if(!claimAllowedByTarget(task,row.endpointRef)||!handoffClaimAllowed({subjectRef:task.id,deviceRef:row.endpointRef,reservedFor:typeof task.handoffTargetRef==='string'&&task.handoffTargetRef.length>0?task.handoffTargetRef:null}))throw new ExecutionBackendError('TASK_NOT_CLAIMABLE','task target or reservation does not permit this endpoint',{taskId,endpointRef:row.endpointRef});
     noteAssignment({ subjectRef: task.id, deviceRef: row.endpointRef });
@@ -207,7 +208,7 @@ export function createStandardDevicesBackend({
     const rows = endpoints();
     const ready = nodeAcceptsWork(target);
     const busy = tasks().some(task => task.assignedNodeId === target.id && !isTerminal(task));
-    const claimable = task => task.state === 'QUEUED'
+    const claimable = task => task.executionBackendId !== 'pcf-v1' && task.state === 'QUEUED'
       && claimAllowedByTarget(task, target.id)
       && handoffClaimAllowed({
         subjectRef: task.id,
@@ -242,6 +243,7 @@ export function createStandardDevicesBackend({
    */
   function report({ taskId, nodeId, endpointRef = nodeId, state, progress, lastCheckpoint, result, error } = {}) {
     const task = requireRecord('tasks', taskId);
+    if(task.executionBackendId==='pcf-v1')throw new ExecutionBackendError('TASK_NOT_CLAIMABLE','PCF attempts require capsule and epoch validation at their own backend');
     if (task.assignedNodeId !== endpointRef) fail(403, 'Task belongs to another node');
     if (isTerminal(task)) return task;
     if (!reportTransitionAllowed(task.state, state)) fail(409, 'Invalid task transition');
@@ -261,6 +263,7 @@ export function createStandardDevicesBackend({
   function control({ taskId, action = 'cancel' } = {}) {
     if (action !== 'cancel') throw new ExecutionBackendError('INVALID_REQUEST', `STANDARD_DEVICES supports the control action "cancel", got ${String(action)}`);
     const task = requireRecord('tasks', taskId);
+    if(task.executionBackendId==='pcf-v1')throw new ExecutionBackendError('TASK_NOT_CLAIMABLE','PCF attempts require capsule and epoch validation at their own backend');
     if (isTerminal(task)) fail(409, 'Task already finished');
     return { task: changeTask(task, 'CANCELLED'), action, endpointRef: task.assignedNodeId ?? null };
   }

@@ -8,7 +8,7 @@ test('full local candidate: two real CPU applications execute through canonical 
  for(const w of workloads){store.put('tasks',{id:w.taskId,actionId:w.actionId,originDeviceId:w.originDeviceId,parentSessionId:w.parentSessionId,state:'QUEUED'});store.put('actions',{id:w.actionId,taskId:w.taskId});}
  const results=await Promise.all(workloads.map((w,i)=>executeApprovedLocal({owner,artifacts,workload:w,input:{operation:i?'SUM':'SORT',values:[4,1,3,2]},authority,deviceId:'local-alien'})));
  assert.deepEqual(results[0].output.values,[1,2,3,4]);assert.equal(results[1].output.sum,10);assert.notEqual(results[0].receipt.pid,results[1].receipt.pid);assert.equal(owner.snapshot().reservations.length,0);
- const ctx={authorized:true,sessionId:'session-local',deviceId:'local-alien'};for(const w of workloads){assert.equal(projectOrigin(store.get('tasks',w.taskId),[],{auth:ctx,after:0}).state,'SUCCEEDED');}
+ const ctx={authorized:true,sessionId:'session-local',deviceId:'local-alien'};for(const w of workloads){assert.equal(projectOrigin(store.get('tasks',w.taskId),[],{auth:ctx,after:0}).state,'COMPLETED');}
  const bridge=createOriginAgentBridge({submit:async()=>{},get:async id=>store.get('tasks',id),cancel:async()=>{},markConsumed:async(id,c,digest)=>store.atomic(()=>{const t=store.get('tasks',id);assert.equal(t.pcfResult.digest,digest);return store.put('tasks',{...t,pcfConsumedSessionId:c.sessionId});})},{authorize:async c=>c.sessionId===ctx.sessionId&&c.deviceId===ctx.deviceId});
  const delivery=await bridge.collect('T0',ctx);assert.equal(delivery.consumed,false);await bridge.acknowledge('T0',ctx,delivery.result.digest);assert.equal((await bridge.collect('T0',ctx)).consumed,true);
  }finally{store.db.close();await rm(dir,{recursive:true,force:true});}

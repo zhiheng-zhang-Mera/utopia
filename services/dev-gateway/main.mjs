@@ -53,7 +53,10 @@ try {
     process.env.CITY_ROOMS_URL = roomHub.url;
   }
   let broker;const hostJoin={start:input=>broker.start(input),status:id=>broker.status(id)};
-  app = await createGateway({host:process.env.CITY_HOST||'127.0.0.1',port:Number(process.env.CITY_PORT||4310),dir:reservation.dataDir,token:config.token,nodeToken:config.nodeToken,discoveryEnabled:process.env.CITY_DISCOVERY_DISABLED!=='1',hostJoin});
+  // Owner remote operation. OFF unless the owner turns it on AND says which programs and which directories are in
+  // scope: two decisions, both made by the person who owns the machines, neither of which a request can widen.
+  const remoteOperation={enabled:process.env.CITY_REMOTE_OPERATION==='1',allowlist:(process.env.CITY_REMOTE_OPERATION_ALLOWLIST||'').split(',').map(x=>x.trim()).filter(Boolean),workspaces:(process.env.CITY_REMOTE_OPERATION_WORKSPACES||'').split(',').map(x=>x.trim()).filter(Boolean)};
+  app = await createGateway({host:process.env.CITY_HOST||'127.0.0.1',port:Number(process.env.CITY_PORT||4310),dir:reservation.dataDir,token:config.token,nodeToken:config.nodeToken,discoveryEnabled:process.env.CITY_DISCOVERY_DISABLED!=='1',hostJoin,remoteOperation});
   if (process.env.CITY_MANAGE_SERVICES === '1') {
     const {startAgent} = await import('../../agents/reference-node/agent.mjs');
     agent = await startAgent({url:app.url,token:config.nodeToken,id:'dev-'+app.store.cityId.replaceAll('-',''),displayName:config.deviceName||hostname(),workspace:resolve(reservation.dataDir,'workspace')});

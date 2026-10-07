@@ -30,6 +30,8 @@ import {memberSnapshot} from './members.mjs';
 import { DeviceIdentityError } from '../../city/00-foundation/02-city-node-network/device-identity/index.mjs';
 import { validateTelemetry } from '../../contracts/pairing-v1/descriptor.mjs';
 import { startDiscovery } from './discovery.mjs';
+// The ONE place the City can make another machine run a program. Off by default; the contract owns every refusal.
+import { normalizeRemoteOperation, validateRemoteOperationReceipt, REMOTE_OPERATION_EXPOSURE } from '../../contracts/city-remote-operation-v1/operation.mjs';
 // JOIN-502: the approval seam for a nearby PC. It records an ASK and releases the existing City
 // credential only after an already trusted device approves - it is not a second trust store, and
 // discovery grants nothing on its own.
@@ -109,7 +111,7 @@ const claimNodeFor=n=>({nodeId:n.id,state:n.online?'READY':'OFFLINE',capabilitie
 // enrollment registry reads the second. Dropping either one produces a ReferenceError at request time rather than
 // at load time, which is why this is stated here: the first attempt at this merge kept only `deviceClock` and every
 // JOIN-502 test failed with "nearbyTimeoutMs is not defined".
-export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',token,nodeToken,heartbeatTimeout=8000,pairingClock=Date.now,pairingTtlMs=300000,discoveryEnabled=false,nearbyTimeoutMs=2000,roomHubUrl=process.env.CITY_ROOMS_URL,roomsDisabled=process.env.CITY_ROOMS_DISABLED==='1',hostId=process.env.CITY_HOST_ID,roomFetch,deviceClock=Date.now,hostDeviceId:requestedHostDeviceId,hostJoin=null,researchTraceStorage,researchTraceSoftwareRefs={},governancePorts={},pcf=null,nearbyBrowser=browseNearby}) {
+export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',token,nodeToken,heartbeatTimeout=8000,pairingClock=Date.now,pairingTtlMs=300000,discoveryEnabled=false,nearbyTimeoutMs=2000,roomHubUrl=process.env.CITY_ROOMS_URL,roomsDisabled=process.env.CITY_ROOMS_DISABLED==='1',hostId=process.env.CITY_HOST_ID,roomFetch,deviceClock=Date.now,hostDeviceId:requestedHostDeviceId,hostJoin=null,researchTraceStorage,researchTraceSoftwareRefs={},governancePorts={},pcf=null,nearbyBrowser=browseNearby,remoteOperation=null}) {
   if(!token||!nodeToken||token===nodeToken) throw new Error('Separate control and node tokens are required');
   if(host==='0.0.0.0'||host==='::') throw new Error('Configure an explicit loopback or LAN interface');
   if(pcf?.enabled===true&&!requestedHostDeviceId)throw new Error('PCF_LOCAL_APPROVAL_REQUIRED: explicit hostDeviceId required');
@@ -474,6 +476,13 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // prefers, and it avoids reopening a frozen wire contract.
   const targetVerdict=targetDeviceRef=>classifyTarget({targetDeviceRef,nodes:store.list('nodes'),claimNodeFor,acceptsWork,requiredCapabilities:REQUIRED_TASK_CAPABILITIES});
   let acceptingTasks=true;
+  // The owner's remote-operation configuration, frozen at startup. Nothing a request can send may widen it: the
+  // allowlist and the workspace roots are decisions made by the person who owns the machines, once, at launch.
+  const remoteOperationConfig=Object.freeze({
+    enabled:remoteOperation?.enabled===true,
+    allowlist:Object.freeze([...(remoteOperation?.allowlist??[])]),
+    workspaces:Object.freeze([...(remoteOperation?.workspaces??[])]),
+  });
   const createCityTask=(type,options={})=>{
     if(!acceptingTasks)fail(503,'This host is changing City role; no new local work accepted');
     // REX-803: a campaign run is an ORDINARY canonical task, and this one optional field is the only thing that
@@ -481,6 +490,12 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
     // reference instead of by guessing which QUEUED task looked like research. It is an annotation, not a new
     // authority: nothing reads it to decide placement, targeting, or state.
     const researchRunRef=typeof options.researchRunRef==='string'&&options.researchRunRef.length>0?{researchRunRef:options.researchRunRef.slice(0,180)}:{};
+    // OWNER_REMOTE_OPERATION is the one task type that carries a payload. It is normalised HERE, before the
+    // transaction, so every refusal (disabled, executable not allowed, cwd outside the workspace, bounds, purpose) is
+    // a client error returned to the owner rather than a half-written task a node might later be handed. The frozen
+    // operation is stored on the canonical task, which is what the node executes and what the City re-checks against
+    // the receipt - there is no second copy of it anywhere.
+    const remoteOperationField=type==='OWNER_REMOTE_OPERATION'?{operation:normalizeRemoteOperation(options.operation,{enabled:remoteOperationConfig.enabled,allowlist:remoteOperationConfig.allowlist,workspaceRoots:remoteOperationConfig.workspaces})}:{};
     // Parsed before the transaction: a malformed field is a client error, not a half-written task.
     const intent=readTargetIntent(options.targetDeviceRef);
     if(intent.ok===false)refuse(intent.code,422,intent.message);
@@ -492,14 +507,14 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       const verdict=targetVerdict(intent.value);
       if(verdict.state==='UNKNOWN')refuse(TARGET_REASONS.UNKNOWN,422,`no City node identity "${intent.value}" is known to this City`);
       return atomicWithTrace(()=>{
-        const t={id:'Q-'+randomUUID(),type,domain:'system',state:'QUEUED',createdAt:now(),updatedAt:now(),assignedNodeId:null,progress:0,lastCheckpoint:null,result:null,error:null,...researchRunRef,
+        const t={id:'Q-'+randomUUID(),type,domain:'system',state:'QUEUED',createdAt:now(),updatedAt:now(),assignedNodeId:null,progress:0,lastCheckpoint:null,result:null,error:null,...researchRunRef,...remoteOperationField,
           [STRICT_TARGET_FIELD]:intent.value,targetIntentAt:now(),targetStateAtCreation:verdict.state};
         store.put('tasks',t);emit('COMMAND_ACCEPTED',t.id);emit('TASK_CREATED',t.id);
         if(verdict.state!=='ELIGIBLE')emit('TASK_TARGET_WAITING',t.id,{targetDeviceRef:intent.value,targetState:verdict.state,reason:verdict.reason},'user');
         return t;
       });
     }
-    return atomicWithTrace(()=>{const t={id:'Q-'+randomUUID(),type,domain:'system',state:'QUEUED',createdAt:now(),updatedAt:now(),assignedNodeId:null,progress:0,lastCheckpoint:null,result:null,error:null,...researchRunRef};store.put('tasks',t);emit('COMMAND_ACCEPTED',t.id);emit('TASK_CREATED',t.id);return t;});
+    return atomicWithTrace(()=>{const t={id:'Q-'+randomUUID(),type,domain:'system',state:'QUEUED',createdAt:now(),updatedAt:now(),assignedNodeId:null,progress:0,lastCheckpoint:null,result:null,error:null,...researchRunRef,...remoteOperationField};store.put('tasks',t);emit('COMMAND_ACCEPTED',t.id);emit('TASK_CREATED',t.id);return t;});
   };
   const cityTasks={
     terminal,
@@ -832,7 +847,11 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // it in the removed block left the union preamble unaware of it, so /device/session answered 401 and every
       // JOIN-503 enrollment test failed with the same "Invalid pairing token" as an unauthenticated request.
       const selfAuthenticating=req.method==='POST'&&path==='/api/v0/device/session';
-      if(!publicJoin&&!legacyPublicPairing&&!selfAuthenticating)auth(req,nodeRoute&&path!=='/api/v0/node/sharing'&&!researchRoute);
+      // The operation log is an OWNER surface, not a node surface: it is reached with the City's control token, so it
+      // is excluded from the node-token requirement exactly as `/node/sharing` already was. Leaving it inside
+      // `nodeRoute` would have made the owner's own read surface unreachable to the owner.
+      const ownerNodeRoute=path==='/api/v0/node/operations';
+      if(!publicJoin&&!legacyPublicPairing&&!selfAuthenticating)auth(req,nodeRoute&&path!=='/api/v0/node/sharing'&&!ownerNodeRoute&&!researchRoute);
       if(path.startsWith('/api/v0/research/faults')&&req.citySession)refuse('RESEARCH_OWNER_REQUIRED',403,'Fault controls require the City owner');
       if(!legacyPublicPairing)version(req);
       // REX-803: the campaign surface is owner-only, and the refusal names the reason rather than the credential.
@@ -1069,7 +1088,15 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // Canonical Action facade. Repeating an idempotency key replays, never re-executes.
       else if(req.method==='GET' && path==='/api/v0/actions')out={actions:actions.list(new URL(req.url,'http://city').searchParams.get('limit')??undefined)};
       else if(req.method==='GET' && /^\/api\/v0\/actions\/[^/]+$/.test(path))out={action:actions.get(decodeURIComponent(path.split('/').at(-1)))||refuse('ACTION_NOT_FOUND',404)};
-      else if(req.method==='POST' && path==='/api/v0/actions')out=await actions.create(await body(req));
+      else if(req.method==='POST' && path==='/api/v0/actions'){
+        const actionBody=await body(req);
+        // OWNER ONLY, checked before the Action is recorded so a member's attempt leaves no half-made request behind.
+        // `req.citySession` is set exactly when the caller presented an enrolled session credential instead of the
+        // City's control token, so this is the same boundary the research fault controls and the execution profile
+        // already use - not a new notion of "owner".
+        if(actionBody?.route==='CITY_TASK'&&actionBody?.operation==='OWNER_REMOTE_OPERATION'&&req.citySession)refuse('REMOTE_OPERATION_OWNER_REQUIRED',403,'Remote operation requires the City owner');
+        out=await actions.create(actionBody);
+      }
       // Deterministic Ask / Do. There is no model in this path and no BOSS/HNS route.
       else if(req.method==='GET' && path==='/api/v0/ask/targets')out={targets:await askTargets()};
       else if(req.method==='POST' && path==='/api/v0/ask')out={ask:await handleAsk(await body(req),{actions,targets:await askTargets(),roomState:await rooms.probe()})};
@@ -1081,6 +1108,23 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       }
       else if(req.method==='GET' && path==='/api/v0/nodes')out={nodes:store.list('nodes'),nodeDescriptors:nodeDescriptors()};
       else if(req.method==='GET' && path==='/api/v0/tasks')out={tasks:store.list('tasks')};
+      // The owner's view of the remote-operation surface. Owner-only for the same reason the dispatch is: a member
+      // must not see what programs are being run on the other machines, and the operations carry command lines.
+      // Every receipt is re-checked against the operation the City dispatched before it is shown, so this surface
+      // cannot present a node's claim as if the City had accepted it.
+      else if(req.method==='GET' && path==='/api/v0/node/operations'){
+        if(req.citySession)refuse('REMOTE_OPERATION_OWNER_REQUIRED',403,'Remote operation requires the City owner');
+        const wanted=Number(new URL(req.url,'http://city').searchParams.get('limit')??20);
+        const limit=Number.isSafeInteger(wanted)&&wanted>0?Math.min(50,wanted):20;
+        const rows=store.list('tasks').filter(task=>task.type==='OWNER_REMOTE_OPERATION')
+          .sort((a,b)=>String(b.createdAt??'').localeCompare(String(a.createdAt??''))).slice(0,limit)
+          .map(task=>({taskId:task.id,state:task.state,progress:task.progress,assignedNodeId:task.assignedNodeId,createdAt:task.createdAt,updatedAt:task.updatedAt,
+            executable:task.operation?.executable??null,argv:task.operation?.argv??[],cwd:task.operation?.cwd??null,purpose:task.operation?.purpose??null,
+            timeoutMs:task.operation?.timeoutMs??null,maxOutputBytes:task.operation?.maxOutputBytes??null,shell:task.operation?.shell??null,
+            operationDigest:task.operation?.operationDigest??null,error:task.error??null,result:task.result??null,
+            receipt:task.operation&&task.result?validateRemoteOperationReceipt(task.operation,task.result):null}));
+        out={exposure:REMOTE_OPERATION_EXPOSURE,config:{enabled:remoteOperationConfig.enabled,allowlist:remoteOperationConfig.allowlist,workspaces:remoteOperationConfig.workspaces},operations:rows};
+      }
       else if(req.method==='GET' && path==='/api/v0/events')out={events:store.events()};
       // JOIN-502 owner decisions. These are AUTHENTICATED: deciding who joins is exactly the authority
       // a control credential carries, and an unauthenticated decision route would let any machine that

@@ -7,6 +7,8 @@ import {renderServices} from './services.js';
 import {renderResearch} from './research.js';
 import {createGovernanceView} from './governance.js';
 const governanceView=createGovernanceView();
+import {createRemoteOperationView} from './remote-operation.js';
+const remoteOperationView=createRemoteOperationView();
 import {createResearchTraceView} from './research-trace.js';
 const researchTraceView=createResearchTraceView();
 // REX-803: the campaign control surface. Imported as a view factory for the same reason the trace view is: it holds
@@ -760,6 +762,7 @@ function assistantSlot(){
 }
 function render(){
  if(page!=='Governance')governanceView.reset();
+ if(page!=='RemoteOperation')remoteOperationView.reset();
  if(page!=='ResearchTrace')researchTraceView.reset();
  // The campaign view polls while a campaign runs, so it must be reset when the page is left - the same rule the
  // trace view follows, and the reason both are views rather than plain render functions.
@@ -813,6 +816,10 @@ function render(){
  if(page==='Governance'){
   const credential=token,cityId=city.cityId;
   governanceView.render($('#view'),{contextKey:credential+'|'+cityId,online:connection==='ONLINE',api,isCurrent:()=>page==='Governance'&&token===credential&&city?.cityId===cityId});
+ }
+ if(page==='RemoteOperation'){
+  const credential=token,cityId=city.cityId;
+  remoteOperationView.render($('#view'),{contextKey:credential+'|'+cityId,online:connection==='ONLINE',api,isCurrent:()=>page==='RemoteOperation'&&token===credential&&city?.cityId===cityId});
  }
  if(page==='ResearchCampaign'){
   const credential=token,cityId=city.cityId;

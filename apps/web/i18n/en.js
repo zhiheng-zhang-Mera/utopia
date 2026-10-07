@@ -455,4 +455,5 @@ Object.assign(messages,{
  'rr.value':'Observation','rr.original':'Original','rr.replayed':'New run','rr.worker':'Executing worker','rr.inputs':'Controlled inputs match','rr.unavailable':'Replay is unavailable; refresh or reconnect.'
 });
 Object.assign(messages, {'nav.governance':'Governance', 'heading.governance':'Governance process'});
+Object.assign(messages, {'nav.remoteOperation':'Remote operation', 'heading.remoteOperation':'Remote operation'});
 export default { meta, messages };

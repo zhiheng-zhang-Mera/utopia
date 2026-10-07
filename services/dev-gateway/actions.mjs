@@ -358,6 +358,17 @@ export const CAPABILITY_OPERATIONS = {
 /** City Control task types. Kept identical to the control protocol's own list. */
 export const CITY_TASK_TYPES = ['WAIT', 'CREATE_TEMP_ARTIFACT', 'HASH_TEMP_ARTIFACT', 'DELETE_TEMP_ARTIFACT', 'CHECKPOINT_DEMO'];
 
+/**
+ * OWNER-ONLY task types.
+ *
+ * `OWNER_REMOTE_OPERATION` deliberately does NOT join `CITY_TASK_TYPES`, and that is a safety decision rather than a
+ * filing one: `intents.mjs` turns every entry of that list into a natural-language ask target with an empty `input`,
+ * so adding it there would advertise "run a City task of type OWNER_REMOTE_OPERATION" to the router - a request that
+ * cannot even be well-formed, since the operation needs a declared executable, argv, working directory and purpose.
+ * The owner reaches it through the explicit Action route, and the router never offers it.
+ */
+export const OWNER_TASK_TYPES = ['OWNER_REMOTE_OPERATION'];
+
 const TASK_STATUS_MAP = {
   QUEUED: 'QUEUED',
   ASSIGNED: 'RUNNING',
@@ -537,7 +548,7 @@ export function createActions({ store, rooms, bridge, cityTasks, host = 'utopia-
 
   function runCityTask(request, action) {
     const type = request.operation;
-    if (!CITY_TASK_TYPES.includes(type)) {
+    if (!CITY_TASK_TYPES.includes(type) && !OWNER_TASK_TYPES.includes(type)) {
       return persist(withHistory({ ...action, error: { code: 'UNSUPPORTED_TASK_TYPE', message: `unsupported City task type ${type}` } }, 'REFUSED', 'unsupported City task type'));
     }
     // MESH-301 Step 3. The strict target travels in `input`, exactly as every other route's parameters do, so
@@ -572,7 +583,12 @@ export function createActions({ store, rooms, bridge, cityTasks, host = 'utopia-
     }
     let task;
     try {
-      task = cityTasks.create(type, { targetDeviceRef: intent.present ? intent.value : null });
+      // `input.operation` is only ever read for the owner-only types; the safe City task types carry nothing but the
+      // target in `input`, exactly as before, so no existing fingerprint or replay behaviour changes.
+      task = cityTasks.create(type, {
+        targetDeviceRef: intent.present ? intent.value : null,
+        operation: OWNER_TASK_TYPES.includes(type) ? request?.input?.operation : undefined,
+      });
     } catch (error) {
       const code = error.code ?? 'CITY_TASK_REFUSED';
       const failure = { code, message: error.message };

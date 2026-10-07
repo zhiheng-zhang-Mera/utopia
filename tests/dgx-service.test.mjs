@@ -43,6 +43,9 @@ test('DGX990 two-pass case information boundary survives restart before defence 
   c=s.act('case-1',{action:'PASS_B',expected_revision:c.revision,conflict_ref:'conflict-1',receipt:{participant_ref:'judge',new_information_from_defence:[],changed_findings:[],unchanged_findings:['one artifact'],final_verdict:'BOTH_REJECTED',evidence_refs:['evidence:one']}});
   assert.equal(c.adjudications[0].final_verdict,'BOTH_REJECTED');assert.equal(c.process_capsule.L0.release_gate.state,'NOT_RUN');
   assert.deepEqual(c.participants.map(x=>x.participant_ref).sort(),['a','b','judge']);
+  assert.equal(c.process_capsule.L1.defences.length,2);
+  assert.equal(c.process_capsule.L1.adjudication_rounds[0].phase,'FINAL');
+  assert.equal(c.process_capsule.L1.adjudication_rounds[0].pass_a_findings.material_facts[0],'one artifact');
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
 test('DGX003 service rejects forged author host and adjudicator session in otherwise valid receipts',()=>{

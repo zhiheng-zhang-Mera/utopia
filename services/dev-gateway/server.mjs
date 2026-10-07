@@ -33,6 +33,9 @@ import { startDiscovery } from './discovery.mjs';
 // The ONE place the City can make another machine run a program. Off by default; the contract owns every refusal.
 import { normalizeRemoteOperation, validateRemoteOperationReceipt, REMOTE_OPERATION_EXPOSURE } from '../../contracts/city-remote-operation-v1/operation.mjs';
 import { requiredCapabilitiesForTask } from './node-task-capabilities.mjs';
+// The sibling channel: the City hands a remote AGENT a request and takes back a report it cannot verify, so the report
+// must declare what kind of claim it is rather than arriving looking like a verification.
+import { normalizeAgentJob, validateAgentJobReport, isJobExpired, REPORT_STATE_TO_TASK_STATE, AGENT_REPORTABLE_STATES, AGENT_JOB_EXPOSURE } from '../../contracts/city-agent-job-v1/job.mjs';
 // JOIN-502: the approval seam for a nearby PC. It records an ASK and releases the existing City
 // credential only after an already trusted device approves - it is not a second trust store, and
 // discovery grants nothing on its own.
@@ -51,7 +54,7 @@ import { envelope, taskTypes, terminal, validateCommand } from '../../contracts/
 // deterministic Ask / Do router. The Room Hub is reached over loopback only; nothing here
 // exposes its port, and no route in this phase can reach Boss or Hns.
 import { createRoomPack } from './rooms.mjs';
-import { createActions } from './actions.mjs';
+import { createActions, OWNER_TASK_TYPES } from './actions.mjs';
 import { buildTargets, handleAsk } from './intents.mjs';
 import { serveWeb } from './static.mjs';
 // UXI-301: the scheduler presentation feed producer. Consumes the frozen RS-290 contract read-only.
@@ -116,7 +119,7 @@ const claimNodeFor=n=>({nodeId:n.id,state:n.online?'READY':'OFFLINE',capabilitie
 // enrollment registry reads the second. Dropping either one produces a ReferenceError at request time rather than
 // at load time, which is why this is stated here: the first attempt at this merge kept only `deviceClock` and every
 // JOIN-502 test failed with "nearbyTimeoutMs is not defined".
-export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',token,nodeToken,heartbeatTimeout=8000,pairingClock=Date.now,pairingTtlMs=300000,discoveryEnabled=false,nearbyTimeoutMs=2000,roomHubUrl=process.env.CITY_ROOMS_URL,roomsDisabled=process.env.CITY_ROOMS_DISABLED==='1',hostId=process.env.CITY_HOST_ID,roomFetch,deviceClock=Date.now,hostDeviceId:requestedHostDeviceId,hostJoin=null,researchTraceStorage,researchTraceSoftwareRefs={},governancePorts={},pcf=null,nearbyBrowser=browseNearby,remoteOperation=null}) {
+export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',token,nodeToken,heartbeatTimeout=8000,pairingClock=Date.now,pairingTtlMs=300000,discoveryEnabled=false,nearbyTimeoutMs=2000,roomHubUrl=process.env.CITY_ROOMS_URL,roomsDisabled=process.env.CITY_ROOMS_DISABLED==='1',hostId=process.env.CITY_HOST_ID,roomFetch,deviceClock=Date.now,hostDeviceId:requestedHostDeviceId,hostJoin=null,researchTraceStorage,researchTraceSoftwareRefs={},governancePorts={},pcf=null,nearbyBrowser=browseNearby,remoteOperation=null,agentJob=null}) {
   if(!token||!nodeToken||token===nodeToken) throw new Error('Separate control and node tokens are required');
   if(host==='0.0.0.0'||host==='::') throw new Error('Configure an explicit loopback or LAN interface');
   if(pcf?.enabled===true&&!requestedHostDeviceId)throw new Error('PCF_LOCAL_APPROVAL_REQUIRED: explicit hostDeviceId required');
@@ -490,6 +493,10 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
     allowlist:Object.freeze([...(remoteOperation?.allowlist??[])]),
     workspaces:Object.freeze([...(remoteOperation?.workspaces??[])]),
   });
+  // Agent jobs are gated by their OWN switch. A City may legitimately want to run a repository's tooling on another
+  // machine without wanting to hand free-form requests to whatever agent happens to be there, and one switch for both
+  // would have made that choice for it.
+  const agentJobConfig=Object.freeze({enabled:agentJob?.enabled===true});
   const createCityTask=(type,options={})=>{
     if(!acceptingTasks)fail(503,'This host is changing City role; no new local work accepted');
     // REX-803: a campaign run is an ORDINARY canonical task, and this one optional field is the only thing that
@@ -503,6 +510,9 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
     // operation is stored on the canonical task, which is what the node executes and what the City re-checks against
     // the receipt - there is no second copy of it anywhere.
     const remoteOperationField=type==='OWNER_REMOTE_OPERATION'?{operation:normalizeRemoteOperation(options.operation,{enabled:remoteOperationConfig.enabled,allowlist:remoteOperationConfig.allowlist,workspaceRoots:remoteOperationConfig.workspaces})}:{};
+    // An AGENT_JOB carries a request for a remote agent instead of a program for a remote machine. Normalised here for
+    // the same reason: every refusal is a client error, not a half-written task an agent might later be handed.
+    const agentJobField=type==='AGENT_JOB'?{job:normalizeAgentJob(options.job,agentJobConfig)}:{};
     // Parsed before the transaction: a malformed field is a client error, not a half-written task.
     const intent=readTargetIntent(options.targetDeviceRef);
     if(intent.ok===false)refuse(intent.code,422,intent.message);
@@ -514,14 +524,14 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       const verdict=targetVerdict(intent.value,type);
       if(verdict.state==='UNKNOWN')refuse(TARGET_REASONS.UNKNOWN,422,`no City node identity "${intent.value}" is known to this City`);
       return atomicWithTrace(()=>{
-        const t={id:'Q-'+randomUUID(),type,domain:'system',state:'QUEUED',createdAt:now(),updatedAt:now(),assignedNodeId:null,progress:0,lastCheckpoint:null,result:null,error:null,...researchRunRef,...remoteOperationField,
+        const t={id:'Q-'+randomUUID(),type,domain:'system',state:'QUEUED',createdAt:now(),updatedAt:now(),assignedNodeId:null,progress:0,lastCheckpoint:null,result:null,error:null,...researchRunRef,...remoteOperationField,...agentJobField,
           [STRICT_TARGET_FIELD]:intent.value,targetIntentAt:now(),targetStateAtCreation:verdict.state,targetStateDetail:verdict.detail??null};
         store.put('tasks',t);emit('COMMAND_ACCEPTED',t.id);emit('TASK_CREATED',t.id);
         if(verdict.state!=='ELIGIBLE')emit('TASK_TARGET_WAITING',t.id,{targetDeviceRef:intent.value,targetState:verdict.state,reason:verdict.reason},'user');
         return t;
       });
     }
-    return atomicWithTrace(()=>{const t={id:'Q-'+randomUUID(),type,domain:'system',state:'QUEUED',createdAt:now(),updatedAt:now(),assignedNodeId:null,progress:0,lastCheckpoint:null,result:null,error:null,...researchRunRef,...remoteOperationField};store.put('tasks',t);emit('COMMAND_ACCEPTED',t.id);emit('TASK_CREATED',t.id);return t;});
+    return atomicWithTrace(()=>{const t={id:'Q-'+randomUUID(),type,domain:'system',state:'QUEUED',createdAt:now(),updatedAt:now(),assignedNodeId:null,progress:0,lastCheckpoint:null,result:null,error:null,...researchRunRef,...remoteOperationField,...agentJobField};store.put('tasks',t);emit('COMMAND_ACCEPTED',t.id);emit('TASK_CREATED',t.id);return t;});
   };
   const cityTasks={
     terminal,
@@ -857,7 +867,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // The operation log is an OWNER surface, not a node surface: it is reached with the City's control token, so it
       // is excluded from the node-token requirement exactly as `/node/sharing` already was. Leaving it inside
       // `nodeRoute` would have made the owner's own read surface unreachable to the owner.
-      const ownerNodeRoute=path==='/api/v0/node/operations';
+      const ownerNodeRoute=path==='/api/v0/node/operations'||path==='/api/v0/node/jobs';
       if(!publicJoin&&!legacyPublicPairing&&!selfAuthenticating)auth(req,nodeRoute&&path!=='/api/v0/node/sharing'&&!ownerNodeRoute&&!researchRoute);
       if(path.startsWith('/api/v0/research/faults')&&req.citySession)refuse('RESEARCH_OWNER_REQUIRED',403,'Fault controls require the City owner');
       if(!legacyPublicPairing)version(req);
@@ -1101,7 +1111,14 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         // `req.citySession` is set exactly when the caller presented an enrolled session credential instead of the
         // City's control token, so this is the same boundary the research fault controls and the execution profile
         // already use - not a new notion of "owner".
-        if(actionBody?.route==='CITY_TASK'&&actionBody?.operation==='OWNER_REMOTE_OPERATION'&&req.citySession)refuse('REMOTE_OPERATION_OWNER_REQUIRED',403,'Remote operation requires the City owner');
+        //
+        // The set of owner-only task types is read from the SAME list the Action facade uses, so a type added there
+        // cannot be forgotten here and quietly become member-reachable. Each type still names its OWN refusal code,
+        // because "which owner-only surface refused me" is what a caller has to act on.
+        if(actionBody?.route==='CITY_TASK'&&OWNER_TASK_TYPES.includes(actionBody?.operation)&&req.citySession){
+          const agentJob=actionBody.operation==='AGENT_JOB';
+          refuse(agentJob?'AGENT_JOB_OWNER_REQUIRED':'REMOTE_OPERATION_OWNER_REQUIRED',403,agentJob?'Agent jobs require the City owner':'Remote operation requires the City owner');
+        }
         out=await actions.create(actionBody);
       }
       // Deterministic Ask / Do. There is no model in this path and no BOSS/HNS route.
@@ -1132,6 +1149,37 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
             operationDigest:task.operation?.operationDigest??null,error:task.error??null,result:task.result??null,
             receipt:task.operation&&task.result?validateRemoteOperationReceipt(task.operation,task.result):null}));
         out={exposure:REMOTE_OPERATION_EXPOSURE,config:{enabled:remoteOperationConfig.enabled,allowlist:remoteOperationConfig.allowlist,workspaces:remoteOperationConfig.workspaces},operations:rows};
+      }
+      // The owner's view of the AGENT-JOB surface: what was asked of a remote agent, who took it, and what came back.
+      // Owner-only for the same reason the operation log is - a job states what the owner wants done on another machine,
+      // and a report is an agent's answer about it.
+      //
+      // Everything shown here is either the City's own record or explicitly labelled as the agent's claim:
+      //  * `deadline.state` is a PROJECTION. The City does not run a scheduler, so an expired job is reported as expired
+      //    rather than silently rewritten, and `task.state` still says what the canonical task says.
+      //  * `report.validation` re-runs the contract on every read. It never upgrades the agent's claim into a
+      //    verification, which is why `acceptanceAuthority` is false on every accepted report and travels with it.
+      else if(req.method==='GET' && path==='/api/v0/node/jobs'){
+        if(req.citySession)refuse('AGENT_JOB_OWNER_REQUIRED',403,'Agent jobs require the City owner');
+        const wanted=Number(new URL(req.url,'http://city').searchParams.get('limit')??20);
+        const limit=Number.isSafeInteger(wanted)&&wanted>0?Math.min(50,wanted):20;
+        const rows=store.list('tasks').filter(task=>task.type==='AGENT_JOB')
+          .sort((a,b)=>String(b.createdAt??'').localeCompare(String(a.createdAt??''))).slice(0,limit)
+          .map(task=>{
+            const expired=task.job?isJobExpired({...task.job,state:task.state,createdAt:task.createdAt}):null;
+            const deadlineAt=task.job&&Number.isFinite(Date.parse(task.createdAt))?new Date(Date.parse(task.createdAt)+task.job.deadlineMs).toISOString():null;
+            return {taskId:task.id,state:task.state,progress:task.progress,assignedNodeId:task.assignedNodeId,createdAt:task.createdAt,updatedAt:task.updatedAt,
+              targetStateAtCreation:task.targetStateAtCreation??null,targetStateDetail:task.targetStateDetail??null,
+              // A job with no normalised request is not presented as an empty one: the missing piece is named.
+              job:task.job?{title:task.job.title,instruction:task.job.instruction,purpose:task.job.purpose,inputs:task.job.inputs,expect:task.job.expect,
+                deadlineMs:task.job.deadlineMs,jobDigest:task.job.jobDigest}:null,
+              jobDigest:task.job?.jobDigest??null,
+              jobState:task.job?null:'JOB_RECORD_MISSING',
+              deadline:{deadlineAt,expired:expired===true,projectedState:task.job&&expired&&!terminal.includes(task.state)?'EXPIRED':null},
+              error:task.error??null,report:task.result??null,
+              reportValidation:task.job&&task.result?validateAgentJobReport(task.job,task.result):null};
+          });
+        out={exposure:AGENT_JOB_EXPOSURE,config:{enabled:agentJobConfig.enabled},jobs:rows};
       }
       else if(req.method==='GET' && path==='/api/v0/events')out={events:store.events()};
       // JOIN-502 owner decisions. These are AUTHENTICATED: deciding who joins is exactly the authority
@@ -1242,7 +1290,34 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         await faults.before('claim',b.id);out=executionBackend().claim({nodeId:b.id});faults.success('claim',b.id);
       } else if(req.method==='POST' && path==='/api/v0/node/report'){
         const b=await body(req);assertOwnNode(req,b.id);
-        required('nodes',b.id);await faults.before('report',b.id);out=executionBackend().report({taskId:b.taskId,nodeId:b.id,state:b.state,progress:b.progress,lastCheckpoint:b.lastCheckpoint,result:b.result,error:b.error});faults.success('report',b.id);
+        required('nodes',b.id);
+        // AGENT-JOB: the City cannot see whether an agent told the truth, but it CAN check that the report is about the
+        // job it actually dispatched and that the claim is internally consistent - and it checks HERE, before the report
+        // becomes the task's stored result. Validating only at the read surface would leave an agent's unchecked claim
+        // sitting inside the canonical task, and a reader would have to already know to distrust it.
+        //
+        // The gate is on the TASK's type and on the task reaching a terminal state - so it uses the CANONICAL task
+        // vocabulary, not the job's. Getting that wrong is not a detail: this check first read `TERMINAL_JOB_STATES`,
+        // whose words are SUCCEEDED/FAILED/EXPIRED, so a report written as `COMPLETED` (the one an agent actually sends
+        // when it succeeds) skipped validation entirely and reached the backend unchecked. A test that bound a report to
+        // the WRONG job is what caught it.
+        //
+        // It is also never gated on the shape of what arrived: a report that simply omitted `jobDigest` must not skip
+        // the check, while an intermediate RUNNING progress report carries no job report at all and must still be
+        // accepted, or the owner would lose sight of work in flight.
+        const reportedTask=required('tasks',b.taskId);
+        if(reportedTask.type==='AGENT_JOB'&&terminal.includes(b.state)){
+          const verdict=validateAgentJobReport(reportedTask.job,b.result);
+          if(verdict.valid!==true)refuse(verdict.code,422,`Agent report refused: ${verdict.code}`);
+          // The terminal state being written to the canonical task must be the SAME statement as the report's own, and
+          // the two vocabularies are translated by one named table rather than by string coincidence.
+          const expected=REPORT_STATE_TO_TASK_STATE[verdict.state];
+          // An agent may report an OUTCOME. Cancellation is the owner's decision and expiry is the City's, so both are
+          // refused by name instead of being believed about a decision the agent does not own.
+          if(!AGENT_REPORTABLE_STATES.includes(verdict.state))refuse('REPORT_STATE_NOT_AGENT_DECIDABLE',409,`an agent may not report ${verdict.state}; an agent reports an outcome, not a cancellation or an expiry`);
+          if(b.state!==expected)refuse('REPORT_TASK_STATE_MISMATCH',409,`report says ${verdict.state} (= ${expected}) but the task state would be ${String(b.state)}`);
+        }
+        await faults.before('report',b.id);out=executionBackend().report({taskId:b.taskId,nodeId:b.id,state:b.state,progress:b.progress,lastCheckpoint:b.lastCheckpoint,result:b.result,error:b.error});faults.success('report',b.id);
       }
       // REX-803 - the campaign control surface, DIRECT_CONTROL per the programme's exposure rules: the owner picks a
       // described experiment and a scenario, sets the repetitions, starts, stops, and inspects progress including

@@ -18,6 +18,9 @@
 export const NODE_TASK_CAPABILITIES = Object.freeze({
   // The node half of the owner remote operation: spawn with shell:false, bounded output, timeout, cancellation.
   OWNER_REMOTE_OPERATION: 'city.remote-operation.v1',
+  // The node half of the agent-job channel: an agent that can read a request and send back a report. A reference node
+  // that only knows the mechanical task types must never be handed one, for the same measured reason as above.
+  AGENT_JOB: 'city.agent-job.v1',
 });
 
 /** Does this node implement what this task type needs? A task type with no node-side requirement needs nothing. */

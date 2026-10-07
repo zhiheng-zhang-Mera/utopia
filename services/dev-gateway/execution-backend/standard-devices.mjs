@@ -36,6 +36,10 @@ import { acceptsWork } from '../../../city/00-foundation/01-city-core/fleet-rout
 // A task type may need the NODE to implement something. The same rule is asked at dispatch time in server.mjs; keeping
 // the vocabulary in one module is what stops "eligible to be sent" and "eligible to be claimed" from diverging.
 import { nodeSupportsTask } from '../node-task-capabilities.mjs';
+// A job the City handed out with a deadline must not be handed out AFTER that deadline: the request can no longer be
+// answered in time, and asking a remote agent to spend work on it would be the City spending someone else's budget on
+// an answer that is already too late. Expiry is the City's decision, not the agent's.
+import { isJobExpired } from '../../../contracts/city-agent-job-v1/job.mjs';
 
 /** The backend id, as a stable machine-readable name. */
 export const STANDARD_DEVICES_BACKEND_ID = 'standard-devices';
@@ -182,6 +186,20 @@ export function createStandardDevicesBackend({
   }
 
   /**
+   * Is this task's own deadline already in the past?
+   *
+   * Only AGENT_JOB carries one, and the answer is read from the job the City normalised rather than from a clock the
+   * node keeps, so two machines cannot disagree about whether a request is still live. A task whose job did not survive
+   * a restart intact is treated as NOT expired here: this predicate withholds work, and withholding it on a guess would
+   * strand a job the owner is still waiting for. The read surface reports that case separately, by name.
+   */
+  const jobDeadlinePassed = task => {
+    if (task.type !== 'AGENT_JOB' || !task.job) return false;
+    // `isJobExpired` reads `createdAt` off the object it is given; the task IS the record that owns that timestamp.
+    return isJobExpired({ ...task.job, state: task.state, createdAt: task.createdAt });
+  };
+
+  /**
    * Dispatch one already-decided task. In STANDARD_DEVICES the decision was made by whoever created the task,
    * so this is the placement step only: it refuses when the named endpoint is not a real, ready execution
    * endpoint, and otherwise performs the same assignment transition the claim path performs.
@@ -213,6 +231,7 @@ export function createStandardDevicesBackend({
     const busy = tasks().some(task => task.assignedNodeId === target.id && !isTerminal(task));
     const claimable = task => task.executionBackendId !== 'pcf-v1' && task.state === 'QUEUED'
       && nodeSupportsTask(task, target)
+      && !jobDeadlinePassed(task)
       && claimAllowedByTarget(task, target.id)
       && handoffClaimAllowed({
         subjectRef: task.id,

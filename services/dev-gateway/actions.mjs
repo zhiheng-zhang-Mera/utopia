@@ -367,7 +367,7 @@ export const CITY_TASK_TYPES = ['WAIT', 'CREATE_TEMP_ARTIFACT', 'HASH_TEMP_ARTIF
  * cannot even be well-formed, since the operation needs a declared executable, argv, working directory and purpose.
  * The owner reaches it through the explicit Action route, and the router never offers it.
  */
-export const OWNER_TASK_TYPES = ['OWNER_REMOTE_OPERATION'];
+export const OWNER_TASK_TYPES = ['OWNER_REMOTE_OPERATION', 'AGENT_JOB'];
 
 const TASK_STATUS_MAP = {
   QUEUED: 'QUEUED',
@@ -590,6 +590,7 @@ export function createActions({ store, rooms, bridge, cityTasks, host = 'utopia-
       task = cityTasks.create(type, {
         targetDeviceRef: intent.present ? intent.value : null,
         operation: OWNER_TASK_TYPES.includes(type) ? request?.input?.operation : undefined,
+        job: type === 'AGENT_JOB' ? request?.input?.job : undefined,
       });
     } catch (error) {
       const code = error.code ?? 'CITY_TASK_REFUSED';

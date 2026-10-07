@@ -449,5 +449,7 @@ Object.assign(messages,{
  'rr.value':'观测值','rr.original':'原始运行','rr.replayed':'新运行','rr.worker':'执行节点','rr.inputs':'受控输入一致','rr.unavailable':'重放暂不可用，请刷新或重新连接。'
 });
 Object.assign(messages, {'nav.governance':'审议治理', 'heading.governance':'审议治理过程'});
-Object.assign(messages, {'nav.remoteOperation':'远程操作', 'heading.remoteOperation':'远程操作'});
+// See the note in en.js: `nav.*` keys are literal, `heading.*` keys are derived from the lowercased page name.
+Object.assign(messages, {'nav.remoteOperation':'远程操作', 'heading.remoteoperation':'远程操作'});
+Object.assign(messages, {'nav.agentJobs':'智能体任务', 'heading.agentjobs':'智能体任务'});
 export default { meta, messages };

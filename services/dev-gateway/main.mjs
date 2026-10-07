@@ -56,7 +56,11 @@ try {
   // Owner remote operation. OFF unless the owner turns it on AND says which programs and which directories are in
   // scope: two decisions, both made by the person who owns the machines, neither of which a request can widen.
   const remoteOperation={enabled:process.env.CITY_REMOTE_OPERATION==='1',allowlist:(process.env.CITY_REMOTE_OPERATION_ALLOWLIST||'').split(',').map(x=>x.trim()).filter(Boolean),workspaces:(process.env.CITY_REMOTE_OPERATION_WORKSPACES||'').split(',').map(x=>x.trim()).filter(Boolean)};
-  app = await createGateway({host:process.env.CITY_HOST||'127.0.0.1',port:Number(process.env.CITY_PORT||4310),dir:reservation.dataDir,token:config.token,nodeToken:config.nodeToken,discoveryEnabled:process.env.CITY_DISCOVERY_DISABLED!=='1',hostJoin,remoteOperation});
+  // The agent-job channel, on its OWN switch and with no allowlist to configure: it names no program and opens no
+  // directory, so there is nothing for an owner to narrow - the contract bounds it instead (bounded text inputs, a
+  // deadline, a report that must declare what kind of claim it is). It is off unless the owner turns it on.
+  const agentJob={enabled:process.env.CITY_AGENT_JOB==='1'};
+  app = await createGateway({host:process.env.CITY_HOST||'127.0.0.1',port:Number(process.env.CITY_PORT||4310),dir:reservation.dataDir,token:config.token,nodeToken:config.nodeToken,discoveryEnabled:process.env.CITY_DISCOVERY_DISABLED!=='1',hostJoin,remoteOperation,agentJob});
   if (process.env.CITY_MANAGE_SERVICES === '1') {
     const {startAgent} = await import('../../agents/reference-node/agent.mjs');
     agent = await startAgent({url:app.url,token:config.nodeToken,id:'dev-'+app.store.cityId.replaceAll('-',''),displayName:config.deviceName||hostname(),workspace:resolve(reservation.dataDir,'workspace')});

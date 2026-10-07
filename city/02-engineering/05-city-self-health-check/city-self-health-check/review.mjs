@@ -22,6 +22,7 @@ export function validateCaseHistory(history) {
   const previous = new Map();
   for (const revision of history) {
     const { hash: digest, ...body } = revision;
+    if (JSON.stringify(minimize(body)) !== JSON.stringify(body)) throw new Error('Case record contains sensitive or unsupported content');
     const prior = previous.get(body.case_id);
     if (hash(body) !== digest || body.previous_hash !== (prior?.hash ?? null) || body.revision !== (prior?.revision ?? 0) + 1) throw new Error('Case record integrity violation');
     previous.set(body.case_id, revision);
@@ -61,5 +62,5 @@ export function quarterlyReview(report, { caseHistory = [], candidates = [], bos
     if (!x.source_cases?.length || x.source_cases.some(id => !cases.has(id))) return { ...routeCandidate({ ...x, evidence: [] }), defer_reason: 'TRACEABLE_CASE_EVIDENCE_REQUIRED' };
     return routeCandidate(x);
   });
-  return { diagnoses: report.findings.map(diagnose), case_history: structuredClone(caseHistory), boss_reconciliation: reconcileBoss(bossObservations), runtime_intelligence: { provider_task_fit: 'NOT_MEASURED', routing_outcomes: 'NOT_MEASURED', split_review_model_switch: 'NOT_MEASURED', resource_budget: 'NOT_MEASURED', stale_skills: 'UNKNOWN', continuation_stop_quality: 'NOT_MEASURED', evidence_needed: 'Verified runtime episodes and outcome measurements' }, candidate_receipts: receipts, outcome: candidates.length ? (receipts.some(x => x.receipt_state === 'ROUTED') ? 'EVOLUTION_CANDIDATE' : 'OBSERVE_MORE') : 'NO_CHANGE', authority: AUTHORITY };
+  return minimize({ diagnoses: report.findings.map(diagnose), case_history: structuredClone(caseHistory), boss_reconciliation: reconcileBoss(bossObservations), runtime_intelligence: { provider_task_fit: 'NOT_MEASURED', routing_outcomes: 'NOT_MEASURED', split_review_model_switch: 'NOT_MEASURED', resource_budget: 'NOT_MEASURED', stale_skills: 'UNKNOWN', continuation_stop_quality: 'NOT_MEASURED', evidence_needed: 'Verified runtime episodes and outcome measurements' }, candidate_receipts: receipts, outcome: candidates.length ? (receipts.some(x => x.receipt_state === 'ROUTED') ? 'EVOLUTION_CANDIDATE' : 'OBSERVE_MORE') : 'NO_CHANGE', authority: AUTHORITY });
 }

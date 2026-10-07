@@ -1,0 +1,11 @@
+{
+  "at": "2026-10-05T11:32:37.410Z",
+  "scope": "physical Alien Windows self revoke at canonical Mech",
+  "cityId": "031fdba6-e94c-4298-a095-6ff04a65481d",
+  "installationId": "ins-e7f0f7cd90d276ebf8985062ab1a88e1",
+  "revokeStatus": 200,
+  "oldSessionStatus": 401,
+  "durableMintRefused": true,
+  "refusal": "installation ins-e7f0f7cd90d276ebf8985062ab1a88e1 is retired",
+  "remoteCityStillMatches": true
+}

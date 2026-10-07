@@ -1,0 +1,95 @@
+{
+  "task_id": "HOST-START-MODES",
+  "kind": "OWNER_DIRECTED_CHANGE",
+  "workbook": null,
+  "workbook_absence_reason": "No workbook in Digital-City/mission-book owns the host start-mode, page-lifecycle, or stored-role surface. The change was therefore delivered as an owner-directed change and is reported under mission-book/reports/HOST-START-MODES/ with the recommendation that a workbook be allocated for this surface.",
+  "role": "Mech-DS",
+  "development_host": "MEGA-REP",
+  "repository": "zhiheng-zhang-Mera/utopia",
+  "branch": "mech/standalone-city-lifecycle",
+  "pull_request": 26,
+  "base_sha": "d3262ce2",
+  "development_head_sha": "473d8e8901c97c0b92f5137ea1b6d70e949a8aae",
+  "behaviour": {
+    "start_plan": {
+      "default": { "mode": "standalone-page", "lifecycle": "page", "hosting": false, "follows_membership": false, "may_reconnect_membership": true, "role_persisted": false },
+      "--host-only": { "mode": "standalone-service", "lifecycle": "service", "hosting": true, "follows_membership": false, "may_reconnect_membership": false, "role_persisted": false },
+      "--online": { "mode": "online-member", "lifecycle": "online", "hosting": false, "follows_membership": true, "may_reconnect_membership": true, "role_persisted": true }
+    },
+    "reconciled_role_rule": "A start that is explicitly HOSTING never consults a stored membership. Any other start may RECONNECT to a membership still on disk, because that host is already a member of a City and pointing at it is what being online means for it - this is the accepted JOIN-503 contract (tests/host-city-launcher.test.mjs). Only an online start WRITES role.json. If the membership cannot be honoured (no enrollment file, or the City is down) the start refuses honestly instead of quietly becoming a different City in the same state directory.",
+    "page_close": "leaves the page, then the City closes after the last control surface has been absent for the grace window (CITY_PAGE_IDLE_MS, default 8000 ms); a reload inside the window cancels the exit and a second surface keeps it alive",
+    "release_route": "POST /api/v0/host/release (local only); refuses a City session with OWNER_CREDENTIAL_REQUIRED, and answers released:false,reason:'this City is not tied to a page' when lifecycle is service",
+    "role": "a single-machine start runs PRIMARY and leaves role.json exactly as stored (persistRole:false); only an online start rewrites it"
+  },
+  "runs": [
+    {
+      "id": "UNIT-PROBES",
+      "command": "node --test tests/host-standalone-lifecycle.test.mjs",
+      "workdir": "D:\\utopia-launch",
+      "head_sha": "473d8e8901c97c0b92f5137ea1b6d70e949a8aae",
+      "result": "pass 9, fail 0, skipped 0, todo 0",
+      "probes": [
+        "PROBE 1: the start plan defaults to a page-tied single-machine City, and only --online forces a membership",
+        "PROBE 2: closing the last page in page mode closes the City, and says why",
+        "PROBE 3: a reload inside the grace window does NOT close the City",
+        "PROBE 4: a second surface keeps the City alive",
+        "PROBE 5: a City that never had a page does not close itself",
+        "PROBE 6: the owner page can release the City explicitly, and only the owner",
+        "PROBE 7: a hosting City ignores the release and never follows a page",
+        "PROBE 8: the person starting a City is told which life it got, and told why their stored role was ignored",
+        "PROBE 9: an explicit hosting start never consults a stored membership, and no other start turns a member host into a second City",
+        "PROBE 10: a member agent is an online start whatever was declared, so it can never become a host City of its own",
+        "PROBE 12: which membership a start may use - member agent, stored selection resumed, stored selection refused when its credential is gone, leftover enrollment not diverting a plain start, and the leftover allowed only online"
+      ],
+      "stderr_note": "PROBE 2/3/4/6 print the City's own reason line, e.g. 'Utopia City closing: the control page left without releasing the City'"
+    },
+    {
+      "id": "PROCESS-E2E",
+      "command": "pnpm test:acceptance  (node --test tests/acceptance/*.test.mjs)",
+      "workdir": "D:\\utopia-launch",
+      "head_sha": "473d8e8901c97c0b92f5137ea1b6d70e949a8aae",
+      "result": "3 acceptances; verified on hosted CI at head 4b2e701 (run 37288968499: E2E 1 + E2E 2 passed 2/2 after the move, and E2E 3 was added afterwards for the member-agent rule)",
+      "serialisation_reason": "This acceptance spawns real Cities, and one City per host is a host-wide rule: main.mjs refuses to start while findRunningCities() sees any other services/dev-gateway/main.mjs process, and that scan reads the process list rather than ports. While this file lived in tests/*.test.mjs it ran in parallel with tests/host-city-launcher.test.mjs, whose launcher then refused to start and failed CI on head 473d8e8 / 4ee0974 (run 37287799751: 3 failures - 'City did not become ready within 45 seconds', an EBUSY cleanup error, and 'Requires a free local host reservation') even though the same tests are SUCCESS at the base commit d3262ce2 (run 37222674520). Classification: real defect introduced by this change, instrument/parallelism rather than product logic. Repair: moved to tests/acceptance/, added the pnpm test:acceptance script, and added a CI step that runs it before pnpm test in the same gateway-web job, so it still gates the pull request while never overlapping another City. Evading the preflight was rejected: hiding the process would have concealed a real violation of the one-City-per-host rule.",
+      "acceptances": [
+        "closing the last page ends the City process with exit code 0 and a /Utopia City closing/ line on the process output",
+        "a stored MEMBER role is ignored on a single-machine start, role.json is left byte-identical, and the same stored role is honoured when the City is started online",
+        "a member agent (CITY_MEMBER_FILE, no declared lifecycle) is an online start: it never reserves this host as a PRIMARY City, never prints 'Utopia Host listening', and never opens this host's City port"
+      ],
+      "reproduction_constraint": "the acceptance spawns its own isolated City and therefore needs coordination port 4389 free; main.mjs also refuses to start while findRunningCities() sees any City. The resident City on this host was stopped for the recorded run and restored afterwards (cityId 031fdba6-e94c-4298-a095-6ff04a65481d, http://172.31.12.151:4391, coordination ONLINE). The probes were not re-run at the docs-only head because re-running would take that City down again; no code changed between the recorded run and the docs commit."
+    },
+    {
+      "id": "BILINGUAL-DOC-CHECK",
+      "command": "node scripts/check-bilingual.mjs (repository check)",
+      "result": "SYNCHRONIZED"
+    },
+    {
+      "id": "REGRESSION-SUBSET",
+      "result": "174 pass / 180; the 3 remaining failures (3x host-city-launcher.test.mjs, relay-s1-tunnel) were reproduced unchanged at the unmodified baseline via git stash, so they are environmental and not attributable to this change"
+    }
+  ],
+  "exposure_decision": {
+    "rule": "CONSTRUCTION_RULES.md §14A",
+    "capability": "host start mode, page-tied City lifecycle, and stored-role persistence",
+    "user_exposure_class": "BACKGROUND_DISCLOSED",
+    "why_not_internal_only": "the start mode decides how long a background process lives, which §14A.4 forbids classifying as INTERNAL_ONLY",
+    "user_exposure_surface": "the launcher's own start output (human mode), the launcher --json report, and the City snapshot field lifecycle",
+    "user_exposure_nesting": "L2_CONTEXTUAL at the moment of starting; the machine-readable fields remain L4 technical detail",
+    "backend_wiring": "VERIFIED — the disclosure is computed from the same plan object that decides the mode, and from the City's own snapshot lifecycle",
+    "disclosure_lines": [
+      "This City follows this page: closing it closes the City.",
+      "This City keeps running on its own: close this page whenever you like.",
+      "This City is online and keeps running on its own.",
+      "A single-machine start does not use the stored role; going online is what changes the role."
+    ],
+    "ui_exemption_reason": null,
+    "reachability_gap": "no Web/Android surface renders which start mode a City is in; a page-tied City is disclosed at start but not observable afterwards. Recommended minimal repair boundary: an L3 status row in the City panel and a one-line notice on the page when city.lifecycle === 'page'.",
+    "capability_registry_action": "CREATE",
+    "capability_ids": ["CAP-HOST-LIFECYCLE-001"],
+    "capability_registry_refs": ["capability-registry/records/CAP-HOST-LIFECYCLE-001.yaml"],
+    "capability_registry_sync_status": "CANDIDATE_RECONCILED_PENDING_FORMAL_REVIEW"
+  },
+  "deviations": [],
+  "open_items": [
+    "the surface has no owning workbook: recommend allocating one so future changes to start modes, page lifecycle, and stored-role persistence are claimed rather than owner-directed"
+  ]
+}

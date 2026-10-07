@@ -1,0 +1,47 @@
+{
+  "sourceSha": "386c75896d5d2223b30901cfcfa6da5fc9b76e1e",
+  "host": "MERA-ALIANWARE",
+  "measuredAt": "2026-10-06T04:36:33.722Z",
+  "fixture": "REAL_ISOLATED_GATEWAY_CANONICAL_STORE",
+  "surface": "HEADLESS_EDGE_WEB",
+  "cityId": "4b710b2c-136f-4e1f-91e0-e20615ec2ac5",
+  "taskId": "Q-4d2b824a-b21c-4598-9dc1-5be9a9fdffa1",
+  "evidenceRef": "aa5277de-5ecb-491c-9047-b1d551c1c74d",
+  "navigationStepsToEvidence": 3,
+  "steps": [
+    "overview task",
+    "assignment path",
+    "canonical event evidence"
+  ],
+  "nodeCount": 2,
+  "visibleNodeCount": 2,
+  "edgeCount": 1,
+  "activeRiskPresent": false,
+  "edgeReasons": [
+    {
+      "type": "ASSIGNED_TO",
+      "reason": "Canonical task.assignedNodeId"
+    }
+  ],
+  "physicalAndroid": "NOT_RUN",
+  "exactEvidence": {
+    "source": "CANONICAL_GATEWAY_STORE",
+    "reference": "aa5277de-5ecb-491c-9047-b1d551c1c74d",
+    "pointer": {
+      "canonicalEventId": "aa5277de-5ecb-491c-9047-b1d551c1c74d",
+      "seq": 3,
+      "source": "CANONICAL_GATEWAY_STORE",
+      "path": "/api/v0/events",
+      "cityId": "4b710b2c-136f-4e1f-91e0-e20615ec2ac5"
+    },
+    "event": {
+      "canonicalEventId": "aa5277de-5ecb-491c-9047-b1d551c1c74d",
+      "seq": 3,
+      "type": "COMMAND_ACCEPTED",
+      "taskRef": "Q-4d2b824a-b21c-4598-9dc1-5be9a9fdffa1",
+      "actorRef": "gateway",
+      "timestamp": "2026-10-06T04:36:32.377Z",
+      "evidenceRef": "aa5277de-5ecb-491c-9047-b1d551c1c74d"
+    }
+  }
+}

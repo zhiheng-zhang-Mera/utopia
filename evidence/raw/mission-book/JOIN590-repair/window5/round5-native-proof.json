@@ -1,0 +1,56 @@
+{
+  "at": "2026-10-05T11:10:04.563006+00:00",
+  "trialId": "b5528ffc-4ce4-4e70-9fc6-79c7d77b7d76",
+  "credentialPresent": false,
+  "durableFieldNames": [],
+  "events": [
+    {
+      "trialId": "b5528ffc-4ce4-4e70-9fc6-79c7d77b7d76",
+      "mode": "owner-code",
+      "event": "start",
+      "timestamp": "2026-10-05T10:57:16.110521Z",
+      "userActions": 0,
+      "retryCount": 0
+    },
+    {
+      "trialId": "b5528ffc-4ce4-4e70-9fc6-79c7d77b7d76",
+      "mode": "owner-code",
+      "event": "action",
+      "timestamp": "2026-10-05T10:57:16.111344Z",
+      "userActions": 1,
+      "retryCount": 0
+    },
+    {
+      "trialId": "b5528ffc-4ce4-4e70-9fc6-79c7d77b7d76",
+      "mode": "owner-code",
+      "event": "relayasking",
+      "timestamp": "2026-10-05T10:58:07.250499Z",
+      "userActions": 1,
+      "retryCount": 0
+    },
+    {
+      "trialId": "b5528ffc-4ce4-4e70-9fc6-79c7d77b7d76",
+      "mode": "owner-code",
+      "event": "relaywaiting",
+      "timestamp": "2026-10-05T10:58:07.254721Z",
+      "userActions": 1,
+      "retryCount": 0
+    },
+    {
+      "trialId": "b5528ffc-4ce4-4e70-9fc6-79c7d77b7d76",
+      "mode": "owner-code",
+      "event": "relayapproved",
+      "timestamp": "2026-10-05T10:59:08.181979Z",
+      "userActions": 1,
+      "retryCount": 0
+    },
+    {
+      "trialId": "b5528ffc-4ce4-4e70-9fc6-79c7d77b7d76",
+      "mode": "owner-code",
+      "event": "retry",
+      "timestamp": "2026-10-05T10:59:08.199605Z",
+      "userActions": 1,
+      "retryCount": 1
+    }
+  ]
+}

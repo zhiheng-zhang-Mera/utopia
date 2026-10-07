@@ -1,0 +1,54 @@
+{
+  "origin": "http://172.31.12.151:4391",
+  "browserTaskIdVisible": true,
+  "browserResultHashVisible": true,
+  "browserResultStateVisible": true,
+  "canonical": {
+    "status": 200,
+    "id": "Q-24ebb6d9-ea60-47bc-944b-e7e4da530819",
+    "state": "COMPLETED",
+    "assignedNodeId": "alien-reference-node",
+    "result": {
+      "bytes": 65,
+      "sha256": "1d75256ecf08d63f10f8fe9832a7a2f2212cf78d6b55498d7e0a909e4b6eec1b",
+      "cleaned": true
+    },
+    "events": [
+      {
+        "seq": 106,
+        "type": "COMMAND_ACCEPTED",
+        "taskId": "Q-24ebb6d9-ea60-47bc-944b-e7e4da530819"
+      },
+      {
+        "seq": 107,
+        "type": "TASK_CREATED",
+        "taskId": "Q-24ebb6d9-ea60-47bc-944b-e7e4da530819"
+      },
+      {
+        "seq": 108,
+        "type": "TASK_ASSIGNED",
+        "taskId": "Q-24ebb6d9-ea60-47bc-944b-e7e4da530819"
+      },
+      {
+        "seq": 109,
+        "type": "TASK_STARTED",
+        "taskId": "Q-24ebb6d9-ea60-47bc-944b-e7e4da530819"
+      },
+      {
+        "seq": 110,
+        "type": "TASK_CHECKPOINTED",
+        "taskId": "Q-24ebb6d9-ea60-47bc-944b-e7e4da530819"
+      },
+      {
+        "seq": 111,
+        "type": "TASK_CHECKPOINTED",
+        "taskId": "Q-24ebb6d9-ea60-47bc-944b-e7e4da530819"
+      },
+      {
+        "seq": 112,
+        "type": "TASK_COMPLETED",
+        "taskId": "Q-24ebb6d9-ea60-47bc-944b-e7e4da530819"
+      }
+    ]
+  }
+}

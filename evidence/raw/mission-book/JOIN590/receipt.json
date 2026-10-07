@@ -1,0 +1,48 @@
+{
+  "softwareSourceSha": "b91677d1478950feb79742f618d0c981773d5bb7",
+  "evidenceBranch": "review/JOIN-590-Alien-codex",
+  "evidenceStatus": "CANDIDATE_NOT_FORMAL_ACCEPTANCE",
+  "reviewer": "Alien-codex",
+  "applicationId": "city.utopia.control.join590review",
+  "apkSha256": "78e28b9565a967c7eae7d347944e2258e7f5748682aeeea79b10c69b8f6fc87d",
+  "cityId": "031fdba6-e94c-4298-a095-6ff04a65481d",
+  "requestShortRef": "join-fe7ec19fbc",
+  "passed": [
+    "physical approval-to-online",
+    "same-city app force-stop/relaunch without input",
+    "phone-web task id/state/result hash match",
+    "canonical and native task seq106..112 match"
+  ],
+  "incomplete": [
+    "durable native installation",
+    "member-only session",
+    "targeted revoke refusal",
+    "City process restart",
+    "merged-main post-closeout",
+    "two-sided NAT"
+  ],
+  "files": {
+    ".gitattributes": "8b9c3028d6467ff3be7c793141927841d70f47f52d0590677438f488ca154992",
+    "join590-independent-review.mjs": "20b3618e7b2854027d10dd54f2405f672d7ff4505887a2545801fe4c9e35baf6",
+    "mech-approval-pending.xml": "576c2fc35fb4105c7e34c24c7f838a8cdbd27c4dd84bb6a71c780e3102fece1b",
+    "mech-approval-timeout.xml": "748644e550f9c5ef45fa86d1e4ea1179c8439de6d22c43a5e21d135afe6636ae",
+    "physical-pairing-events.jsonl": "1b67c909f6f5afb45ee3abf2bac41dcf67762fa01ff0a54101a05341435fd6d0",
+    "relay-blank-code.xml": "52edfc1f0ff8333c6b8f5e71579a74e963dc6eb8599c191d918854dd7e802220",
+    "review-app-id.gradle": "b5c3087839694f918164bdb24d4517a0fc68ca5a4676c78eff819ab9af587a4f",
+    "round2-final-ui.xml": "d0710596498ec985d507b46629169d42439943ef47f755c59920e69e6d116bbe",
+    "round2-native-boundaries.json": "4d1365fbea65344a3da0d8e25169075ea197a76c8111d49cb9f46311cd1c6688",
+    "round2-request.xml": "94bd14d46954ec0e9a8d28282430fa660ac59b58a6d7e79262bd5dc5561719a4",
+    "round3-native-boundaries.json": "0b757f2bd3b170cfeeddb5464f9d14b9ddf872d1c8bf4e73e3b6bdfec82b7d78",
+    "round3-online-ui.xml": "0d537ee889c47a71ba484b6ec4ab900e0e02017ee95c4caa1bc0585f1d0ab8d9",
+    "round3-phone-task-events.json": "a9b183303aa3faa66c393643151382d9a3e08dbc7568b2f145330c1281e508b1",
+    "round3-phone-task.png": "95ea4d3ee68bea4d2393acb29cd34ae8582b8b8027fc6b28c786537ff25c5eea",
+    "round3-phone-task.xml": "d22f05912aae3e1df106c8a1677ed8b09e8dd4df5b02cef13cc6d4e5d5fd34fd",
+    "round3-request.xml": "63eba690e7d0b085cc98cdd350977b699ef1562264b53a1d949774ea4f6a0ae3",
+    "round3-restart-online-ui.xml": "21eda75ecdb00155075611da7ddb727ecb21ed5472dfbe6ab1ed954661f87cb4",
+    "round3-saved-connection.json": "e2266562bec27ef62f0a918f33477360fd6f18d6018e344cb62802f49dbda7ac",
+    "round3-web-task-proof.json": "999922acd84a475d70d401a4a1d0f710923b2f4555bb23c8e51bbce5a7ed299e",
+    "round3-web-task.png": "82ab67fde786721d38f74eedcad8668c4c5c56d84cffe1c367f2c55ba8bcb442",
+    "round3-web.mjs": "0b1b26dae5f5561bc86c0451760c6b60ca9cafd9d2fc849f4ddd661d800a561d",
+    "run-round3-web.py": "7039c8fad21fc368401c87e5a30967e14d2df73c9b2386822787e85930ef1a0b"
+  }
+}

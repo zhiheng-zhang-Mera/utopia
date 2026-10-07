@@ -1,0 +1,11 @@
+{
+  "at": "2026-10-05T11:27:08.952115+00:00",
+  "scope": "physical Android self leave and retired restart against Alien",
+  "oldSessionStatus": 401,
+  "durableRenewStatus": 403,
+  "ownerCityStatus": 200,
+  "savedSessionEmpty": true,
+  "cityId": "e1d87b2a-0ec5-457e-822b-91d81e40dc67",
+  "retiredUiObserved": true,
+  "booleanParsingCorrection": "Android boolean values reside in value attributes; original retired=false was a harness parsing error"
+}

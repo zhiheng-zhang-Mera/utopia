@@ -1,0 +1,82 @@
+[
+  {
+    "trialId": "13ae1ab3-8553-45b3-a5a0-c8757cf3dd2b",
+    "mode": "owner-code",
+    "event": "start",
+    "timestamp": "2026-10-05T10:12:01.236359Z",
+    "userActions": 0,
+    "retryCount": 0
+  },
+  {
+    "trialId": "13ae1ab3-8553-45b3-a5a0-c8757cf3dd2b",
+    "mode": "owner-code",
+    "event": "action",
+    "timestamp": "2026-10-05T10:12:01.237226Z",
+    "userActions": 1,
+    "retryCount": 0
+  },
+  {
+    "trialId": "13ae1ab3-8553-45b3-a5a0-c8757cf3dd2b",
+    "mode": "owner-code",
+    "event": "relayasking",
+    "timestamp": "2026-10-05T10:12:04.093829Z",
+    "userActions": 1,
+    "retryCount": 0
+  },
+  {
+    "trialId": "13ae1ab3-8553-45b3-a5a0-c8757cf3dd2b",
+    "mode": "owner-code",
+    "event": "relaywaiting",
+    "timestamp": "2026-10-05T10:12:04.109228Z",
+    "userActions": 1,
+    "retryCount": 0
+  },
+  {
+    "trialId": "13ae1ab3-8553-45b3-a5a0-c8757cf3dd2b",
+    "mode": "owner-code",
+    "event": "relayapproved",
+    "timestamp": "2026-10-05T10:12:14.164813Z",
+    "userActions": 1,
+    "retryCount": 0
+  },
+  {
+    "trialId": "13ae1ab3-8553-45b3-a5a0-c8757cf3dd2b",
+    "mode": "owner-code",
+    "event": "relayJoin",
+    "timestamp": "2026-10-05T10:12:14.188652Z",
+    "userActions": 1,
+    "retryCount": 0
+  },
+  {
+    "trialId": "13ae1ab3-8553-45b3-a5a0-c8757cf3dd2b",
+    "mode": "owner-code",
+    "event": "authenticated",
+    "timestamp": "2026-10-05T10:12:14.319523Z",
+    "userActions": 1,
+    "retryCount": 0
+  },
+  {
+    "trialId": "13ae1ab3-8553-45b3-a5a0-c8757cf3dd2b",
+    "mode": "owner-code",
+    "event": "snapshotLoaded",
+    "timestamp": "2026-10-05T10:12:14.320195Z",
+    "userActions": 1,
+    "retryCount": 0
+  },
+  {
+    "trialId": "128006ed-eae4-4300-bdc2-1761deb9a599",
+    "mode": "saved",
+    "event": "authenticated",
+    "timestamp": "2026-10-05T10:13:28.726624Z",
+    "userActions": 0,
+    "retryCount": 0
+  },
+  {
+    "trialId": "128006ed-eae4-4300-bdc2-1761deb9a599",
+    "mode": "saved",
+    "event": "snapshotLoaded",
+    "timestamp": "2026-10-05T10:13:28.728222Z",
+    "userActions": 0,
+    "retryCount": 0
+  }
+]

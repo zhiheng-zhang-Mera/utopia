@@ -1,0 +1,26 @@
+✖ Alien browser: frequent City rendering cannot starve bounded decision polling (3553.7907ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4891.6128
+
+✖ failing tests:
+
+test at tests\mon903-alien-review.test.mjs:66:1
+✖ Alien browser: frequent City rendering cannot starve bounded decision polling (3553.7907ms)
+  AssertionError [ERR_ASSERTION]: a 2-second projection poll must occur despite ongoing canonical snapshot rendering
+      at file:///D:/Utopia-MON903/tests/mon903-alien-review.test.mjs:68:9
+      at async browserFixture (file:///D:/Utopia-MON903/tests/mon903-alien-review.test.mjs:33:384)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

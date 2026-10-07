@@ -27,7 +27,8 @@ fun parseResearchRun(response:JSONObject):ResearchRunView {
  val failure=response.optString("errorCode").takeUnless { it.isBlank()||it=="null" }
  if(failure!=null){
   val owner=response.optInt("httpStatus",0)==403||failure.contains("OWNER")
-  return ResearchRunView(owner,null,if(owner)OWNER_NOTICE else UNAVAILABLE_NOTICE,emptyList(),response.toString(2))
+  return ResearchRunView(owner,null,if(owner)OWNER_NOTICE else UNAVAILABLE_NOTICE,
+   if(owner)emptyList() else listOf(ResearchAttention("OBSERVATION_UNAVAILABLE","研究观察不可用，不能确认当前运行或待处理事项。")),response.toString(2))
  }
  val attention=mutableListOf<ResearchAttention>()
  val window=response.optJSONObject("receiptWindow")
@@ -52,7 +53,7 @@ fun parseResearchRun(response:JSONObject):ResearchRunView {
   run=ResearchRunProgress(live.optString("scenarioId","UNKNOWN"),live.optString("state","UNKNOWN"),measured,planned,note)
   if(note.isNotBlank())attention.add(ResearchAttention("RUN_INCOMPLETE",note))
  }
- val coverage=if(run!=null)"当前运行：${run.scenario} · ${run.state} · ${run.measured ?: "?"}/${run.planned ?: "?"}（已测量/计划）" else IDLE_NOTICE
+ val coverage=if(storeState=="UNAVAILABLE")UNAVAILABLE_NOTICE else if(run!=null)"当前运行：${run.scenario} · ${run.state} · ${run.measured ?: "?"}/${run.planned ?: "?"}（已测量/计划）" else IDLE_NOTICE
  // No campaign identifier appears in any summary above; the raw payload is carried only here, for the collapsed
  // technical section, which is the same folding rule the Web view model applies.
  return ResearchRunView(false,run,coverage,attention,response.toString(2))

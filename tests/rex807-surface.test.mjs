@@ -181,6 +181,7 @@ test('REX807 S8: the rendered page folds identifiers, keeps the technical layer 
   // reported values are rendered, and an EMPTY list says it is empty rather than claiming every metric was measurable.
   const withMetrics = researchView({...payload, metrics: {reported: [{metric: 'completion_rate', value: 1, unit: 'ratio'}, {metric: 'waited_ms', value: 6000, unit: 'ms'}]}}, {locale: 'en'});
   const metricsMarkup = researchMarkup(withMetrics, {locale: 'en'}).metrics;
+  assert.match(metricsMarkup, /held campaign artifact/, 'aggregate metrics must identify their artifact scope');
   assert.match(metricsMarkup, /data-metric="completion_rate"/);
   assert.match(metricsMarkup, /<strong>1<\/strong>/, 'the value is rendered, not only the metric name');
   assert.match(metricsMarkup, /ratio/);
@@ -188,4 +189,3 @@ test('REX807 S8: the rendered page folds identifiers, keeps the technical layer 
   const emptyMetrics = researchMarkup(researchView({...payload, metrics: {reported: []}}, {locale: 'en'}), {locale: 'en'}).metrics;
   assert.match(emptyMetrics, /No metric has been reported/, 'an empty metric list is stated, not glossed over');
 });
-

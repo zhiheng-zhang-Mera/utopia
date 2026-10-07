@@ -36,6 +36,7 @@ class ResearchRunTest {
   val view=parseResearchRun(JSONObject("""{"errorCode":"INTERNAL","httpStatus":500}"""))
   assertFalse(view.ownerRequired)
   assertEquals(UNAVAILABLE_NOTICE,view.coverage)
+  assertTrue("unavailable observation must not clear all attention",view.attention.any { it.kind=="OBSERVATION_UNAVAILABLE" })
  }
 
  @Test fun theBoundedWindowIsStatedInsteadOfPassingAsHistory() {
@@ -69,6 +70,7 @@ class ResearchRunTest {
   assertEquals(setOf("UNFINISHED_CAMPAIGN","STORE_UNAVAILABLE"),view.attention.map { it.kind }.toSet())
   assertTrue(view.attention.first { it.kind=="STORE_UNAVAILABLE" }.summary.contains("ENOTDIR"))
   assertTrue(view.attention.first { it.kind=="STORE_UNAVAILABLE" }.summary.contains("普通城市任务"))
+  assertEquals("an unavailable store cannot establish idle",UNAVAILABLE_NOTICE,view.coverage)
  }
 
  @Test fun noRawIdentifierLeaksIntoAUserFacingWordButTheTechnicalLayerKeepsIt() {

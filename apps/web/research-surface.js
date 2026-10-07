@@ -253,8 +253,8 @@ export const researchMarkup = (view, {locale = 'en'} = {}) => {
       // that everything was measurable (which would be a claim about data this view does not have).
       const rows = metrics.items ?? [];
       const header = rows.length
-        ? `<p>${escaper(L(locale, `${rows.length} metric(s) reported by this run:`, `本次运行报告了 ${rows.length} 项指标：`))}</p>`
-        : `<p>${escaper(L(locale, 'No metric has been reported for this run yet.', '本次运行尚未报告任何指标。'))}</p>`;
+        ? `<p>${escaper(L(locale, `${rows.length} metric(s) reported by this City's held campaign artifact:`, `本城持有的 campaign 研究包报告了 ${rows.length} 项指标：`))}</p>`
+        : `<p>${escaper(L(locale, 'No metric has been reported by the held campaign artifact yet.', '本城持有的 campaign 研究包尚未报告任何指标。'))}</p>`;
       const list = rows.map(entry => {
         const name = escaper(text(entry?.metric ?? entry?.name ?? entry?.id ?? 'metric'));
         const value = entry?.value === undefined || entry?.value === null ? escaper(L(locale, 'no value', '无值')) : escaper(typeof entry.value === 'object' ? JSON.stringify(entry.value) : entry.value);

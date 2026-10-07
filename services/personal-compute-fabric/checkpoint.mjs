@@ -1,0 +1,4 @@
+import {requireThat as ok,copy} from './validation.mjs';
+const KEYS=['taskId','attemptId','inputDigest','providerVersion','stageId'];
+export async function saveCheckpoint(store,state,binding,now){ok(state.sideEffects==='NONE','CHECKPOINT_SIDE_EFFECT_UNKNOWN');for(const k of KEYS)ok(binding[k]!==undefined,'CHECKPOINT_BINDING');return store.publish(Buffer.from(JSON.stringify({version:1,binding:copy(binding),state:copy(state)})),{owner:binding.owner,dataScope:binding.dataScope,expiresAt:binding.expiresAt,schema:'pcf-checkpoint-v1'},now);}
+export async function restoreCheckpoint(store,ref,binding,now){const value=JSON.parse((await store.read(ref,{caller:binding.owner},now)).toString());ok(value.version===1&&value.state.sideEffects==='NONE','CHECKPOINT_INCOMPATIBLE');for(const k of KEYS)ok(value.binding[k]===binding[k],'CHECKPOINT_BINDING_'+k);return copy(value.state);}

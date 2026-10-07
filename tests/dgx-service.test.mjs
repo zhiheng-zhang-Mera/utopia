@@ -65,3 +65,12 @@ test('DGX006 pending appeal cannot be erased by recalculating the same release',
   const next=s.act('case-1',{action:'EVALUATE_RELEASE',expected_revision:c.revision,input:{}});assert.ok(next.release.blocks.includes('APPEAL_PENDING'));
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
+test('DGX005 accepted contributor claims discover conflict and force revalidation without deleting evidence',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'dgx-claims-'));try{
+  const s=createGovernanceService({dir,ports:{verifyParticipantReceipt:()=>true}});s.create(draft());let revision=1,c;
+  for(const [id,value] of [['a',true],['b',false]]){
+   c=s.act('case-1',{action:'CLAIM',expected_revision:revision,receipt:{case_ref:'case-1',candidate_sha:'a'.repeat(40),claim_ref:'claim-'+id,participant_ref:id,node_ref:'n1',subject_ref:'artifact:one',predicate_ref:'validation:passed',assertion_value:value,evidence_refs:['evidence:'+id],assumptions:[],uncertainty:[],type:'FACT',severity:'MAJOR'}});revision=c.revision;
+  }
+  assert.equal(c.claims.length,2);assert.equal(c.conflicts.length,1);assert.equal(c.process_capsule.L0.active_risk,true);assert.equal(c.participants.length,2);
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});

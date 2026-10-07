@@ -1,0 +1,134 @@
+{
+  "schema_version": 2,
+  "freeze": "NOT_RUN",
+  "pcf726_integration": "WAITING_DEPENDENCIES",
+  "scenarios": [
+    {
+      "scenario": 1,
+      "requirement": "Engineering decomposition, independent verification and final review",
+      "tests": [
+        "tests/dgx-core.test.mjs",
+        "tests/dgx-assignment.test.mjs",
+        "tests/dgx-profiles.test.mjs",
+        "tests/dgx-release.test.mjs"
+      ],
+      "evidence_class": "CONTROLLED_CONFORMANCE",
+      "formal_independent_acceptance": "NOT_RUN"
+    },
+    {
+      "scenario": 2,
+      "requirement": "Research objection/evidence/adjudication",
+      "tests": [
+        "tests/dgx-profiles.test.mjs",
+        "tests/dgx-adjudication.test.mjs"
+      ],
+      "evidence_class": "CONTROLLED_CONFORMANCE",
+      "formal_independent_acceptance": "NOT_RUN"
+    },
+    {
+      "scenario": 3,
+      "requirement": "Health professional seam is unavailable, never clinical truth",
+      "tests": [
+        "tests/dgx-profiles.test.mjs"
+      ],
+      "evidence_class": "CONTROLLED_CONFORMANCE",
+      "formal_independent_acceptance": "NOT_RUN"
+    },
+    {
+      "scenario": 4,
+      "requirement": "No conflict fast path",
+      "tests": [
+        "tests/dgx-release.test.mjs",
+        "tests/dgx-projection.test.mjs"
+      ],
+      "evidence_class": "CONTROLLED_CONFORMANCE",
+      "formal_independent_acceptance": "NOT_RUN"
+    },
+    {
+      "scenario": 5,
+      "requirement": "Both wrong and more evidence required",
+      "tests": [
+        "tests/dgx-adjudication.test.mjs"
+      ],
+      "evidence_class": "CONTROLLED_CONFORMANCE",
+      "formal_independent_acceptance": "NOT_RUN"
+    },
+    {
+      "scenario": 6,
+      "requirement": "Owner-only escalation",
+      "tests": [
+        "tests/dgx-release.test.mjs",
+        "tests/dgx-service.test.mjs"
+      ],
+      "evidence_class": "CONTROLLED_CONFORMANCE",
+      "formal_independent_acceptance": "NOT_RUN"
+    },
+    {
+      "scenario": 7,
+      "requirement": "Shared snapshot and thin result extension",
+      "tests": [
+        "tests/dgx-core.test.mjs"
+      ],
+      "evidence_class": "CONTROLLED_CONFORMANCE",
+      "formal_independent_acceptance": "NOT_RUN"
+    },
+    {
+      "scenario": 8,
+      "requirement": "Independence eligibility and fallback",
+      "tests": [
+        "tests/dgx-assignment.test.mjs",
+        "tests/dgx-service.test.mjs"
+      ],
+      "evidence_class": "CONTROLLED_CONFORMANCE",
+      "formal_independent_acceptance": "NOT_RUN"
+    },
+    {
+      "scenario": 9,
+      "requirement": "Pass A then Pass B and restart",
+      "tests": [
+        "tests/dgx-adjudication.test.mjs",
+        "tests/dgx-service.test.mjs"
+      ],
+      "evidence_class": "CONTROLLED_CONFORMANCE",
+      "formal_independent_acceptance": "NOT_RUN"
+    },
+    {
+      "scenario": 10,
+      "requirement": "Governance failure does not stop unrelated canonical City",
+      "tests": [
+        "tests/dgx-gateway.test.mjs"
+      ],
+      "evidence_class": "CONTROLLED_CONFORMANCE",
+      "formal_independent_acceptance": "NOT_RUN"
+    },
+    {
+      "scenario": 11,
+      "requirement": "Graph/task reconciliation",
+      "tests": [
+        "tests/dgx-projection.test.mjs"
+      ],
+      "evidence_class": "CONTROLLED_CONFORMANCE",
+      "formal_independent_acceptance": "NOT_RUN"
+    },
+    {
+      "scenario": 12,
+      "requirement": "Process capsule risk and progressive disclosure",
+      "tests": [
+        "tests/dgx-projection.test.mjs",
+        "tests/dgx-web.test.mjs"
+      ],
+      "evidence_class": "CONTROLLED_CONFORMANCE",
+      "formal_independent_acceptance": "NOT_RUN"
+    },
+    {
+      "scenario": 13,
+      "requirement": "Opposite physical host floor retained",
+      "tests": [
+        "tests/dgx-assignment.test.mjs",
+        "tests/dgx-profiles.test.mjs"
+      ],
+      "evidence_class": "CONTROLLED_CONFORMANCE",
+      "formal_independent_acceptance": "NOT_RUN"
+    }
+  ]
+}

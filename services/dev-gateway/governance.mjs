@@ -8,6 +8,7 @@ import {checkIndependence} from '../../contracts/deliberative-governance-v2/assi
 import {DOMAIN_PROFILES} from '../../contracts/deliberative-governance-v2/profiles.mjs';
 import {createAdjudication} from '../../contracts/deliberative-governance-v2/adjudication.mjs';
 import {evaluateRelease,createAppealPolicy} from '../../contracts/deliberative-governance-v2/release.mjs';
+import {validateClaim,detectConflicts} from '../../contracts/deliberative-governance-v2/claims.mjs';
 import {projectProcessCapsule} from '../../contracts/deliberative-governance-v2/projection.mjs';
 const ID=/^[a-z][a-z0-9-]{2,63}$/;
 export function createGovernanceService({dir,readTask,ports={}}={}){
@@ -60,6 +61,13 @@ export function createGovernanceService({dir,readTask,ports={}}={}){
     requireThat(ports.pcf,'PCF_726_UNAVAILABLE');verifyParticipant(a.receipt,c);const n=node(a.node_ref);
     const capsule=compileTaskCapsule(n,c.snapshot,ports.pcf,a.canonical_refs);const r=validateGovernanceResult(capsule,a.receipt,ports.pcf);
     requireThat(!c.results.some(x=>x.node_ref===n.node_id),'NODE_RESULT_IMMUTABLE');c.results.push(r);break;
+   }
+   case 'CLAIM':{
+    verifyParticipant(a.receipt,c);const claim=validateClaim(a.receipt);node(claim.node_ref);
+    requireThat(claim.case_ref===c.case_ref&&claim.candidate_sha===c.candidate_sha,'CLAIM_CASE_MISMATCH');
+    requireThat(!c.claims.some(x=>x.claim_ref===claim.claim_ref),'CLAIM_IMMUTABLE');c.claims.push(claim);
+    if(!c.participants.some(x=>x.participant_ref===claim.participant_ref))c.participants.push({participant_ref:claim.participant_ref,role:'CONTRIBUTOR'});
+    for(const conflict of detectConflicts(c.claims))if(!c.conflicts.some(x=>x.conflict_ref===conflict.conflict_ref))c.conflicts.push(conflict);break;
    }
    case 'CONFLICT':{
     const x=safe(a.conflict);node(x.node_ref);requireThat(ref(x.conflict_ref)&&['FACT','METHOD','INTERPRETATION','EXECUTION','REQUIREMENT'].includes(x.type)&&['CRITICAL','MAJOR','MINOR'].includes(x.severity)&&ref(x.statement)&&x.resolved===false,'CONFLICT_CONTRACT_REQUIRED');

@@ -1,488 +1,488 @@
-﻿[
-    {
-        "branch":  "Alien-GPT-CHK",
-        "tip":  "9a646d6b894babd0fb316c0b4a0ba302bd7bca7d",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "Alien-GPT-DGX",
-        "tip":  "e5a03dae02ca341d6d23565735e6cd6c3edc27d9",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "cex/CEX-701-Alien-codex-device-recovery",
-        "tip":  "a24c04401308b11548626239e8ca1f9b4276bbdf",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "cex/CEX-702-Alien-codex-alternate-device",
-        "tip":  "3d233ff39d1e96b8a590b12f520f98c283356f25",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "cex/CEX-703-Alien-codex-capability-catalog",
-        "tip":  "478d486096512eea3266350efe070323a232a120",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "cex/CEX-704-Alien-codex-native-owner-onboarding",
-        "tip":  "d05f5a455ff535e3e065b30ec9ec74bca2dbb521",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "cex/CEX-705-Alien-codex-native-members",
-        "tip":  "de9185a4ef8d761053c88316ec9efeca037239fb",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "cex/CEX-790-mech-final-audit",
-        "tip":  "04ecb7dd22ffd7296e00320b63681f7d9729181d",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "feat/mech-join-worker-without-node-token",
-        "tip":  "84454a3462cfe42f28bfc4b14cdc13213256815c",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/feat-mech-join-worker-without-node-token"
-    },
-    {
-        "branch":  "integration/CEX-790-Alien-20261006",
-        "tip":  "4688274255464383d577841a37e85a556d92c678",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "integration/MON-accepted-head-mech-preflight",
-        "tip":  "40be3e1b2f521d4304ea1c9d2c45019ca7678bc1",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/integration-MON-accepted-head-mech-preflight"
-    },
-    {
-        "branch":  "integration/REX-803-804-mech-preflight",
-        "tip":  "cd435721f7ea19dee49e537f2485f3496edf1ac5",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/integration-REX-803-804-mech-preflight"
-    },
-    {
-        "branch":  "integration/REX-803-804-mech-preflight-with-evidence-repair",
-        "tip":  "0492dfd94d7f124e209560a3b5d849166e6d7350",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/integration-REX-803-804-mech-preflight-with-evidence-repair"
-    },
-    {
-        "branch":  "integration/REX-805-candidate-mech-preflight",
-        "tip":  "0d8bdcef6d5145e81b1fbe2965f30d7c5b850b23",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/integration-REX-805-candidate-mech-preflight"
-    },
-    {
-        "branch":  "integration/REX-805-repaired-mech-preflight",
-        "tip":  "5b85cd638af21fa01a20ef4fb847751f9ecfbae2",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/integration-REX-805-repaired-mech-preflight"
-    },
-    {
-        "branch":  "integration/REX-accepted-heads-mech-preflight",
-        "tip":  "704c5183b39c62ba7dd19ec19ebe121a19c2d390",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/integration-REX-accepted-heads-mech-preflight"
-    },
-    {
-        "branch":  "integration/REX-accepted-heads-mech-preflight-with-evidence-repair",
-        "tip":  "56b9752f3c2f6080243cd5c1f986d31e0bb6d180",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/integration-REX-accepted-heads-mech-preflight-with-evidence-repair"
-    },
-    {
-        "branch":  "join/JOIN-590-merged-main-physical-acceptance",
-        "tip":  "322162e900672ccfda12f2590d3562eb81bc128e",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "mech/standalone-city-lifecycle",
-        "tip":  "b1157f3c3dec08976efe61fd7421efbce34ae727",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/mech-standalone-city-lifecycle"
-    },
-    {
-        "branch":  "merge/REX-series-mech-owner-window",
-        "tip":  "312b627b54af5bbf274fa25eca8f8383869c1c34",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "mon/MON-901-Alien-codex-observation",
-        "tip":  "7eb38f1b930dfe6cc13dab0e17dedee467b1254b",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "mon/MON-902-mech-overview-graph",
-        "tip":  "3a88e23f91924576178973ef46c620b20ffa2aaf",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/mon-MON-902-mech-overview-graph"
-    },
-    {
-        "branch":  "mon/MON-903-mech-decision-overlay",
-        "tip":  "78bdd9dc873ebc257aedecf421068a1387dbec82",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/mon-MON-903-mech-decision-overlay"
-    },
-    {
-        "branch":  "mon/MON-990-Alien-20261006",
-        "tip":  "fb042d9b1c7026cb2e6a010e2a7ad38a82a5cb40",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/mon-MON-990-Alien-20261006"
-    },
-    {
-        "branch":  "pcf/full-flow-alien-pending-verification-20261007",
-        "tip":  "998440c7772cc032d012b457c2a59cd1059826c0",
-        "reachable_from_kept_refs":  "yes (4-in-1-REX+PCF+CHK+DGX)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "pcf/PCF-700-mech-ownership-and-reality-audit",
-        "tip":  "659ff6aa98bc5675862b1170ed0cf5e1b78dba5f",
-        "reachable_from_kept_refs":  "yes (4-in-1-REX+PCF+CHK+DGX)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "pcf/PCF-701-mech-live-resource-telemetry",
-        "tip":  "4e97d503989beba82124a1b6e3286825f33b92fc",
-        "reachable_from_kept_refs":  "yes (4-in-1-REX+PCF+CHK+DGX)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "pcf/PCF-series-complete-mech-20261007",
-        "tip":  "6b6963210c103db2ab25b5bbf34bdbf09e63bf1a",
-        "reachable_from_kept_refs":  "yes (4-in-1-REX+PCF+CHK+DGX)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "pcf/series-mech",
-        "tip":  "4e97d503989beba82124a1b6e3286825f33b92fc",
-        "reachable_from_kept_refs":  "yes (4-in-1-REX+PCF+CHK+DGX)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "probe/REX-803-mech-two-worker-rehearsal",
-        "tip":  "42acdc6bfacb1e2260364afd2edce041f003638c",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "repair/capability-bridge-mech-artifact-store-guard",
-        "tip":  "8c67bb224a4d52e47ee2cdd470690f50c39c72d6",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/repair-capability-bridge-mech-artifact-store-guard"
-    },
-    {
-        "branch":  "repair/mech-city-store-diagnostic-on-current-main",
-        "tip":  "be3670bf4276946dc5f6a96cab6203da5fbd3dae",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "repair/mech-readme-city-install-step",
-        "tip":  "b4dac610b09acf909a1758139ac8815517f2d014",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/repair-mech-readme-city-install-step"
-    },
-    {
-        "branch":  "repair/mech-relay-rate-probe-burst",
-        "tip":  "14499add52b3431714d6a3812268fc795512b338",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "repair/MON-903-mech-honest-metrics",
-        "tip":  "6ecc6f3cd4b6d3dd1df32d0cba2c27e49098cdaa",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/repair-MON-903-mech-honest-metrics"
-    },
-    {
-        "branch":  "repair/MON-903-mech-honest-metrics-on-review-head",
-        "tip":  "10a020c3a02fd3c4be7b85ba8208313af71dcc0d",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/repair-MON-903-mech-honest-metrics-on-review-head"
-    },
-    {
-        "branch":  "repair/PCF-701-alien-windows-cpu-20261007",
-        "tip":  "cf07f4acb3be0fe3e734ed39bf9145348e2d7ba8",
-        "reachable_from_kept_refs":  "yes (4-in-1-REX+PCF+CHK+DGX)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "repair/REX-801-mech-store-guard",
-        "tip":  "a676c8c4dbebe9f1ed3f78e6c8fdfd99a620bcfb",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/repair-REX-801-mech-store-guard"
-    },
-    {
-        "branch":  "repair/REX-803-mech-receipt-order-and-close",
-        "tip":  "07e8c3cf31e9aefdb4d12c58e129da39935c8314",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "repair/REX-804-mech-fault-store-guard-on-current-main",
-        "tip":  "adc075ed460f22465332f670212d5868a850e2ca",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/repair-REX-804-mech-fault-store-guard-on-current-main"
-    },
-    {
-        "branch":  "repair/REX-804-mech-minimal",
-        "tip":  "19a420c6725532eabb9bf4cb0b06add180f6ce4e",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "repair/REX-804-mech-test-evidence-outside-repo",
-        "tip":  "690d723febd863d64cd29c65f17865f3497a973d",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/repair-REX-804-mech-test-evidence-outside-repo"
-    },
-    {
-        "branch":  "repair/REX-806-alien-members-and-partial-provenance-20261007",
-        "tip":  "12e3d3bf868575a8e3cda983733a3186cb59da27",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "repair/REX-806-alien-missing-task-and-bounded-window-20261007",
-        "tip":  "cc799234e7daa3d8ccfde5673b9d07ccb2376742",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "repair/REX-806-mech-exporter-missing-receipt-detection",
-        "tip":  "d790a2a5040493c7863c5d36a455dc1cbbf9c355",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "repair/REX-806-mech-exporter-refusal-exit-code",
-        "tip":  "44dec630ea84ab5be2cb204072a8572a5555a797",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/repair-REX-806-mech-exporter-refusal-exit-code"
-    },
-    {
-        "branch":  "repair/REX-806-mech-exporter-unreadable-receipt",
-        "tip":  "4349f3def99db9b9de1801ba1bc7bd1e2822cbbc",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "repair/WBC-604-mech-profile-persist-first",
-        "tip":  "1f2f08ca4d947ef55c08b9aac946f424f4a28587",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/repair-WBC-604-mech-profile-persist-first"
-    },
-    {
-        "branch":  "repair/WBC-604-mech-profile-persist-first-on-current-main",
-        "tip":  "ad1b3e85918faf4d8ccc9ccda43e8eaaf7dc634c",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/repair-WBC-604-mech-profile-persist-first-on-current-main"
-    },
-    {
-        "branch":  "review/CEX-701-mech-review",
-        "tip":  "e83edd803aaed9d3240e6bddb3f90a8a8aed666a",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/review-CEX-701-mech-review"
-    },
-    {
-        "branch":  "review/CEX-702-mech-review",
-        "tip":  "ad835f29554399b4c0dfb78063ad98825b642861",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/review-CEX-702-mech-review"
-    },
-    {
-        "branch":  "review/CEX-703-mech-review",
-        "tip":  "006ec9f8d680819965901743f63f46f24c5933a4",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/review-CEX-703-mech-review"
-    },
-    {
-        "branch":  "review/CEX-704-mech-review",
-        "tip":  "6934fc1c73576aea01959fc20cae65e886b411b3",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/review-CEX-704-mech-review"
-    },
-    {
-        "branch":  "review/CEX-705-mech-review",
-        "tip":  "e0b2006f30982fc3ef5d143aa423aa6c3590cb14",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/review-CEX-705-mech-review"
-    },
-    {
-        "branch":  "review/JOIN-590-Alien-codex",
-        "tip":  "62e9bad92b70af3098da8ce421becf99d8c6d00c",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/review-JOIN-590-Alien-codex"
-    },
-    {
-        "branch":  "review/MON-901-mech-review",
-        "tip":  "d68afa225d3f6abb9ba93583745b305e9705fddc",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/review-MON-901-mech-review"
-    },
-    {
-        "branch":  "review/MON-902-Alien-20261006",
-        "tip":  "f4988248a3316806fc2e3fa9e62864ed129fe7b3",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/review-MON-902-Alien-20261006"
-    },
-    {
-        "branch":  "review/MON-903-Alien-20261006",
-        "tip":  "3cd32c60d8e9beb9df961e6b7ff193a3f69ec224",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/review-MON-903-Alien-20261006"
-    },
-    {
-        "branch":  "review/MON-990-Mech-20261006",
-        "tip":  "14b2c7b7912de18d18626479637d9aa02119c873",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/review-MON-990-Mech-20261006"
-    },
-    {
-        "branch":  "review/PCF-700-alien-20261007",
-        "tip":  "659ff6aa98bc5675862b1170ed0cf5e1b78dba5f",
-        "reachable_from_kept_refs":  "yes (4-in-1-REX+PCF+CHK+DGX)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "review/REX-801-Alien-codex",
-        "tip":  "7e96a4d28f4cb701d7a0951bace69857c3228f32",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "review/REX-802-mech-review",
-        "tip":  "f94967e88bf39f44ca4075a86b362b905dbfc2ba",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/review-REX-802-mech-review"
-    },
-    {
-        "branch":  "review/REX-803-Alien-20261006",
-        "tip":  "8798ba9dd37051626033ad72080b2fad3ff66149",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "review/REX-804-mech-review",
-        "tip":  "53d01a3b9d96a1b4063f011d2845ef6a98e811b6",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/review-REX-804-mech-review"
-    },
-    {
-        "branch":  "review/REX-807-Alien-GPT-20261007",
-        "tip":  "2decc71b2b9a3d0e66293498f4f1676e461da8da",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/review-REX-807-Alien-GPT-20261007"
-    },
-    {
-        "branch":  "review/WBC-601-Alien-codex",
-        "tip":  "f66db60998343bf99243621cfcfa2363a4566db8",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "review/WBC-602-Alien-codex",
-        "tip":  "d99101fdac5169aad74ae84fb7c0c25be43ad7d9",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "rex/REX-801-experiment-manifest-registry",
-        "tip":  "ef89e917c0468b38ade26e666ca98c754ef8945a",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/rex-REX-801-experiment-manifest-registry"
-    },
-    {
-        "branch":  "rex/REX-802-Alien-codex-trace-foundation",
-        "tip":  "833279cae237080cca88b1b6dbc9f217027ba68f",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "rex/REX-803-Alien-codex-scenario",
-        "tip":  "cae38b22bfb6c1050221aa4aa3e51844e3ec6e47",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/rex-REX-803-Alien-codex-scenario"
-    },
-    {
-        "branch":  "rex/REX-803-mech-scenario-runner",
-        "tip":  "a695bb9fc5fe7c1cc3be8c68b37f0d4ab7de44df",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "rex/REX-804-Alien-codex-faults",
-        "tip":  "fe700aba957990f93b22fd63d594ddfff7b4e243",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "rex/REX-805-alien-replay-ablation",
-        "tip":  "0261a9ed1cec88df3ab4675623d422b37b33f270",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "rex/REX-806-mech-metrics-and-export",
-        "tip":  "3950d478e627aaa615ef69e3ac65c30da37c5ea6",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "rex/REX-807-mech-research-control-surface",
-        "tip":  "9ad888279be07220fe7ac7d91e419e8fe69fc439",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "rex/REX-series-verify-mech-20261007",
-        "tip":  "17271f04829877ee56668221afeda5fbd35f66e8",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "test/mech-startup-store-family-guard",
-        "tip":  "8e1c1c5932343cebbc3cbd6a2b5d3cd0d40ceb58",
-        "reachable_from_kept_refs":  "NO",
-        "retirement_tag":  "retired/2026-10-07/test-mech-startup-store-family-guard"
-    },
-    {
-        "branch":  "wbc/WBC-601-execution-backend-contract",
-        "tip":  "d65dbd3af2d8903aca13726f74110e1f2f6b9b65",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "wbc/WBC-602-node-descriptor",
-        "tip":  "c312a60b4d73f02597bde1f106372b253067fe33",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "wbc/WBC-603-Alien-codex-worker-pool",
-        "tip":  "f3510862cc348a99004ca5bd5d151a7b56279724",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    },
-    {
-        "branch":  "wbc/WBC-604-mech-execution-profile-switch",
-        "tip":  "213f9f9f7087ac4cbfe371a5e273a834cfd8f3ef",
-        "reachable_from_kept_refs":  "yes (main)",
-        "retirement_tag":  "-"
-    }
+[
+  {
+    "branch": "Alien-GPT-CHK",
+    "tip": "9a646d6b894babd0fb316c0b4a0ba302bd7bca7d",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "Alien-GPT-DGX",
+    "tip": "e5a03dae02ca341d6d23565735e6cd6c3edc27d9",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "cex/CEX-701-Alien-codex-device-recovery",
+    "tip": "a24c04401308b11548626239e8ca1f9b4276bbdf",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "cex/CEX-702-Alien-codex-alternate-device",
+    "tip": "3d233ff39d1e96b8a590b12f520f98c283356f25",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "cex/CEX-703-Alien-codex-capability-catalog",
+    "tip": "478d486096512eea3266350efe070323a232a120",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "cex/CEX-704-Alien-codex-native-owner-onboarding",
+    "tip": "d05f5a455ff535e3e065b30ec9ec74bca2dbb521",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "cex/CEX-705-Alien-codex-native-members",
+    "tip": "de9185a4ef8d761053c88316ec9efeca037239fb",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "cex/CEX-790-mech-final-audit",
+    "tip": "04ecb7dd22ffd7296e00320b63681f7d9729181d",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "feat/mech-join-worker-without-node-token",
+    "tip": "84454a3462cfe42f28bfc4b14cdc13213256815c",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/feat-mech-join-worker-without-node-token"
+  },
+  {
+    "branch": "integration/CEX-790-Alien-20261006",
+    "tip": "4688274255464383d577841a37e85a556d92c678",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "integration/MON-accepted-head-mech-preflight",
+    "tip": "40be3e1b2f521d4304ea1c9d2c45019ca7678bc1",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/integration-MON-accepted-head-mech-preflight"
+  },
+  {
+    "branch": "integration/REX-803-804-mech-preflight",
+    "tip": "cd435721f7ea19dee49e537f2485f3496edf1ac5",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/integration-REX-803-804-mech-preflight"
+  },
+  {
+    "branch": "integration/REX-803-804-mech-preflight-with-evidence-repair",
+    "tip": "0492dfd94d7f124e209560a3b5d849166e6d7350",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/integration-REX-803-804-mech-preflight-with-evidence-repair"
+  },
+  {
+    "branch": "integration/REX-805-candidate-mech-preflight",
+    "tip": "0d8bdcef6d5145e81b1fbe2965f30d7c5b850b23",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/integration-REX-805-candidate-mech-preflight"
+  },
+  {
+    "branch": "integration/REX-805-repaired-mech-preflight",
+    "tip": "5b85cd638af21fa01a20ef4fb847751f9ecfbae2",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/integration-REX-805-repaired-mech-preflight"
+  },
+  {
+    "branch": "integration/REX-accepted-heads-mech-preflight",
+    "tip": "704c5183b39c62ba7dd19ec19ebe121a19c2d390",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/integration-REX-accepted-heads-mech-preflight"
+  },
+  {
+    "branch": "integration/REX-accepted-heads-mech-preflight-with-evidence-repair",
+    "tip": "56b9752f3c2f6080243cd5c1f986d31e0bb6d180",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/integration-REX-accepted-heads-mech-preflight-with-evidence-repair"
+  },
+  {
+    "branch": "join/JOIN-590-merged-main-physical-acceptance",
+    "tip": "322162e900672ccfda12f2590d3562eb81bc128e",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "mech/standalone-city-lifecycle",
+    "tip": "b1157f3c3dec08976efe61fd7421efbce34ae727",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/mech-standalone-city-lifecycle"
+  },
+  {
+    "branch": "merge/REX-series-mech-owner-window",
+    "tip": "312b627b54af5bbf274fa25eca8f8383869c1c34",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "mon/MON-901-Alien-codex-observation",
+    "tip": "7eb38f1b930dfe6cc13dab0e17dedee467b1254b",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "mon/MON-902-mech-overview-graph",
+    "tip": "3a88e23f91924576178973ef46c620b20ffa2aaf",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/mon-MON-902-mech-overview-graph"
+  },
+  {
+    "branch": "mon/MON-903-mech-decision-overlay",
+    "tip": "78bdd9dc873ebc257aedecf421068a1387dbec82",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/mon-MON-903-mech-decision-overlay"
+  },
+  {
+    "branch": "mon/MON-990-Alien-20261006",
+    "tip": "fb042d9b1c7026cb2e6a010e2a7ad38a82a5cb40",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/mon-MON-990-Alien-20261006"
+  },
+  {
+    "branch": "pcf/full-flow-alien-pending-verification-20261007",
+    "tip": "998440c7772cc032d012b457c2a59cd1059826c0",
+    "reachable_from_kept_refs": "yes (4-in-1-REX+PCF+CHK+DGX)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "pcf/PCF-700-mech-ownership-and-reality-audit",
+    "tip": "659ff6aa98bc5675862b1170ed0cf5e1b78dba5f",
+    "reachable_from_kept_refs": "yes (4-in-1-REX+PCF+CHK+DGX)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "pcf/PCF-701-mech-live-resource-telemetry",
+    "tip": "4e97d503989beba82124a1b6e3286825f33b92fc",
+    "reachable_from_kept_refs": "yes (4-in-1-REX+PCF+CHK+DGX)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "pcf/PCF-series-complete-mech-20261007",
+    "tip": "6b6963210c103db2ab25b5bbf34bdbf09e63bf1a",
+    "reachable_from_kept_refs": "yes (4-in-1-REX+PCF+CHK+DGX)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "pcf/series-mech",
+    "tip": "4e97d503989beba82124a1b6e3286825f33b92fc",
+    "reachable_from_kept_refs": "yes (4-in-1-REX+PCF+CHK+DGX)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "probe/REX-803-mech-two-worker-rehearsal",
+    "tip": "42acdc6bfacb1e2260364afd2edce041f003638c",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "repair/capability-bridge-mech-artifact-store-guard",
+    "tip": "8c67bb224a4d52e47ee2cdd470690f50c39c72d6",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/repair-capability-bridge-mech-artifact-store-guard"
+  },
+  {
+    "branch": "repair/mech-city-store-diagnostic-on-current-main",
+    "tip": "be3670bf4276946dc5f6a96cab6203da5fbd3dae",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "repair/mech-readme-city-install-step",
+    "tip": "b4dac610b09acf909a1758139ac8815517f2d014",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/repair-mech-readme-city-install-step"
+  },
+  {
+    "branch": "repair/mech-relay-rate-probe-burst",
+    "tip": "14499add52b3431714d6a3812268fc795512b338",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "repair/MON-903-mech-honest-metrics",
+    "tip": "6ecc6f3cd4b6d3dd1df32d0cba2c27e49098cdaa",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/repair-MON-903-mech-honest-metrics"
+  },
+  {
+    "branch": "repair/MON-903-mech-honest-metrics-on-review-head",
+    "tip": "10a020c3a02fd3c4be7b85ba8208313af71dcc0d",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/repair-MON-903-mech-honest-metrics-on-review-head"
+  },
+  {
+    "branch": "repair/PCF-701-alien-windows-cpu-20261007",
+    "tip": "cf07f4acb3be0fe3e734ed39bf9145348e2d7ba8",
+    "reachable_from_kept_refs": "yes (4-in-1-REX+PCF+CHK+DGX)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "repair/REX-801-mech-store-guard",
+    "tip": "a676c8c4dbebe9f1ed3f78e6c8fdfd99a620bcfb",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/repair-REX-801-mech-store-guard"
+  },
+  {
+    "branch": "repair/REX-803-mech-receipt-order-and-close",
+    "tip": "07e8c3cf31e9aefdb4d12c58e129da39935c8314",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "repair/REX-804-mech-fault-store-guard-on-current-main",
+    "tip": "adc075ed460f22465332f670212d5868a850e2ca",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/repair-REX-804-mech-fault-store-guard-on-current-main"
+  },
+  {
+    "branch": "repair/REX-804-mech-minimal",
+    "tip": "19a420c6725532eabb9bf4cb0b06add180f6ce4e",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "repair/REX-804-mech-test-evidence-outside-repo",
+    "tip": "690d723febd863d64cd29c65f17865f3497a973d",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/repair-REX-804-mech-test-evidence-outside-repo"
+  },
+  {
+    "branch": "repair/REX-806-alien-members-and-partial-provenance-20261007",
+    "tip": "12e3d3bf868575a8e3cda983733a3186cb59da27",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "repair/REX-806-alien-missing-task-and-bounded-window-20261007",
+    "tip": "cc799234e7daa3d8ccfde5673b9d07ccb2376742",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "repair/REX-806-mech-exporter-missing-receipt-detection",
+    "tip": "d790a2a5040493c7863c5d36a455dc1cbbf9c355",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "repair/REX-806-mech-exporter-refusal-exit-code",
+    "tip": "44dec630ea84ab5be2cb204072a8572a5555a797",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/repair-REX-806-mech-exporter-refusal-exit-code"
+  },
+  {
+    "branch": "repair/REX-806-mech-exporter-unreadable-receipt",
+    "tip": "4349f3def99db9b9de1801ba1bc7bd1e2822cbbc",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "repair/WBC-604-mech-profile-persist-first",
+    "tip": "1f2f08ca4d947ef55c08b9aac946f424f4a28587",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/repair-WBC-604-mech-profile-persist-first"
+  },
+  {
+    "branch": "repair/WBC-604-mech-profile-persist-first-on-current-main",
+    "tip": "ad1b3e85918faf4d8ccc9ccda43e8eaaf7dc634c",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/repair-WBC-604-mech-profile-persist-first-on-current-main"
+  },
+  {
+    "branch": "review/CEX-701-mech-review",
+    "tip": "e83edd803aaed9d3240e6bddb3f90a8a8aed666a",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/review-CEX-701-mech-review"
+  },
+  {
+    "branch": "review/CEX-702-mech-review",
+    "tip": "ad835f29554399b4c0dfb78063ad98825b642861",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/review-CEX-702-mech-review"
+  },
+  {
+    "branch": "review/CEX-703-mech-review",
+    "tip": "006ec9f8d680819965901743f63f46f24c5933a4",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/review-CEX-703-mech-review"
+  },
+  {
+    "branch": "review/CEX-704-mech-review",
+    "tip": "6934fc1c73576aea01959fc20cae65e886b411b3",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/review-CEX-704-mech-review"
+  },
+  {
+    "branch": "review/CEX-705-mech-review",
+    "tip": "e0b2006f30982fc3ef5d143aa423aa6c3590cb14",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/review-CEX-705-mech-review"
+  },
+  {
+    "branch": "review/JOIN-590-Alien-codex",
+    "tip": "62e9bad92b70af3098da8ce421becf99d8c6d00c",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/review-JOIN-590-Alien-codex"
+  },
+  {
+    "branch": "review/MON-901-mech-review",
+    "tip": "d68afa225d3f6abb9ba93583745b305e9705fddc",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/review-MON-901-mech-review"
+  },
+  {
+    "branch": "review/MON-902-Alien-20261006",
+    "tip": "f4988248a3316806fc2e3fa9e62864ed129fe7b3",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/review-MON-902-Alien-20261006"
+  },
+  {
+    "branch": "review/MON-903-Alien-20261006",
+    "tip": "3cd32c60d8e9beb9df961e6b7ff193a3f69ec224",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/review-MON-903-Alien-20261006"
+  },
+  {
+    "branch": "review/MON-990-Mech-20261006",
+    "tip": "14b2c7b7912de18d18626479637d9aa02119c873",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/review-MON-990-Mech-20261006"
+  },
+  {
+    "branch": "review/PCF-700-alien-20261007",
+    "tip": "659ff6aa98bc5675862b1170ed0cf5e1b78dba5f",
+    "reachable_from_kept_refs": "yes (4-in-1-REX+PCF+CHK+DGX)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "review/REX-801-Alien-codex",
+    "tip": "7e96a4d28f4cb701d7a0951bace69857c3228f32",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "review/REX-802-mech-review",
+    "tip": "f94967e88bf39f44ca4075a86b362b905dbfc2ba",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/review-REX-802-mech-review"
+  },
+  {
+    "branch": "review/REX-803-Alien-20261006",
+    "tip": "8798ba9dd37051626033ad72080b2fad3ff66149",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "review/REX-804-mech-review",
+    "tip": "53d01a3b9d96a1b4063f011d2845ef6a98e811b6",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/review-REX-804-mech-review"
+  },
+  {
+    "branch": "review/REX-807-Alien-GPT-20261007",
+    "tip": "2decc71b2b9a3d0e66293498f4f1676e461da8da",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/review-REX-807-Alien-GPT-20261007"
+  },
+  {
+    "branch": "review/WBC-601-Alien-codex",
+    "tip": "f66db60998343bf99243621cfcfa2363a4566db8",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "review/WBC-602-Alien-codex",
+    "tip": "d99101fdac5169aad74ae84fb7c0c25be43ad7d9",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "rex/REX-801-experiment-manifest-registry",
+    "tip": "ef89e917c0468b38ade26e666ca98c754ef8945a",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/rex-REX-801-experiment-manifest-registry"
+  },
+  {
+    "branch": "rex/REX-802-Alien-codex-trace-foundation",
+    "tip": "833279cae237080cca88b1b6dbc9f217027ba68f",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "rex/REX-803-Alien-codex-scenario",
+    "tip": "cae38b22bfb6c1050221aa4aa3e51844e3ec6e47",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/rex-REX-803-Alien-codex-scenario"
+  },
+  {
+    "branch": "rex/REX-803-mech-scenario-runner",
+    "tip": "a695bb9fc5fe7c1cc3be8c68b37f0d4ab7de44df",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "rex/REX-804-Alien-codex-faults",
+    "tip": "fe700aba957990f93b22fd63d594ddfff7b4e243",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "rex/REX-805-alien-replay-ablation",
+    "tip": "0261a9ed1cec88df3ab4675623d422b37b33f270",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "rex/REX-806-mech-metrics-and-export",
+    "tip": "3950d478e627aaa615ef69e3ac65c30da37c5ea6",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "rex/REX-807-mech-research-control-surface",
+    "tip": "9ad888279be07220fe7ac7d91e419e8fe69fc439",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "rex/REX-series-verify-mech-20261007",
+    "tip": "17271f04829877ee56668221afeda5fbd35f66e8",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "test/mech-startup-store-family-guard",
+    "tip": "8e1c1c5932343cebbc3cbd6a2b5d3cd0d40ceb58",
+    "reachable_from_kept_refs": "NO",
+    "retirement_tag": "retired/2026-10-07/test-mech-startup-store-family-guard"
+  },
+  {
+    "branch": "wbc/WBC-601-execution-backend-contract",
+    "tip": "d65dbd3af2d8903aca13726f74110e1f2f6b9b65",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "wbc/WBC-602-node-descriptor",
+    "tip": "c312a60b4d73f02597bde1f106372b253067fe33",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "wbc/WBC-603-Alien-codex-worker-pool",
+    "tip": "f3510862cc348a99004ca5bd5d151a7b56279724",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  },
+  {
+    "branch": "wbc/WBC-604-mech-execution-profile-switch",
+    "tip": "213f9f9f7087ac4cbfe371a5e273a834cfd8f3ef",
+    "reachable_from_kept_refs": "yes (main)",
+    "retirement_tag": "-"
+  }
 ]

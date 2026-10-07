@@ -977,7 +977,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
           out={receipt,executionProfile:profileController.state()};
         }catch(error){refuse(error.code??'PROFILE_CHANGE_REFUSED',409,error.message);}
       }
-      else if(req.method==='GET' && path==='/api/v0/monitor')out={monitor:await observation.refresh()};
+      else if(req.method==='GET' && path==='/api/v0/monitor')out={monitor:await observation.refresh(),governance:req.headers.authorization==='Bearer '+token?governance.overview():{authoritative:false,health:'OWNER_ONLY'}};
       else if(path==='/api/v0/governance'||/^\/api\/v0\/governance\/[^/]+(?:\/actions)?$/.test(path)){
         if(req.headers.authorization!=='Bearer '+token)fail(403,'Only the City owner may inspect governance evidence');
         try{

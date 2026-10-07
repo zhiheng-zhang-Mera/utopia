@@ -127,5 +127,10 @@ export function createGovernanceService({dir,readTask,ports={}}={}){
   if(c.appeal_escalation||c.appeals.some(x=>!ref(x.resolution_receipt_ref)))c.release={...c.release,state:c.appeal_escalation?'OWNER_REQUIRED':'BLOCKED',blocks:[...c.release.blocks,'APPEAL_PENDING']};
   c.revision++;save(c);return inspect(id);
  };
- return {create,inspect,list:inventory,act};
+ const overview=()=>{
+  const source=inventory(),cases=[];
+  for(const row of source.cases)try{const capsule=inspect(row.case_ref).process_capsule;cases.push({case_ref:row.case_ref,release_state:capsule.L0.release_gate.state,active_risk:capsule.L0.active_risk,warnings:capsule.L0.warnings});}catch{cases.push({case_ref:row.case_ref,release_state:'NOT_OBSERVED',active_risk:true,warnings:['GOVERNANCE_PROJECTION_UNAVAILABLE']});}
+  return {schema_version:2,authoritative:false,health:source.health,cases,active_risk:source.health!=='READY'||cases.some(c=>c.active_risk),errors:source.errors};
+ };
+ return {create,inspect,list:inventory,overview,act};
 }

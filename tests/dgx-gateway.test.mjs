@@ -11,6 +11,7 @@ test('DGX007 gateway exposes owner-only governance and unavailable storage never
  try{
   const r=await fetch(app.url+'/api/v0/governance',{headers});assert.equal(r.status,200);assert.equal((await r.json()).governance.health,'UNAVAILABLE');
   const city=await fetch(app.url+'/api/v0/city',{headers});assert.equal(city.status,200);
+  const monitor=await fetch(app.url+'/api/v0/monitor',{headers});const projection=await monitor.json();assert.equal(projection.governance.health,'UNAVAILABLE');assert.equal(projection.governance.authoritative,false);
   const unauth=await fetch(app.url+'/api/v0/governance');assert.equal(unauth.status,401);
   const worker=await fetch(app.url+'/api/v0/governance',{headers:{...headers,Authorization:'Bearer dgx-worker'}});assert.notEqual(worker.status,200);
   assert.equal(app.store.list('tasks').length,0);

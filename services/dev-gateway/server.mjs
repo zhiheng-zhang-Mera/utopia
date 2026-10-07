@@ -1452,7 +1452,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
     // UXI-391 REPAIR A/B: honour a decline that had nowhere to go, and release a reservation whose device died.
     try{honourDeclinedHandoffs();}catch(e){console.error('handoff sweep failed',e);}
   },1000);
-  const closeGateway=async()=>{if(closed)return;closed=true;await gatewayFabric?.close();await campaigns.close({reason:'CITY_SHUTDOWN'});faults.close();observation.disconnect();bridge.close();join.close();relay.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();await researchTrace.close(100);};
+  const closeGateway=async()=>{if(closed)return;closed=true;await gatewayFabric?.close();await campaigns.close({reason:'CITY_SHUTDOWN'});faults.close();observation.disconnect();bridge.close();join.close();relay.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>{server.close(r);server.closeAllConnections();});store.close();await researchTrace.close(100);};
   try{if(gatewayFabric)await gatewayFabric.service.start();}catch(error){await closeGateway();throw error;}
   try{await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,host,resolve);});}catch(error){await closeGateway();throw error;}
   // `pairing` was published on the LAN before the OS chose the port (port 0 in tests), so the join

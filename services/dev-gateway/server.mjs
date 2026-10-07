@@ -7,6 +7,8 @@ import { readFile } from 'node:fs/promises';
 import { createHash, randomUUID, randomBytes as randomBytesBytes, timingSafeEqual } from 'node:crypto';
 import { WebSocketServer } from 'ws';
 import { Store } from './store.mjs';
+import {createCanonicalStateAdapter} from '../personal-compute-fabric/canonical-state-adapter.mjs';
+import {buildFabricProjection} from '../personal-compute-fabric/presentation.mjs';
 import {createObservation} from './observation.mjs';
 import {createExecutionProfileController} from './execution-profile.mjs';
 import {createTraceCollector} from '../research-trace/index.mjs';
@@ -974,6 +976,10 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
           const receipt=b.action==='ROLLBACK'?profileController.rollback():profileController.change(b.profile);
           out={receipt,executionProfile:profileController.state()};
         }catch(error){refuse(error.code??'PROFILE_CHANGE_REFUSED',409,error.message);}
+      }
+      else if(req.method==='GET' && path==='/api/v0/pcf'){
+        if(req.citySession)fail(403,'Only the City owner may read the fabric control surface');
+        out={fabric:buildFabricProjection(createCanonicalStateAdapter(store).snapshot(),{backendConfigured:false})};
       }
       else if(req.method==='GET' && path==='/api/v0/monitor')out={monitor:await observation.refresh()};
       else if(req.method==='POST' && path==='/api/v0/node/sharing'){

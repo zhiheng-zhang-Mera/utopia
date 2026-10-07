@@ -1,10 +1,10 @@
-import {mkdir,writeFile,readFile,rename,unlink,stat} from 'node:fs/promises';import {resolve,join} from 'node:path';import {createHash,randomUUID} from 'node:crypto';
+import {mkdir,writeFile,readFile,rename,unlink,stat,rmdir} from 'node:fs/promises';import {resolve,join} from 'node:path';import {createHash,randomUUID} from 'node:crypto';
 import {requireThat as ok,finite,text,copy,freeze} from './validation.mjs';
 export const sha256=bytes=>createHash('sha256').update(bytes).digest('hex');
 // Explicit storage adapter; digest is integrity, authorize() is permission. No caller-controlled path.
 export function createArtifactStore({root,maxBytes,maxItems,authorize}){
  ok(text(root)&&finite(maxBytes)&&maxBytes>0&&Number.isInteger(maxItems)&&maxItems>0&&typeof authorize==='function','ARTIFACT_CONFIG');const base=resolve(root);let tail=Promise.resolve();
- const exclusive=fn=>{const p=tail.then(fn);tail=p.catch(()=>{});return p;};
+ const exclusive=fn=>{const p=tail.then(async()=>{await mkdir(base,{recursive:true});const lock=join(base,'.writer-lock');try{await mkdir(lock);}catch(e){throw Object.assign(new Error('ARTIFACT_WRITER_UNAVAILABLE'),{code:'ARTIFACT_WRITER_UNAVAILABLE',cause:e});}try{return await fn();}finally{await rmdir(lock);}});tail=p.catch(()=>{});return p;};
  const indexPath=join(base,'index.json');const index=async()=>{try{return JSON.parse(await readFile(indexPath,'utf8'));}catch(e){if(e.code==='ENOENT')return [];throw e;}};
  const putIndex=async entries=>{const temp=join(base,randomUUID()+'.index.tmp');await writeFile(temp,JSON.stringify(entries),{flag:'wx'});await rename(temp,indexPath);};
  const path=id=>{ok(typeof id==='string'&&/^[a-f0-9-]{36}$/.test(id),'OPAQUE_ARTIFACT_ID_REQUIRED');return join(base,id+'.blob');};

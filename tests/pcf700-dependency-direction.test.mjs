@@ -89,7 +89,8 @@ test('PCF-700 D3: every engineering and general-ai contract carries at least one
 
 test('PCF-700 D4: the fabric stays inside its declared paths, and no other domain imports it', async () => {
   const files = await sources();
-  const DECLARED = /^(contracts\/personal-compute-fabric-v1|services\/personal-compute-fabric)\//;
+  // Complete-flow successor: PCF-715 explicitly authorizes this read-only Gateway projection seam.
+  const DECLARED = /^(?:(contracts\/personal-compute-fabric-v1|services\/personal-compute-fabric)\/|services\/dev-gateway\/server\.mjs$)/;
   const runtime = [...files].filter(([name, text]) => /^(services|contracts|apps|city|platform)\//.test(name) && text.includes('personal-compute-fabric')).map(([name]) => name);
   const outsideDeclaredPaths = runtime.filter((name) => !DECLARED.test(name));
   assert.deepEqual(outsideDeclaredPaths, [], 'a runtime reference to the fabric outside its declared paths means an audit phase silently became a gateway implementation');

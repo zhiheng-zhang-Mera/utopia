@@ -1,0 +1,2 @@
+import {freeze,copy} from './validation.mjs';
+export function buildFabricProjection(snapshot,{backendConfigured=false}={}){const s=copy(snapshot);return freeze({version:s.version,state:backendConfigured?'CANDIDATE_PENDING_VERIFICATION':'NOT_CONFIGURED',reservations:s.reservations.length,running:s.attempts.filter(a=>a.state==='RUNNING').length,resultReturned:'NOT_OBSERVED',agentConsumed:'NOT_OBSERVED',controls:{enabled:false,reason:'FULL_FLOW_PHYSICAL_ACCEPTANCE_PENDING'},sharingDoesNotImplyExecutionReadiness:true});}

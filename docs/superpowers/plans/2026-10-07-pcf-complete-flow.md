@@ -33,3 +33,19 @@ Review Focus: malformed/versioned inputs, stale authorization and observations, 
 ## Progress / 进度
 
 2026-10-07: isolated worktrees created; cf07f4a preserved, origin/main merged without conflicts. Implementation has not yet met full programme acceptance. 已建立隔离工作树，保留原基线并合入当前 main；全系列验收尚未完成。
+
+## 中文施工说明 / Chinese execution specification
+
+架构：保留既有 City Task/Action、设备注册、Engineering ConnectorPort、WBC 和 REX 的单一所有权；PCF 仅提供版本化策略、工作负载、放置提案、预留、工件、执行尝试和投影，不建立第二份 task 数据库。
+
+技术栈：Node 24 ESM、既有 SQLite Store、Web/Android 客户端及工程契约。规格快照为 Digital-City e41674e 下的 29 本 PCF-700～728 任务书，包含六本可选任务；保留的 790/990 尚无任务书。
+
+全局约束：整条完整流一次性交给 Mech；本机组合施工允许未异机验收的组件作为后续开发输入，但历史验收记录不变。区分本机测试、真实本机运行、模拟传输和实体异机验收。不得合并 main、产生云端费用、增加凭据、执行特权安装或接管任意会话。失败日志照常保留，缺少前提不能标记 PASS。
+
+审查重点：版本化异常输入、过期授权与观测、配额竞争、启动前崩溃、旧 epoch 回执、工件路径和撤权、进程输出限额与取消、原会话所有权、并发负载、可选硬件证据。
+
+施工单元：1 保留基线、隔离分支、日志；2 开发 706/725/726/708 基础契约；3 开发 702/704 可行性与原子准入；4 开发 709/710/711/712 工件、执行、checkpoint 和监督；5 组合 703/705/713/714/715/716；6 接入 727/728/724 工程与原端；7 连接 707/721/723 研究及影子策略；8 核查并开发具备前提的 717/718/719/720/722 可选能力；9 测试、独立整体代码审查、修复，并生成带源码 SHA 和逐任务缺口的整体待验证包。组件先写失败反例、再修复验证；无法观察的实体验收保持待验证。
+
+当前账本：首批组件测试与真实本机 CPU 流已运行。独立代码审查的任务所有权、attempt 保留限额、工件多实例竞争，以及可选前提字符串误判均已用 RED→GREEN 修复。新 UI 仅只读；完整任务书覆盖仍未完成。普通全回归尝试保留失败：常驻 City 占用协调端口，三个 launcher 测试拒绝干扰；默认高并发另触发一个既有计时断言。随后使用低并发验证可运行集合，launcher 实机用例单独记录环境阻塞。
+
+Execution ledger: component and real local CPU flow checks ran. Independent-review ownership, attempt retention, artifact multi-instance race and optional string-state findings were repaired RED→GREEN. The new UI is read-only; full workbook coverage remains incomplete. Initial full regression retained failures: three launcher cases refused to disturb the resident City; default high concurrency also triggered an existing timing assertion. The available set is subsequently checked with lower concurrency; launcher cases retain an explicit environment block.

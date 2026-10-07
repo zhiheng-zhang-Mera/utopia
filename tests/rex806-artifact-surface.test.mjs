@@ -3,7 +3,8 @@
 // every downstream claim about the artifact wrong.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp, rm, mkdir, writeFile} from 'node:fs/promises';
+import {mkdtemp, rm, mkdir, writeFile, readFile} from 'node:fs/promises';
+import {writeFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {createGateway} from '../services/dev-gateway/server.mjs';
 import {enrollWithCity, openDeviceSession} from '../apps/client/device-enrollment.mjs';
@@ -129,4 +130,30 @@ test('REX806 S7: corrupt receipt loss remains visible in full, preview and CSV r
     assert.equal(csv.body.sourceCoverage?.status,'PARTIAL');
   });
 });
-
+test('REX806 S8: a 51-receipt City labels its bounded download as partial',async()=>{
+  await withCity(async({app,dir})=>{
+    const original=JSON.parse(await readFile(resolve(dir,'research/campaigns/campaign-5face000-0000-4000-8000-000000000001.json'),'utf8'));
+    for(let i=2;i<=51;i++){
+      const id='campaign-5face000-0000-4000-8000-'+String(i).padStart(12,'0');
+      await writeFile(resolve(dir,'research/campaigns',id+'.json'),JSON.stringify({...original,campaignId:id}));
+    }
+    const full=await api(app,'research/artifacts','owner-token');assert.equal(full.status,200);
+    assert.equal(full.body.artifact.manifest.sourceCoverage?.status,'PARTIAL');
+    assert.ok(full.body.artifact.failures.sourceReadFailures?.some(x=>x.reason==='RECEIPT_WINDOW_TRUNCATED'&&x.total===51&&x.returned===50));
+  });
+});
+test('REX806 S9: corruption between the receipt listing and detail keeps the readable study',async()=>{
+  await withCity(async({app,dir})=>{
+    const first=resolve(dir,'research/campaigns/campaign-5face000-0000-4000-8000-000000000001.json');
+    const id='campaign-5face000-0000-4000-8000-000000000002';
+    const second=resolve(dir,'research/campaigns',id+'.json');
+    await writeFile(second,JSON.stringify({...JSON.parse(await readFile(first,'utf8')),campaignId:id}));
+    const originalWindow=app.campaigns.receiptWindow;
+    app.campaigns.receiptWindow=()=>{
+      const listed=originalWindow();writeFileSync(second,'{corrupted-after-listing');return listed;
+    };
+    const out=await api(app,'research/artifacts','owner-token');assert.equal(out.status,200);
+    assert.equal(out.body.artifact.manifest.supporting.campaigns,1);
+    assert.ok(out.body.artifact.failures.sourceReadFailures?.some(x=>x.name===id&&x.reason==='RECEIPT_UNREADABLE'));
+  });
+});

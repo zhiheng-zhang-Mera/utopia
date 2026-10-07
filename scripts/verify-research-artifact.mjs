@@ -78,25 +78,32 @@ const durations = dataset
   .filter(ms => Number.isFinite(ms) && ms >= 0)
   .sort((a, b) => a - b);
 const median = durations.length === 0 ? null : (durations.length % 2 === 1 ? durations[(durations.length - 1) / 2] : Math.round((durations[durations.length / 2 - 1] + durations[durations.length / 2]) / 2));
-check('completion_time_ms recomputes from the dataset', String(median) === byMetric.completion_time_ms.value && String(durations.length) === byMetric.completion_time_ms.n,
+check('completion_time_ms recomputes from the dataset', median===null ? byMetric.completion_time_ms.value==='NOT_MEASURED'&&Boolean(byMetric.completion_time_ms.reason?.trim()) : String(median) === byMetric.completion_time_ms.value && String(durations.length) === byMetric.completion_time_ms.n,
   `recomputed ${median} at n=${durations.length}, package says ${byMetric.completion_time_ms.value} at n=${byMetric.completion_time_ms.n}`);
 
 const accounting = manifest.supporting?.accounting ?? {};
-const rate = accounting.accounted > 0 ? (accounting.failed + accounting.timedOut) / accounting.accounted : null;
-check('failure_rate recomputes from the accounting', rate !== null && Math.abs(Number(byMetric.failure_rate.value) - rate) < 1e-9 && String(accounting.accounted) === byMetric.failure_rate.n,
+const rate = accounting.accounted > 0 ? Number(((accounting.failed + accounting.timedOut) / accounting.accounted).toFixed(6)) : null;
+check('failure_rate recomputes from the accounting', rate===null ? byMetric.failure_rate.value==='NOT_MEASURED'&&Boolean(byMetric.failure_rate.reason?.trim()) : Number(byMetric.failure_rate.value)===rate && String(accounting.accounted) === byMetric.failure_rate.n,
   `recomputed ${rate} at n=${accounting.accounted}, package says ${byMetric.failure_rate.value} at n=${byMetric.failure_rate.n}`);
 
 const byRef = new Map();
-for (const row of dataset) {
-  const key = `${row.campaignId}:${row.index}`;
-  byRef.set(key, new Set([...(byRef.get(key) ?? []), row.taskRef]));
+const rawPointers=json('raw-pointers.json');
+const canonicalTaskPointers=new Set(rawPointers.canonicalTasks??[]);
+const taskRuns=rawPointers.canonicalTaskRuns;
+if(taskRuns!==undefined){
+  check('canonical task run associations resolve uniquely to canonical pointers',Array.isArray(taskRuns)&&taskRuns.every(row=>typeof row.researchRunRef==='string'&&row.researchRunRef.length>0&&canonicalTaskPointers.has('task:'+row.taskRef))&&new Set(taskRuns.map(row=>row.taskRef)).size===taskRuns.length);
 }
-const duplicated = [...byRef.values()].filter(refs => refs.size > 1).length;
-check('duplicate_execution_count recomputes from the run references', String(duplicated) === byMetric.duplicate_execution_count.value,
+for (const row of Array.isArray(taskRuns)?taskRuns:dataset) {
+  const key = Array.isArray(taskRuns)?row.researchRunRef:`${row.campaignId}:${row.index}`;
+  byRef.set(key, [...(byRef.get(key) ?? []), row.taskRef]);
+}
+const duplicated = [...byRef.values()].filter(refs => (Array.isArray(taskRuns)?refs.length:new Set(refs).size) > 1).length;
+check('duplicate_execution_count recomputes from the run references', String(duplicated) === byMetric.duplicate_execution_count.value&&(!Array.isArray(taskRuns)||String(byRef.size)===byMetric.duplicate_execution_count.n),
   `recomputed ${duplicated} over ${byRef.size} references, package says ${byMetric.duplicate_execution_count.value}`);
 
-const dangling = dataset.filter(row => row.measured === true && !row.taskRef).length;
-check('convergence_missing_event_count recomputes from the dataset', String(dangling) === byMetric.convergence_missing_event_count.value,
+const measuredRows=dataset.filter(row=>row.state==='MEASURED');
+const dangling = measuredRows.filter(row => !row.taskRef||!canonicalTaskPointers.has('task:'+row.taskRef)).length;
+check('convergence_missing_event_count recomputes from the dataset', String(dangling) === byMetric.convergence_missing_event_count.value&&String(measuredRows.length)===byMetric.convergence_missing_event_count.n,
   `recomputed ${dangling}, package says ${byMetric.convergence_missing_event_count.value}`);
 
 // --- placement verdicts must be internally consistent and policy-aware ------------------------------------------

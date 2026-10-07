@@ -18,6 +18,12 @@ const receipt = (overrides = {}) => ({
 const task = (overrides = {}) => ({id: 'Q-1', type: 'WAIT', state: 'COMPLETED', createdAt: '2026-10-06T10:00:00.000Z', updatedAt: '2026-10-06T10:00:07.000Z', assignedNodeId: 'w-b', researchRunRef: 'campaign-aaaa:0', result: {waitedMs: 6000}, ...overrides});
 const sources = (overrides = {}) => ({cityId: 'city-a', generatedAt: '2026-10-06T10:00:10.000Z', receipts: [receipt()], tasks: [task()], ...overrides});
 
+test('REX806 missing canonical tasks remain counted rather than being filtered from convergence',()=>{
+  const artifact=buildArtifact(sources({tasks:[]}));
+  const metric=artifact.metrics.find(x=>x.metric==='convergence_missing_event_count');
+  assert.equal(metric.value,1);assert.equal(metric.n,1);
+});
+
 // A1 - the eleven sections the workbook names must all be in the artifact.
 test('REX806 A1: the artifact carries every section the workbook names', () => {
   const artifact = buildArtifact(sources());
@@ -166,4 +172,3 @@ test('REX806 A13: an ablation placement is judged against its policy, and the se
   assert.equal(row.placementMatchesPolicy, true, 'pinning the first declared worker is the policy working');
   assert.equal(row.placementMatchesSeedAlone, false, 'and the seed comparison is still reported, separately, as false');
 });
-

@@ -8,13 +8,19 @@
 // stdio is ignored and only the exit status is read, so nothing depends on capturing another process's output.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp, rm, readFile, writeFile} from 'node:fs/promises';
+import {mkdtemp, rm, readFile, writeFile, readdir} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join, resolve} from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {buildArtifact, artifactFiles, checksumsFor} from '../services/dev-gateway/research/artifact.mjs';
 
 const VERIFIER = resolve('scripts/verify-research-artifact.mjs');
+const refreshChecksums = async dir => {
+  const files={};
+  for(const name of await readdir(dir)) if(name!=='checksums.json') files[name]=await readFile(join(dir,name),'utf8');
+  await writeFile(join(dir,'checksums.json'),JSON.stringify(checksumsFor(files),null,2)+'\n');
+};
+
 const run = dir => spawnSync(process.execPath, [VERIFIER, dir], {stdio: 'ignore'}).status;
 
 const receipt = () => ({
@@ -27,10 +33,10 @@ const receipt = () => ({
 });
 const task = () => ({id: 'Q-verify', type: 'WAIT', state: 'COMPLETED', createdAt: '2026-10-06T10:00:00.000Z', updatedAt: '2026-10-06T10:00:07.000Z', assignedNodeId: 'w-b', researchRunRef: 'campaign-verify-0000-4000-8000-000000000001:0', result: {waitedMs: 6000}});
 
-const fixture = async fn => {
+const fixture = async (fn, overrides={}) => {
   const dir = await mkdtemp(join(tmpdir(), 'rex806-verify-'));
   try {
-    const artifact = buildArtifact({cityId: 'city-verify', generatedAt: '2026-10-06T10:00:10.000Z', receipts: [receipt()], tasks: [task()]});
+    const artifact = buildArtifact({cityId: 'city-verify', generatedAt: '2026-10-06T10:00:10.000Z', receipts: [receipt()], tasks: [task()],...overrides});
     const files = artifactFiles(artifact);
     for (const [name, text] of Object.entries(files)) await writeFile(join(dir, name), text);
     await writeFile(join(dir, 'checksums.json'), JSON.stringify(checksumsFor(files), null, 2) + '\n');
@@ -40,9 +46,53 @@ const fixture = async fn => {
   }
 };
 
+test('REX806 verifier accepts justified unavailable completion after canonical task loss',async()=>{
+  await fixture(async dir=>assert.equal(run(dir),0),{tasks:[]});
+});
+test('REX806 verifier accepts the published six-decimal failure rate precision',async()=>{
+  const r=receipt();r.summary={...r.summary,planned:3,accounted:3,failed:1};
+  await fixture(async dir=>assert.equal(run(dir),0),{receipts:[r]});
+});
+test('REX806 verifier accepts justified unavailable rates for an all-refused study',async()=>{
+  const r=receipt();r.runs=[];r.state='REFUSED';r.summary={...r.summary,accounted:0,measured:0};
+  await fixture(async dir=>assert.equal(run(dir),0),{receipts:[r],tasks:[]});
+});
+
 test('REX806 V1: the verifier passes an untampered artifact', async () => {
   await fixture(async dir => {
     assert.equal(run(dir), 0, 'a package that agrees with itself must verify');
+  });
+});
+
+test('REX806 verifier accepts real duplicate canonical execution outside the selected run task',async()=>{
+  await fixture(async dir=>assert.equal(run(dir),0),{tasks:[task(),{...task(),id:'Q-duplicate'}]});
+});
+
+test('REX806 verifier rejects a fabricated duplicate count with valid integrity hashes',async()=>{
+  await fixture(async dir=>{
+    const path=join(dir,'metrics.csv');
+    await writeFile(path,(await readFile(path,'utf8')).replace(/(duplicate_execution_count,G1,)1/,'$1'+'0'));
+    await refreshChecksums(dir);
+    assert.equal(run(dir),1);
+  },{tasks:[task(),{...task(),id:'Q-duplicate'}]});
+});
+
+test('REX806 verifier rejects task associations outside the canonical source pointers',async()=>{
+  await fixture(async dir=>{
+    const path=join(dir,'raw-pointers.json');const raw=JSON.parse(await readFile(path,'utf8'));
+    raw.canonicalTaskRuns[0].taskRef='Q-fabricated';
+    await writeFile(path,JSON.stringify(raw,null,2)+'\n');await refreshChecksums(dir);
+    assert.equal(run(dir),1);
+  });
+});
+
+test('REX806 verifier rejects counting one canonical task twice even when metrics agree',async()=>{
+  await fixture(async dir=>{
+    const path=join(dir,'raw-pointers.json');const raw=JSON.parse(await readFile(path,'utf8'));
+    raw.canonicalTaskRuns.push({...raw.canonicalTaskRuns[0]});
+    await writeFile(path,JSON.stringify(raw,null,2)+'\n');
+    const csv=join(dir,'metrics.csv');await writeFile(csv,(await readFile(csv,'utf8')).replace(/(duplicate_execution_count,G1,)0/,'$1'+'1'));
+    await refreshChecksums(dir);assert.equal(run(dir),1);
   });
 });
 
@@ -51,6 +101,7 @@ test('REX806 V2: a tampered metric value is caught', async () => {
     const path = join(dir, 'metrics.csv');
     const text = await readFile(path, 'utf8');
     await writeFile(path, text.replace(/(completion_time_ms,G1,)(\d+)/, (_all, prefix) => `${prefix}1`));
+    await refreshChecksums(dir); // Prove semantic checking after integrity hashes are valid.
     assert.equal(run(dir), 1, 'a changed completion time must not verify');
   });
 });
@@ -61,6 +112,7 @@ test('REX806 V3: an emptied NOT_MEASURED reason is caught', async () => {
     const text = await readFile(path, 'utf8');
     // Blank the reason of the first unavailable metric while leaving the row in place: the shape still looks complete.
     await writeFile(path, text.replace(/^([a-z_]+,[A-Z0-9]+,NOT_MEASURED,)[^,]*/m, '$1'));
+    await refreshChecksums(dir); // Prove semantic checking after integrity hashes are valid.
     assert.equal(run(dir), 1, 'a row that stopped explaining itself must not verify');
   });
 });
@@ -79,6 +131,7 @@ test('REX806 V5: a changed dataset timestamp is caught', async () => {
     const row = parsed.rows.find(entry => entry.measured === true && entry.taskUpdatedAt);
     row.taskUpdatedAt = new Date(Date.parse(row.taskUpdatedAt) + 60000).toISOString();
     await writeFile(path, JSON.stringify(parsed, null, 2) + '\n');
+    await refreshChecksums(dir); // Prove semantic checking after integrity hashes are valid.
     assert.equal(run(dir), 1, 'a dataset whose timestamps no longer support the reported median must not verify');
   });
 });
@@ -88,6 +141,7 @@ test('REX806 V6: a fabricated intervention count is caught', async () => {
     const path = join(dir, 'metrics.csv');
     const text = await readFile(path, 'utf8');
     await writeFile(path, text.replace(/^intervention_count,.*$/m, 'intervention_count,G3,0,,,fabricated'));
+    await refreshChecksums(dir); // Prove semantic checking after integrity hashes are valid.
     assert.equal(run(dir), 1, 'an intervention count of zero with no observed window must not verify');
   });
 });

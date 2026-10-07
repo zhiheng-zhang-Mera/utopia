@@ -50,12 +50,14 @@ for (const entry of list.receipts ?? []) {
   }
   try {
     const detail = await get(`research/campaigns/${encodeURIComponent(entry.campaignId)}`);
-    if (detail.campaign) receipts.push(detail.campaign);
+    if (detail.campaign?.state === 'UNREADABLE' || detail.campaign?.reason === 'RECEIPT_UNREADABLE') unreadableReceipts.push({name: entry.campaignId ?? entry.file, reason: 'RECEIPT_UNREADABLE'});
+    else if (detail.campaign) receipts.push(detail.campaign);
     else unreadableReceipts.push({name: entry.campaignId ?? entry.file ?? '<unidentified receipt>', reason: 'NO_CAMPAIGN_IN_DETAIL'});
   } catch (error) {
     unreadableReceipts.push({name: entry.campaignId ?? entry.file ?? '<unidentified receipt>', reason: String(error?.message ?? error).slice(0, 120)});
   }
 }
+if (list.receiptWindow?.truncated) unreadableReceipts.push({name: 'campaign-receipt-window', reason: 'RECEIPT_WINDOW_TRUNCATED', total: list.receiptWindow.total, returned: (list.receipts ?? []).length});
 if (unreadableReceipts.length > 0) {
   console.error(`unreadable receipts: ${unreadableReceipts.length} of ${(list.receipts ?? []).length} - this export describes only what could be read, and must not be mistaken for a smaller study:`);
   for (const row of unreadableReceipts) console.error(`  ${row.name}  ${row.reason}`);

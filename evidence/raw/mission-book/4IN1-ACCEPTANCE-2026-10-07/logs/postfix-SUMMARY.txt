@@ -1,0 +1,5 @@
+﻿01-pnpm-test	 exit=1	 115.3s	 D:\utopia-chat\4in1-acceptance-2026-10-07\logs\postfix\01-pnpm-test.log
+02-promotion-history	 exit=0	 5.9s	 D:\utopia-chat\4in1-acceptance-2026-10-07\logs\postfix\02-promotion-history.log
+03-rooms-tests	 exit=1	 0.3s	 D:\utopia-chat\4in1-acceptance-2026-10-07\logs\postfix\03-rooms-tests.log
+04-city-test-all	 exit=0	 48.9s	 D:\utopia-chat\4in1-acceptance-2026-10-07\logs\postfix\04-city-test-all.log
+05-check-docs	 exit=0	 1.4s	 D:\utopia-chat\4in1-acceptance-2026-10-07\logs\postfix\05-check-docs.log

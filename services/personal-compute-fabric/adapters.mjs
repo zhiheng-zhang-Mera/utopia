@@ -27,7 +27,9 @@ const isPositive = value => typeof value === 'number' && Number.isFinite(value) 
  * @param os       injectable platform surface (defaults to node:os) so a test can drive edge values.
  * @param statfsFn injectable filesystem statistics; when it is unavailable or throws, disk is UNSUPPORTED, not 0.
  */
-export const createSystemAdapter = ({os = {totalmem, freemem, cpus, loadavg, platform, arch, hostname}, statfsFn = statfs, diskPath = '.'} = {}) => ({
+export const createSystemAdapter = ({os = {totalmem, freemem, cpus, loadavg, platform, arch, hostname}, statfsFn = statfs, diskPath = '.'} = {}) => {
+  let previousCpuTimes=null;
+  return ({
   id: 'node-system',
   kind: ADAPTER_KINDS.SYSTEM,
   dimensions: [...SYSTEM_DIMENSIONS],
@@ -45,8 +47,24 @@ export const createSystemAdapter = ({os = {totalmem, freemem, cpus, loadavg, pla
     } else notes.push('memory.free unavailable');
     if (sample.memory) sample.memory.value = undefined; // facets only: no single "memory" number is claimed
     const cores = os.cpus?.();
-    const load = os.loadavg?.();
-    if (Array.isArray(cores) && cores.length > 0 && Array.isArray(load) && isPositive(load[0])) {
+    const load = os.platform?.()==='win32'?null:os.loadavg?.();
+    if(os.platform?.()==='win32'){
+      // Node loadavg is a fixed zero on Windows, not a measurement. Read a
+      // genuine CPU-time interval; warmup, resets and zero-length windows
+      // remain unavailable. No timer or privileged/vendor interface is needed.
+      const fields=['user','nice','sys','irq','idle'];
+      const current=Array.isArray(cores)&&cores.length>0&&cores.every(core=>fields.every(key=>isPositive(core?.times?.[key])))?cores.map(core=>fields.map(key=>core.times[key])):null;
+      if(current&&previousCpuTimes&&current.length===previousCpuTimes.length){
+        const deltas=current.map((values,index)=>values.map((value,key)=>value-previousCpuTimes[index][key]));
+        const total=deltas.flat().reduce((sum,value)=>sum+value,0);
+        const idle=deltas.reduce((sum,values)=>sum+values[4],0);
+        if(deltas.every(values=>values.every(value=>value>=0))&&Number.isFinite(total)&&total>0){
+          sample.cpu={value:(total-idle)/total,unit:'ratio',observedAt:receivedAt,source:this.id+':cpu-time'};
+        }
+      }
+      previousCpuTimes=current;
+      if(!sample.cpu)notes.push('cpu unavailable: CPU-time interval missing, unchanged or reset');
+    }else if (Array.isArray(cores) && cores.length > 0 && Array.isArray(load) && isPositive(load[0])) {
       // 1-minute load divided by core count, clamped at 1: a ratio of DEMAND, not a fabricated utilisation percentage.
       sample.cpu = {value: Math.min(load[0] / cores.length, 1), unit: 'ratio', observedAt: receivedAt, source: this.id};
     } else notes.push('cpu unavailable');
@@ -62,6 +80,7 @@ export const createSystemAdapter = ({os = {totalmem, freemem, cpus, loadavg, pla
     return {sample, notes};
   },
 });
+};
 
 /**
  * QUEUE HAS NO DEFAULT SOURCE, ON PURPOSE. "The queue" only means something once somebody says what is queued, so this

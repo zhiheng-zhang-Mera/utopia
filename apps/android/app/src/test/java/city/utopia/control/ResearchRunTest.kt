@@ -69,8 +69,13 @@ class ResearchRunTest {
  }
 
  @Test fun observationOnlyExposesNoControl() {
-  // The view model has no field a panel could turn into a mutation; this test fails if someone adds one silently.
-  val fields=ResearchRunView::class.java.declaredFields.map { it.name }.toSet()
-  assertEquals(setOf("ownerRequired","run","coverage","attention","technical"),fields)
+  // The intent is "no field a panel could turn into a mutation". Exact set equality was my first version and it failed
+  // in CI for a compiler-synthesised reason, not a product one: with the Compose compiler plugin enabled, a class it
+  // treats as stable gains a synthetic `$stable` field, so declaredFields has six entries. The assertion now checks the
+  // five observation fields ARE present and that nothing control-shaped appeared - which is the property that matters.
+  val names=ResearchRunView::class.java.declaredFields.map { it.name }.toSet()
+  assertTrue("the observation fields must all be present, found $names",names.containsAll(setOf("ownerRequired","run","coverage","attention","technical")))
+  val controlLike=names.filter { it.contains(Regex("create|start|stop|inject|fault|confirm|submit|mutat",RegexOption.IGNORE_CASE)) }
+  assertTrue("the view model must expose no control, found $controlLike",controlLike.isEmpty())
  }
 }

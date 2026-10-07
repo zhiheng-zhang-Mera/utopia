@@ -120,3 +120,26 @@ test('PCF712-07 an unproven stop is never inferred from a timeout, and uncertain
   const alive = reconcileAfterRestart({reservations: [], attempts: [{taskId: 'T-3', attemptRef: 'att-3', holderRef: 'w', bootRef: 'b', state: 'RUNNING'}], observations: [{holder: 'w', bootId: 'b', alive: true}], now: 1});
   assert.equal(alive.findings[0].disposition, 'STILL_RUNNING');
 });
+
+test('PCF712-08 the canonical attempt record is read with its own field names, and an unreadable identity is its own finding', () => {
+  // PCF-704 admission writes `id`/`holder`/`bootId`; a fence claim says `attemptRef`/`holderRef`/`bootRef`. The same
+  // facts under two names used to make every LIVE canonical worker unreadable, so reconciliation answered
+  // STOP_NOT_PROVEN for a worker that was plainly running - a false negative in the one path that must not guess.
+  const canonical = {id: 'att-canonical-1', taskId: 'T-4', holder: 'worker-A', bootId: 'boot-1', epoch: 9, state: 'RUNNING'};
+  const alive = reconcileAfterRestart({reservations: [], attempts: [canonical], observations: [{holder: 'worker-A', bootId: 'boot-1', alive: true}], now: 1});
+  assert.equal(alive.findings[0].disposition, 'STILL_RUNNING', 'a live canonical attempt is recognised as running');
+  assert.equal(alive.findings[0].attemptRef, 'att-canonical-1', 'the canonical attempt id is carried through');
+  // A canonical attempt whose holder is gone still yields STOP_NOT_PROVEN, not a proven stop, and keeps its lease finding.
+  const gone = reconcileAfterRestart({reservations: [{id: 'r9', taskId: 'T-4', state: 'LEASED', expiresAt: 10}], attempts: [canonical], observations: [], now: 100});
+  assert.deepEqual(gone.findings.map(f => f.disposition), ['STOP_NOT_PROVEN', 'LEASE_EXPIRED']);
+  // An identity that cannot be read at all is neither "running" nor "stopped": it has its own disposition and goes to 705.
+  const unreadable = reconcileAfterRestart({reservations: [], attempts: [{id: 'att-5', taskId: 'T-5', state: 'RUNNING'}], observations: [], now: 1});
+  assert.equal(unreadable.findings[0].disposition, 'IDENTITY_UNREADABLE');
+  assert.equal(unreadable.findings[0].handTo, 'PCF-705');
+  assert.equal(unreadable.findings[0].stopProven, false);
+  assert.match(unreadable.findings[0].detail, /neither liveness nor a stop can be established/);
+  assert.equal(unreadable.inferredStopped, false);
+  // Both naming schemes describe the same live worker, so the disposition is identical.
+  const fenceShaped = reconcileAfterRestart({reservations: [], attempts: [{taskId: 'T-4', attemptRef: 'att-canonical-1', holderRef: 'worker-A', bootRef: 'boot-1', state: 'RUNNING'}], observations: [{holder: 'worker-A', bootId: 'boot-1', alive: true}], now: 1});
+  assert.deepEqual(fenceShaped.findings, alive.findings);
+});

@@ -122,6 +122,12 @@ export function createEventApplicator({seen = new Set()} = {}) {
 /**
  * Crash/restart reconciliation. An attempt whose stop is NOT PROVEN stays unknown and is handed to PCF-705 rather than
  * being assumed stopped by timeout, and an uncertain side effect is never reported as clean.
+ *
+ * The canonical attempt record written by PCF-704 admission names the same facts differently (`id`/`holder`/`bootId`)
+ * than a fence claim does (`attemptRef`/`holderRef`/`bootRef`). Both names are read here, because feeding the real
+ * canonical record straight in used to make every LIVE worker unreadable and report STOP_NOT_PROVEN - a false negative
+ * in exactly the path that must not guess. An identity that is genuinely unreadable now has its own disposition
+ * instead of being folded into the same answer as a proven-absent worker.
  */
 export function reconcileAfterRestart({reservations = [], attempts = [], observations = [], now = Date.now()} = {}) {
   ok(Array.isArray(reservations) && reservations.length <= 256, 'RECONCILE_LIMIT');
@@ -130,17 +136,26 @@ export function reconcileAfterRestart({reservations = [], attempts = [], observa
   const findings = [];
   for (const attempt of attempts) {
     if (attempt.state !== 'RUNNING') continue;
-    const live = observations.find(o => o.holder === attempt.holderRef && o.bootId === attempt.bootRef);
+    const attemptRef = attempt.attemptRef ?? attempt.id ?? null;
+    const holderRef = attempt.holderRef ?? attempt.holder ?? null;
+    const bootRef = attempt.bootRef ?? attempt.bootId ?? null;
     const reservation = reservations.find(r => r.taskId === attempt.taskId);
-    if (attempt.pendingOutcome === 'UNKNOWN' || attempt.sideEffectState === 'UNKNOWN') {
-      findings.push(freeze({taskId: attempt.taskId, attemptRef: attempt.attemptRef, disposition: 'UNCERTAIN_SIDE_EFFECT', handTo: 'PCF-705', stopProven: false}));
+    // Without a readable holder and boot there is nothing to match liveness against, so nothing may be concluded.
+    if (!ref(holderRef) || !ref(bootRef)) {
+      findings.push(freeze({taskId: attempt.taskId, attemptRef, disposition: 'IDENTITY_UNREADABLE', handTo: 'PCF-705', stopProven: false,
+        detail: 'the attempt does not carry a readable holder and boot identity, so neither liveness nor a stop can be established'}));
       continue;
     }
-    if (live?.alive === true) { findings.push(freeze({taskId: attempt.taskId, attemptRef: attempt.attemptRef, disposition: 'STILL_RUNNING', handTo: null, stopProven: false})); continue; }
+    const live = observations.find(o => o.holder === holderRef && o.bootId === bootRef);
+    if (attempt.pendingOutcome === 'UNKNOWN' || attempt.sideEffectState === 'UNKNOWN') {
+      findings.push(freeze({taskId: attempt.taskId, attemptRef, disposition: 'UNCERTAIN_SIDE_EFFECT', handTo: 'PCF-705', stopProven: false}));
+      continue;
+    }
+    if (live?.alive === true) { findings.push(freeze({taskId: attempt.taskId, attemptRef, disposition: 'STILL_RUNNING', handTo: null, stopProven: false})); continue; }
     // The worker is gone, but "gone" is not "stopped": no evidence of a stop means the stop is NOT PROVEN.
-    findings.push(freeze({taskId: attempt.taskId, attemptRef: attempt.attemptRef, disposition: 'STOP_NOT_PROVEN', handTo: 'PCF-705', stopProven: false}));
+    findings.push(freeze({taskId: attempt.taskId, attemptRef, disposition: 'STOP_NOT_PROVEN', handTo: 'PCF-705', stopProven: false}));
     if (reservation && reservation.state === 'LEASED' && reservation.expiresAt <= now) {
-      findings.push(freeze({taskId: attempt.taskId, attemptRef: attempt.attemptRef, disposition: 'LEASE_EXPIRED', handTo: null, stopProven: false}));
+      findings.push(freeze({taskId: attempt.taskId, attemptRef, disposition: 'LEASE_EXPIRED', handTo: null, stopProven: false}));
     }
   }
   return freeze({findings, reconciledAt: now, inferredStopped: false});

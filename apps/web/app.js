@@ -640,14 +640,13 @@ const nodeIsHere=n=>Boolean(n)&&(n.online===true||fresh(n));
 const visibleMembers=()=>{
  if(!Array.isArray(city.members))return null;
  const rows=city.members.filter(memberIsHere);
- if(connection!=='ONLINE')return [...city.members];
- // THIS MACHINE IS NOT ONE OF ITS OWN REMOTE DEVICES. The host principal is the machine the user is sitting at, so it
- // is not listed as a device that joined - the Devices surface answers "what else is here". When it is the ONLY thing
- // present the surface says so in words instead of showing the machine talking to itself. It is still fully reported by
- // the City and still inspectable, so nothing is hidden: only the default reading changes.
- const own=ownMemberRef();
- const others=rows.filter(m=>m.deviceId!==own);
- return others;
+ // While connected, an OFFLINE device is not a device you can reach, so it leaves the live list instead of sitting
+ // there as a dead row (the report: "in the connected state it should not show old or offline devices"). The host row
+ // itself is NOT removed: the accepted contract for this surface is that a member sees ITSELF FIRST among the City's
+ // devices, and hiding it would answer a different question than the one the page is for. The defect that made the
+ // host row wrong was that its presence was ASSERTED - fixed where presence is decided (memberSnapshot), not here, so
+ // a host with no computing agent renders as a device without an agent rather than as an online one.
+ return connection==='ONLINE'?rows:[...city.members];
 };
 const visibleNodes=()=>{
  const rows=city.nodes.filter(nodeIsHere);

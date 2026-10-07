@@ -167,8 +167,11 @@ test('V11 the Devices surface is rendered by the shipped predicate, not by an in
   assert.match(region, /n\.online===true\|\|fresh\(n\)/, 'a node row must be live or fresh to be listed');
   assert.match(region, /city\.members\.filter\(memberIsHere\)/, 'the member list must go through the predicate');
   assert.match(region, /city\.nodes\.filter\(nodeIsHere\)/, 'the node list must go through the predicate');
-  // The host's own machine is excluded from its own device list.
-  assert.match(region, /others=rows\.filter\(m=>m\.deviceId!==own\)/, 'the host machine must not be listed among its remote devices');
+  // The host row is NOT removed from the surface: the accepted contract is that a member sees itself first among the
+  // City's devices. What was wrong was the host's ASSERTED presence, which is fixed in memberSnapshot above.
+  assert.match(region, /city\.members\.filter\(memberIsHere\)/, 'the member list must go through the predicate');
+  assert.match(region, /city\.nodes\.filter\(nodeIsHere\)/, 'the node list must go through the predicate');
+  assert.ok(!/deviceId!==own/.test(region), 'the host row must not be filtered out of the Devices surface');
 });
 
 // The third report: "the QR and the token are partly missing". Measured on a live City, the material renders and

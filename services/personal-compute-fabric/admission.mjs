@@ -26,3 +26,29 @@ export function recordOwnedProcess(owner,{taskId,attemptId,epoch,holder,bootId,p
  ok(Number.isInteger(processIdentity?.pid)&&processIdentity.pid>0&&text(processIdentity.host)&&finite(processIdentity.startedAt),'PROCESS_IDENTITY');
  return owner.transaction(undefined,(s,{getTask,putTask})=>{const a=s.attempts.find(x=>x.id===attemptId);const t=getTask(taskId);ok(a?.state==='RUNNING'&&a.taskId===taskId&&a.epoch===epoch&&a.holder===holder&&a.bootId===bootId&&t?.pcfAttemptId===attemptId&&t.pcfEpoch===epoch&&t.state==='RUNNING','ATTEMPT_FENCED');ok(!a.processIdentity,'PROCESS_ALREADY_BOUND');a.processIdentity=copy(processIdentity);putTask({...t,pcfProcessIdentity:copy(processIdentity)});return {recorded:true};});
 }
+
+/**
+ * PCF-703 stage progress: finish ONE stage of a multi-stage plan without terminating the canonical task.
+ *
+ * The canonical contract has exactly one terminal outcome per task, so a pipeline cannot commit SUCCEEDED after its
+ * first stage - that would publish the task as COMPLETED while stages were still pending. This primitive keeps ONE task
+ * truth instead: the attempt becomes STAGED (it really ran and really finished), the reservation is released so the
+ * next stage can be admitted, and the task returns to QUEUED with the completed stage recorded. The task's identity
+ * (id/actionId/originDeviceId/parentSessionId) is never touched, so canonical ownership is unchanged by the stages.
+ */
+export function commitStageResult(owner,{taskId,attemptId,epoch,holder,bootId,stageId,outputDigest,now}={}){
+ ok(text(stageId),'STAGE_ID_REQUIRED');ok(digest(outputDigest),'DIGEST_REQUIRED');
+ return owner.transaction(undefined,(s,{getTask,putTask})=>{
+  const a=s.attempts.find(x=>x.id===attemptId);
+  ok(a&&a.state==='RUNNING'&&a.taskId===taskId&&a.epoch===epoch&&a.holder===holder&&a.bootId===bootId,'ATTEMPT_FENCED');
+  const t=getTask(taskId);ok(t?.pcfAttemptId===attemptId&&t.pcfEpoch===epoch&&t.state==='RUNNING','CANONICAL_ATTEMPT_CHANGED');
+  for(const key of ['actionId','originDeviceId','parentSessionId'])ok(t[key]===a[key],'CANONICAL_OWNERSHIP_CHANGED');
+  a.state='STAGED';
+  const reservation=s.reservations.find(x=>x.id===a.reservationId);ok(reservation,'RESERVATION_UNKNOWN');
+  s.completedKeys.push(reservation.key);if(s.completedKeys.length>1024)s.completedKeys.shift();
+  s.reservations=s.reservations.filter(x=>x.id!==a.reservationId);
+  const stages=[...(t.pcfStages??[]),{stageId,attemptId,epoch,outputDigest,completedAt:finite(now)?now:null}];
+  putTask({...t,state:'QUEUED',pcfAttemptId:null,pcfEpoch:null,pcfStages:stages,progress:null});
+  return {committed:true,stage:{stageId,attemptId,epoch,outputDigest},stages:stages.length};
+ });
+}

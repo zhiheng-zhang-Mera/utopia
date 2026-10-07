@@ -36,7 +36,7 @@ export const CPU_PROVIDER_MANIFEST = normalizeExecutionProvider({
   platform: {os: process.platform, arch: process.arch},
   capabilities: ['cpu.json', 'cpu.checkpoint'],
   workloadKinds: ['CPU_JSON'],
-  workloadSchemas: ['json'],
+  workloadSchemas: ['json', 'cpu-json-v1'],
   permissionHandles: ['filesystem:attempt-scratch', 'process:own-child'],
   argvSchema: {operations: [...CPU_OPERATIONS]},
   storageNamespace: 'pcf-cpu-scratch',

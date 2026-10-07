@@ -1,0 +1,198 @@
+{
+  "schema_version": 2,
+  "baseline_sha": "cc799234e7daa3d8ccfde5673b9d07ccb2376742",
+  "rows": [
+    {
+      "capability": "task/event/evidence",
+      "canonical_owner": "Foundation",
+      "governance_role": "POLICY_OR_CONSUMER",
+      "execution_role": "Foundation",
+      "domain_profile": "Foundation",
+      "consumer_refs": [
+        "DGX"
+      ],
+      "duplication_or_conflict": false,
+      "migration_required": false,
+      "classification": "REFERENCE",
+      "implementation_ref": "city/00-foundation/01-city-core/task-lifecycle/index.mjs",
+      "notes": "canonical task primitives"
+    },
+    {
+      "capability": "capability/history",
+      "canonical_owner": "Capability Fabric",
+      "governance_role": "POLICY_OR_CONSUMER",
+      "execution_role": "Capability Fabric",
+      "domain_profile": "Capability Fabric",
+      "consumer_refs": [
+        "DGX"
+      ],
+      "duplication_or_conflict": false,
+      "migration_required": false,
+      "classification": "REFERENCE",
+      "implementation_ref": "city/00-foundation/03-capability-fabric/capability-fabric/registry.mjs",
+      "notes": "external participant facts; no DGX reputation store"
+    },
+    {
+      "capability": "guardian/compliance",
+      "canonical_owner": "Foundation Guardian",
+      "governance_role": "POLICY_OR_CONSUMER",
+      "execution_role": "Foundation Guardian",
+      "domain_profile": "Foundation Guardian",
+      "consumer_refs": [
+        "DGX"
+      ],
+      "duplication_or_conflict": false,
+      "migration_required": false,
+      "classification": "REFERENCE",
+      "implementation_ref": "city/00-foundation/01-city-core/audit-ledger/guardian-gate.mjs",
+      "notes": "owner/safety gate"
+    },
+    {
+      "capability": "engineering review",
+      "canonical_owner": "Engineering",
+      "governance_role": "POLICY_OR_CONSUMER",
+      "execution_role": "Engineering",
+      "domain_profile": "Engineering",
+      "consumer_refs": [
+        "DGX"
+      ],
+      "duplication_or_conflict": false,
+      "migration_required": false,
+      "classification": "KEEP",
+      "implementation_ref": "city/02-engineering/01-project-foreman/project-foreman/verifier.mjs",
+      "notes": "exact SHA verifier; opposite-host review unchanged"
+    },
+    {
+      "capability": "research adjudication",
+      "canonical_owner": "Research",
+      "governance_role": "POLICY_OR_CONSUMER",
+      "execution_role": "Research",
+      "domain_profile": "Research",
+      "consumer_refs": [
+        "DGX"
+      ],
+      "duplication_or_conflict": false,
+      "migration_required": false,
+      "classification": "KEEP",
+      "implementation_ref": "city/06-research/01-research-institute/research-review/adjudicate.mjs",
+      "notes": "domain adjudicator distinct from governance"
+    },
+    {
+      "capability": "Monitor/JEV",
+      "canonical_owner": "Control Centre",
+      "governance_role": "POLICY_OR_CONSUMER",
+      "execution_role": "Control Centre",
+      "domain_profile": "Control Centre",
+      "consumer_refs": [
+        "DGX"
+      ],
+      "duplication_or_conflict": false,
+      "migration_required": false,
+      "classification": "REFERENCE",
+      "implementation_ref": "services/dev-gateway/observation.mjs",
+      "notes": "non-authoritative bounded projection"
+    },
+    {
+      "capability": "GAI triage",
+      "canonical_owner": "General AI",
+      "governance_role": "POLICY_OR_CONSUMER",
+      "execution_role": "General AI",
+      "domain_profile": "General AI",
+      "consumer_refs": [
+        "DGX"
+      ],
+      "duplication_or_conflict": false,
+      "migration_required": false,
+      "classification": "KEEP",
+      "implementation_ref": "contracts/general-ai-health-resilience-v1/index.mjs",
+      "notes": "triage never highest adjudicator"
+    },
+    {
+      "capability": "decomposition/snapshot/DAG",
+      "canonical_owner": "DGX",
+      "governance_role": "POLICY_OR_CONSUMER",
+      "execution_role": "DGX",
+      "domain_profile": "DGX",
+      "consumer_refs": [
+        "DGX"
+      ],
+      "duplication_or_conflict": false,
+      "migration_required": false,
+      "classification": "REFERENCE",
+      "implementation_ref": "contracts/deliberative-governance-v2/core.mjs",
+      "notes": "new governance schema; task references only"
+    },
+    {
+      "capability": "capsule/result substrate",
+      "canonical_owner": "PCF-726",
+      "governance_role": "POLICY_OR_CONSUMER",
+      "execution_role": "PCF-726",
+      "domain_profile": "PCF-726",
+      "consumer_refs": [
+        "DGX"
+      ],
+      "duplication_or_conflict": false,
+      "migration_required": false,
+      "classification": "REFERENCE",
+      "implementation_ref": null,
+      "notes": "unavailable accepted upstream; typed port only"
+    },
+    {
+      "capability": "domain capsule/result extension",
+      "canonical_owner": "DGX",
+      "governance_role": "POLICY_OR_CONSUMER",
+      "execution_role": "DGX",
+      "domain_profile": "DGX",
+      "consumer_refs": [
+        "DGX"
+      ],
+      "duplication_or_conflict": false,
+      "migration_required": false,
+      "classification": "REFERENCE",
+      "implementation_ref": "contracts/deliberative-governance-v2/core.mjs",
+      "notes": "no transport/correlation/deduplication implementation"
+    },
+    {
+      "capability": "independence/recusal/assignment",
+      "canonical_owner": "DGX policy + external facts",
+      "governance_role": "POLICY_OR_CONSUMER",
+      "execution_role": "DGX policy + external facts",
+      "domain_profile": "DGX policy + external facts",
+      "consumer_refs": [
+        "DGX"
+      ],
+      "duplication_or_conflict": false,
+      "migration_required": false,
+      "classification": "REFERENCE",
+      "implementation_ref": "contracts/deliberative-governance-v2/assignment.mjs",
+      "notes": "no private capability/history database"
+    },
+    {
+      "capability": "Health evidence/simulation",
+      "canonical_owner": "Health",
+      "governance_role": "POLICY_OR_CONSUMER",
+      "execution_role": "Health",
+      "domain_profile": "Health",
+      "consumer_refs": [
+        "DGX"
+      ],
+      "duplication_or_conflict": false,
+      "migration_required": false,
+      "classification": "KEEP",
+      "implementation_ref": null,
+      "notes": "UNAVAILABLE; clinical simulator not observed"
+    }
+  ],
+  "conflicts": [
+    {
+      "id": "PCF-726-UNACCEPTED",
+      "severity": "DEPENDENCY",
+      "state": "WAITING_DEPENDENCIES"
+    },
+    {
+      "id": "HISTORY-READ-SEAM",
+      "severity": "CAPABILITY",
+      "state": "EXTERNAL_FACTS_REQUIRED"
+    }
+  ]
+}

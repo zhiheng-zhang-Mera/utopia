@@ -32,6 +32,29 @@ export const MAX_NEARBY = 32;
 const isText = value => typeof value === 'string' && value.trim().length > 0;
 
 /**
+ * Is this discovery candidate THIS City's own advertisement?
+ *
+ * mDNS/DNS-SD returns every advertisement on the segment, including the one this City publishes, so without this check
+ * a City listed itself as a neighbour - the reported defect "I can search up my own main city, it is a duplicate".
+ *
+ * Self is decided by IDENTITY first: if the advertisement names a City and that City is us, it is us. Only when an
+ * advertisement does NOT identify a City do address and port decide, and then BOTH must match this City's own address
+ * and listening port - a bare port match would hide a genuine neighbour that happens to use the same port. Display names
+ * are deliberately never used, because two machines may legitimately share one.
+ */
+export function isSelfAdvertisement(candidate, { selfCityId = null, selfAddresses = [], selfPort = null } = {}) {
+  if (!candidate || typeof candidate !== 'object') return false;
+  const ref = typeof candidate.cityId === 'string' ? candidate.cityId : (typeof candidate.cityRef === 'string' ? candidate.cityRef : null);
+  if (ref && selfCityId && ref === selfCityId) return true;
+  const address = typeof candidate.address === 'string' ? candidate.address.trim().toLowerCase() : null;
+  if (!address) return false;
+  const candidatePort = Number(candidate.port);
+  if (!Number.isInteger(candidatePort) || !Number.isInteger(selfPort)) return false;
+  const mine = new Set((Array.isArray(selfAddresses) ? selfAddresses : []).filter(isText).map(value => value.trim().toLowerCase()));
+  return candidatePort === selfPort && mine.has(address);
+}
+
+/**
  * Convert one mDNS service record into an RF-003 advertisement.
  *
  * `device_id` is left null ON PURPOSE. A City advertises a `cityId`, not a Remote Fabric

@@ -115,6 +115,14 @@ export function buildConnectList({ self = null, nearby = [], remembered = [], pr
 
   for (const row of Array.isArray(nearby) ? nearby : []) {
     if (!row || typeof row !== 'object') continue;
+    // A DISCOVERY ROW FOR THIS MACHINE IS NOT A NEIGHBOUR. mDNS/DNS-SD returns this City's own advertisement, and the
+    // list already has an explicit "this machine" row above; taking the advertisement as well showed the same City
+    // twice, which is the reported defect ("I can search up my own main city, a duplicate"). The server also filters
+    // self, but the surface refuses it independently: a stale or third-party browse must not be able to reintroduce a
+    // duplicate of the machine the user is already on.
+    const sameCity = selfRef !== null && row.cityRef === selfRef;
+    const sameAddress = Boolean(self?.address) && row.address === self.address && (row.port ?? null) === (self?.port ?? null);
+    if (sameCity || sameAddress) continue;
     const scope = scopeOf({ address: row.address, transport: row.transport, cityId: row.cityRef, selfCityId: selfRef });
     push({
       cityRef: row.cityRef ?? null,

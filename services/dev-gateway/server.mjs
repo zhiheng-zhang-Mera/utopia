@@ -33,7 +33,7 @@ import { createJoinRequests, shortRef } from './join.mjs';
 // travel (a named list of existing payloads), and how a forwarded answer comes back; the gateway below is what
 // gives it a socket, and nothing here re-implements any of those three decisions.
 import { createRelayHub, createRelayDispatcher, RELAY_PAYLOAD_PATHS } from './relay.mjs';
-import { browseNearby, browseBluetooth, joinCapability, hostCarrierFacts } from './nearby.mjs';
+import { browseNearby, browseBluetooth, joinCapability, hostCarrierFacts, isSelfAdvertisement } from './nearby.mjs';
 // `node:os` is imported for ONE purpose: publishing what this host can honestly say about itself as a City carrier
 // (cores and memory), so a REMOTE surface can weigh this machine against its own and against other PCs it can see.
 // Nothing here reads identity or user data.
@@ -117,7 +117,13 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // its own `seq` that every surface can converge on - rather than something each surface infers privately
   // from the state of its own socket. A surface that declares nothing is still recorded, with nulls: an
   // anonymous client is a fact too, and omitting the event would make it invisible to the other surfaces.
-  const hostDeviceId=requestedHostDeviceId||'dev-'+store.cityId.replaceAll('-','');
+  // The host principal's stable id. `||` rather than `??` and a non-empty check, because an EMPTY STRING is not an
+  // identity: measured live, a City opened with an empty id produced hostDeviceId "" and memberSnapshot then added an
+  // `undefined` member, whose presence the Devices surface showed as a device of its own.
+  const requestedHostId=typeof requestedHostDeviceId==='string'&&requestedHostDeviceId.trim().length?requestedHostDeviceId.trim():null;
+  const hostDeviceId=requestedHostId||'dev-'+store.cityId.replaceAll('-','');
+  // Hostnames that mean "this machine", used to recognise the host's own node row whatever id it carries.
+  const hostNames=[hostname(),store.cityName].filter(name=>typeof name==='string'&&name.trim().length);
   const controlSurfaces=new Map();
   // D-R1 (Mech's review finding, reproduced before this was written). `controlSurfaces` is keyed by SOCKET,
   // but the EVENT is a fact about the CLIENT - and the first version emitted a ref-level CLIENT_DISCONNECTED
@@ -156,7 +162,18 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
     if(nearbyScans.has(transport))return nearbyScans.get(transport);
     const scan=(async()=>{
       const found=transport==='ble'?await browseBluetooth():await browseNearby({interface:host,timeoutMs:nearbyTimeoutMs});
-      return {nearby:found.candidates.map(c=>({cityRef:c.cityId??c.cityRef,displayName:c.displayName,address:c.address,port:c.port,transport:c.transport,lastSeenAt:c.lastSeenAt,stale:c.stale,grantsTrust:false,carrierFacts:c.carrierFacts??null})),bounded:found.bounded===true,discovered:found.discovered??0,unavailable:found.unavailable===true,reason:found.reason??(found.unavailable?'MDNS_UNAVAILABLE':null)};
+      // A CITY MUST NOT DISCOVER ITSELF. mDNS/DNS-SD returns every advertisement on the segment, including this City's
+      // own, so the City appeared in its own neighbour list - the complaint "I can search up my own main city, it is a
+      // duplicate". Self is decided by IDENTITY (the City id the advertisement carries) and, when an advertisement does
+      // not identify a City, by THIS City's own address:port. It is deliberately not decided by display name, which two
+      // machines may legitimately share. The excluded count is reported so a reader can see the filter did something
+      // rather than silently shrinking the list.
+      const selfCityId=store.cityId;
+      const selfAddresses=new Set([...(Array.isArray(found.selfAddresses)?found.selfAddresses:[]),host,'127.0.0.1','localhost'].filter(value=>typeof value==='string'&&value.trim().length).map(value=>value.trim().toLowerCase()));
+      const isSelf=candidate=>isSelfAdvertisement(candidate,{selfCityId,selfAddresses,selfPort:port});
+      const candidates=found.candidates.filter(candidate=>!isSelf(candidate));
+      const excludedSelf=found.candidates.length-candidates.length;
+      return {nearby:candidates.map(c=>({cityRef:c.cityId??c.cityRef,displayName:c.displayName,address:c.address,port:c.port,transport:c.transport,lastSeenAt:c.lastSeenAt,stale:c.stale,grantsTrust:false,carrierFacts:c.carrierFacts??null})),bounded:found.bounded===true,discovered:found.discovered??0,excludedSelf,unavailable:found.unavailable===true,reason:found.reason??(found.unavailable?'MDNS_UNAVAILABLE':null)};
     })();
     nearbyScans.set(transport,scan);
     try{return await scan;}finally{nearbyScans.delete(transport);}
@@ -707,7 +724,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // and the union ends with `joinRequests:join.snapshot()`), so it removed `joinRequests` and every JOIN-502 test
   // failed on the listing being undefined. Restored here, with `enrolledDevice` kept from JOIN-503.
   const isLocalRequest=req=>{const address=req?.socket?.remoteAddress?.replace(/^::ffff:/,'');return address==='127.0.0.1'||address==='::1'||Object.values(networkInterfaces()).flat().some(n=>n?.address===address);};
-  const members=()=>memberSnapshot({store,installations:enrollment.list(),surfaces:liveSurfaces(),hostDeviceId});
+  const members=()=>memberSnapshot({store,installations:enrollment.list(),surfaces:liveSurfaces(),hostDeviceId,hostnames:hostNames});
   const memberRef=req=>req.citySession?req.citySession.installation.deviceId:hostDeviceId;
   const snapshot=(req)=>envelope({hostDeviceId,currentMemberRef:req?.citySession?memberRef(req):isLocalRequest(req)?hostDeviceId:null,members:members(),hostJoinAvailable:Boolean(hostJoin)&&!req?.citySession&&isLocalRequest(req),status:'ONLINE',updatedAt:now(),cityId:store.cityId,displayName:store.cityName,descriptor:pairing.descriptor(),discovery:discoveryState,nodes:store.list('nodes'),controlSurfaces:liveSurfaces(),tasks:store.list('tasks'),events:store.events(),capabilities:bridge.registry(),invocations:bridge.list(),joinRequests:join.snapshot(),
     // JOIN-503: the surface that is asking is told which INSTALLATION it is. A control-token client gets null
@@ -1091,7 +1108,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         const prior=store.get('nodes',b.id);
         const roles=b.roles??prior?.roles;
         for(const t of store.list('tasks'))if(t.assignedNodeId===b.id&&!terminal.includes(t.state))change(t,'FAILED',{error:'Node re-registered; interrupted work is not replayed.'});
-        out=store.put('nodes',{id:b.id,devicePrincipalId:b.id,displayName:b.displayName.slice(0,100),metadata:{platform:String(b.metadata?.platform||'unknown')},agentVersion:typeof b.agentVersion==='string'?b.agentVersion.slice(0,30):'0.1.0',...telemetry(b),...(roles?{roles:[...new Set(roles)].sort()}:{}),sharingEnabled:prior?.sharingEnabled??true,capabilities:b.capabilities,online:true,lastHeartbeatAt:now()});
+        out=store.put('nodes',{id:b.id,devicePrincipalId:b.id,displayName:b.displayName.slice(0,100),metadata:{platform:String(b.metadata?.platform||'unknown'),osName:b.metadata?.osName?String(b.metadata.osName).slice(0,60):null,osRelease:b.metadata?.osRelease?String(b.metadata.osRelease).slice(0,40):null,arch:b.metadata?.arch?String(b.metadata.arch).slice(0,20):null,archName:b.metadata?.archName?String(b.metadata.archName).slice(0,40):null,runtimeVersion:b.metadata?.runtimeVersion?String(b.metadata.runtimeVersion).slice(0,24):null,hostname:b.metadata?.hostname?String(b.metadata.hostname).slice(0,80):null},agentVersion:typeof b.agentVersion==='string'?b.agentVersion.slice(0,30):'0.1.0',...telemetry(b),...(roles?{roles:[...new Set(roles)].sort()}:{}),sharingEnabled:prior?.sharingEnabled??true,capabilities:b.capabilities,online:true,lastHeartbeatAt:now()});
         // UNION (JOIN-590 closeout integration): the branch integrated here carried a pre-WBC-602 copy of this write
         // WITHOUT `roles`, and concatenating both made the older one overwrite the newer - which silently dropped a
         // DECLARED role set and is exactly what the WBC-602 review test caught. The newer write is kept alone.

@@ -28,6 +28,7 @@ export const MAPPED_FIELDS = Object.freeze([
   'live', 'campaignId', 'scenarioId', 'state', 'planned', 'accounted', 'measured', 'failed', 'timedOut', 'warmup',
   'summary', 'runs', 'index', 'result', 'taskRef', 'waitedMs', 'excluded', 'reason', 'broken', 'storeState',
   'storeReason', 'exclusions', 'metrics', 'notMeasured', 'artifact', 'provenance', 'faults', 'replays',
+  'unfinished', 'receiptWindow', 'campaignStoreState', 'campaignStoreReason', 'observationErrors', 'runUnavailable',
 ]);
 
 /** Short, human-readable summary of an experiment: the question first, the identifier only as a reference. */
@@ -115,6 +116,10 @@ export const researchView = (payload = {}, {locale = 'en', primarySurfaces = []}
   const experiments = Array.isArray(payload.experiments) ? payload.experiments : [];
   const live = summariseRun(payload.live ?? {}, locale);
   const alerts = [];
+  for(const failure of payload.observationErrors??[])alerts.push({id:`read-${failure.source}`,severity:'ERROR',visible:true,role:'alert',message:L(locale,`${failure.source} observation unavailable; its state is unknown.`,`${failure.source} 观察不可用，状态未知。`),detail:text(failure.code)+' '+text(failure.reason)});
+  if(payload.campaignStoreState==='UNAVAILABLE')alerts.push({id:'campaign-store-unavailable',severity:'ERROR',visible:true,role:'alert',message:L(locale,'Campaign storage is unavailable. Its coverage is unknown.','Campaign 存储不可用，覆盖未知。'),detail:text(payload.campaignStoreReason)});
+  if(payload.unfinished===true||(Array.isArray(payload.unfinished)&&payload.unfinished.length))alerts.push({id:'unfinished-campaign',severity:'WARNING',visible:true,role:'status',message:L(locale,'An unfinished campaign remains; its coverage is PARTIAL.','仍有未正常结束的 campaign，覆盖为 PARTIAL。'),detail:''});
+  if(payload.receiptWindow?.truncated)alerts.push({id:'receipt-window-truncated',severity:'WARNING',visible:true,role:'status',message:L(locale,'The receipt window is truncated; older history is omitted and coverage is PARTIAL.','回执窗口已截断，较早历史未读出，覆盖为 PARTIAL。'),detail:`${payload.receiptWindow.receipts?.length??'?'} / ${payload.receiptWindow.total??'?'} (limit ${payload.receiptWindow.limit??'?'})`});
 
   // 1. NOTHING IMPORTANT IS HIDDEN - visible diagnostics first.
   if (payload.storeState === 'UNAVAILABLE') {
@@ -124,7 +129,7 @@ export const researchView = (payload = {}, {locale = 'en', primarySurfaces = []}
     alerts.push({id: `broken-${text(broken?.experimentId ?? broken?.name ?? alerts.length)}`, severity: 'ERROR', visible: true, role: 'alert', message: L(locale, 'A stored experiment record could not be read.', '有一条已存实验记录无法读取。'), detail: text(broken?.reason ?? broken?.detail ?? broken)});
   }
   for (const exclusion of Array.isArray(payload.exclusions) ? payload.exclusions : []) {
-    alerts.push({id: `exclusion-${text(exclusion?.campaignId ?? alerts.length)}-${text(exclusion?.reason ?? '')}`, severity: 'WARNING', visible: true, role: 'status', message: L(locale, 'A campaign exclusion applies to this data.', '这批数据包含一条 campaign 排除。'), detail: text(exclusion?.reason ?? exclusion)});
+    alerts.push({id: `exclusion-${text(exclusion?.campaignId ?? alerts.length)}-${text(exclusion?.reason ?? exclusion?.what ?? '')}`, severity: 'WARNING', visible: true, role: 'status', message: L(locale, 'A campaign exclusion applies to this data.', '这批数据包含一条 campaign 排除。'), detail: typeof exclusion==='string'?exclusion:[exclusion?.what,exclusion?.reason??exclusion?.why,exclusion?.wouldRequire].filter(Boolean).join(' · ')});
   }
   const notMeasured = payload.metrics?.notMeasured ?? payload.notMeasured;
   if (Array.isArray(notMeasured) && notMeasured.length > 0) {
@@ -155,6 +160,7 @@ export const researchView = (payload = {}, {locale = 'en', primarySurfaces = []}
       level: SURFACE_LEVELS.OBSERVABLE,
       collapsed: false,
       items: live ? [live] : [],
+      note: payload.runUnavailable||payload.campaignStoreState==='UNAVAILABLE'?L(locale,'Run status is unknown because campaign observation is unavailable.','Campaign 观察不可用，运行状态未知。'):'',
     },
     {
       id: 'metrics',
@@ -189,6 +195,7 @@ export const researchView = (payload = {}, {locale = 'en', primarySurfaces = []}
       items: [
         ...experiments.map(experiment => ({id: `raw-${text(experiment.experimentId)}`, label: L(locale, 'exact manifest', '完整清单'), value: JSON.stringify(experiment)})),
         ...(live ? [{id: 'raw-live', label: L(locale, 'exact run record', '完整运行记录'), value: JSON.stringify(live.raw)}] : []),
+        ...(payload.provenance ? [{id:'artifact-provenance',label:L(locale,'artifact provenance and checksums','工件来源与校验和'),value:JSON.stringify(payload.provenance)}] : []),
       ],
       unmappedFields,
       note: unmappedFields.length ? L(locale, `This City reported ${unmappedFields.length} field(s) this view does not place yet: ${unmappedFields.join(', ')}`, `City 报告了 ${unmappedFields.length} 个本视图尚未归位的字段：${unmappedFields.join('、')}`) : '',
@@ -238,7 +245,7 @@ export const researchMarkup = (view, {locale = 'en'} = {}) => {
   return Object.freeze({
     alerts: view.alerts.map(alert => `<p role="${escaper(alert.role)}" data-severity="${escaper(alert.severity)}">${escaper(alert.message)}${alert.detail ? ` <span class="detail">${escaper(alert.detail)}</span>` : ''}</p>`).join(''),
     list: direct.items.map(item => `<button data-experiment="${escaper(item.id)}" title="${escaper(item.id)}">${escaper(item.summary)} · ${escaper(item.status)}${item.repetitions !== null && item.repetitions !== undefined ? ` · ${escaper(item.repetitions)}×` : ''}</button>`).join(''),
-    run: line ? `<p>${escaper(line.scenarioId)} · ${escaper(line.state)} · ${escaper(line.progress)}</p>${line.note ? `<p role="status">${escaper(line.note)}</p>` : ''}` : `<p>${locale === 'zh-CN' ? '当前没有运行中的 experiment。' : 'No run is live.'}</p>`,
+    run: runs.note ? `<p role="alert">${escaper(runs.note)}</p>` : line ? `<p>${escaper(line.scenarioId)} · ${escaper(line.state)} · ${escaper(line.progress)}</p>${line.note ? `<p role="status">${escaper(line.note)}</p>` : ''}` : `<p>${locale === 'zh-CN' ? '当前没有运行中的 experiment。' : 'No run is live.'}</p>`,
     metrics: (() => {
       // The Metrics entry is part of the workbook's minimum surface, and it used to render ONLY a sentence - a Metrics
       // section where no metric is ever readable is the "information too thin" failure the reviewer is asked to look

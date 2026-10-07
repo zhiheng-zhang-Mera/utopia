@@ -38,9 +38,9 @@ fun parseResearchRun(response:JSONObject):ResearchRunView {
   val reason=response.optString("storeReason").takeUnless { it.isBlank()||it=="null" }
   attention.add(ResearchAttention("STORE_UNAVAILABLE","研究存储不可用"+(if(reason!=null)"：$reason" else "")+"。故障注入不可用；普通城市任务不受影响。"))
  }
- var unfinishedCount=0
- response.optJSONArray("unfinished")?.let { array->unfinishedCount=array.length() }
- if(unfinishedCount>0)attention.add(ResearchAttention("UNFINISHED_CAMPAIGN","有 $unfinishedCount 次 campaign 未正常结束，其覆盖为 PARTIAL。"))
+ val unfinishedCount=response.optJSONArray("unfinished")?.length()
+ if(response.optBoolean("unfinished",false)||unfinishedCount!=null&&unfinishedCount>0)
+  attention.add(ResearchAttention("UNFINISHED_CAMPAIGN",if(unfinishedCount!=null)"有 $unfinishedCount 次 campaign 未正常结束，其覆盖为 PARTIAL。" else "有 campaign 未正常结束，其覆盖为 PARTIAL；本次响应未提供数量。"))
  val live=response.optJSONObject("live")
  var run:ResearchRunProgress?=null
  if(live!=null&&!live.optString("campaignId").isBlank()&&live.optString("campaignId")!="null"){

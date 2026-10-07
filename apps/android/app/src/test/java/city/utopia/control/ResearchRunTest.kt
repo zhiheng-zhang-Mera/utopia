@@ -7,6 +7,17 @@ import org.junit.Test
 // "owner required", a bounded list presented as complete history, a hidden unfinished campaign, an incomplete run
 // shown as done, an unavailable store shown as "no runs", and a raw identifier leaking into a user-facing word.
 class ResearchRunTest {
+ @Test fun gatewayBooleanUnfinishedIsVisible() {
+  val view=parseResearchRun(JSONObject("""{"live":null,"unfinished":true,"storeState":"READY"}"""))
+  assertEquals("UNFINISHED_CAMPAIGN",view.attention.single().kind)
+  assertTrue(view.attention.single().summary.contains("PARTIAL"))
+ }
+
+ @Test fun gatewayBooleanFinishedAddsNoAttention() {
+  val view=parseResearchRun(JSONObject("""{"live":null,"unfinished":false,"storeState":"READY"}"""))
+  assertTrue(view.attention.isEmpty())
+ }
+
  private fun payload(overrides:String=""):JSONObject {
   val base="""{"scenarios":[],"topology":{},"live":null,"unfinished":[],"receipts":[],"storeState":"READY"}"""
   if(overrides.isBlank())return JSONObject(base)

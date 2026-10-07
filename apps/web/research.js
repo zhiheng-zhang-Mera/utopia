@@ -27,11 +27,12 @@ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 const L=(en,zh)=>getLocale()==='zh-CN'?zh:en;
 export function renderResearch(container,online,api,contextKey,capabilities={}){
  let state=states.get(container);
- if(!state||state.key!==contextKey){state={key:contextKey,draft:'',data:null,campaigns:null,result:null,error:'',busy:false,exported:''};states.set(container,state);}
+ if(!state||state.key!==contextKey){state={key:contextKey,draft:'',data:null,campaigns:null,artifact:null,observationErrors:[],result:null,error:'',busy:false,exported:''};states.set(container,state);}
  state.online=online;
  // The artifact export needs the session credential, which lives in the page shell; passing the capability in keeps this
  // module from reaching for a token it does not own.
  state.exportArtifact=typeof capabilities.exportArtifact==='function'?capabilities.exportArtifact:null;
+ state.owner=capabilities.owner===true;
  let root=container.querySelector('#research-shell');
  if(!root||root.dataset.locale!==getLocale()||root._researchState!==state){
   container.innerHTML=`<section id="research-shell" class="panel"><p id="research-intro"></p><div id="research-alerts"></div><details id="research-direct" open><summary id="research-direct-summary"></summary><button id="research-refresh"></button><div id="research-list"></div><details id="research-vocabulary-details"><summary id="research-vocabulary-summary"></summary><pre id="research-vocabulary"></pre></details><label for="research-manifest" id="research-manifest-label"></label><textarea id="research-manifest" rows="12"></textarea><label id="research-import-label"><input id="research-import" type="file" accept=".json,application/json"></label><button id="research-validate"></button><button id="research-register"></button><p id="research-error" role="alert"></p><pre id="research-result" role="status" style="white-space:pre-wrap;overflow-wrap:anywhere"></pre></details><details id="research-runs" open><summary id="research-runs-summary"></summary><div id="research-run"></div></details><details id="research-metrics" open><summary id="research-metrics-summary"></summary><div id="research-metrics-body"></div></details><details id="research-export"><summary id="research-export-summary"></summary><p id="research-export-hint"></p><button id="research-export-json"></button><button id="research-export-csv"></button><p id="research-export-status" role="status"></p></details><details id="research-technical"><summary id="research-technical-summary"></summary><div id="research-technical-body"></div></details></section>`;
@@ -40,7 +41,12 @@ export function renderResearch(container,online,api,contextKey,capabilities={}){
   const take=(sections,id)=>sections.find(section=>section.id===id)??{title:'',items:[],controls:[]};
   const show=()=>{
    if(!current())return;
-   const view=researchView({...(state.data??{}),live:state.campaigns?.live??null,faults:state.campaigns?.faults??null},{locale:getLocale()});
+   const artifact=state.artifact?.artifact;
+   const view=researchView({...(state.data??{}),live:state.campaigns?.live??null,unfinished:state.campaigns?.unfinished,
+    receiptWindow:state.campaigns?.receiptWindow,campaignStoreState:state.campaigns?.storeState,campaignStoreReason:state.campaigns?.storeReason,
+    observationErrors:state.observationErrors,runUnavailable:state.observationErrors.some(row=>row.source==='campaigns'),
+    metrics:{reported:artifact?.metrics??[],notMeasured:artifact?.metrics?.filter(row=>row.value==='NOT_MEASURED')??[]},
+    exclusions:artifact?.exclusions??[],provenance:artifact?{manifest:artifact.manifest,rawPointers:artifact.rawPointers,metrics:artifact.metrics.map(row=>({metric:row.metric,provenance:row.provenance})),checksums:state.artifact.checksums}:null},{locale:getLocale()});
    const markup=researchMarkup(view,{locale:getLocale()});
    root.querySelector('#research-intro').textContent=L('Research is an advanced surface: describe and validate an experiment here. Registering does not run tasks and does not grant fault permissions.','研究属于高级面：在此描述并验证实验。登记不会执行任务，也不会授予故障注入权限。');
    root.querySelector('#research-alerts').innerHTML=markup.alerts;
@@ -80,7 +86,7 @@ export function renderResearch(container,online,api,contextKey,capabilities={}){
    root.querySelector('#research-manifest').disabled=state.busy;
    // Export needs a session credential, not only a live connection, so it is disabled with a stated reason rather than
    // failing silently when the shell does not supply the capability.
-   const exportReady=typeof state.exportArtifact==='function';
+   const exportReady=state.owner&&typeof state.exportArtifact==='function';
    for(const id of ['#research-export-json','#research-export-csv']){const button=root.querySelector(id);if(button)button.disabled=state.busy||!state.online||!exportReady;}
    const exportStatus=root.querySelector('#research-export-status');
    if(exportStatus)exportStatus.textContent=(exportReady?L("Owner session detected: the export reads this City's own receipts.",'已检测到 Owner 会话：导出读取本城自己的回执。'):L('Owner session required.','需要 Owner 会话。'))+(state.exported?` ${L('Last export:','上次导出：')} ${state.exported}`:'');
@@ -91,11 +97,20 @@ export function renderResearch(container,online,api,contextKey,capabilities={}){
    try{const value=await operation();if(current())state.result=value;}catch(error){if(current())state.error=error.message;}
    finally{state.busy=false;show();}
   };
-  // Two reads, because the layer needs both: the experiment registry and the live run it is about.
+  // Independent reads retain explicit failures rather than turn an unavailable run into an idle one.
   const list=async()=>{
-   const [data,campaigns]=await Promise.all([api('research/experiments'),api('research/campaigns').catch(()=>null)]);
-   if(current()){state.data=data;state.campaigns=campaigns;}
-   return data;
+   const sources=['experiments','campaigns',...(state.owner?['artifacts']:[])];
+   const results=await Promise.allSettled(sources.map(source=>api('research/'+source)));
+   if(current()){
+    state.observationErrors=[];state.artifact=null;state.campaigns=null;
+    results.forEach((result,index)=>{
+     const source=sources[index];
+     if(result.status==='fulfilled'){if(source==='experiments')state.data=result.value;else if(source==='campaigns')state.campaigns=result.value;else state.artifact=result.value;}
+     else{state.observationErrors.push({source,code:result.reason?.code??'',reason:result.reason?.message??String(result.reason)});if(source==='experiments')state.data=null;}
+    });
+   }
+   if(results[0].status==='rejected')throw results[0].reason;
+   return results[0].value;
   };
   const editor=root.querySelector('#research-manifest');editor.value=state.draft;
   editor.style.cssText='display:block;box-sizing:border-box;width:100%;min-height:16rem;margin:12px 0;padding:12px;color:var(--ink);background:var(--void);border:1px solid var(--ink-2);font-family:monospace;resize:vertical';
@@ -106,7 +121,7 @@ export function renderResearch(container,online,api,contextKey,capabilities={}){
   // rule is that the research capability is usable WITHOUT a console or raw API call, so the control is real here and
   // downloads what the gateway answers.
   const exportArtifact=async format=>{
-   if(!state.exportArtifact)throw Error(L('This session cannot export.','当前会话无法导出。'));
+   if(!state.owner||!state.exportArtifact)throw Error(L('Owner session required.','需要 Owner 会话。'));
    // The capability answers with what it wrote; storing the NAME is what lets the page show which artifact the
    // operator just downloaded. Reading a string here silently stored '' and the page reported nothing.
    const result=await state.exportArtifact(format);

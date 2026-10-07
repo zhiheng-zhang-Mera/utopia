@@ -239,7 +239,24 @@ export const researchMarkup = (view, {locale = 'en'} = {}) => {
     alerts: view.alerts.map(alert => `<p role="${escaper(alert.role)}" data-severity="${escaper(alert.severity)}">${escaper(alert.message)}${alert.detail ? ` <span class="detail">${escaper(alert.detail)}</span>` : ''}</p>`).join(''),
     list: direct.items.map(item => `<button data-experiment="${escaper(item.id)}" title="${escaper(item.id)}">${escaper(item.summary)} · ${escaper(item.status)}${item.repetitions !== null && item.repetitions !== undefined ? ` · ${escaper(item.repetitions)}×` : ''}</button>`).join(''),
     run: line ? `<p>${escaper(line.scenarioId)} · ${escaper(line.state)} · ${escaper(line.progress)}</p>${line.note ? `<p role="status">${escaper(line.note)}</p>` : ''}` : `<p>${locale === 'zh-CN' ? '当前没有运行中的 experiment。' : 'No run is live.'}</p>`,
-    metrics: `<p>${escaper(metrics.note || (locale === 'zh-CN' ? '本次运行报告的指标都可测量。' : 'Every metric this run reports could be measured.'))}</p>`,
+    metrics: (() => {
+      // The Metrics entry is part of the workbook's minimum surface, and it used to render ONLY a sentence - a Metrics
+      // section where no metric is ever readable is the "information too thin" failure the reviewer is asked to look
+      // for. Each reported metric is now listed with its value, and an empty list says it is empty instead of asserting
+      // that everything was measurable (which would be a claim about data this view does not have).
+      const rows = metrics.items ?? [];
+      const header = rows.length
+        ? `<p>${escaper(L(locale, `${rows.length} metric(s) reported by this run:`, `本次运行报告了 ${rows.length} 项指标：`))}</p>`
+        : `<p>${escaper(L(locale, 'No metric has been reported for this run yet.', '本次运行尚未报告任何指标。'))}</p>`;
+      const list = rows.map(entry => {
+        const name = escaper(text(entry?.metric ?? entry?.name ?? entry?.id ?? 'metric'));
+        const value = entry?.value === undefined || entry?.value === null ? escaper(L(locale, 'no value', '无值')) : escaper(typeof entry.value === 'object' ? JSON.stringify(entry.value) : entry.value);
+        const unit = entry?.unit ? ` <span class="unit">${escaper(text(entry.unit))}</span>` : '';
+        const reason = entry?.reason ? ` <span class="detail">${escaper(text(entry.reason))}</span>` : '';
+        return `<p data-metric="${name}">${name}: <strong>${value}</strong>${unit}${reason}</p>`;
+      }).join('');
+      return header + list + (metrics.note ? `<p role="status">${escaper(metrics.note)}</p>` : '');
+    })(),
     technical: technical.items.map(item => `<details><summary>${escaper(item.label)}</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">${escaper(item.value)}</pre></details>`).join('') + (technical.note ? `<p role="status">${escaper(technical.note)}</p>` : ''),
   });
 };

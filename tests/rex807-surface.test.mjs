@@ -177,5 +177,15 @@ test('REX807 S8: the rendered page folds identifiers, keeps the technical layer 
   assert.ok(markup.technical.includes(UUIDS[0]), 'the exact record is available in the technical fragment');
   assert.match(markup.run, /1\/3/);
   assert.match(markup.run, /2 planned repetition/, 'an unfinished run is stated in words');
+  // A Metrics entry that shows no metric is the "information too thin" failure the reviewer is asked to look for: the
+  // reported values are rendered, and an EMPTY list says it is empty rather than claiming every metric was measurable.
+  const withMetrics = researchView({...payload, metrics: {reported: [{metric: 'completion_rate', value: 1, unit: 'ratio'}, {metric: 'waited_ms', value: 6000, unit: 'ms'}]}}, {locale: 'en'});
+  const metricsMarkup = researchMarkup(withMetrics, {locale: 'en'}).metrics;
+  assert.match(metricsMarkup, /data-metric="completion_rate"/);
+  assert.match(metricsMarkup, /<strong>1<\/strong>/, 'the value is rendered, not only the metric name');
+  assert.match(metricsMarkup, /ratio/);
+  assert.match(metricsMarkup, /waited_ms/);
+  const emptyMetrics = researchMarkup(researchView({...payload, metrics: {reported: []}}, {locale: 'en'}), {locale: 'en'}).metrics;
+  assert.match(emptyMetrics, /No metric has been reported/, 'an empty metric list is stated, not glossed over');
 });
 

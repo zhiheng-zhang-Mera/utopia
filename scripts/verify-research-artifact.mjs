@@ -87,15 +87,20 @@ check('failure_rate recomputes from the accounting', rate===null ? byMetric.fail
   `recomputed ${rate} at n=${accounting.accounted}, package says ${byMetric.failure_rate.value} at n=${byMetric.failure_rate.n}`);
 
 const byRef = new Map();
-for (const row of dataset) {
-  const key = `${row.campaignId}:${row.index}`;
-  byRef.set(key, new Set([...(byRef.get(key) ?? []), row.taskRef]));
+const rawPointers=json('raw-pointers.json');
+const canonicalTaskPointers=new Set(rawPointers.canonicalTasks??[]);
+const taskRuns=rawPointers.canonicalTaskRuns;
+if(taskRuns!==undefined){
+  check('canonical task run associations resolve uniquely to canonical pointers',Array.isArray(taskRuns)&&taskRuns.every(row=>typeof row.researchRunRef==='string'&&row.researchRunRef.length>0&&canonicalTaskPointers.has('task:'+row.taskRef))&&new Set(taskRuns.map(row=>row.taskRef)).size===taskRuns.length);
 }
-const duplicated = [...byRef.values()].filter(refs => refs.size > 1).length;
-check('duplicate_execution_count recomputes from the run references', String(duplicated) === byMetric.duplicate_execution_count.value,
+for (const row of Array.isArray(taskRuns)?taskRuns:dataset) {
+  const key = Array.isArray(taskRuns)?row.researchRunRef:`${row.campaignId}:${row.index}`;
+  byRef.set(key, [...(byRef.get(key) ?? []), row.taskRef]);
+}
+const duplicated = [...byRef.values()].filter(refs => (Array.isArray(taskRuns)?refs.length:new Set(refs).size) > 1).length;
+check('duplicate_execution_count recomputes from the run references', String(duplicated) === byMetric.duplicate_execution_count.value&&(!Array.isArray(taskRuns)||String(byRef.size)===byMetric.duplicate_execution_count.n),
   `recomputed ${duplicated} over ${byRef.size} references, package says ${byMetric.duplicate_execution_count.value}`);
 
-const canonicalTaskPointers=new Set(json('raw-pointers.json').canonicalTasks??[]);
 const measuredRows=dataset.filter(row=>row.state==='MEASURED');
 const dangling = measuredRows.filter(row => !row.taskRef||!canonicalTaskPointers.has('task:'+row.taskRef)).length;
 check('convergence_missing_event_count recomputes from the dataset', String(dangling) === byMetric.convergence_missing_event_count.value&&String(measuredRows.length)===byMetric.convergence_missing_event_count.n,

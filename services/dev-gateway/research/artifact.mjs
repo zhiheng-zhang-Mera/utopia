@@ -281,6 +281,7 @@ export function buildArtifact({cityId, generatedAt, environment = {}, topology =
     rawPointers: {
       receipts: receipts.map(receipt => `receipt:${receipt.campaignId}`),
       canonicalTasks: (tasks ?? []).map(task => `task:${task.id}`),
+      canonicalTaskRuns: (tasks ?? []).filter(task => task.researchRunRef).map(task => ({taskRef: task.id, researchRunRef: task.researchRunRef})),
       traceRecords: (traceRecords ?? []).map(record => `trace:${record.eventId ?? record.sourceSeq ?? 'unknown'}`),
       experiments: (experiments ?? []).map(experiment => `experiment:${experiment.experimentId ?? experiment}`),
       events: (events ?? []).map(event => `event:${event.id ?? event.seq ?? 'unknown'}`),

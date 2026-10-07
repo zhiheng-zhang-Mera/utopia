@@ -64,6 +64,38 @@ test('REX806 V1: the verifier passes an untampered artifact', async () => {
   });
 });
 
+test('REX806 verifier accepts real duplicate canonical execution outside the selected run task',async()=>{
+  await fixture(async dir=>assert.equal(run(dir),0),{tasks:[task(),{...task(),id:'Q-duplicate'}]});
+});
+
+test('REX806 verifier rejects a fabricated duplicate count with valid integrity hashes',async()=>{
+  await fixture(async dir=>{
+    const path=join(dir,'metrics.csv');
+    await writeFile(path,(await readFile(path,'utf8')).replace(/(duplicate_execution_count,G1,)1/,'$1'+'0'));
+    await refreshChecksums(dir);
+    assert.equal(run(dir),1);
+  },{tasks:[task(),{...task(),id:'Q-duplicate'}]});
+});
+
+test('REX806 verifier rejects task associations outside the canonical source pointers',async()=>{
+  await fixture(async dir=>{
+    const path=join(dir,'raw-pointers.json');const raw=JSON.parse(await readFile(path,'utf8'));
+    raw.canonicalTaskRuns[0].taskRef='Q-fabricated';
+    await writeFile(path,JSON.stringify(raw,null,2)+'\n');await refreshChecksums(dir);
+    assert.equal(run(dir),1);
+  });
+});
+
+test('REX806 verifier rejects counting one canonical task twice even when metrics agree',async()=>{
+  await fixture(async dir=>{
+    const path=join(dir,'raw-pointers.json');const raw=JSON.parse(await readFile(path,'utf8'));
+    raw.canonicalTaskRuns.push({...raw.canonicalTaskRuns[0]});
+    await writeFile(path,JSON.stringify(raw,null,2)+'\n');
+    const csv=join(dir,'metrics.csv');await writeFile(csv,(await readFile(csv,'utf8')).replace(/(duplicate_execution_count,G1,)0/,'$1'+'1'));
+    await refreshChecksums(dir);assert.equal(run(dir),1);
+  });
+});
+
 test('REX806 V2: a tampered metric value is caught', async () => {
   await fixture(async dir => {
     const path = join(dir, 'metrics.csv');

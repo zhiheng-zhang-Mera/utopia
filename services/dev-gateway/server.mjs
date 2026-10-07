@@ -983,7 +983,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       }
       else if(req.method==='GET' && path==='/api/v0/pcf'){
         if(req.citySession)fail(403,'Only the City owner may read the fabric control surface');
-        out={fabric:buildFabricProjection(createCanonicalStateAdapter(store).snapshot(),{backendConfigured:Boolean(gatewayFabric)}),...(gatewayFabric?{service:gatewayFabric.service.health(),parentSessionId:gatewayFabric.context.sessionId}:{})};
+        out={fabric:buildFabricProjection(createCanonicalStateAdapter(store).snapshot(),{backendConfigured:Boolean(gatewayFabric),serviceState:gatewayFabric?.service.health().state,tasks:store.list('tasks')}),...(gatewayFabric?{service:gatewayFabric.service.health(),parentSessionId:gatewayFabric.context.sessionId}:{})};
       }
       else if(gatewayFabric && path.startsWith('/api/v0/pcf/')){
         if(req.citySession)refuse('PCF_OWNER_REQUIRED',403);

@@ -4,15 +4,17 @@ import {createArtifactStore,sha256} from './artifacts.mjs';
 import {resolveEffectivePolicy,assertPolicy} from './policy.mjs';
 import {normalizeWorkload} from './workload.mjs';
 import {executeApprovedLocal} from './local-flow.mjs';
+import {createInterferenceController} from './interference-controller.mjs';
 import {fairQueue} from './fair-queue.mjs';
 import {requireThat as ok,text,copy} from './validation.mjs';
 
 const APPS=Object.freeze({'cpu-sort':{operation:'SORT',qos:'INTERACTIVE'},'cpu-sum':{operation:'SUM',qos:'BATCH'}});
 const FINAL=['COMPLETED','FAILED','CANCELLED'];
-export function createFabricService({store,artifactRoot,deviceId,readAuthority,maxParallel=2,maxQueue=128}){
+export function createFabricService({store,artifactRoot,deviceId,readAuthority,maxParallel=2,maxQueue=128,protection=null}){
  ok(store&&text(artifactRoot)&&text(deviceId)&&typeof readAuthority==='function','FABRIC_CONFIGURATION');
  ok(Number.isInteger(maxParallel)&&maxParallel>0&&maxParallel<=8&&Number.isInteger(maxQueue)&&maxQueue>0&&maxQueue<=256,'FABRIC_LIMITS');
- const owner=createCanonicalStateAdapter(store);const supervisorId=randomUUID();const running=new Map();let started=false,draining=false,stopped=false,pumping=null,lastAppId=null,lifecycleEpoch=0;
+ const owner=createCanonicalStateAdapter(store);const supervisorId=randomUUID();const running=new Map();let started=false,draining=false,stopped=false,pumping=null,lastAppId=null,lifecycleEpoch=0,effectiveParallelism=maxParallel,acceptBackground=true,lastServiceError=null;
+ const protector=protection?createInterferenceController({...protection,maximumParallelism:maxParallel,setParallelism:value=>{effectiveParallelism=value;},setAcceptBackground:value=>{acceptBackground=value;}}):null;
  const artifacts=createArtifactStore({root:artifactRoot,maxBytes:16777216,maxItems:512,authorize:async({operation,metadata,context})=>{
   const caller={sessionId:metadata.owner,deviceId};const facts=await readAuthority(caller);
   if(facts.authorized!==true||Date.now()>=facts.expiresAt||!facts.dataScopes?.includes(metadata.dataScope))return false;
@@ -38,7 +40,7 @@ export function createFabricService({store,artifactRoot,deviceId,readAuthority,m
  }
  async function pump(){
   if(!started||stopped||draining)return;if(pumping)return pumping;
-  pumping=(async()=>{while(started&&!stopped&&!draining){const pending=tasks().filter(t=>t.state==='QUEUED'&&!running.has(t.id));const ordered=fairQueue(pending.map(t=>({...t,appId:t.pcfAppId,queuedAt:Date.parse(t.createdAt),qos:t.pcfWorkload.qos})),{lastAppId,now:Date.now()});for(const task of ordered){if(running.size>=maxParallel)break;lastAppId=task.pcfAppId;run(task);}if(!running.size)break;await Promise.race([...running.values()].map(x=>x.promise));}})().finally(()=>{pumping=null;});return pumping;
+  pumping=(async()=>{while(started&&!stopped&&!draining){if(protector){try{await protector.tick();lastServiceError=null;}catch(error){lastServiceError=error.code??'PROTECTION_UNAVAILABLE';break;}}if(!started||stopped||draining)break;const pending=tasks().filter(t=>t.state==='QUEUED'&&!running.has(t.id)&&(acceptBackground||!['BATCH','BACKGROUND'].includes(t.pcfWorkload.qos)));if(!pending.length&&!running.size)break;const ordered=fairQueue(pending.map(t=>({...t,appId:t.pcfAppId,queuedAt:Date.parse(t.createdAt),qos:t.pcfWorkload.qos})),{lastAppId,now:Date.now()});for(const task of ordered){if(running.size>=effectiveParallelism)break;lastAppId=task.pcfAppId;run(task);}if(!running.size)break;await Promise.race([...running.values()].map(x=>x.promise));}})().finally(()=>{pumping=null;});return pumping;
  }
  const api={
   async submit(spec,context){
@@ -62,9 +64,10 @@ export function createFabricService({store,artifactRoot,deviceId,readAuthority,m
   async stop(){lifecycleEpoch++;stopped=true;draining=true;started=false;for(const x of running.values())x.controller.abort();await Promise.allSettled([...running.values()].map(x=>x.promise));owner.transaction(undefined,s=>{if(s.supervisor?.id===supervisorId)s.supervisor=null;return {};});},
   async cancel(taskId,context){const t=await access(taskId,context);if(FINAL.includes(t.state))return {taskId,state:t.state,alreadyTerminal:true};const active=running.get(taskId);if(active){active.controller.abort();await active.promise;return {taskId,state:store.get('tasks',taskId).state};}return store.atomic(()=>{const current=store.get('tasks',taskId);ok(current.state==='QUEUED','EXECUTION_STOP_NOT_PROVEN');store.put('tasks',{...current,state:'CANCELLED'});const action=store.get('actions',current.actionId);if(action)store.put('actions',{...action,status:'CANCELLED'});store.event('TASK_CANCELLED',taskId,{actionId:current.actionId},'pcf');return {taskId,state:'CANCELLED'};});},
   inspect:access,
-  async collect(taskId,context){const t=await access(taskId,context);ok(t.state==='COMPLETED'&&t.pcfResult?.outputRef,'RESULT_NOT_READY');const bytes=await artifacts.read(t.pcfResult.outputRef,{caller:context.sessionId},Date.now());return {taskId,actionId:t.actionId,digest:t.pcfResult.outputDigest,output:JSON.parse(bytes.toString()),delivered:true,consumed:t.pcfConsumedSessionId===context.sessionId};},
+  async collect(taskId,context){const t=await access(taskId,context);ok(t.state==='COMPLETED'&&t.pcfResult?.outputRef,'RESULT_NOT_READY');const bytes=await artifacts.read(t.pcfResult.outputRef,{caller:context.sessionId},Date.now());await authority(context);store.atomic(()=>{const current=store.get('tasks',taskId);ok(current?.state==='COMPLETED'&&current.parentSessionId===context.sessionId&&current.originDeviceId===context.deviceId&&current.pcfResult.outputDigest===t.pcfResult.outputDigest,'ORIGIN_UNAUTHORIZED');store.put('tasks',{...current,pcfDeliveredSessionId:context.sessionId});});return {taskId,actionId:t.actionId,digest:t.pcfResult.outputDigest,output:JSON.parse(bytes.toString()),delivered:true,consumed:t.pcfConsumedSessionId===context.sessionId};},
   async acknowledge(taskId,context,digest){await access(taskId,context);return store.atomic(()=>{const t=store.get('tasks',taskId);ok(t.state==='COMPLETED'&&t.pcfResult.outputDigest===digest,'CONSUMPTION_DIGEST');store.put('tasks',{...t,pcfConsumedSessionId:context.sessionId});return {taskId,consumed:true};});},
-  health(){return {state:stopped?'STOPPED':draining?'DRAINING':started?'RUNNING':'READY_NOT_STARTED',running:running.size,queued:tasks().filter(t=>t.state==='QUEUED').length,executionScope:'ACTUAL_LOCAL_CPU',physicalAcceptance:'NOT_RUN'};},
+  disableProtection(){const result=protector?.disable()??{action:'NONE'};if(started)pump();return result;},
+  health(){return {state:stopped?'STOPPED':draining?'DRAINING':started?'RUNNING':'READY_NOT_STARTED',running:running.size,effectiveParallelism,acceptBackground,lastServiceError,protection:protector?.snapshot()??{enabled:false},queued:tasks().filter(t=>t.state==='QUEUED').length,executionScope:'ACTUAL_LOCAL_CPU',physicalAcceptance:'NOT_RUN'};},
  };
  return Object.freeze(api);
 }

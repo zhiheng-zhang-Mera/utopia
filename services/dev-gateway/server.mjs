@@ -7,6 +7,9 @@ import { readFile } from 'node:fs/promises';
 import { createHash, randomUUID, randomBytes as randomBytesBytes, timingSafeEqual } from 'node:crypto';
 import { WebSocketServer } from 'ws';
 import { Store } from './store.mjs';
+import {createCanonicalStateAdapter} from '../personal-compute-fabric/canonical-state-adapter.mjs';
+import {createGatewayFabric,validateGatewayFabricConfig} from '../personal-compute-fabric/gateway-adapter.mjs';
+import {buildFabricProjection} from '../personal-compute-fabric/presentation.mjs';
 import {createObservation} from './observation.mjs';
 import {createGovernanceService} from './governance.mjs';
 import {createPcfGovernancePort} from './governance-pcf-port.mjs';
@@ -106,9 +109,11 @@ const claimNodeFor=n=>({nodeId:n.id,state:n.online?'READY':'OFFLINE',capabilitie
 // enrollment registry reads the second. Dropping either one produces a ReferenceError at request time rather than
 // at load time, which is why this is stated here: the first attempt at this merge kept only `deviceClock` and every
 // JOIN-502 test failed with "nearbyTimeoutMs is not defined".
-export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',token,nodeToken,heartbeatTimeout=8000,pairingClock=Date.now,pairingTtlMs=300000,discoveryEnabled=false,nearbyTimeoutMs=2000,roomHubUrl=process.env.CITY_ROOMS_URL,roomsDisabled=process.env.CITY_ROOMS_DISABLED==='1',hostId=process.env.CITY_HOST_ID,roomFetch,deviceClock=Date.now,hostDeviceId:requestedHostDeviceId,hostJoin=null,researchTraceStorage,researchTraceSoftwareRefs={},governancePorts={}}) {
+export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',token,nodeToken,heartbeatTimeout=8000,pairingClock=Date.now,pairingTtlMs=300000,discoveryEnabled=false,nearbyTimeoutMs=2000,roomHubUrl=process.env.CITY_ROOMS_URL,roomsDisabled=process.env.CITY_ROOMS_DISABLED==='1',hostId=process.env.CITY_HOST_ID,roomFetch,deviceClock=Date.now,hostDeviceId:requestedHostDeviceId,hostJoin=null,researchTraceStorage,researchTraceSoftwareRefs={},governancePorts={},pcf=null}) {
   if(!token||!nodeToken||token===nodeToken) throw new Error('Separate control and node tokens are required');
   if(host==='0.0.0.0'||host==='::') throw new Error('Configure an explicit loopback or LAN interface');
+  if(pcf?.enabled===true&&!requestedHostDeviceId)throw new Error('PCF_LOCAL_APPROVAL_REQUIRED: explicit hostDeviceId required');
+  validateGatewayFabricConfig(pcf,requestedHostDeviceId);
   const store=new Store(dir); const wss=new WebSocketServer({noServer:true}); let closed=false;
   const observation=createObservation({read:()=>store.observationWindow()});
   const governance=createGovernanceService({dir:resolve(dir,'governance'),readTask:ref=>store.get('tasks',ref.replace(/^task:/,'')),ports:{...governancePorts,pcf:governancePorts.pcf??createPcfGovernancePort(governancePorts)}});
@@ -127,6 +132,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   const hostDeviceId=requestedHostId||'dev-'+store.cityId.replaceAll('-','');
   // Hostnames that mean "this machine", used to recognise the host's own node row whatever id it carries.
   const hostNames=[hostname(),store.cityName].filter(name=>typeof name==='string'&&name.trim().length);
+  const gatewayFabric=createGatewayFabric({pcf,store,dir,deviceId:hostDeviceId});
   const controlSurfaces=new Map();
   // D-R1 (Mech's review finding, reproduced before this was written). `controlSurfaces` is keyed by SOCKET,
   // but the EVENT is a fact about the CLIENT - and the first version emitted a ref-level CLIENT_DISCONNECTED
@@ -316,7 +322,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
     // A forwarded frame returns work to RUN rather than a promise to await: the socket handler must not block on a
     // slow peer, and the asking peer's own wait is bounded by the hub's request timeout.
     if(result&&typeof result.settleLater==='function')result.settleLater().then(outcome=>{if(outcome?.delivered!==true)console.warn('relay answer not delivered',outcome?.reason);}).catch(error=>console.error('relay forward failed',error?.stack??error));}).catch(error=>console.error('relay frame failed',error?.stack??error));};
-  const change=(task,state,patch={},event='TASK_'+state)=>atomicWithTrace(()=>{Object.assign(task,patch,{state,updatedAt:now()});store.put('tasks',task);emit(event,task.id,{state,progress:task.progress,...patch},task.assignedNodeId||'gateway');return task;});
+  const change=(task,state,patch={},event='TASK_'+state)=>atomicWithTrace(()=>{if(task.executionBackendId==='pcf-v1')refuse('PCF_SERVICE_OWNED',409);Object.assign(task,patch,{state,updatedAt:now()});store.put('tasks',task);emit(event,task.id,{state,progress:task.progress,...patch},task.assignedNodeId||'gateway');return task;});
   // City Core (MB-006). Whether work interrupted by a restart may resume is decided by the
   // migrated checkpoint-gate module, not by an inline state test. Utopia's policy travels as
   // data: a task that was still QUEUED never started, so no checkpoint is required and the
@@ -326,7 +332,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // unbound port answers synchronously and a timeout budget would be meaningless.
   const resumeGate=checkpointGate({port:unboundCheckpointPort(),timeoutMs:0});
   for(const t of store.list('tasks')){
-    if(terminal.includes(t.state))continue;
+    if(t.executionBackendId==='pcf-v1'||terminal.includes(t.state))continue;
     const {authorized}=await resumeGate.prepare('application',t.state!=='QUEUED');
     if(!authorized)change(t,'FAILED',{error:'Gateway restarted during execution; create a new task to retry safely.'});
   }
@@ -1006,6 +1012,32 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
           else fail(405,'Governance method unavailable');
         }catch(error){refuse(error.code??'GOVERNANCE_DOCUMENT_UNAVAILABLE',409,error.message);}
       }
+      else if(req.method==='GET' && path==='/api/v0/pcf'){
+        if(req.citySession)fail(403,'Only the City owner may read the fabric control surface');
+        out={fabric:buildFabricProjection(createCanonicalStateAdapter(store).snapshot(),{backendConfigured:Boolean(gatewayFabric),serviceState:gatewayFabric?.service.health().state,tasks:store.list('tasks')}),...(gatewayFabric?{service:gatewayFabric.service.health(),parentSessionId:gatewayFabric.context.sessionId}:{})};
+      }
+      else if(gatewayFabric && path.startsWith('/api/v0/pcf/')){
+        if(req.citySession)refuse('PCF_OWNER_REQUIRED',403);
+        if(req.headers.origin && req.headers.origin!==pairing.endpoint)refuse('PCF_ORIGIN_REFUSED',403);
+        const service=gatewayFabric.service,context=gatewayFabric.context;
+        try{
+          if(req.method==='POST'&&path==='/api/v0/pcf/submit'){
+            const b=await body(req);
+            if((b.parentSessionId!==undefined&&b.parentSessionId!==context.sessionId)||b.originDeviceId!==undefined||b.deviceId!==undefined)refuse('PCF_CALLER_BINDING',403);
+            out=await service.submit({...b,parentSessionId:context.sessionId},context);
+          }else{
+            const match=/^\/api\/v0\/pcf\/tasks\/([^/]+)(?:\/(cancel|collect|acknowledge))?$/.exec(path);
+            if(!match)refuse('PCF_ROUTE_NOT_FOUND',404);
+            const taskId=decodeURIComponent(match[1]),operation=match[2];
+            if(req.method==='GET'&&!operation)out={task:await service.inspect(taskId,context)};
+            else if(req.method==='POST'&&['cancel','collect','acknowledge'].includes(operation)){
+              const b=await body(req);
+              if(Object.keys(b).some(key=>key!==(operation==='acknowledge'?'digest':'')))refuse('PCF_CALLER_BINDING',403);
+              out=operation==='acknowledge'?await service.acknowledge(taskId,context,b.digest):await service[operation](taskId,context);
+            }else refuse('PCF_ROUTE_NOT_FOUND',404);
+          }
+        }catch(error){if(error.status)throw error;refuse(error.code??'PCF_REFUSED',409,error.message);}
+      }
       else if(req.method==='POST' && path==='/api/v0/node/sharing'){
         const b=await body(req);if(memberRef(req)!==b.id)fail(403,'Only this device may change its resource sharing');if(typeof b.enabled!=='boolean')fail(400,'Sharing requires enabled boolean');const n=required('nodes',b.id);out=store.put('nodes',{...n,sharingEnabled:b.enabled});emit('NODE_SHARING_CHANGED',null,{nodeId:b.id,enabled:b.enabled});
       }
@@ -1420,7 +1452,9 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
     // UXI-391 REPAIR A/B: honour a decline that had nowhere to go, and release a reservation whose device died.
     try{honourDeclinedHandoffs();}catch(e){console.error('handoff sweep failed',e);}
   },1000);
-  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,host,resolve);});
+  const closeGateway=async()=>{if(closed)return;closed=true;await gatewayFabric?.close();await campaigns.close({reason:'CITY_SHUTDOWN'});faults.close();observation.disconnect();bridge.close();join.close();relay.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();await researchTrace.close(100);};
+  try{if(gatewayFabric)await gatewayFabric.service.start();}catch(error){await closeGateway();throw error;}
+  try{await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,host,resolve);});}catch(error){await closeGateway();throw error;}
   // `pairing` was published on the LAN before the OS chose the port (port 0 in tests), so the join
   // capability endpoint and the discovery record both have to be re-read from the live endpoint after
   // listen. JOIN-502 only reads `pairing.descriptor()` at request time, so there is nothing to re-publish
@@ -1430,5 +1464,5 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   // UNION (JOIN-590 closeout integration): this single return must expose EVERY capability the integrated branches
   // promised, and its teardown must release every side's resources. Enumerated rather than concatenated on purpose -
   // the first mechanical attempt left two returns here and silently hid `researchTrace` behind the earlier one.
-  return {url:pairing.endpoint,store,join,relay,researchTrace,campaigns,faults,executionProfile,executionBackends,executionBackend,quiesce:value=>{acceptingTasks=!value;},close:async()=>{if(closed)return;closed=true;await campaigns.close({reason:'CITY_SHUTDOWN'});faults.close();observation.disconnect();bridge.close();join.close();relay.close();clearInterval(timer);await discovery?.close();for(const ws of wss.clients)ws.terminate();await new Promise(r=>server.close(r));store.close();await researchTrace.close(100);}};
+  return {url:pairing.endpoint,store,pcf:gatewayFabric?.service??null,join,relay,researchTrace,campaigns,faults,executionProfile,executionBackends,executionBackend,quiesce:value=>{acceptingTasks=!value;},close:closeGateway};
 }

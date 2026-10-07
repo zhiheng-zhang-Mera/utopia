@@ -9,6 +9,8 @@ import assert from 'node:assert/strict';
 import {mkdtemp, rm, writeFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {randomUUID} from 'node:crypto';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
 import {createGateway} from '../services/dev-gateway/server.mjs';
 import {normalizeAgentJob, validateAgentJobReport, jobDigest, isJobExpired, AGENT_JOB_EXPOSURE,
   MAX_DEADLINE_MS, EVIDENCE_CLASSES} from '../contracts/city-agent-job-v1/job.mjs';
@@ -342,4 +344,60 @@ test('CAJ 11: a far-side node goes offline unless it heartbeats, and CLAIMING is
   const {heartbeatNode}=await import('../scripts/agent-job.mjs');
   assert.equal((await heartbeatNode({url:app.url,token:NODE_TOKEN,id:NODE_ID})).online,true);
   assert.equal(await nodeOnline(app,NODE_ID),true);
+});
+
+test('CAJ 12: the CLI really runs as a COMMAND - which is the only way the far side ever uses it',async t=>{
+  // MEASURED FAILURE THIS PINS. Every test above imports the CLI's functions, so all of them passed while the PROGRAM
+  // did nothing at all: the entry-point guard compared `import.meta.url` against a hand-built `'file://'+path`, which on
+  // Windows is `file://D:\...` where Node's own form is `file:///D:/...`, so the guard never matched and the process
+  // exited 0 in silence. The first run against the live City is what exposed it - and a hand-run tool that silently does
+  // nothing is the worst failure mode here, because "I ran it" and "nothing happened" look identical to the operator.
+  const dir=await mkdtemp(resolve('.scratch-agent-job-cli-'));
+  const app=await createGateway({dir:resolve(dir,'city'),port:0,token:OWNER_TOKEN,nodeToken:NODE_TOKEN,roomsDisabled:true,
+    agentJob:{enabled:true},heartbeatTimeout:600000});
+  t.after(async()=>{await app.close();await rm(dir,{recursive:true,force:true});});
+  const script=resolve(import.meta.dirname,'..','scripts','agent-job.mjs');
+  const stateFile=resolve(dir,'claimed.json');
+  const execFileAsync=promisify(execFile);
+  const run=async args=>{
+    try{const r=await execFileAsync(process.execPath,[script,...args],{cwd:dir,timeout:30000,
+      env:{...process.env,CITY_URL:app.url,CITY_NODE_TOKEN:NODE_TOKEN,CITY_NODE_ID:NODE_ID}});
+      return {code:0,stdout:r.stdout,stderr:r.stderr};}
+    catch(error){return {code:error.code??1,stdout:error.stdout??'',stderr:error.stderr??''};}
+  };
+
+  // A pure command really produces its answer, and the answer is the one an independent computation gives.
+  const file=resolve(dir,'note.txt');await writeFile(file,'a real file whose bytes are digested');
+  const digest=await run(['digest','--file',file]);
+  assert.equal(digest.code,0,digest.stderr);
+  assert.equal(digest.stdout.trim(),sha256File(file),'the command must print the digest it computed');
+
+  // Register really registers, over the real City.
+  const registered=await run(['register','--display-name','Mega-rep (agent-job CLI)']);
+  assert.equal(registered.code,0,registered.stderr);
+  const registration=JSON.parse(registered.stdout);
+  assert.equal(registration.registered,NODE_ID);
+  assert.ok(registration.capabilities.includes('city.agent-job.v1'));
+  assert.equal(await nodeOnline(app,NODE_ID),true);
+
+  // An idle poll is exit 3 - distinguishable from a broken invocation, which is the whole reason it is not 0 or 1.
+  const idle=await run(['claim','--state-file',stateFile]);
+  assert.equal(idle.code,3,idle.stderr);
+  assert.equal(JSON.parse(idle.stdout).task,null);
+
+  // A REAL TWO-PROCESS HANDOFF: `claim` writes the job digest down and `report` reads it back, because an agent runs
+  // those as two separate commands and cannot be trusted to carry a digest by hand.
+  const dispatched=(await (await dispatch(app)).json()).action;
+  const claimed=await run(['claim','--state-file',stateFile]);
+  assert.equal(claimed.code,0,claimed.stderr);
+  const claimPayload=JSON.parse(claimed.stdout);
+  assert.equal(claimPayload.taskId,dispatched.backendRef.taskId);
+  assert.equal(claimPayload.jobDigest,(await jobOf(app,dispatched.backendRef.taskId)).jobDigest);
+  const reported=await run(['report','--state-file',stateFile,'--state','SUCCEEDED','--evidence','OBSERVED_HERE',
+    '--summary','ran through the real command line','--artifact','note.txt='+file]);
+  assert.equal(reported.code,0,reported.stderr);
+  const task=await taskOf(app,dispatched.backendRef.taskId);
+  assert.equal(task.state,'COMPLETED');
+  assert.equal(task.result.summary,'ran through the real command line');
+  assert.equal(task.result.artifacts[0].sha256,sha256File(file),'the digest is of the real file the command was given');
 });

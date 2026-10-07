@@ -24,7 +24,8 @@
 //   node scripts/agent-job.mjs digest   --file <path>
 import {readFileSync, writeFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
-import {basename, resolve} from 'node:path';
+import {basename} from 'node:path';
+import {pathToFileURL} from 'node:url';
 import {EVIDENCE_CLASSES, AGENT_REPORTABLE_STATES, REPORT_STATE_TO_TASK_STATE} from '../contracts/city-agent-job-v1/job.mjs';
 
 const VERSION_HEADERS = {'X-City-Api-Version': '0', 'X-City-Schema-Version': '0'};
@@ -203,7 +204,12 @@ export async function main(argv) {
   return 2;
 }
 
-if (import.meta.url === `file://${resolve(process.argv[1] ?? '').replace(/\\/g, '/')}`) {
+// `import.meta.url` is `file:///D:/...` on Windows, while a hand-built `'file://' + path` is `file://D:\...`. The first
+// version of this guard compared those two strings, never matched, and therefore exited 0 having done NOTHING - the worst
+// possible failure for a tool an operator runs by hand, because "I ran it" and "nothing happened" look identical. It was
+// found the first time the CLI was run as a real command against the live City; every test up to then had imported the
+// functions instead of running the program. `pathToFileURL` produces the same form Node itself uses.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main(process.argv.slice(2)).then(code => { process.exitCode = code; }, error => {
     process.stderr.write(JSON.stringify({error: error.message, code: error.code ?? null, status: error.status ?? null}) + '\n');
     process.exitCode = 1;

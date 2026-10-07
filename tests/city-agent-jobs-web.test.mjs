@@ -23,6 +23,10 @@ const NODE_ID='dev-opposite-agent';
 const owner={...V,Authorization:'Bearer '+OWNER,'Content-Type':'application/json'};
 
 const launch=()=>chromium.launch({channel:process.platform==='win32'?'msedge':undefined,headless:true});
+// See the note in tests/city-agent-job.test.mjs: the City's own shutdown drains its trace with a bounded budget, so a
+// directory can still hold an open handle when `close()` returns and Windows refuses the rmdir (ENOTEMPTY). Retrying
+// inside `rm` keeps that from being reported as a failure of what the test was actually checking.
+const rmScratch = dir => rm(dir, {recursive: true, force: true, maxRetries: 12, retryDelay: 60});
 
 const jobSpec=()=>({title:'Reproduce the study on the opposite host',instruction:'Run the reproduction harness and report what happened.',
   purpose:'independent reproduction on a machine the City cannot see into',deadlineMs:1800000});
@@ -118,7 +122,7 @@ test('CAJ-WEB 1: the entry is discoverable, the typed confirmation gates the req
       assert.ok(heading.trim().length>0,`${page_} rendered an empty heading`);
       assert.ok(!heading.includes('heading.'),`${page_} rendered the raw i18n key as its title: ${heading}`);
     }
-  }finally{await browser?.close();await app?.close();await rm(dir,{recursive:true,force:true});}
+  }finally{await browser?.close();await app?.close();await rmScratch(dir);}
 });
 
 test('CAJ-WEB 2: a dispatched but unanswered request can be withdrawn from the surface, and a member cannot open it at all',async t=>{
@@ -159,5 +163,5 @@ test('CAJ-WEB 2: a dispatched but unanswered request can be withdrawn from the s
     await memberPage.locator('nav [data-page="AgentJobs"]').click();
     await memberPage.waitForFunction(()=>document.querySelector('#aj-error')?.textContent?.length>0);
     assert.match(await memberPage.locator('#aj-error').innerText(),/owner/i,'a member must be told the refusal, not shown an empty list');
-  }finally{await browser?.close();await app?.close();await rm(dir,{recursive:true,force:true});}
+  }finally{await browser?.close();await app?.close();await rmScratch(dir);}
 });

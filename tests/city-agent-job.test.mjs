@@ -30,6 +30,12 @@ const jobSpec=overrides=>({title:'Reproduce REX-890 on the opposite host',instru
 // The contract, in isolation.
 // ----------------------------------------------------------------------------------------------------------------
 
+// Windows refuses to remove a directory while any handle inside it is still open, and the City's OWN shutdown gives
+// its trace drain a fixed, bounded budget (`researchTrace.close(100)`), so a busy run can still be flushing when
+// `close()` returns. That surfaced as an ENOTEMPTY out of the TEARDOWN of a test whose assertions had all passed -
+// a false red in the only place a false red is hardest to read. `rm` retries those Windows errno values itself.
+const rmScratch = dir => rm(dir, {recursive: true, force: true, maxRetries: 12, retryDelay: 60});
+
 test('CAJ 1: a job is refused by name when it cannot be acted on, and never silently half-normalised',()=>{
   const enabled={enabled:true};
   const refuses=(code,spec,options=enabled)=>{
@@ -109,7 +115,7 @@ async function rig(t,{agentJob}={}){
   const dir=await mkdtemp(resolve('.scratch-agent-job-'));
   const app=await createGateway({dir:resolve(dir,'city'),port:0,token:OWNER_TOKEN,nodeToken:NODE_TOKEN,roomsDisabled:true,
     agentJob:agentJob===undefined?{enabled:true}:agentJob});
-  t.after(async()=>{await app.close();await rm(dir,{recursive:true,force:true});});
+  t.after(async()=>{await app.close();await rmScratch(dir);});
   return {dir,app};
 }
 
@@ -320,7 +326,7 @@ test('CAJ 11: a far-side node goes offline unless it heartbeats, and CLAIMING is
   const dir=await mkdtemp(resolve('.scratch-agent-job-live-'));
   const app=await createGateway({dir:resolve(dir,'city'),port:0,token:OWNER_TOKEN,nodeToken:NODE_TOKEN,roomsDisabled:true,
     agentJob:{enabled:true},heartbeatTimeout:250});
-  t.after(async()=>{await app.close();await rm(dir,{recursive:true,force:true});});
+  t.after(async()=>{await app.close();await rmScratch(dir);});
   await registerNode({url:app.url,token:NODE_TOKEN,id:NODE_ID});
   const dispatched=(await (await dispatch(app)).json()).action;
   assert.equal(await nodeOnline(app,NODE_ID),true,'a freshly registered node is online');
@@ -355,7 +361,7 @@ test('CAJ 12: the CLI really runs as a COMMAND - which is the only way the far s
   const dir=await mkdtemp(resolve('.scratch-agent-job-cli-'));
   const app=await createGateway({dir:resolve(dir,'city'),port:0,token:OWNER_TOKEN,nodeToken:NODE_TOKEN,roomsDisabled:true,
     agentJob:{enabled:true},heartbeatTimeout:600000});
-  t.after(async()=>{await app.close();await rm(dir,{recursive:true,force:true});});
+  t.after(async()=>{await app.close();await rmScratch(dir);});
   const script=resolve(import.meta.dirname,'..','scripts','agent-job.mjs');
   const stateFile=resolve(dir,'claimed.json');
   const execFileAsync=promisify(execFile);

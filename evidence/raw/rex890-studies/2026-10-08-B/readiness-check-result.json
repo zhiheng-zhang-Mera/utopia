@@ -1,6 +1,6 @@
 {
   "schema": "rex890-readiness-check-v1",
-  "at": "2026-10-08T05:09:08.861Z",
+  "at": "2026-10-08T05:17:31.636Z",
   "artifact": "evidence/raw/rex890-studies/2026-10-08-B/artifact",
   "city": "http://172.31.12.151:4310",
   "checks": [

@@ -1,0 +1,59 @@
+{
+  "schema": "city-agent-job-consumption-probe-v1",
+  "at": "2026-10-08T04:14:20.592Z",
+  "city": "http://172.31.12.151:4310",
+  "taskId": "Q-1ca5c39f-d4f0-4cb0-9f1f-1b8e2d2fddff",
+  "checks": [
+    {
+      "name": "the job is already collected, so a receipt exists to inspect",
+      "ok": true,
+      "detail": "consumptionState=COLLECTED"
+    },
+    {
+      "name": "the recorded receipt states what it is",
+      "ok": true,
+      "detail": "authority=\"ACKNOWLEDGEMENT_NOT_VERIFICATION\" verification=\"AGENT_OBSERVATION_NOT_CITY_VERIFICATION\""
+    },
+    {
+      "name": "the receipt is not the agent consuming its own result",
+      "ok": true,
+      "detail": "agentConsumption=false"
+    },
+    {
+      "name": "the receipt names the job it belongs to",
+      "ok": true,
+      "detail": "receipt.taskId=Q-1ca5c39f-d4f0-4cb0-9f1f-1b8e2d2fddff"
+    },
+    {
+      "name": "the receipt binds to the bytes the City stores, recomputed independently",
+      "ok": true,
+      "detail": "recomputed=c00c016b3280cd3b… receipt=c00c016b3280cd3b…"
+    },
+    {
+      "name": "taking delivery again is idempotent and returns the recorded receipt",
+      "ok": true,
+      "detail": "http=200 idempotent=true sameReceipt=true sameTime=true"
+    },
+    {
+      "name": "a different note is refused rather than allowed to rewrite the receipt",
+      "ok": true,
+      "detail": "http=409 body={\"apiVersion\":0,\"schemaVersion\":0,\"error\":\"CONSUMPTION_ALREADY_RECORDED\",\"errorCode\":\"CONS"
+    },
+    {
+      "name": "the receipt changed neither the job state nor the stored report",
+      "ok": true,
+      "detail": "state COMPLETED->COMPLETED consumptionState COLLECTED->COLLECTED reportUnchanged=true"
+    }
+  ],
+  "binding": {
+    "recomputed": "c00c016b3280cd3b9a94dd895e377fa988a30336bc5bc99c5b7d684ef0b90312",
+    "recorded": "c00c016b3280cd3b9a94dd895e377fa988a30336bc5bc99c5b7d684ef0b90312",
+    "jobDigest": "f1d3aec6f8ad5af5be65590646d6f7b2d476ce991c27569a2645984abc8f83cd"
+  },
+  "summary": {
+    "checks": 8,
+    "passed": 8,
+    "failed": [],
+    "note": "no claim, no report and no task was created by this probe; it re-reads a receipt the City already held"
+  }
+}

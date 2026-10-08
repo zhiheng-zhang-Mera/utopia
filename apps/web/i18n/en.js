@@ -245,7 +245,7 @@ export const messages = {
   'home.rooms.open': 'Open Tools / Rooms',
 
   'pair.title': 'Connect to your city.',
-  'pair.hint': 'Enter the pairing token from your local Gateway to begin.',
+  'pair.hint': 'Enter a Gateway token, a six-digit pairing code, or an invite link. Select the nearby City first when connecting to another PC.',
   'pair.token': 'Pairing token',
   'pair.inviteHint': 'Paste an invite token to switch to the City it belongs to.',
   'pair.codeTitle': 'Have a code or a link from the other PC?',
@@ -455,4 +455,9 @@ Object.assign(messages,{
  'rr.value':'Observation','rr.original':'Original','rr.replayed':'New run','rr.worker':'Executing worker','rr.inputs':'Controlled inputs match','rr.unavailable':'Replay is unavailable; refresh or reconnect.'
 });
 Object.assign(messages, {'nav.governance':'Governance', 'heading.governance':'Governance process'});
+// `nav.*` keys are looked up VERBATIM from the `data-i18n` attribute in index.html, so they keep their camelCase page
+// name. `heading.*` keys are NOT: app.js derives them as `'heading.'+page.toLowerCase()`, so these must be fully
+// lowercase or the page title renders the raw key - which is what the first version of this line did.
+Object.assign(messages, {'nav.remoteOperation':'Remote operation', 'heading.remoteoperation':'Remote operation'});
+Object.assign(messages, {'nav.agentJobs':'Agent jobs', 'heading.agentjobs':'Agent jobs'});
 export default { meta, messages };

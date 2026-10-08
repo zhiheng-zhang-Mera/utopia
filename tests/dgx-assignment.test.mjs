@@ -23,3 +23,21 @@ test('DGX003 resource unavailable and no capability cannot win with reputation',
  for(const c of [{...candidate(),ready:false},{...candidate(),capabilities:[]},{...candidate(),facts_ref:null}])assert.equal(assignParticipant(request(),[c]).selected_participant,null);
  assert.throws(()=>assignParticipant(request(),[candidate(),candidate()]));
 });
+test('DGX990 scenario 13: the ENGINEERING review floor follows the DOMAIN, not the caller\'s spelling of the role',()=>{
+ // Found while accepting the four-series integration pack. The floor was selected by the literal `role==='DOMAIN_REVIEW'`
+ // while `DOMAIN_PROFILES.ENGINEERING.required_reviewer_roles` was read by nobody, and `governance.mjs` passes `role`
+ // straight through from request JSON. A probe therefore reached a SAME-HOST reviewer by calling the same review task
+ // `REVIEW`: floor `{}`, host_independence never checked. A floor that a relabelled request can drop is not a floor.
+ const reviewer={...candidate('reviewer'),physical_host_ref:'Alien',roles:['DOMAIN_REVIEW','REVIEW','PEER_REVIEW']};
+ for(const role of ['DOMAIN_REVIEW','REVIEW','PEER_REVIEW']){
+  const r=assignParticipant({...request(),role},[reviewer]);
+  assert.equal(r.required_independence_profile.host_independence,true,`role ${role} must carry the domain floor`);
+  assert.equal(r.selected_participant,null,`role ${role} must not select the author's own host`);
+  assert.match(r.rejected_or_unavailable_reason[0].reason,/host/);
+ }
+ // The executor role is the one role the ENGINEERING profile does NOT hold to the reviewer floor, so it still assigns.
+ const executor={...candidate('executor'),physical_host_ref:'Alien',roles:['EXECUTOR']};
+ const allowed=assignParticipant({...request(),role:'EXECUTOR'},[executor]);
+ assert.equal(allowed.selected_participant,'executor');
+ assert.equal(allowed.required_independence_profile.host_independence,undefined);
+});

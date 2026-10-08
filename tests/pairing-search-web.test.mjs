@@ -28,6 +28,35 @@ async function fixture(run) {
   }
 }
 
+test('the token entry recognizes a valid six-digit pairing code without sending it as a bearer token', () => fixture(async ({app,page})=>{
+ const s=await session(app);const badBearer=[];
+ page.on('request',r=>{if(r.headers().authorization==='Bearer '+s.shortCode)badBearer.push(r.url());});
+ await page.goto(app.url);
+ await page.locator('#token').fill(s.shortCode);await page.locator('#connect').click();
+ await page.locator('#connection.online').waitFor({timeout:5000});
+ assert.deepEqual(badBearer,[]);
+ const info=await fetch(app.url+'/api/v0/pairing/info').then(r=>r.json());
+ assert.equal(info.activeSession,false);
+}));
+
+test('the token entry accepts a shareable invite link and asks for confirmation', () => fixture(async ({app,page})=>{
+ const s=await session(app);
+ await page.goto(app.url);await page.locator('#token').fill(s.inviteUrl);await page.locator('#connect').click();
+ await page.locator('#pair-invite-accept').waitFor({state:'visible',timeout:5000});
+ assert.equal((await fetch(app.url+'/api/v0/pairing/info').then(r=>r.json())).activeSession,true);
+ await page.locator('#pair-invite-accept').click();await page.locator('#connection.online').waitFor({timeout:5000});
+}));
+
+test('a malformed invite in the token entry is refused without crashing or sending it as a credential', () => fixture(async ({app,page})=>{
+ const errors=[],leaks=[],value=app.url+'/?pair=%';
+ page.on('pageerror',error=>errors.push(error.message));
+ page.on('request',r=>{if(r.headers().authorization==='Bearer '+value)leaks.push(r.url());});
+ await page.goto(app.url);await page.locator('#token').fill(value);await page.locator('#connect').click();
+ await page.waitForTimeout(300);
+ assert.deepEqual(errors,[]);assert.deepEqual(leaks,[]);
+ assert.match(await page.locator('#pair-code-note').innerText(),/valid invite link/);
+}));
+
 test('pairing input survives slow typing, refresh, navigation and a failed attempt', () => fixture(async ({ app, page }) => {
   await page.goto(app.url + '/#token=search-owner');
   await page.locator('#connection.online').waitFor();
@@ -80,6 +109,7 @@ for (const transport of ['LAN','BLE_BOOTSTRAP']) test(`${transport} search selec
   assert.deepEqual(posts, [peer.url + '/api/v0/pairing/exchange']);
   assert.deepEqual(methods, [transport==='LAN'?'mdns':'ble']);
   assert.equal(await page.evaluate(() => location.hash), '', 'code handoff is removed from address bar');
+  assert.equal(await page.evaluate(()=>sessionStorage.getItem('city-token')?.startsWith('sess:')),true,'a peer code grants an enrolled session, never the owner token');
 }));
 
 test('Bluetooth search is actionable and explains an unavailable radio', () => fixture(async ({ app, page }) => {

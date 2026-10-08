@@ -10,11 +10,28 @@ import {writeDeviceFile} from '../apps/client/device-enrollment.mjs';
 const run = promisify(execFile);
 const root = resolve(import.meta.dirname,'..');
 
-test('two installation launchers share one City across ports and recover the same identity after a crash', {timeout:180000}, async () => {
-  try {await readHostCity(); throw new Error('Host integration requires a free coordination port; refusing to disturb an active City');}
-  catch(error) {if(error.cause?.code!=='ECONNREFUSED') throw error;}
+// A DELIBERATE REFUSAL IS NOT A FAILURE. Every case below refuses to run while a City holds this machine's
+// coordination reservation, because running would demote a live City. That refusal was expressed as a thrown Error, so
+// it was reported as a FAILURE: measured 2026-10-08, three red cases - "requires a free coordination port", "requires a
+// free local host reservation" - purely because the resident City was up serving the opposite host's reproduction.
+// Nothing about the launcher was wrong. This is the same NOT_RUN rule the study instrument now applies to its own
+// deliberate skips, and the reason is printed rather than swallowed. CI has no resident City, so the gate still runs
+// there for real.
+const hostReservationBusy = async () => {
+  try {await readHostCity(); return true;}
+  catch(error) {if(error.cause?.code==='ECONNREFUSED') return false; throw error;}
+};
+const busyReason = 'NOT RUN: a City already holds this machine\'s coordination reservation and these cases deliberately refuse to disturb it (stop that City, or run in CI, to exercise them)';
+
+test('two installation launchers share one City across ports and recover the same identity after a crash', {timeout:180000}, async t => {
+  if(await hostReservationBusy()) return t.skip(busyReason);
   const dir=await mkdtemp(resolve('.scratch-host-launch-'));
-  const env={...process.env,UTOPIA_HOST_STATE_DIR:resolve(dir,'host'),UTOPIA_CLIENT_STATE_DIR:resolve(dir,'client'),CITY_DISCOVERY_DISABLED:'1',CITY_MANAGE_SERVICES:'1',CITY_ROOMS_DISABLED:'0',ROOMS_PORT:'0',CITY_TELEMETRY_DISABLED:'1'};
+  const env={...process.env,UTOPIA_HOST_STATE_DIR:resolve(dir,'host'),UTOPIA_CLIENT_STATE_DIR:resolve(dir,'client'),CITY_DISCOVERY_DISABLED:'1',CITY_MANAGE_SERVICES:'1',CITY_ROOMS_DISABLED:'0',ROOMS_PORT:'0',CITY_TELEMETRY_DISABLED:'1',
+    // The capability switches are the owner's decisions and live ONLY in the environment, so a restart must carry them
+    // or the City comes back with both cross-machine channels silently off. Measured 2026-10-08: the reservation's
+    // `startup` record held the five service keys and none of these, while the live City reported both channels
+    // enabled - so the canonical restart would have undone decisions the owner had made.
+    CITY_REMOTE_OPERATION:'1',CITY_REMOTE_OPERATION_ALLOWLIST:'node,git',CITY_REMOTE_OPERATION_WORKSPACES:'C:/',CITY_AGENT_JOB:'1'};
   let owned;
   const launch=async (install,port) => JSON.parse((await run(process.execPath,[resolve(dir,install,'scripts/utopia-client-launcher.mjs'),'--host','127.0.0.1','--port',String(port),'--no-open','--json'],{env,timeout:90000})).stdout);
   const stop=async () => {
@@ -52,6 +69,14 @@ test('two installation launchers share one City across ports and recover the sam
       assert.equal(owned.startup.ROOMS_PORT,'0','restart preserves the original Rooms port setting');
       assert.equal(owned.startup.CITY_ROOMS_DISABLED,'0','repeated start cannot override a running City');
       assert.equal(owned.startup.CITY_DISCOVERY_DISABLED,'1');
+      // THE SAME RESTART PATH MUST PRESERVE THE OWNER'S CAPABILITY DECISIONS. These live only in the environment, and
+      // restart-gateway.ps1 replays them from this record, so this asserts the whole round trip - record, env, record -
+      // rather than the field alone. Without it the City comes back with both cross-machine channels silently OFF and
+      // the far side's requests are refused as if nobody had ever turned them on.
+      assert.equal(owned.startup.CITY_REMOTE_OPERATION,'1','the remote-operation switch survives a restart');
+      assert.equal(owned.startup.CITY_REMOTE_OPERATION_ALLOWLIST,'node,git');
+      assert.equal(owned.startup.CITY_REMOTE_OPERATION_WORKSPACES,'C:/');
+      assert.equal(owned.startup.CITY_AGENT_JOB,'1','the agent-job switch survives a restart');
       await rm(resolve(dir,'client/device-enrollment.json'));
     }
     await stop();
@@ -87,11 +112,10 @@ test('forgetting migrated enrollment cannot import the legacy credential again',
   } finally {await rm(dir,{recursive:true,force:true});}
 });
 
-test('remote short code enrolls with a local member agent and reconnects without launching a host City', {timeout:120000}, async () => {
+test('remote short code enrolls with a local member agent and reconnects without launching a host City', {timeout:120000}, async t => {
   // UTOPIA_HOST_STATE_DIR does not isolate the machine-wide reservation socket.
   // Refuse before issuing admission: otherwise this fixture demotes a real running City.
-  try {await readHostCity(); throw new Error('Host integration requires a free coordination port; refusing to disturb an active City');}
-  catch(error) {if(error.cause?.code!=='ECONNREFUSED') throw error;}
+  if(await hostReservationBusy()) return t.skip(busyReason);
   const dir=await mkdtemp(resolve('.scratch-remote-launch-'));
   const app=await createGateway({host:'127.0.0.1',port:0,dir:resolve(dir,'remote'),token:'remote-owner',nodeToken:'remote-node'});
   const env={...process.env,UTOPIA_CLIENT_STATE_DIR:resolve(dir,'client'),UTOPIA_HOST_STATE_DIR:resolve(dir,'unused-host')};
@@ -111,8 +135,8 @@ test('remote short code enrolls with a local member agent and reconnects without
   } finally {try{const record=await readHostCity();if(record.role==='MEMBER'&&record.dataDir?.startsWith(dir)){if(process.platform==='win32')await run('taskkill',['/PID',String(record.gatewayPid),'/F']);else process.kill(record.gatewayPid,'SIGKILL');}}catch{}await app.close();await rm(dir,{recursive:true,force:true});}
 });
 
-test('PRIMARY launcher reports successful MEMBER transition and normal main restart preserves it', {timeout:180000},async()=>{
- try{await readHostCity();throw Error('Requires a free local host reservation');}catch(error){if(error.cause?.code!=='ECONNREFUSED')throw error;}
+test('PRIMARY launcher reports successful MEMBER transition and normal main restart preserves it', {timeout:180000}, async t => {
+ if(await hostReservationBusy()) return t.skip(busyReason);
  const dir=await mkdtemp(resolve('.scratch-cli-demote-'));let remote,owned;const env={...process.env,UTOPIA_HOST_STATE_DIR:resolve(dir,'host'),UTOPIA_CLIENT_STATE_DIR:resolve(dir,'client'),CITY_DATA:resolve(dir,'original'),CITY_MANAGE_SERVICES:'1',CITY_ROOMS_DISABLED:'1',CITY_DISCOVERY_DISABLED:'1',CITY_TELEMETRY_DISABLED:'1'};const launch=async args=>JSON.parse((await run(process.execPath,[resolve(root,'scripts/utopia-client-launcher.mjs'),...args,'--no-open','--json'],{env,timeout:90000})).stdout);const kill=async record=>{assert.ok(record.dataDir.startsWith(dir));if(process.platform==='win32')await run('taskkill',['/PID',String(record.gatewayPid),'/F']);else process.kill(record.gatewayPid,'SIGKILL');for(let i=0;i<100;i++){try{await readHostCity();}catch(error){if(error.cause?.code==='ECONNREFUSED')return;}await new Promise(r=>setTimeout(r,50));}};
  try{owned=await launch(['--host-only','--host','127.0.0.1','--port','0']);const localId=owned.cityId;remote=await createGateway({dir:resolve(dir,'remote'),port:0,token:'remote-owner',nodeToken:'remote-node'});const h={Authorization:'Bearer remote-owner','Content-Type':'application/json','X-City-Api-Version':'0','X-City-Schema-Version':'0'};const pair=await(await fetch(remote.url+'/api/v0/pairing/session',{method:'POST',headers:h,body:'{}'})).json();const joined=await launch(['--enroll-code',pair.shortCode,'--enroll-host',remote.url,'--name','CLI chosen name']);assert.equal(joined.role,'MEMBER');assert.equal(joined.gatewayPid,owned.gatewayPid);const selected=await readHostCity();assert.equal(selected.role,'MEMBER');assert.equal(selected.cityId,remote.store.cityId);await kill(selected);owned=null;
  const {spawn}=await import('node:child_process');const restarted=spawn(process.execPath,[resolve(root,'services/dev-gateway/main.mjs')],{cwd:root,env,stdio:'ignore',windowsHide:true});restarted.on('error',()=>{});for(let i=0;i<180;i++){await new Promise(r=>setTimeout(r,250));try{const record=await readHostCity();if(record.state==='ONLINE'){owned=record;break;}}catch{}}

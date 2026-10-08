@@ -1,0 +1,16 @@
+{
+  "failures": {
+    "unmeasuredRuns": [],
+    "warmupRuns": [],
+    "campaignOutcomes": [
+      {
+        "campaignId": "campaign-6425e1be-0a46-4fec-a942-cb1a01742bca",
+        "state": "REFUSED",
+        "reason": "TOPOLOGY_NOT_READY",
+        "planned": 6,
+        "accounted": 0,
+        "rawPointer": "receipt:campaign-6425e1be-0a46-4fec-a942-cb1a01742bca"
+      }
+    ]
+  }
+}

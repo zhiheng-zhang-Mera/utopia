@@ -6,9 +6,9 @@
 // ARCHITECTURE, the hostname and the runtime, and every intermediate value is kept beside the label so a wrong label
 // can be diagnosed instead of argued about.
 //
-// The labelling vocabulary itself lives in apps/web/platform-label.mjs, because the browser must show the same words
+// The labelling vocabulary itself lives in contracts/device-platform/labels.mjs, because the browser must show the same words
 // without importing server code. This module only reads the host and assembles the fact set.
-import {operatingSystemName, archLabel, platformSummary} from '../../apps/web/platform-label.mjs';
+import {operatingSystemName, archLabel, platformSummary} from '../../contracts/device-platform/labels.mjs';
 
 export {operatingSystemName, archLabel, platformSummary};
 

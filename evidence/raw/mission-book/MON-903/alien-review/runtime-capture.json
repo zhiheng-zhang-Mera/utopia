@@ -1,0 +1,180 @@
+{
+  "sourceSha": "b76adfeb94cbfbbe233a93c3d29261dfc00bfdfa",
+  "host": "MERA-ALIANWARE",
+  "measuredAt": "2026-10-06T05:10:57.513Z",
+  "fixture": "REAL_ISOLATED_GATEWAY_CANONICAL_STORE",
+  "surface": "HEADLESS_EDGE_WEB",
+  "cityId": "1e5bc40d-58cd-494d-a52a-3d80561307aa",
+  "canonicalTask": {
+    "id": "Q-1871888f-4583-4800-a416-2e8e018a38a3",
+    "type": "WAIT",
+    "domain": "system",
+    "state": "FAILED",
+    "createdAt": "2026-10-06T05:10:56.328Z",
+    "updatedAt": "2026-10-06T05:10:56.345Z",
+    "assignedNodeId": "capture-node",
+    "progress": 60,
+    "lastCheckpoint": null,
+    "result": null,
+    "error": "Fixture endpoint refused work"
+  },
+  "decisionWindow": {
+    "schemaVersion": 1,
+    "authoritative": false,
+    "persistence": "READY",
+    "persistenceReason": null,
+    "decisions": [
+      {
+        "schemaVersion": 1,
+        "decisionId": "decision-99905e53-87f6-489c-b2a8-4a0c60d2d260",
+        "taskRef": "Q-1871888f-4583-4800-a416-2e8e018a38a3",
+        "triggerEvent": {
+          "kind": "SCOPE_CHANGE",
+          "origin": "SUBMITTED",
+          "eventId": null,
+          "eventSeq": null,
+          "eventType": null,
+          "reason": "Bounded review fixture scope change"
+        },
+        "preState": "FAILED",
+        "postState": "FAILED",
+        "source": "RULE",
+        "action": "OWNER_REQUIRED",
+        "confidence": null,
+        "confidenceReason": "NOT_AVAILABLE: a deterministic rule is not a probability and no resolver reported one",
+        "queueWaitMs": 2,
+        "decisionLatencyMs": 0,
+        "timeoutOrFallback": [],
+        "escalationTarget": "OWNER",
+        "escalationReason": "OWNER_BOUNDARY_KIND",
+        "ownerRequired": true,
+        "evidenceRefs": [],
+        "appliedBy": null,
+        "application": "RECORDED_ONLY",
+        "applicationReason": "NOT_APPLICABLE: this overlay owns no task writer and grants no authority",
+        "decisionTrace": [
+          {
+            "stage": "OBSERVATION",
+            "at": "2026-10-06T05:10:56.354Z",
+            "detail": "trigger SCOPE_CHANGE from SUBMITTED"
+          },
+          {
+            "stage": "RULE",
+            "at": "2026-10-06T05:10:56.354Z",
+            "detail": "owner boundary: no resolver consulted"
+          }
+        ],
+        "decidedAt": "2026-10-06T05:10:56.354Z",
+        "brokerNote": "decision recorded by the MON-903 overlay; canonical task state remains the City's own"
+      },
+      {
+        "schemaVersion": 1,
+        "decisionId": "decision-6656f4bd-ca7f-47a3-85e8-e03e24690e38",
+        "taskRef": "Q-1871888f-4583-4800-a416-2e8e018a38a3",
+        "triggerEvent": {
+          "kind": "FAILED",
+          "origin": "CANONICAL_EVENT",
+          "eventId": "a4095089-8547-4097-a060-66885c45de8b",
+          "eventSeq": 7,
+          "eventType": "TASK_FAILED",
+          "reason": null
+        },
+        "preState": "FAILED",
+        "postState": "FAILED",
+        "source": "RULE",
+        "action": "RETRY_RECOMMENDED",
+        "confidence": null,
+        "confidenceReason": "NOT_AVAILABLE: a deterministic rule is not a probability and no resolver reported one",
+        "queueWaitMs": 3,
+        "decisionLatencyMs": 0,
+        "timeoutOrFallback": [],
+        "escalationTarget": null,
+        "escalationReason": null,
+        "ownerRequired": false,
+        "evidenceRefs": [
+          {
+            "canonicalEventId": "a4095089-8547-4097-a060-66885c45de8b",
+            "seq": 7,
+            "source": "CANONICAL_GATEWAY_STORE",
+            "path": "/api/v0/events"
+          }
+        ],
+        "appliedBy": null,
+        "application": "RECORDED_ONLY",
+        "applicationReason": "NOT_APPLICABLE: this overlay owns no task writer and grants no authority",
+        "decisionTrace": [
+          {
+            "stage": "OBSERVATION",
+            "at": "2026-10-06T05:10:56.348Z",
+            "detail": "trigger FAILED from CANONICAL_EVENT"
+          },
+          {
+            "stage": "RULE",
+            "at": "2026-10-06T05:10:56.348Z",
+            "detail": "first attributable failure with retry budget remaining"
+          }
+        ],
+        "decidedAt": "2026-10-06T05:10:56.348Z",
+        "brokerNote": "decision recorded by the MON-903 overlay; canonical task state remains the City's own"
+      }
+    ],
+    "retained": 2,
+    "retainedLimit": 200,
+    "retentionTruncated": false,
+    "broken": [],
+    "failures": [],
+    "failuresDropped": 0,
+    "observedEvents": 8,
+    "window": {
+      "over": "TRIGGER_EVENTS",
+      "note": "firstSeq/lastSeq span the canonical events that were DECISION TRIGGERS, not every canonical event; non-trigger events are deliberately not decisions",
+      "firstSeq": 7,
+      "lastSeq": null,
+      "triggerEvents": 2,
+      "observedEvents": 8,
+      "canonicalHighWatermark": null,
+      "canonicalHighWatermarkReason": "NOT_OBSERVABLE: this overlay is handed individual events and never reads the canonical stream itself"
+    },
+    "unsupportedSources": [
+      "model/provider identity (a resolver is a seam, not an identified model)",
+      "hidden reasoning (never requested, never stored)"
+    ]
+  },
+  "metrics": {
+    "decisions": 2,
+    "retained": 2,
+    "retainedLimit": 200,
+    "retentionTruncated": false,
+    "windowNote": "Rate is over the whole retained window (2 of a limit of 200).",
+    "latencySamples": 2,
+    "latencyNotObservable": 0,
+    "bySource": {
+      "RULE": 2,
+      "FAST_MODEL": 0,
+      "CRITIC": 0,
+      "OWNER": 0
+    },
+    "ownerRequired": 1,
+    "autoResolved": 1,
+    "autoResolutionRate": 0.5,
+    "autoResolutionRateReason": null,
+    "timeouts": 0,
+    "meanDecisionLatencyMs": 0,
+    "meanQueueWaitMs": 3,
+    "unrelatedTaskBlocking": "ABSENT_BY_CONSTRUCTION",
+    "unrelatedTaskBlockingBasis": "the queue map is keyed by task and observe() is never awaited on the canonical path",
+    "concurrentDecisionTasks": 0,
+    "persistence": "READY",
+    "persistenceReason": null,
+    "resolverFailures": [],
+    "resolverFailuresDropped": 0,
+    "unsupportedSources": [
+      "wrong auto-decision and repair (requires an independent judge, not this overlay)",
+      "confidence versus final review outcome (no resolver is configured in this City)"
+    ]
+  },
+  "unrelatedTaskBlockingMeasurement": "NOT_RUN_IN_THIS_CAPTURE; see independent per-task tests",
+  "realModelProvider": "NOT_RUN",
+  "physicalAndroid": "NOT_RUN",
+  "physicalCrossDevice": "NOT_RUN"
+}

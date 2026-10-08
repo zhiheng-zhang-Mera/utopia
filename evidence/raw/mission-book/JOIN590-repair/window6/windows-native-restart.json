@@ -1,0 +1,16 @@
+{
+  "at": "2026-10-05T11:30:34.936Z",
+  "scope": "physical Alien Windows normal restart as Mech member",
+  "cityId": "031fdba6-e94c-4298-a095-6ff04a65481d",
+  "role": "MEMBER",
+  "state": "ONLINE",
+  "previousPid": 44580,
+  "gatewayPid": 41244,
+  "newProcess": true,
+  "sameInstallation": true,
+  "sameDurableCredential": true,
+  "freshMemberSession": true,
+  "credentialInputRequired": false,
+  "devicesStatus": 404,
+  "devices": null
+}

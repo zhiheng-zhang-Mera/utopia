@@ -1,0 +1,15 @@
+{
+  "at": "2026-10-05T11:30:08.871Z",
+  "scope": "physical Alien Windows native membership in Mech",
+  "role": "MEMBER",
+  "cityId": "031fdba6-e94c-4298-a095-6ff04a65481d",
+  "gatewayPid": 44580,
+  "endpoint": "http://172.31.12.151:4391",
+  "deviceId": "dev-e1d87b2a0ec5457e822b91d81e40dc67",
+  "installationId": "ins-e7f0f7cd90d276ebf8985062ab1a88e1",
+  "instanceId": "inst-a50f384737193367209f919f8ea30829",
+  "displayName": "Alien-PC-JOIN590",
+  "sessionIsMember": true,
+  "remoteCityMatches": true,
+  "durableCredentialStored": true
+}

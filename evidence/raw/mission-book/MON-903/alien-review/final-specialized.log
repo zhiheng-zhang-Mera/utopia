@@ -1,0 +1,44 @@
+✔ bounded canonical projection exposes active task, binding and exact event evidence without raw secrets (135.6468ms)
+✔ overflow and missing history remain visible; fresh snapshot reflects canonical state, not cached truth (102.1058ms)
+✔ slow/disconnected observation never gates real canonical task persistence (80.4129ms)
+✔ real API claim/report projection follows persisted lifecycle and cannot execute commands (110.202ms)
+✔ stalled HTTP monitor request and broken reader leave independent create/cancel requests working (98.5707ms)
+✔ invalid limits cannot create unbounded queries, single flight and unknown populations stay honest (71.2196ms)
+✔ deleted historical prefix and tail cannot be reported as complete history (83.018ms)
+✔ Gateway shares outstanding observation and retains stale last view on later source failure (75.2416ms)
+✔ Alien: model OWNER_REQUIRED is an escalation, not auto-resolution (13.2644ms)
+✔ Alien: canonical observation cannot enqueue decisions after bounded close (2.1752ms)
+✔ Alien: retention restart preserves the newest decisions, not UUID lexical order (14.6393ms)
+✔ Alien: queue overflow retains canonical evidence and reports failed receipt persistence (1744.3088ms)
+✔ Alien: canonical present-but-ineligible target is escalated, not described as recovering offline (8.1793ms)
+✔ Alien: a timeout remains measurable when the critic subsequently resolves (20.294ms)
+✔ Alien Gateway: an online ineligible strict target produces an Owner decision with real event evidence (131.6096ms)
+✔ Alien browser: polling preserves opened provenance and successful retry clears an old error (930.2141ms)
+✔ Alien browser: unavailable decision persistence is visible even before any write failure (1617.0955ms)
+✔ Alien browser: frequent City rendering cannot starve bounded decision polling (3577.1055ms)
+✔ MON903 route: a canonical failure becomes a decision receipt with canonical provenance, and the task itself is untouched (166.3247ms)
+✔ MON903 route: ordinary City activity produces no decisions at all (230.0226ms)
+✔ MON903 route: reading is authenticated, asking for a decision is the owner's, and refusals are typed (169.2146ms)
+✔ MON903 route: an explicitly submitted owner-boundary trigger is recorded as owner-required and applied by nobody (104.3485ms)
+✔ MON903 route: a decision for one task never blocks another task, and the projection carries both (228.4083ms)
+✔ MON903 triggers: only the named canonical events enter the decision path, and ordinary reports do not (39.7405ms)
+✔ MON903 ladder: a deterministic rule resolves first and the model is never consulted for it (28.5439ms)
+✔ MON903 owner boundary: scope, merge, review and owner-candidate triggers escalate WITHOUT any resolver being asked (15.8977ms)
+✔ MON903 fallback: a hanging, throwing or free-text resolver becomes a bounded fallback, never an authority (157.4118ms)
+✔ MON903 queues: decisions are per-task, parallel across tasks, bounded per task, and never a global barrier (571.9061ms)
+✔ MON903 receipts: bounded contract, provenance, measured post-state, and no applied action anywhere (16.2833ms)
+✔ MON903 store: an unusable receipt store degrades the overlay and never prevents the City from starting (finding M-1) (10.715ms)
+✔ MON903 store: the City itself starts and serves decisions when the decision store is unusable (finding M-1, City level) (176.0096ms)
+✔ MON903 isolation: a reader that throws, a broken receipt file and a failing receipt write cannot break the caller (15.4457ms)
+✔ MON903 close: a closed overlay refuses a trigger with its OWN code, not by blaming the trigger (2.6972ms)
+✔ MON903 rules: the deterministic layer answers each kind from canonical facts, and invents no default (0.3999ms)
+✔ MON903 web: the owner sees the decision the City recorded, its provenance, and that nobody applied it (6300.6278ms)
+✔ MON903 web: an enrolled member may read what the City decided, and is told who can ask for one (1285.9841ms)
+ℹ tests 36
+ℹ suites 0
+ℹ pass 36
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14048.1869

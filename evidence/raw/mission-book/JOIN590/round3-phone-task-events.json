@@ -1,0 +1,65 @@
+[
+  {
+    "surface": "PERM00",
+    "kind": "event",
+    "at": "2026-10-05T10:14:15.862727Z",
+    "observedAt": 1791195255862,
+    "seq": 106,
+    "type": "COMMAND_ACCEPTED",
+    "serverAt": "2026-10-05T10:14:13.261Z"
+  },
+  {
+    "surface": "PERM00",
+    "kind": "event",
+    "at": "2026-10-05T10:14:15.864481Z",
+    "observedAt": 1791195255864,
+    "seq": 107,
+    "type": "TASK_CREATED",
+    "serverAt": "2026-10-05T10:14:13.262Z"
+  },
+  {
+    "surface": "PERM00",
+    "kind": "event",
+    "at": "2026-10-05T10:14:16.234005Z",
+    "observedAt": 1791195256234,
+    "seq": 108,
+    "type": "TASK_ASSIGNED",
+    "serverAt": "2026-10-05T10:14:13.631Z"
+  },
+  {
+    "surface": "PERM00",
+    "kind": "event",
+    "at": "2026-10-05T10:14:16.253196Z",
+    "observedAt": 1791195256253,
+    "seq": 109,
+    "type": "TASK_STARTED",
+    "serverAt": "2026-10-05T10:14:13.652Z"
+  },
+  {
+    "surface": "PERM00",
+    "kind": "event",
+    "at": "2026-10-05T10:14:16.279767Z",
+    "observedAt": 1791195256279,
+    "seq": 110,
+    "type": "TASK_CHECKPOINTED",
+    "serverAt": "2026-10-05T10:14:13.679Z"
+  },
+  {
+    "surface": "PERM00",
+    "kind": "event",
+    "at": "2026-10-05T10:14:17.547462Z",
+    "observedAt": 1791195257547,
+    "seq": 111,
+    "type": "TASK_CHECKPOINTED",
+    "serverAt": "2026-10-05T10:14:14.903Z"
+  },
+  {
+    "surface": "PERM00",
+    "kind": "event",
+    "at": "2026-10-05T10:14:18.731886Z",
+    "observedAt": 1791195258732,
+    "seq": 112,
+    "type": "TASK_COMPLETED",
+    "serverAt": "2026-10-05T10:14:16.129Z"
+  }
+]

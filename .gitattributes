@@ -11,6 +11,9 @@
 /evidence/raw/v0.3/** -text
 /evidence/raw/v0.3-hardening/** -text
 /evidence/raw/wave3/** -text
+# The four-series integration acceptance: its numbers were READ OFF these console logs, so the logs are the
+# evidence rather than a rendering of it, and their bytes must survive a checkout unchanged.
+/evidence/raw/mission-book/4IN1-ACCEPTANCE-2026-10-07/** -text
 *.pdf binary
 *.docx binary
 *.xlsx binary

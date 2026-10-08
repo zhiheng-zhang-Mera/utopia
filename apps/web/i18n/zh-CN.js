@@ -241,7 +241,7 @@ export const messages = {
   'home.rooms.open': '打开 工具 / 房间',
 
   'pair.title': '连接你的城市。',
-  'pair.hint': '请输入本地 Gateway 提供的配对令牌。',
+  'pair.hint': '输入 Gateway 令牌、6 位配对码或邀请链接。连接其他电脑时，请先选择附近城市。',
   'pair.token': '配对令牌',
   'pair.inviteHint': '粘贴邀请令牌，即可切换到它所属的城市。',
   'pair.codeTitle': '有另一台 PC 给的配对码或链接？',
@@ -449,4 +449,7 @@ Object.assign(messages,{
  'rr.value':'观测值','rr.original':'原始运行','rr.replayed':'新运行','rr.worker':'执行节点','rr.inputs':'受控输入一致','rr.unavailable':'重放暂不可用，请刷新或重新连接。'
 });
 Object.assign(messages, {'nav.governance':'审议治理', 'heading.governance':'审议治理过程'});
+// See the note in en.js: `nav.*` keys are literal, `heading.*` keys are derived from the lowercased page name.
+Object.assign(messages, {'nav.remoteOperation':'远程操作', 'heading.remoteoperation':'远程操作'});
+Object.assign(messages, {'nav.agentJobs':'智能体任务', 'heading.agentjobs':'智能体任务'});
 export default { meta, messages };

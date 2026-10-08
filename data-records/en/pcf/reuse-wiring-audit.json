@@ -1,0 +1,683 @@
+{
+  "measuredAt": {
+    "host": "MEGA-REP",
+    "node": "v24.14.0",
+    "head": "see report HEAD_SHA"
+  },
+  "contractDirectoryCount": 50,
+  "domains": {
+    "EM_ENGINEERING": [
+      {
+        "contract": "engineering-attention-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 21,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/engineering-attention.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "engineering-auth-profile-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 17,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/engineering-auth-profile.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "engineering-connector-sdk-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 22,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/engineering-connector-sdk.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "engineering-connector-v1",
+        "declared": true,
+        "moduleFiles": 5,
+        "exportedStatements": 39,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/engineering-connector.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "engineering-control-surface-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 15,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/engineering-control-surface.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "engineering-foreman-scheduler-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 15,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/engineering-foreman-scheduler.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "engineering-job-v1",
+        "declared": true,
+        "moduleFiles": 4,
+        "exportedStatements": 40,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/engineering-job.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "engineering-manager-v1",
+        "declared": true,
+        "moduleFiles": 7,
+        "exportedStatements": 100,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/engineering-manager.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "engineering-placement-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 22,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/engineering-placement.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "engineering-reference-connectors-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 19,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/engineering-reference-connectors.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "engineering-registry-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 39,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/engineering-registry.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "engineering-return-control-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 13,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/engineering-return-control.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "engineering-runtime-supervisor-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 17,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/engineering-runtime-supervisor.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      }
+    ],
+    "GAI_GENERAL_AI": [
+      {
+        "contract": "general-ai-api-channel-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 21,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/general-ai-api-channel.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "general-ai-conversation-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 15,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/general-ai-conversation.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "general-ai-gateway-v1",
+        "declared": true,
+        "moduleFiles": 4,
+        "exportedStatements": 84,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/general-ai-gateway.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "general-ai-health-resilience-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 23,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/general-ai-health-resilience.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "general-ai-registry-v1",
+        "declared": true,
+        "moduleFiles": 5,
+        "exportedStatements": 56,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/general-ai-registry.test.mjs",
+          "tests/web-scheduler-adapter.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "general-ai-remote-execution-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 15,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/general-ai-remote-execution.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "general-ai-triage-routing-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 17,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/general-ai-triage-routing.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "general-ai-utopia-surface-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 17,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/general-ai-utopia-surface.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "general-ai-web-channel-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 16,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/general-ai-web-channel.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      }
+    ],
+    "RF_REMOTE_AND_RETURN_SURFACE": [
+      {
+        "contract": "remote-bluetooth-bootstrap-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 19,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/remote-bluetooth-bootstrap.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "remote-capability-registry-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 14,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/remote-capability-registry.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "remote-fabric-public-api-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 16,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/remote-fabric-public-api.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "remote-invite-rendezvous-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 21,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/remote-invite-rendezvous.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "remote-local-discovery-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 28,
+        "productionImporters": [
+          "services/dev-gateway/nearby.mjs"
+        ],
+        "testImporters": [
+          "tests/join502-nearby.test.mjs",
+          "tests/remote-local-discovery.test.mjs"
+        ],
+        "tier": "LIVE_WIRED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "remote-path-manager-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 14,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/remote-path-manager.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "remote-presence-reconnect-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 15,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/remote-presence-reconnect.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "remote-typed-dataplane-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 15,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/remote-typed-dataplane.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "rs-cross-device-return-v1",
+        "declared": true,
+        "moduleFiles": 7,
+        "exportedStatements": 12,
+        "productionImporters": [],
+        "testImporters": [
+          "tests/rs-cross-device-return.test.mjs"
+        ],
+        "tier": "COMPONENT_TESTED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "rs-presentation-contract-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 11,
+        "productionImporters": [
+          "services/dev-gateway/presentation.mjs"
+        ],
+        "testImporters": [
+          "tests/android-scheduler-parity.test.mjs",
+          "tests/gateway-presentation.test.mjs",
+          "tests/rs-presentation-contract.test.mjs",
+          "tests/web-scheduler-adapter.test.mjs",
+          "tests/web-scheduler-panel.test.mjs"
+        ],
+        "tier": "LIVE_WIRED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      }
+    ],
+    "WBC_WORKBENCH_COMPAT": [
+      {
+        "contract": "execution-backend-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 17,
+        "productionImporters": [
+          "services/dev-gateway/execution-backend/standard-devices.mjs",
+          "services/dev-gateway/execution-backend/worker-pool.mjs",
+          "services/dev-gateway/execution-profile.mjs",
+          "services/dev-gateway/server.mjs"
+        ],
+        "testImporters": [
+          "tests/wbc603-worker-pool.test.mjs"
+        ],
+        "tier": "LIVE_WIRED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      },
+      {
+        "contract": "node-descriptor-v1",
+        "declared": true,
+        "moduleFiles": 3,
+        "exportedStatements": 21,
+        "productionImporters": [
+          "services/dev-gateway/execution-backend/worker-pool.mjs",
+          "services/dev-gateway/server.mjs",
+          "services/headless-node-agent/agent.mjs"
+        ],
+        "testImporters": [
+          "tests/pcf700-compatibility.test.mjs",
+          "tests/wbc602-node-descriptor.test.mjs",
+          "tests/wbc602-review.test.mjs",
+          "tests/wbc603-headless-agent.test.mjs",
+          "tests/wbc603-worker-pool.test.mjs"
+        ],
+        "tier": "LIVE_WIRED",
+        "twoHostVerified": "NOT_MEASURED_HERE (needs the opposite physical host)",
+        "originAgentConsumed": "NOT_MEASURED_HERE (needs a measured origin-side result consumption)"
+      }
+    ]
+  },
+  "dependencyDirection": {
+    "backendModuleImports": [],
+    "toolModuleImports": [
+      "scripts/browser-relay-check.mjs",
+      "scripts/uxi301-handoff-wait.mjs",
+      "scripts/uxi301-named-cases.mjs",
+      "scripts/uxi301-route-stage-case.mjs"
+    ],
+    "testModuleImports": [
+      "tests/android-scheduler-parity.test.mjs",
+      "tests/connect-surface.test.mjs",
+      "tests/join502-nearby.test.mjs",
+      "tests/link-local-two-city.test.mjs",
+      "tests/network-path.test.mjs",
+      "tests/pairing-lifecycle.test.mjs",
+      "tests/pairing-short-code.test.mjs",
+      "tests/primary-city.test.mjs",
+      "tests/relay-s1-tunnel.test.mjs",
+      "tests/web-invite.test.mjs",
+      "tests/web-scheduler-adapter.test.mjs",
+      "tests/web-scheduler-panel.test.mjs",
+      "tests/web-terminal-shell.test.mjs"
+    ],
+    "backendServePathReferences": [
+      "services/dev-gateway/static.mjs",
+      "tests/web-i18n.test.mjs"
+    ],
+    "frontendFileCount": 81,
+    "uiWithEndpoints": 14,
+    "unresolvedUiEndpoints": []
+  },
+  "gatewayRoutes": [
+    "/api/v0/actions",
+    "/api/v0/ask",
+    "/api/v0/ask/targets",
+    "/api/v0/capabilities",
+    "/api/v0/capability-invocations",
+    "/api/v0/city",
+    "/api/v0/city/name",
+    "/api/v0/device/enroll",
+    "/api/v0/device/installations",
+    "/api/v0/device/session",
+    "/api/v0/events",
+    "/api/v0/events/stream",
+    "/api/v0/execution-profile",
+    "/api/v0/health",
+    "/api/v0/host/join",
+    "/api/v0/host/join/status",
+    "/api/v0/join/exchange",
+    "/api/v0/join/info",
+    "/api/v0/join/nearby",
+    "/api/v0/join/request",
+    "/api/v0/join/requests",
+    "/api/v0/join/status",
+    "/api/v0/members/messages",
+    "/api/v0/monitor",
+    "/api/v0/node/",
+    "/api/v0/node/claim",
+    "/api/v0/node/descriptor",
+    "/api/v0/node/heartbeat",
+    "/api/v0/node/register",
+    "/api/v0/node/report",
+    "/api/v0/node/sharing",
+    "/api/v0/nodes",
+    "/api/v0/pairing/exchange",
+    "/api/v0/pairing/info",
+    "/api/v0/pairing/session",
+    "/api/v0/presentation",
+    "/api/v0/relay",
+    "/api/v0/research/",
+    "/api/v0/research/campaigns",
+    "/api/v0/research/campaigns/",
+    "/api/v0/research/campaigns/stop",
+    "/api/v0/research/experiments",
+    "/api/v0/research/experiments/validate",
+    "/api/v0/research/faults",
+    "/api/v0/research/replays",
+    "/api/v0/research/replays/",
+    "/api/v0/research/trace",
+    "/api/v0/rooms",
+    "/api/v0/tasks"
+  ],
+  "uiEndpoints": {
+    "apps/android/app/src/main/java/city/utopia/control/Actions.kt": [
+      "/api/v0/actions",
+      "/api/v0/actions/"
+    ],
+    "apps/android/app/src/main/java/city/utopia/control/CityClient.kt": [
+      "/api/v0/",
+      "/api/v0/ask",
+      "/api/v0/device/session",
+      "/api/v0/events/stream",
+      "/api/v0/presentation",
+      "/api/v0/rooms"
+    ],
+    "apps/android/app/src/main/java/city/utopia/control/PairingApi.kt": [
+      "/api/v0/pairing/"
+    ],
+    "apps/android/app/src/main/java/city/utopia/control/RelayDial.kt": [
+      "/api/v0/device/session",
+      "/api/v0/join/exchange",
+      "/api/v0/join/info",
+      "/api/v0/join/nearby",
+      "/api/v0/join/request",
+      "/api/v0/join/status",
+      "/api/v0/relay"
+    ],
+    "apps/android/app/src/main/java/city/utopia/control/RelayPairing.kt": [
+      "/api/v0/join/exchange",
+      "/api/v0/join/info",
+      "/api/v0/join/request",
+      "/api/v0/join/status"
+    ],
+    "apps/android/app/src/main/java/city/utopia/control/SchedulerPresentation.kt": [
+      "/api/v0/presentation"
+    ],
+    "apps/android/app/src/test/java/city/utopia/control/RoomsTest.kt": [
+      "/api/v0/rooms"
+    ],
+    "apps/web/app.js": [
+      "/api/v0/",
+      "/api/v0/events/stream",
+      "/api/v0/join/",
+      "/api/v0/pairing/exchange",
+      "/api/v0/pairing/info"
+    ],
+    "apps/web/discovery.js": [
+      "/api/v0/join/nearby"
+    ],
+    "apps/web/enrollment.js": [
+      "/api/v0/device/installations",
+      "/api/v0/device/installations/${encodeURIComponent",
+      "/api/v0/device/session"
+    ],
+    "apps/web/relay-dial.mjs": [
+      "/api/v0/device/session",
+      "/api/v0/join/exchange",
+      "/api/v0/join/info",
+      "/api/v0/join/nearby",
+      "/api/v0/join/request",
+      "/api/v0/join/status",
+      "/api/v0/relay"
+    ],
+    "apps/web/relay-join.mjs": [
+      "/api/v0/join/exchange",
+      "/api/v0/join/info",
+      "/api/v0/join/request",
+      "/api/v0/join/status"
+    ],
+    "apps/web/scheduler.js": [
+      "/api/v0/presentation",
+      "/api/v0/tasks",
+      "/api/v0/tasks/"
+    ],
+    "apps/web/short-code.js": [
+      "/api/v0/pairing/exchange",
+      "/api/v0/pairing/info"
+    ]
+  },
+  "singleWriters": [
+    {
+      "file": "services/dev-gateway/server.mjs",
+      "role": "routes + backend/profile construction (only writer)",
+      "bytes": 122700,
+      "lines": 1351,
+      "sha256": "766f7b778bb35ac66ce5b6eeedc950c5015f3faa9d6acde66fb3d5e7d0df5a90"
+    },
+    {
+      "file": "services/dev-gateway/store.mjs",
+      "role": "canonical task/action/device/event truth (only writer)",
+      "bytes": 8533,
+      "lines": 109,
+      "sha256": "4a977deefb9200fe871b721f4d4aed7db6c5dc8a92e9f59f231e479d21f5fd2c"
+    },
+    {
+      "file": "services/dev-gateway/targeting.mjs",
+      "role": "strict-target classification (pure, no writer)",
+      "bytes": 6408,
+      "lines": 127,
+      "sha256": "09df5bf1ce3782dede4f5d381b7e63411fc01fb643c09f7acf38b53bac59cd19"
+    },
+    {
+      "file": "services/dev-gateway/execution-profile.mjs",
+      "role": "profile switch controller (only writer of profile state)",
+      "bytes": 12043,
+      "lines": 208,
+      "sha256": "cfc2f3cf4777c273cc6e52d33c2453d8ab366415369c4bb9deedc9bd2647ce1c"
+    },
+    {
+      "file": "contracts/node-descriptor-v1/node-descriptor.mjs",
+      "role": "node-descriptor fields (shared by gateway and worker pool)",
+      "bytes": 21692,
+      "lines": 332,
+      "sha256": "5c64f0020995aa4256676054ce684dce83e5f10d27d126615b916d25075caa7b"
+    }
+  ],
+  "pcfRuntimeReferences": [
+    "services/personal-compute-fabric/telemetry.mjs"
+  ],
+  "pcfRuntimeReferencesOutsideDeclaredPaths": []
+}

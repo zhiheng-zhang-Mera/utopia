@@ -1,0 +1,10 @@
+{
+  "steps": [
+    "read the raw pointers listed in rawPointers from the City that produced them (owner credential required)",
+    "rebuild the normalized dataset by joining each receipt run to its canonical task on result.taskRef",
+    "recompute each reported metric from the dataset: completion_time_ms is the median of task updatedAt-createdAt over MEASURED runs whose task is COMPLETED; failure_rate is (failed+timedOut)/planned summed over receipts; duplicate_execution_count counts run references owned by more than one task; convergence_missing_event_count counts measured runs whose task is absent",
+    "compare the recomputed values with metrics.csv and confirm every NOT_MEASURED row against its stated reason",
+    "verify checksums.json against the emitted bytes"
+  ],
+  "command": "node --test tests/rex806-artifact.test.mjs  (structural checks) and the exporter CLI for a live City"
+}

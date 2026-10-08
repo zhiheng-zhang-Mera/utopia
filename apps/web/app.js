@@ -1,9 +1,19 @@
 import {platformSummary} from './platform-label.mjs';
+import {renderFabricPanel,parseFabricNumbers} from './pcf-panel.js';
+let fabricDraft='',fabricAppDraft='cpu-sort',fabricOutput='',fabricParent=null;
+let fabricFeed=null;
 import {renderDeviceRecovery} from './device-recovery.js';
 import {renderServices} from './services.js';
 import {renderResearch} from './research.js';
 import {createGovernanceView} from './governance.js';
 const governanceView=createGovernanceView();
+import {createRemoteOperationView} from './remote-operation.js';
+const remoteOperationView=createRemoteOperationView();
+// The sibling channel: the City hands a remote AGENT a request instead of a program. A separate view because the two
+// surfaces must not be able to be read as one: a program's receipt is bytes the City can check, an agent's report is a
+// claim it cannot, and the whole point of the agent-job surface is that it says which one the reader is looking at.
+import {createAgentJobsView} from './agent-jobs.js';
+const agentJobsView=createAgentJobsView();
 import {createResearchTraceView} from './research-trace.js';
 const researchTraceView=createResearchTraceView();
 // REX-803: the campaign control surface. Imported as a view factory for the same reason the trace view is: it holds
@@ -622,7 +632,7 @@ function syncPairEntry(){
  }
 }
 function status(s){connection=s;$('#connection').textContent=t('connection.'+s.toLowerCase());$('#connection').className=s==='ONLINE'?'online':'';$('#run').disabled=s!=='ONLINE';render();}
-async function refresh(){if(refreshing){pending=true;return;}if(externalPage&&city)return;refreshing=true;try{const gen=generation;const snapshot=await api('city');if(gen!==generation)return;city=snapshot;try{memberMessages=(await api('members/messages')).messages||[];for(const message of memberMessages)if(message.targetDeviceId===city.currentMemberRef&&message.state==='PENDING'){await api('members/messages/'+message.id+'/receipt',{});message.state='RECEIVED';}}catch{memberMessages=[];}syncRunTargets();try{schedulerFeed=await api('presentation');}catch{schedulerFeed=null;}if(pairing.ownerSessionId()!==null&&city.descriptor?.pairingSessionId!==pairing.ownerSessionId()){const active=pairing.ownerSessionId();canonicalPairingSession().then(c=>{if(!c.known)return;if(c.sessionId===active)return;pairing.clearOnSessionChanged(c.sessionId);render();});}$('#pair').hidden=true;$('#content').hidden=false;$('#error').textContent='';render();}finally{refreshing=false;if(pending){pending=false;refresh().catch(disconnected);}}}
+async function refresh(){if(refreshing){pending=true;return;}if(externalPage&&city)return;refreshing=true;try{const gen=generation;const snapshot=await api('city');if(gen!==generation)return;city=snapshot;try{memberMessages=(await api('members/messages')).messages||[];for(const message of memberMessages)if(message.targetDeviceId===city.currentMemberRef&&message.state==='PENDING'){await api('members/messages/'+message.id+'/receipt',{});message.state='RECEIVED';}}catch{memberMessages=[];}syncRunTargets();if(page==='Settings'){try{const fabricInfo=await api('pcf');if(fabricParent!==fabricInfo.parentSessionId){fabricDraft='';fabricOutput='';fabricAppDraft='cpu-sort';fabricParent=fabricInfo.parentSessionId;}fabricFeed=fabricInfo.fabric;}catch{fabricFeed=null;fabricParent=null;fabricOutput='';fabricDraft='';}}try{schedulerFeed=await api('presentation');}catch{schedulerFeed=null;}if(pairing.ownerSessionId()!==null&&city.descriptor?.pairingSessionId!==pairing.ownerSessionId()){const active=pairing.ownerSessionId();canonicalPairingSession().then(c=>{if(!c.known)return;if(c.sessionId===active)return;pairing.clearOnSessionChanged(c.sessionId);render();});}$('#pair').hidden=true;$('#content').hidden=false;$('#error').textContent='';render();}finally{refreshing=false;if(pending){pending=false;refresh().catch(disconnected);}}}
 function disconnected(e){status('OFFLINE');if(e?.message)$('#error').textContent=e.message;}
 async function connect(){if(recoveryCredential!==token){recoveryCredential=token;++recoveryEpoch;recoveryDrafts.clear();recoveryBusy.clear();enrolledNotice='';}enrolledDevices=null;enrolledError='';enrolledScope=null;enrolledCloneFindings=[];enrolledLoading=false;++enrolledEpoch;const gen=++generation;clearTimeout(timer);ws?.close();status('RECONNECTING');try{await refresh();if(gen!==generation)return;ws=new WebSocket(location.origin.replace(/^http/,'ws')+'/api/v0/events/stream?apiVersion=0&schemaVersion=0&clientRef='+encodeURIComponent(webClientRef())+'&clientLabel='+encodeURIComponent(webClientLabel()),['city-v0','city-token.'+btoa(token).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_')]);ws.onopen=()=>{if(gen===generation)status('ONLINE');};ws.onmessage=()=>refresh().catch(disconnected);ws.onerror=()=>disconnected();ws.onclose=()=>{if(gen===generation){disconnected();timer=setTimeout(connect,1800);}};}catch(e){if(gen===generation){disconnected(e);timer=setTimeout(connect,2500);}}}
 const badge=(stateClass, displayLabel=stateClass)=>`<span class="badge ${esc(stateClass)}">${esc(displayLabel)}</span>`;
@@ -757,6 +767,8 @@ function assistantSlot(){
 }
 function render(){
  if(page!=='Governance')governanceView.reset();
+ if(page!=='RemoteOperation')remoteOperationView.reset();
+ if(page!=='AgentJobs')agentJobsView.reset();
  if(page!=='ResearchTrace')researchTraceView.reset();
  // The campaign view polls while a campaign runs, so it must be reset when the page is left - the same rule the
  // trace view follows, and the reason both are views rather than plain render functions.
@@ -811,6 +823,14 @@ function render(){
   const credential=token,cityId=city.cityId;
   governanceView.render($('#view'),{contextKey:credential+'|'+cityId,online:connection==='ONLINE',api,isCurrent:()=>page==='Governance'&&token===credential&&city?.cityId===cityId});
  }
+ if(page==='RemoteOperation'){
+  const credential=token,cityId=city.cityId;
+  remoteOperationView.render($('#view'),{contextKey:credential+'|'+cityId,online:connection==='ONLINE',api,isCurrent:()=>page==='RemoteOperation'&&token===credential&&city?.cityId===cityId});
+ }
+ if(page==='AgentJobs'){
+  const credential=token,cityId=city.cityId;
+  agentJobsView.render($('#view'),{contextKey:credential+'|'+cityId,online:connection==='ONLINE',api,isCurrent:()=>page==='AgentJobs'&&token===credential&&city?.cityId===cityId});
+ }
  if(page==='ResearchCampaign'){
   const credential=token,cityId=city.cityId;
   researchCampaignView.render($('#view'),{contextKey:credential+'|'+cityId,online:connection==='ONLINE',api,isCurrent:()=>page==='ResearchCampaign'&&token===credential&&city?.cityId===cityId});
@@ -826,9 +846,11 @@ function render(){
  if(page==='Devices')$('#view').innerHTML=schedulerPanel(schedulerFeed,{isOnline:connection==='ONLINE',advanced:true,busyTasks:new Set(schedulerPending.keys())})+`<section class="panel">${nodeRows()}</section>`;
  if(page==='Tasks')$('#view').innerHTML=`<section class="panel"><h2>${esc(t('section.taskRegistry'))}</h2>${taskRows(tasks)}</section>`;
  if(page==='Activity')$('#view').innerHTML=`<section class="panel"><h2>${esc(t('section.eventTimeline',{count:city.events.length}))}</h2><button data-goto="Actions">${esc(t('nav.actions'))}</button>${events(city.events)}</section>`;
- if(page==='Settings')$('#view').innerHTML=`<section class="panel">${cityNameSection()}${deviceSection()}${languageSection()}<h2>${esc(t('section.connectionDiagnostics'))}</h2><p>${esc(t('settings.cityUrl'))}: ${esc(location.origin)}</p><details><summary>${esc(t('common.runDetails'))}</summary><div class="task-id">apiVersion = 0 · schemaVersion = 0</div></details><p class="muted">${esc(t('settings.tokenNote'))}</p><button id="disconnect">${esc(t('settings.changeToken'))}</button></section>`;
+ const previousFabricPanel=$('#pcf-panel'),fabricFocused=previousFabricPanel?.contains(document.activeElement)?document.activeElement:null;const fabricUI=previousFabricPanel?{open:previousFabricPanel.open,name:fabricFocused?.name,start:fabricFocused?.selectionStart,end:fabricFocused?.selectionEnd}:null;
+ if(page==='Settings')$('#view').innerHTML=`<section class="panel">${cityNameSection()}${deviceSection()}${languageSection()}${renderFabricPanel(fabricFeed,getLocale(),fabricDraft,fabricAppDraft,fabricOutput)}<h2>${esc(t('section.connectionDiagnostics'))}</h2><p>${esc(t('settings.cityUrl'))}: ${esc(location.origin)}</p><details><summary>${esc(t('common.runDetails'))}</summary><div class="task-id">apiVersion = 0 · schemaVersion = 0</div></details><p class="muted">${esc(t('settings.tokenNote'))}</p><button id="disconnect">${esc(t('settings.changeToken'))}</button></section>`;
  if(recoveryField&&page==='Settings')document.querySelector('form[data-rebind="'+recoveryField.id+'"]')?.elements[recoveryField.name]?.focus({preventScroll:true});
  if(previousNameForm&&nameSelection&&page==='Settings'){$('#city-name-form')?.replaceWith(previousNameForm);const input=$('#city-name');input.focus({preventScroll:true});input.setSelectionRange(nameSelection.start,nameSelection.end);}
+ if(page==='Settings'&&fabricUI){const panel=$('#pcf-panel');if(panel){panel.open=fabricUI.open;const field=fabricUI.name?panel.querySelector('form')?.elements.namedItem(fabricUI.name):null;if(field){field.focus({preventScroll:true});if(Number.isInteger(fabricUI.start)&&Number.isInteger(fabricUI.end)&&typeof field.setSelectionRange==='function')field.setSelectionRange(fabricUI.start,fabricUI.end);}}}
  if(page==='Pairing'){
   $('#view').innerHTML=pairingView()+ownerJoinSection();
   const card=$('#pairing-card');
@@ -880,7 +902,26 @@ if(e.target.id==='pair-invite-accept'||e.target.id==='swap-invite-accept'){await
 // because a share button that does nothing in an insecure context is the same defect as no button.
 if(e.target.id==='copy-invite'){const link=$('#pairing-link'),note=$('#copy-note');const url=link?link.getAttribute('href'):'';const done=ok=>{if(note)note.textContent=t(ok?'pairing.copied':'pairing.copyManual');};const fallback=()=>{try{const range=document.createRange();range.selectNodeContents(link);const sel=getSelection();sel.removeAllRanges();sel.addRange(range);return document.execCommand('copy');}catch{return false;}};if(navigator.clipboard?.writeText&&url){navigator.clipboard.writeText(url).then(()=>done(true)).catch(()=>done(fallback()));}else done(fallback());}
 if(e.target.id==='copy-raw'){const box=$('#pairing-invite'),note=$('#copy-note');const done=ok=>{if(note)note.textContent=t(ok?'pairing.copied':'pairing.copyManual');};const fallback=()=>{try{box.focus();box.select();return document.execCommand('copy');}catch{return false;}};if(navigator.clipboard?.writeText){navigator.clipboard.writeText(box.value).then(()=>done(true)).catch(()=>done(fallback()));}else done(fallback());}if(e.target.dataset?.revoke){await revokeDevice(e.target.dataset.revoke);}if(e.target.id==='cancel'){try{await api('tasks/'+selected+'/cancel',{});await refresh();}catch(err){$('#error').textContent=err.message;}}if(e.target.id==='disconnect'){clearPairing();token='';$('#token').value='';sessionStorage.removeItem('city-token');forgetSession();++generation;clearTimeout(timer);ws?.close();$('#pair').hidden=false;$('#content').hidden=true;go('Home');status('OFFLINE');}});
-$('#connect').onclick=async()=>{const value=$('#token').value.trim();$('#token').value='';const invite=parseInvite(value);if(invite){try{const done=await exchangeInvite(invite);if(done?.navigating)return;if(!done?.credential)throw Error('the City returned no credential for that invite');token=done.credential;sessionStorage.setItem('city-token',token);$('#pair').hidden=true;$('#content').hidden=false;connect();}catch(err){$('#error').textContent=err.message;}return;}token=value;sessionStorage.setItem('city-token',token);connect();};
+$('#connect').onclick=async()=>{
+ const value=$('#token').value.trim();
+ if(/^\d{6}$/.test(value)){await pairWithCode(value,'pair');return;}
+ if(/^https?:\/\//i.test(value)){
+  try{if(beginPairingFromInvite(value,'pair'))return;}catch{/* malformed invitation is not a credential */}
+  pairNote('pair','pair.codeBad');return;
+ }
+ $('#token').value='';
+ const invite=parseInvite(value);
+ if(invite){
+  try{
+   const done=await exchangeInvite(invite);if(done?.navigating)return;
+   if(!done?.credential)throw Error('the City returned no credential for that invite');
+   token=done.credential;sessionStorage.setItem('city-token',token);
+   $('#pair').hidden=true;$('#content').hidden=false;connect();
+  }catch(err){$('#error').textContent=err.message;}
+  return;
+ }
+ token=value;sessionStorage.setItem('city-token',token);connect();
+};
 $('#ask-form').addEventListener('submit',e=>{e.preventDefault();ask($('#ask-text').value);});
 $('#run').onclick=async()=>{try{$('#run').disabled=true;const target=$('#run-target')?.value||'';if(target){const created=await api('actions',{route:'CITY_TASK',target:'city.task',operation:'CHECKPOINT_DEMO',input:{targetDeviceRef:target},idempotencyKey:(crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random())});const id=created?.action?.backendRef?.taskId;if(!id)throw new Error(created?.action?.error?.message||'the City refused the targeted task');selectedNode=null;selected=id;}else{const task=await api('tasks',{type:'CHECKPOINT_DEMO'});selectedNode=null;selected=task.id;}await refresh();}catch(e){$('#error').textContent=e.message;}finally{$('#run').disabled=connection!=='ONLINE';}};
 window.addEventListener('offline',()=>{disconnected();ws?.close();});window.addEventListener('online',connect);
@@ -927,7 +968,7 @@ if(bootShortPair){
  pairTarget={endpoint:location.origin,cityRef:expected,displayName:expected||location.host,transport:method==='ble'?'BLE_BOOTSTRAP':'LAN'};
  try{
   if(!expected||expected.length>128||!/^\d{6}$/.test(code)||!['mdns','ble'].includes(method))throw Object.assign(Error('Invalid pairing handoff'),{status:400});
-  const done=await exchangeShortCode({code,cityRef:expected,method});
+  const done=await exchangeShortCode({code,cityRef:expected,method,installation:{displayName:webClientLabel(),platform:navigator.platform,browserOnly:true}});
   token=done.credential;sessionStorage.setItem('city-token',token);pairDrafts.pair.value='';pairTarget=null;
  }catch(error){pairNote('pair',pairingErrorKey(error));}
  // The disconnected entry was already mounted before the boot exchange; sync its draft too.
@@ -978,3 +1019,9 @@ document.addEventListener('submit',async event=>{if(event.target.id!=='member-me
 
 document.addEventListener("change",event=>{const form=event.target.closest("form[data-rebind]");if(form)recoveryDrafts.set(form.dataset.rebind,{deviceId:form.elements.deviceId.value,proof:form.elements.proof.checked});});
 document.addEventListener("submit",async event=>{const form=event.target.closest("form[data-rebind]");if(!form)return;event.preventDefault();const id=form.dataset.rebind;if(recoveryBusy.has(id))return;const epoch=recoveryEpoch,credential=token,current=()=>epoch===recoveryEpoch&&credential===token;recoveryBusy.add(id);form.querySelector("button").disabled=true;try{await rebindEnrolled({credential,installationId:id,deviceId:form.elements.deviceId.value,confirmed:form.elements.proof.checked});if(!current())return;recoveryDrafts.delete(id);enrolledDevices=null;enrolledError="";enrolledNotice="recovery.done";render();}catch(error){if(!current())return;enrolledNotice="";$("#error").textContent=(error.code||"RECOVERY_REFUSED")+": "+error.message;form.querySelector("button").disabled=false;}finally{if(current())recoveryBusy.delete(id);}});
+
+document.addEventListener('input',event=>{if(event.target.id==='pcf-values')fabricDraft=event.target.value;});
+document.addEventListener('submit',async event=>{if(event.target.id!=='pcf-app-form')return;event.preventDefault();const form=event.target,credential=token;try{const values=parseFabricNumbers(form.elements.values.value);await api('pcf/submit',{appId:form.elements.appId.value,idempotencyKey:crypto.randomUUID(),input:{values}});if(credential===token){fabricDraft='';await refresh();}}catch(error){if(credential===token)$('#error').textContent=error.message;}});
+document.addEventListener('click',async event=>{const button=event.target.closest('[data-pcf-action]');if(!button)return;const credential=token;button.disabled=true;try{const result=await api('pcf/tasks/'+encodeURIComponent(button.dataset.pcfTask)+'/'+button.dataset.pcfAction,{});if(credential!==token)return;if(button.dataset.pcfAction==='collect'){fabricOutput=JSON.stringify(result.output,null,2);const output=$('#pcf-output');if(output)output.textContent=fabricOutput;}else await refresh();}catch(error){if(credential===token)$('#error').textContent=error.message;}finally{if(credential===token)button.disabled=false;}});
+
+document.addEventListener('change',event=>{if(event.target.name==='appId'&&event.target.closest('#pcf-app-form'))fabricAppDraft=event.target.value;});

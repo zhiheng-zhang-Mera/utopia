@@ -102,8 +102,17 @@ export function classifyTarget({ targetDeviceRef, nodes = [], claimNodeFor, acce
   const able = typeof acceptsWork === 'function' && typeof claimNodeFor === 'function'
     ? acceptsWork(claimNodeFor(node), { requiredCapabilities }) === true
     : false;
-  if (!able) return { state: 'INELIGIBLE', nodeId: node.id, node, reason: TARGET_REASONS.INELIGIBLE, claimable: false };
-  return { state: 'ELIGIBLE', nodeId: node.id, node, reason: null, claimable: true };
+  if (!able) {
+    // NAME WHAT IS MISSING. `TARGET_DEVICE_INELIGIBLE` told an owner that their machine could not take the work but
+    // not what it lacked, and on the first real deployment that difference WAS the diagnosis: the target was perfectly
+    // healthy, it simply did not implement the node half of the task type being sent. The reason code is unchanged,
+    // because existing callers and tests depend on it; the detail is additive.
+    const held = new Set(Array.isArray(node.capabilities) ? node.capabilities : []);
+    const missing = (requiredCapabilities ?? []).filter(capability => !held.has(capability));
+    return { state: 'INELIGIBLE', nodeId: node.id, node, reason: TARGET_REASONS.INELIGIBLE,
+      detail: missing.length ? `NODE_MISSING_CAPABILITY:${missing.join(',')}` : null, claimable: false };
+  }
+  return { state: 'ELIGIBLE', nodeId: node.id, node, reason: null, detail: null, claimable: true };
 }
 
 /**

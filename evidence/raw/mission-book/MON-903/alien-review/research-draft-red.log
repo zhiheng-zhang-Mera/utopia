@@ -1,0 +1,30 @@
+✖ Research: reconnecting the same credential and City preserves its draft (1299.7927ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3963.4629
+
+✖ failing tests:
+
+test at tests\research-draft-generation-review.test.mjs:7:1
+✖ Research: reconnecting the same credential and City preserves its draft (1299.7927ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + ''
+  - '{"softwareRefs":["utopia@main"],"question":"Preserve this unfinished draft"}'
+  
+      at TestContext.<anonymous> (file:///D:/Utopia-MON903/tests/research-draft-generation-review.test.mjs:13:128)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: '{"softwareRefs":["utopia@main"],"question":"Preserve this unfinished draft"}',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

@@ -1,0 +1,21 @@
+{
+  "workbook": "MON-902",
+  "authorHead": "3a88e23f91924576178973ef46c620b20ffa2aaf",
+  "reviewedSourceHead": "386c75896d5d2223b30901cfcfa6da5fc9b76e1e",
+  "host": "MERA-ALIANWARE",
+  "role": "Alien opposite-author-host reviewer",
+  "baselineTests": 33,
+  "baselineFailures": 0,
+  "independentRedFailures": 6,
+  "finalSpecializedTests": 44,
+  "finalSpecializedFailures": 0,
+  "browserRuntime": "REAL_ISOLATED_GATEWAY_AND_HEADLESS_EDGE",
+  "nativeAndroid": "NOT_RUN",
+  "physicalCrossDevice": "NOT_RUN",
+  "ownerIntentValidation": "NOT_RUN",
+  "mainMerged": false,
+  "historicalMeasurementCorrection": "First expansion probe assumed all 140 submitted tasks in a 128-task bounded window; corrected to actual observed task count. Failure log retained locally.",
+  "cacheReviewCorrection": "Technical critic found stale open observation evidence under metadata-only cache; in-place evidence refresh and DOM-preservation regression added.",
+  "fullLocalRegression": "IN_PROGRESS; started before final edit, not exact-head acceptance evidence",
+  "finalHostedCI": "PENDING"
+}

@@ -1,4 +1,5 @@
 import {getLocale} from './i18n/index.js';
+import {captureFocus, restoreFocus, detailsOpen} from './view-persistence.js';
 const L=(en,zh)=>getLocale()==='zh-CN'?zh:en;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -26,8 +27,11 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 export function createAgentJobsView(){
  let state=null;
  return {reset(){if(state?.timer)clearTimeout(state.timer);state=null;},render(root,{contextKey,online,api,isCurrent}){
-  if(!state||state.contextKey!==contextKey)state={contextKey,draft:{nodeRef:'',title:'',instruction:'',purpose:'',refs:'',deadlineMinutes:'30'},confirm:'',data:null,nodes:[],error:'',busy:false,timer:null};
+  if(!state||state.contextKey!==contextKey)state={contextKey,draft:{nodeRef:'',title:'',instruction:'',purpose:'',refs:'',deadlineMinutes:'30'},confirm:'',data:null,nodes:[],error:'',busy:false,timer:null,dangerOpen:false};
   const s=state;s.online=online;const current=()=>state===s&&isCurrent();
+  // The page is re-rendered on every City event and every four seconds, so the Danger Zone's open state and the field
+  // being typed into are carried across the rebuild rather than being thrown away with the DOM.
+  const focus=captureFocus(root);
   root.innerHTML=`<section class="panel"><h2>${L('Agent jobs','智能体任务')}</h2>
    <p>${L('Ask an agent on another of this City\u2019s machines to do something and report back. The City carries the request and records the answer; it cannot see inside an agent, so it never presents the answer as something it verified.','请本城另一台机器上的智能体做一件事并回报。本城负责传递请求与记录答复；本城无法看到智能体内部，因此绝不把答复当作自己验证过的结论。')}</p>
    <p id="aj-state" role="status"></p>
@@ -40,7 +44,7 @@ export function createAgentJobsView(){
    <label for="aj-refs">${L('References, one per line as name=ref (optional)','引用，每行 name=ref（可选）')}</label><textarea id="aj-refs" rows="3" spellcheck="false"></textarea>
    <label for="aj-purpose">${L('Why (required)','目的（必填）')}</label><input id="aj-purpose" autocomplete="off">
    <label for="aj-deadline">${L('Deadline (minutes)','截止时间（分钟）')}</label><input id="aj-deadline" inputmode="numeric">
-   <details id="aj-danger"><summary id="aj-danger-summary">${L('Danger Zone — ask a remote agent to act','危险区 — 请求远端智能体行动')}</summary>
+   <details id="aj-danger"${detailsOpen(s,'dangerOpen')}><summary id="aj-danger-summary">${L('Danger Zone — ask a remote agent to act','危险区 — 请求远端智能体行动')}</summary>
    <p>${L('This hands a real request to whatever agent is answering for that machine. The City records what you asked, who took it and what came back - but the answer is the agent\u2019s own claim, and the City will say so. Type the title below to confirm.','这会把一个真实请求交给那台机器上应答的智能体。本城会记录你请求了什么、由谁领取、返回了什么——但答复是智能体自己的说法，本城会明确标注。请在下方输入标题以确认。')}</p>
    <label for="aj-confirm">${L('Type the title to confirm','输入标题以确认')}</label><input id="aj-confirm" autocomplete="off" spellcheck="false">
    <button id="aj-dispatch">${L('Ask it','发出请求')}</button></details></section>
@@ -103,6 +107,9 @@ export function createAgentJobsView(){
   const load=async()=>{const [data,nodes]=await Promise.all([api('node/jobs'),api('nodes')]);if(current()){s.data=data;s.nodes=(nodes.nodes??[]).filter(n=>n.online);}};
   const bind=(id,key)=>root.querySelector('#'+id).oninput=e=>{s.draft[key]=e.target.value;show();};
   for(const [id,key] of [['aj-title','title'],['aj-instruction','instruction'],['aj-refs','refs'],['aj-purpose','purpose'],['aj-deadline','deadlineMinutes'],['aj-confirm','confirm']])bind(id,key);
+  // Opening or closing the zone is the OWNER's state, so it is remembered in the view rather than in an attribute the
+  // next re-render discards.
+  root.querySelector('#aj-danger').ontoggle=e=>{s.dangerOpen=e.target.open;};
   root.querySelector('#aj-node').onchange=e=>{s.draft.nodeRef=e.target.value;show();};
   root.querySelector('#aj-refresh').onclick=()=>run(load);
   root.querySelector('#aj-list').onclick=e=>{
@@ -139,6 +146,6 @@ export function createAgentJobsView(){
    s.draft.confirm='';
    await load();
   });
-  show();if(!s.data&&!s.busy&&online)run(load);
+  show();restoreFocus(root,focus);if(!s.data&&!s.busy&&online)run(load);
  }};
 }

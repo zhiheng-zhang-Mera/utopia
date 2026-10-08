@@ -1,4 +1,5 @@
 import {getLocale} from './i18n/index.js';
+import {captureFocus, restoreFocus, detailsOpen} from './view-persistence.js';
 const L=(en,zh)=>getLocale()==='zh-CN'?zh:en;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
@@ -23,8 +24,13 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 export function createRemoteOperationView(){
  let state=null;
  return {reset(){if(state?.timer)clearTimeout(state.timer);state=null;},render(root,{contextKey,online,api,isCurrent}){
-  if(!state||state.contextKey!==contextKey)state={contextKey,draft:{nodeRef:'',executable:'',argv:'',cwd:'',purpose:'',timeoutMs:'',maxOutputBytes:''},confirm:'',data:null,nodes:[],error:'',busy:false,open:null,timer:null};
+  if(!state||state.contextKey!==contextKey)state={contextKey,draft:{nodeRef:'',executable:'',argv:'',cwd:'',purpose:'',timeoutMs:'',maxOutputBytes:''},confirm:'',data:null,nodes:[],error:'',busy:false,open:null,timer:null,dangerOpen:false};
   const s=state;s.online=online;const current=()=>state===s&&isCurrent();
+  // The page is re-rendered on every City event and every four seconds, so the Danger Zone's open state and the field
+  // being typed into are carried across the rebuild rather than being thrown away with the DOM. Without this an owner
+  // typing their confirmation had the region snap shut underneath them - and browser tests failed "element is not
+  // visible" whenever the four-second tick landed mid-run.
+  const focus=captureFocus(root);
   root.innerHTML=`<section class="panel"><h2>${L('Remote operation','远程操作')}</h2>
    <p>${L('Run an approved program on one of this City\u2019s machines, as the City owner. The City never uses a shell: the executable and its arguments are passed as a list, and the working directory must be inside a workspace this City declared at startup.','以城市 Owner 身份在本城某台机器上运行一个已批准的程序。本城从不使用 shell：可执行文件与参数以列表传递，工作目录必须位于本城启动时声明的工作区内。')}</p>
    <p id="rop-state" role="status"></p>
@@ -38,7 +44,7 @@ export function createRemoteOperationView(){
    <label for="rop-purpose">${L('Why (required)','目的（必填）')}</label><input id="rop-purpose" autocomplete="off">
    <div class="rop-bounds"><label for="rop-timeout">${L('Timeout (ms)','超时（毫秒）')}</label><input id="rop-timeout" inputmode="numeric">
    <label for="rop-output">${L('Output cap (bytes)','输出上限（字节）')}</label><input id="rop-output" inputmode="numeric"></div>
-   <details id="rop-danger"><summary id="rop-danger-summary">${L('Danger Zone — run on another machine','危险区 — 在另一台机器上运行')}</summary>
+   <details id="rop-danger"${detailsOpen(s,'dangerOpen')}><summary id="rop-danger-summary">${L('Danger Zone — run on another machine','危险区 — 在另一台机器上运行')}</summary>
    <p>${L('This starts a real program on the machine you selected. The City records what it ran, where, why and what came back. Type the executable name below to confirm.','这会在你选定的机器上启动一个真实程序。本城会记录运行了什么、在哪里、为什么，以及返回了什么。请在下方输入可执行文件名以确认。')}</p>
    <label for="rop-confirm">${L('Type the executable name to confirm','输入可执行文件名以确认')}</label><input id="rop-confirm" autocomplete="off" spellcheck="false">
    <button id="rop-dispatch">${L('Run it','运行')}</button></details></section>
@@ -88,6 +94,7 @@ export function createRemoteOperationView(){
   const load=async()=>{const [data,nodes]=await Promise.all([api('node/operations'),api('nodes')]);if(current()){s.data=data;s.nodes=(nodes.nodes??[]).filter(n=>n.online);}};
   const bind=(id,key)=>root.querySelector('#'+id).oninput=e=>{s.draft[key]=e.target.value;show();};
   for(const [id,key] of [['rop-executable','executable'],['rop-argv','argv'],['rop-cwd','cwd'],['rop-purpose','purpose'],['rop-timeout','timeoutMs'],['rop-output','maxOutputBytes'],['rop-confirm','confirm']])bind(id,key);
+  root.querySelector('#rop-danger').ontoggle=e=>{s.dangerOpen=e.target.open;};
   root.querySelector('#rop-node').onchange=e=>{s.draft.nodeRef=e.target.value;show();};
   root.querySelector('#rop-refresh').onclick=()=>run(load);
   root.querySelector('#rop-list').onclick=e=>{
@@ -107,6 +114,6 @@ export function createRemoteOperationView(){
    s.draft.confirm='';
    await load();
   });
-  show();if(!s.data&&!s.busy&&online)run(load);
+  show();restoreFocus(root,focus);if(!s.data&&!s.busy&&online)run(load);
  }};
 }

@@ -13,8 +13,13 @@ import {spawn} from 'node:child_process';
 async function reproduce(t, options = {}) {
   const dir = await mkdtemp(join(tmpdir(), 'rex890-cli-'));
   t.after(() => rm(dir, {recursive: true, force: true}));
-  const runs = [{index: 0, state: 'COMPLETED', measured: true, result: {taskRef: 'task-a', assignedNodeId: 'worker-a'}},
-    {index: 1, state: 'COMPLETED', measured: true, result: {taskRef: 'task-b', assignedNodeId: 'worker-b'}}];
+  // THE FIXTURE MIRRORS THE CITY, because a fixture that does not is a test that cannot fail. This originally gave
+  // each run `state: 'COMPLETED'` and no `result.state`, which is not what a City receipt looks like: the real shape is
+  // a RUN state of MEASURED with the CANONICAL TASK state nested under `result.state`. That unrealism let a repaired
+  // check ask a run for `COMPLETED` and pass here while flagging every healthy run against the live City. The
+  // navigation of the two vocabularies is now the thing the fixture exercises.
+  const runs = [{index: 0, state: 'MEASURED', measured: true, durationMs: 1000, result: {taskRef: 'task-a', state: options.runTaskState ?? 'COMPLETED', assignedNodeId: 'worker-a'}},
+    {index: 1, state: 'MEASURED', measured: true, durationMs: 1000, result: {taskRef: 'task-b', state: options.runTaskState ?? 'COMPLETED', assignedNodeId: 'worker-b'}}];
   const files = {
     'manifest.json': JSON.stringify({artifactId: 'fixture', campaignIds: ['source'], runCount: 2, measuredRuns: 2}),
     'reproduction.json': JSON.stringify({steps: ['rebuild', 'execute']}),
@@ -63,6 +68,14 @@ test('complete evidence and two-device independent execution can return zero', a
   assert.equal(result.code, 0, result.output);
   assert.equal(result.report.reproductionComplete, true);
 });
+// The positive control above is only worth something if the fixture looks like a real City receipt, so this pins the
+// vocabulary directly: a run whose RECEIPT says MEASURED and whose TASK says COMPLETED is complete evidence, while the
+// same run with a task that did not complete is not.
+test('a measured run names its run state and its task state separately', async t => {
+  const good = await reproduce(t);
+  assert.equal(good.report.executed.runs.every(r => r.runState === 'MEASURED' && r.taskState === 'COMPLETED'), true, good.output);
+  assert.equal(good.report.inconsistencies.length, 0, good.output);
+});
 for (const [name, options] of [
   ['a numeric package metric whose recomputation is null', {missingDuration: true}],
   ['a missing required metric row', {missingMetric: true}],
@@ -70,6 +83,7 @@ for (const [name, options] of [
   ['an independent campaign that failed', {campaignState: 'FAILED'}],
   ['an independent campaign with missing repetitions', {shortRuns: true}],
   ['a trace comparison that could not read any evidence', {vacuousTrace: true}],
+  ['a measured run whose canonical task did not complete', {runTaskState: 'FAILED'}],
 ]) test(`does not return zero for ${name}`, async t => {
   const result = await reproduce(t, options);
   assert.equal(result.code, options.vacuousTrace ? 2 : 1, result.output);

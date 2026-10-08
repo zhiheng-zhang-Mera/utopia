@@ -301,12 +301,17 @@ else {
       await new Promise(r => setTimeout(r, 2000));
     }
     executed.state = campaign?.state ?? null;
-    executed.runs = (campaign?.runs ?? []).map(r => ({index: r.index, state: r.state, measured: r.measured === true, device: r.result?.assignedNodeId ?? null}));
+    // TWO VOCABULARIES, KEPT APART. A receipt run is MEASURED; the canonical task that run executed is COMPLETED.
+    // The check below originally asked a run for `COMPLETED` and therefore flagged EVERY healthy run on a real City -
+    // a false inconsistency, and the mirror image of the false successes this instrument was repaired to stop. It was
+    // found by running the repaired harness against the real City, whose receipts say `state: "MEASURED"` with the task
+    // state nested under `result.state`. Each field is now judged by its own words.
+    executed.runs = (campaign?.runs ?? []).map(r => ({index: r.index, runState: r.state, taskState: r.result?.state ?? null, measured: r.measured === true, device: r.result?.assignedNodeId ?? null}));
     executed.devices = [...new Set(executed.runs.map(r => r.device).filter(Boolean))];
     note(`independent campaign ${campaignId} -> ${executed.state} runs=${executed.runs.length} devices=${executed.devices.join(',') || 'none'}`);
     if (executed.state !== 'COMPLETED') disagree('independent campaign terminal state', 'COMPLETED', executed.state);
     if (executed.runs.length !== REPETITIONS) disagree('independent campaign repetition count', REPETITIONS, executed.runs.length);
-    const incomplete = executed.runs.filter(r => r.state !== 'COMPLETED' || !r.measured || !r.device);
+    const incomplete = executed.runs.filter(r => r.measured !== true || r.taskState !== 'COMPLETED' || !r.device);
     if (incomplete.length) disagree('independent runs without completed measured device evidence', 0, incomplete);
     const missingDevices = nodes.filter(id => !executed.devices.includes(id));
     if (missingDevices.length) disagree('declared devices not exercised independently', [], missingDevices);

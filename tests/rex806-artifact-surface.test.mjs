@@ -41,7 +41,9 @@ const withCity = async fn => {
     return await fn({app, dir});
   } finally {
     await app.close();
-    await rm(dir, {recursive: true, force: true});
+    // Windows may briefly retain SQLite/directory handles after close (observed ENOTEMPTY in CI).
+    // Retry only cleanup, with a bounded delay; all export/identity assertions still run unchanged.
+    await rm(dir, {recursive: true, force: true, maxRetries: 8, retryDelay: 100});
   }
 };
 
@@ -103,7 +105,7 @@ test('REX806 S5: an export with nothing behind it is refused by name', async () 
     assert.equal(response.body.errorCode, 'ARTIFACT_NO_SOURCE');
   } finally {
     await app.close();
-    await rm(dir, {recursive: true, force: true});
+    await rm(dir, {recursive: true, force: true, maxRetries: 8, retryDelay: 100});
   }
 });
 

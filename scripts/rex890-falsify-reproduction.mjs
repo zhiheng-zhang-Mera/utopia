@@ -10,17 +10,34 @@
 //   case C: metrics.csv edited with its checksum LEFT STALE -> the harness must report a CHECKSUM failure (exit 1)
 //
 // Every case is produced from the pristine package by copying, so the real artifact is never modified.
+//
+// NOTHING HERE IS BOUND TO A PARTICULAR MACHINE. The package, the scratch directory, the checkout to run and the City
+// to run against are all INPUTS (positional, or the environment). The first version of this file defaulted the City to
+// one host's address and the checkout to one host's path, which meant "prove the harness can fail" silently only ever
+// proved it for the machines it was written on - exactly the device binding this programme must not have.
+//
+//   node scripts/rex890-falsify-reproduction.mjs <package-dir> <work-dir> <checkout> <city-url> <config-with-token>
+//   ...or set REX890_ARTIFACT / REX890_WORK / REX890_CHECKOUT / CITY_URL / REX890_CONFIG
 import {mkdir, rm, cp, readFile, writeFile} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {resolve, join} from 'node:path';
 import {createHash} from 'node:crypto';
 import {spawn} from 'node:child_process';
 
-const SRC = resolve(process.argv[2] ?? 'D:/utopia-chat/4in1-acceptance-2026-10-07/rex890-dev-study/artifact');
-const WORK = resolve(process.argv[3] ?? 'D:/utopia-chat/4in1-acceptance-2026-10-07/rex890-dev-study/falsify');
-const CHECKOUT = process.argv[4] ?? 'D:/utopia-remote-op';
-const CITY = process.argv[5] ?? 'http://172.31.12.151:4310';
-const CONFIG = resolve(process.argv[6] ?? 'D:/utopia-chat/4in1-acceptance-2026-10-07/rex890-dev-study/study-config.json');
+const from = (position, env, purpose) => process.argv[position] ?? process.env[env] ?? null;
+const SRC = from(2, 'REX890_ARTIFACT');
+const WORK = from(3, 'REX890_WORK');
+const CHECKOUT = from(4, 'REX890_CHECKOUT');
+const CITY = from(5, 'CITY_URL');
+const CONFIG = from(6, 'REX890_CONFIG');
+const missing = Object.entries({SRC, WORK, CHECKOUT, CITY, CONFIG}).filter(([, value]) => !value).map(([name]) => name);
+if (missing.length) {
+  process.stderr.write(`REX890 falsification: missing ${missing.join(', ')} - pass them as arguments or set REX890_ARTIFACT / REX890_WORK / REX890_CHECKOUT / CITY_URL / REX890_CONFIG\n`);
+  process.exitCode = 2;
+  // Nothing below may run: a harness that reports "not falsified" because it was given nowhere to run is worse than one
+  // that refuses, so the missing-input path exits before any case is attempted.
+  process.exit();
+}
 const HARNESS = 'scripts/rex890-opposite-host-reproduce.mjs';
 const sha256 = buf => createHash('sha256').update(buf).digest('hex');
 const run = (args, timeoutMs = 300000) => new Promise(resolveRun => {

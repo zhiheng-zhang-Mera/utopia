@@ -1,0 +1,19 @@
+{
+  "exclusions": [
+    {
+      "what": "Owner-side metrics",
+      "why": "the canonical City records do not represent Owner actions, so no intervention window can be claimed",
+      "wouldRequire": "an Owner-action log with a declared observation window"
+    },
+    {
+      "what": "integration-episode metrics",
+      "why": "those are programme records rather than campaign data, and this exporter is campaign-scoped in v1",
+      "wouldRequire": "a programme-record source with merge and test outcomes"
+    },
+    {
+      "what": "fault and recovery metrics",
+      "why": "no fault receipt is present in the provided sources",
+      "wouldRequire": "a fault-injection receipt set"
+    }
+  ]
+}

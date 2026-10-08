@@ -1,0 +1,169 @@
+{
+  "paper_ready": [
+    {
+      "metric": "intervention_count",
+      "scope": "G3",
+      "value": "NOT_MEASURED",
+      "reason": "Owner actions are not represented in the canonical City records, so no complete intervention window can be claimed; the guard forbids reporting 0 for an unknown window"
+    },
+    {
+      "metric": "transitions_before_intervention",
+      "scope": "G3",
+      "value": "NOT_MEASURED",
+      "reason": "requires Owner actions, which these sources do not carry"
+    },
+    {
+      "metric": "time_to_first_intervention_ms",
+      "scope": "G3",
+      "value": "NOT_MEASURED",
+      "reason": "requires a first Owner action, which these sources do not carry"
+    },
+    {
+      "metric": "steps_to_first_intervention",
+      "scope": "G3",
+      "value": "NOT_MEASURED",
+      "reason": "requires a first Owner action, which these sources do not carry"
+    },
+    {
+      "metric": "intervention_free_survival",
+      "scope": "G3",
+      "value": "NOT_MEASURED",
+      "reason": "no censored intervention episodes exist in these sources; the guard says export raw episodes rather than draw a curve, and there are none to export"
+    },
+    {
+      "metric": "intervention_cause_taxonomy",
+      "scope": "G3",
+      "value": "NOT_MEASURED",
+      "reason": "requires Owner actions with stated causes"
+    },
+    {
+      "metric": "task_pool_drain_before_intervention",
+      "scope": "G3",
+      "value": "NOT_MEASURED",
+      "reason": "requires Owner actions alongside the task pool"
+    },
+    {
+      "metric": "high_value_owner_decision_count",
+      "scope": "G3",
+      "value": "NOT_MEASURED",
+      "reason": "requires Owner decisions with a stated value"
+    },
+    {
+      "metric": "avoidable_technical_escalation_count",
+      "scope": "G3",
+      "value": "NOT_MEASURED",
+      "reason": "requires escalations classified as avoidable"
+    },
+    {
+      "metric": "repeat_clarification_count",
+      "scope": "G3",
+      "value": "NOT_MEASURED",
+      "reason": "requires clarification episodes"
+    },
+    {
+      "metric": "escalation_to_autonomy_resumed_ms",
+      "scope": "G3",
+      "value": "NOT_MEASURED",
+      "reason": "requires escalation episodes with a resume time"
+    },
+    {
+      "metric": "batchable_escalation_count",
+      "scope": "G3",
+      "value": "NOT_MEASURED",
+      "reason": "requires escalation bursts, which these sources do not carry"
+    },
+    {
+      "metric": "control_plane_mismatch_count",
+      "scope": "G4",
+      "value": "NOT_MEASURED",
+      "reason": "requires control-plane records reconciled against observed reality; this exporter was given city records only"
+    },
+    {
+      "metric": "control_plane_reconciliation_time_ms",
+      "scope": "G4",
+      "value": "NOT_MEASURED",
+      "reason": "requires reconciliation episodes, which are not City records"
+    },
+    {
+      "metric": "exposure_lag_ms",
+      "scope": "G4",
+      "value": "NOT_MEASURED",
+      "reason": "requires implementation/wiring/reachability/intent timestamps; the trace records in these sources carry null provenance fields"
+    },
+    {
+      "metric": "intent_lag_ms",
+      "scope": "G4",
+      "value": "NOT_MEASURED",
+      "reason": "requires the same transition timestamps, which are absent"
+    },
+    {
+      "metric": "registry_localization_cost",
+      "scope": "G4",
+      "value": "NOT_MEASURED",
+      "reason": "requires registry-assisted localization episodes"
+    },
+    {
+      "metric": "rule_activation_conflict_falseblock_retirement",
+      "scope": "G4",
+      "value": "NOT_MEASURED",
+      "reason": "requires rule lifecycle observations, which are not City records"
+    },
+    {
+      "metric": "textually_clean_semantic_failure_count",
+      "scope": "G4",
+      "value": "NOT_MEASURED",
+      "reason": "requires integration episodes; these are programme records rather than City campaign data, and v1 of this exporter is deliberately campaign-scoped"
+    },
+    {
+      "metric": "independently_green_integrated_failure_count",
+      "scope": "G4",
+      "value": "NOT_MEASURED",
+      "reason": "same integration-episode source as above"
+    }
+  ],
+  "supporting": [
+    {
+      "metric": "completion_time_ms",
+      "scope": "G1",
+      "value": 6532,
+      "n": 15
+    },
+    {
+      "metric": "failure_rate",
+      "scope": "G1",
+      "value": 0,
+      "n": 15
+    },
+    {
+      "metric": "duplicate_execution_count",
+      "scope": "G1",
+      "value": 0,
+      "n": 15
+    },
+    {
+      "metric": "convergence_missing_event_count",
+      "scope": "G2",
+      "value": 0,
+      "n": 15
+    },
+    {
+      "metric": "retry_count",
+      "scope": "G2",
+      "value": "NOT_MEASURED",
+      "n": null
+    },
+    {
+      "metric": "recovery_time_ms",
+      "scope": "G1",
+      "value": "NOT_MEASURED",
+      "n": null
+    },
+    {
+      "metric": "handoff_time_ms",
+      "scope": "G1",
+      "value": "NOT_MEASURED",
+      "n": null
+    }
+  ],
+  "note": "G3/G4 metrics are listed first because the workbook prioritizes them for paper-ready tables; in this export they are NOT_MEASURED with reasons, which is the honest state rather than a gap to be filled with inference."
+}

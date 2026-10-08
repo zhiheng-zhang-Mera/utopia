@@ -57,3 +57,15 @@ test('HARNESS-RUNNABLE 3: the software identity is OBSERVED from the checkout, n
   assert.match(source,/SOFTWARE_IDENTITY_UNOBSERVABLE/,'an unobservable identity must refuse the execution');
   assert.match(source,/if \(!softwareHead\)/,'the refusal must actually gate the execution');
 });
+
+test('HARNESS-RUNNABLE 4: the mesh is the devices the runs named, not every node the City had registered',()=>{
+  // MEASURED DEFECT THIS PINS. The harness read the host list straight out of the package's topology and declared a
+  // TWO_HOST_MESH from it. A package exported while a THIRD node happened to be registered therefore listed three
+  // nodes, and the City refused the manifest with TOPOLOGY_IMPOSSIBLE/hosts - so the independent execution never ran,
+  // and the refusal described the City's node roster rather than anything about the reproduction. The devices that
+  // actually executed the study's runs are the mesh the study used.
+  const source=read('scripts/rex890-opposite-host-reproduce.mjs');
+  assert.match(source,/rebuilt\.map\(r => r\.assignedNodeId\)/,'the mesh must be derived from the runs that executed');
+  assert.match(source,/TOPOLOGY_NOT_FORMABLE_FROM_EVIDENCE/,'an unformable mesh must be named, not forced');
+  assert.ok(!/const nodes = \(topology\?\.nodes \?\? \[\]\)\.map/.test(source),'the topology roster must not be the mesh');
+});

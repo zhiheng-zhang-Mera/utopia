@@ -314,7 +314,21 @@ else note('every rebuilt run reference carries both its receipt pointer and its 
 console.log('\n--- execute independently on this host ---');
 const executed = {attempted: false, reason: null, campaignId: null, state: null, runs: [], devices: []};
 const topology = await pkg('topology.json').catch(() => null);
-const nodes = (topology?.nodes ?? []).map(n => n.id);
+// THE MESH IS THE DEVICES THE STUDY'S RUNS NAMED, not every node the City happened to have registered when the export
+// was taken. Measured defect this pins: the package's topology listed THREE nodes (a third node existed at export time),
+// and the harness declared a TWO_HOST_MESH from that list, so the City refused the manifest with
+// TOPOLOGY_IMPOSSIBLE/hosts and the independent execution never ran - an artifact of the City's node roster, reported as
+// if the reproduction had failed. The devices that actually executed the runs are the mesh the study used, and they are
+// the honest thing to declare.
+const declared = [...new Set(rebuilt.map(r => r.assignedNodeId).filter(Boolean))].sort();
+const roster = (topology?.nodes ?? []).map(n => n.id);
+const nodes = declared.length ? declared : roster;
+if (declared.length && declared.length !== roster.length) {
+  note(`the package's topology lists ${roster.length} node(s) but its runs name ${declared.length} executing device(s); declaring the executors`);
+}
+// A mesh this harness can form is a TWO_HOST_MESH, so anything else is named rather than forced.
+const meshFormable = nodes.length === 2;
+if (!meshFormable) note(`INDEPENDENT EXECUTION NOT RUN: the recorded runs name ${nodes.length} executing device(s) and this harness forms a two-host mesh; refusing to declare a topology the evidence does not support`);
 // A TWO_HOST_MESH topology requires at least one live control surface, and the recorded one is gone by the time anyone
 // reproduces. This host therefore attaches its OWN surface and declares that: the reproduction is a new run, not a
 // replay of the first host's session, and a topology that named a dead surface would be refused - correctly.
@@ -344,8 +358,9 @@ const reproductionManifest = {
   acceptance: {primary: 'Every repetition is a canonical task that reached a terminal state', notes: [manifest.artifactId, `reproduced by ${LABEL}`]},
   softwareRefs: [`utopia@${softwareHead ?? 'UNOBSERVED'}`],
 };
-const registered = surface && softwareHead ? await ask('research/experiments', {body: {manifest: reproductionManifest}}) : {status: 0, text: softwareHead ? 'no control surface, so no reproduction manifest' : `software identity not observable (${softwareIdentityFailure})`};
+const registered = surface && softwareHead && meshFormable ? await ask('research/experiments', {body: {manifest: reproductionManifest}}) : {status: 0, text: softwareHead ? 'no control surface, so no reproduction manifest' : `software identity not observable (${softwareIdentityFailure})`};
 if (!softwareHead) { executed.reason = `SOFTWARE_IDENTITY_UNOBSERVABLE: ${softwareIdentityFailure}`; note('INDEPENDENT EXECUTION NOT RUN: a campaign would have to declare an exact software identity nobody observed'); }
+else if (!meshFormable) { executed.reason = `TOPOLOGY_NOT_FORMABLE_FROM_EVIDENCE: ${nodes.length} executing device(s)`; }
 else if (registered.status !== 200) { executed.reason = `manifest refused: HTTP ${registered.status} ${registered.text.slice(0, 200)}`; note('INDEPENDENT EXECUTION NOT RUN: ' + executed.reason); }
 else {
   const started = await ask('research/campaigns', {body: {experimentId: reproductionManifest.experimentId, scenarioId: 'WAIT'}});

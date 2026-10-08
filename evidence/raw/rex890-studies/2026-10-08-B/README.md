@@ -79,6 +79,30 @@ Measured on the development host, from a clean checkout of this branch with **no
 an independent campaign COMPLETED on both real devices · the software identity observed from the checkout ·
 **0 inconsistencies · 0 evidence gaps · reproductionComplete true · exit 0**.
 
+### The raw report of that rehearsal / 那次彩排的原始报告
+
+```text
+文件    DEV-REHEARSAL-opposite-host-reproduction.de7e91b.json   (123,914 B, 就在本 README 旁边)
+head    utopia@de7e91b38484513a99391e5207d199ad48cba3e9 · treeClean true · source OBSERVED_FROM_CHECKOUT
+读法    reproductionComplete true · inconsistencies 0 · evidenceGaps 0
+        packageIntegrity VERIFIED · pointerChecks: receipts 41 · canonicalTasks 214/214 · run joins 205 / 0 broken
+        traceRecords: listed 243 · retained window 0 · durable store 243 · resolvable 243 · absent 0
+        executed: campaign COMPLETED on dev-544adda1… and dev-1428bce5… · authority REPRODUCTION_EVIDENCE_ONLY
+```
+
+**为什么把这份报告放进仓库**：它是"对侧要跑的那条路能到 exit 0"这句话背后唯一的原始记录。
+此前它只存在于本机 `%TEMP%` 的一个路径里，而临时目录会被清掉 —— 那就等于把一句**引用了就没法再查**的
+结论写进记录，和这份包存在的理由（指针不能活得比证据久）是同一个错误。**这份报告是彩排，不是对侧的裁决。**
+
+### One thing that changed after this package was exported / 导出之后城市变了什么
+
+```text
+城市现在有 50 份 campaign 回执，回执窗口截断了最旧的 1 份。后果：
+  · 按**本包**复现不受影响 —— 包指向的 41 份仍可读（上面 exit 0 是对着这个状态实测的）；
+  · 但**现在重新导出会 exit 1**（RECEIPT_WINDOW_TRUNCATED），导出器拒绝产出它无法完整支撑的包。
+这是导出器诚实的行为，也正是"包必须随分支走、不能靠现场重新导出"的原因。
+```
+
 ## What this file does not claim / 这里不声称的事
 
 - The **physical-host reproduction has not happened**. This README describes the development host's own

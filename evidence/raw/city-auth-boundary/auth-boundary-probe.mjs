@@ -21,6 +21,7 @@
 //   node evidence/raw/city-auth-boundary/auth-boundary-probe.mjs --city <url> --config <owner config> [--node-config <file with nodeToken>]
 import {readFileSync, writeFileSync} from 'node:fs';
 import {resolve} from 'node:path';
+import {tmpdir} from 'node:os';
 
 const value = (name, fallback = null) => {
   const index = process.argv.indexOf(`--${name}`);
@@ -37,7 +38,7 @@ const ownerToken = JSON.parse(readFileSync(CONFIG, 'utf8')).token;
 if (!ownerToken) { process.stderr.write('auth-boundary-probe: the config file carries no token\n'); process.exit(2); }
 const nodeToken = NODE_CONFIG ? (JSON.parse(readFileSync(NODE_CONFIG, 'utf8')).nodeToken ?? null) : null;
 const WRONG = 'not-the-owner-' + 'A'.repeat(16);
-const OUT = resolve(import.meta.dirname, 'auth-boundary-probe-result.json');
+const OUT = value('out') ?? resolve(tmpdir(), 'auth-boundary-probe-result.json');
 const V = {'Content-Type': 'application/json', 'X-City-Api-Version': '0', 'X-City-Schema-Version': '0'};
 const ask = async (path, token, options = {}) => {
   const response = await fetch(CITY + '/api/v0/' + path, {...options,

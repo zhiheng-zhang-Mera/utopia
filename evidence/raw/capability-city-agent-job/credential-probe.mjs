@@ -13,6 +13,7 @@
 import {readFileSync, writeFileSync} from 'node:fs';
 import {randomUUID} from 'node:crypto';
 import {resolve} from 'node:path';
+import {tmpdir} from 'node:os';
 
 const value = (name, fallback = null) => {
   const index = process.argv.indexOf(`--${name}`);
@@ -24,7 +25,7 @@ if (!CITY || !CONFIG) { process.stderr.write('credential-probe: --city <url> and
 const token = JSON.parse(readFileSync(CONFIG, 'utf8')).token;
 if (!token) { process.stderr.write('credential-probe: the config file carries no token\n'); process.exit(2); }
 const H = {Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', 'X-City-Api-Version': '0', 'X-City-Schema-Version': '0'};
-const OUT = resolve(import.meta.dirname, 'credential-probe-result.json');
+const OUT = value('out') ?? resolve(tmpdir(), 'credential-probe-result.json');
 const FAKE = 'ghp_AAAAAAAAAAAAAAAAAAAA';
 
 const results = {schema: 'city-agent-job-credential-probe-v1', at: new Date().toISOString(), city: CITY, checks: [], refusals: [], created: []};

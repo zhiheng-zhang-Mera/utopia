@@ -17,6 +17,7 @@
 //   node evidence/raw/capability-city-agent-job/consumption-probe.mjs --city <url> --config <file with a token> [--task <taskId>]
 import {readFileSync, writeFileSync} from 'node:fs';
 import {resolve} from 'node:path';
+import {tmpdir} from 'node:os';
 import {jobDigest} from '../../../contracts/city-agent-job-v1/job.mjs';
 
 const value = (name, fallback = null) => {
@@ -29,7 +30,7 @@ if (!CITY || !CONFIG) { process.stderr.write('consumption-probe: --city <url> an
 const token = JSON.parse(readFileSync(CONFIG, 'utf8')).token;
 if (!token) { process.stderr.write('consumption-probe: the config file carries no token\n'); process.exit(2); }
 const H = {Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', 'X-City-Api-Version': '0', 'X-City-Schema-Version': '0'};
-const OUT = resolve(import.meta.dirname, 'consumption-probe-result.json');
+const OUT = value('out') ?? resolve(tmpdir(), 'consumption-probe-result.json');
 
 const jobs = async () => ((await (await fetch(CITY + '/api/v0/node/jobs', {headers: H})).json()).jobs ?? []);
 const tasks = async () => ((await (await fetch(CITY + '/api/v0/tasks', {headers: H})).json()).tasks ?? []);

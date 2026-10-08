@@ -20,6 +20,7 @@
 import {readFileSync, writeFileSync, existsSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {resolve, join, basename} from 'node:path';
+import {tmpdir} from 'node:os';
 
 const value = (name, fallback = null) => {
   const index = process.argv.indexOf(`--${name}`);
@@ -36,7 +37,11 @@ if (!existsSync(ARTIFACT)) { process.stderr.write(`readiness-check: the artifact
 const token = JSON.parse(readFileSync(CONFIG, 'utf8')).token;
 if (!token) { process.stderr.write('readiness-check: the config file carries no token\n'); process.exit(2); }
 const H = {Authorization: 'Bearer ' + token, 'Accept': 'application/json', 'X-City-Api-Version': '0', 'X-City-Schema-Version': '0'};
-const OUT = resolve(import.meta.dirname, 'readiness-check-result.json');
+// OUTSIDE THE CHECKOUT BY DEFAULT, AND THAT MATTERS MORE HERE THAN ANYWHERE. This check is meant to be run immediately
+// before the reproduction, and the harness reports a DIRTY CHECKOUT as an evidence gap - so a pre-flight that wrote its
+// result into the tree would have sabotaged the very run it was preparing. Measured: that was true of the first version,
+// which wrote beside itself. A caller who wants the result filed passes --out.
+const OUT = value('out') ?? resolve(tmpdir(), 'readiness-check-result.json');
 
 const problems = [];
 const results = {schema: 'rex890-readiness-check-v1', at: new Date().toISOString(), artifact: ARTIFACT, city: CITY, checks: [], info: {}};

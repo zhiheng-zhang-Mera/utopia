@@ -14,6 +14,7 @@
 import {readFileSync, writeFileSync} from 'node:fs';
 import {randomUUID} from 'node:crypto';
 import {resolve} from 'node:path';
+import {tmpdir} from 'node:os';
 
 const value = (name, fallback = null) => {
   const index = process.argv.indexOf(`--${name}`);
@@ -34,7 +35,11 @@ const token = JSON.parse(readFileSync(CONFIG, 'utf8')).token;
 if (!token) { process.stderr.write('live-probe: the config file carries no token\n'); process.exit(2); }
 const H = {Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', 'X-City-Api-Version': '0', 'X-City-Schema-Version': '0'};
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const OUT = resolve(import.meta.dirname, 'live-probe-result.json');
+// THE RESULT GOES OUTSIDE THE CHECKOUT UNLESS THE CALLER SAYS OTHERWISE. Writing it beside this file made every run
+// dirty the tree it had just measured - and a dirty tree is exactly the evidence gap the reproduction harness reports
+// for the checkout it runs from. An instrument must not move what it measures, and for a reproduction the working tree
+// IS part of what is measured. Pass --out to file a result deliberately.
+const OUT = value('out') ?? resolve(tmpdir(), 'live-probe-result.json');
 
 const city = await (await fetch(CITY + '/api/v0/city', {headers: H})).json();
 const online = (city.nodes ?? []).filter(n => n.online === true).map(n => n.id);

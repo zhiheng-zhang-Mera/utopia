@@ -72,3 +72,16 @@ test('PROBES 3: a probe invoked with no inputs refuses by name and does nothing 
     assert.equal(run.stdout.trim(), '', `${probe.name} must not print a result when it refused`);
   }
 });
+
+test('PROBES 4: no probe writes its result into the checkout by default', () => {
+  // AN INSTRUMENT MUST NOT MOVE WHAT IT MEASURES, and for a reproduction the working tree is part of what is measured -
+  // the harness reports a dirty checkout as an evidence gap. Writing each result beside its own script made every run
+  // dirty the tree, so the readiness pre-flight would have sabotaged the very run it exists to prepare. Measured: that
+  // was true of all five probes until this was fixed; they now default to a temporary path and take --out to file.
+  for (const probe of probes) {
+    assert.ok(!/const OUT = resolve\(import\.meta\.dirname/.test(probe.source),
+      `${probe.name} writes its result into the checkout by default`);
+    assert.match(probe.source, /const OUT = value\('out'\) \?\? resolve\(tmpdir\(\)/,
+      `${probe.name} must default outside the checkout and accept --out`);
+  }
+});

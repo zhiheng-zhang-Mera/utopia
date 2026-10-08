@@ -25,8 +25,14 @@
 //   A WORKSPACE, NOT A FREE PATH. The working directory must live inside a declared workspace root. `..`, an absolute
 //   path outside every root, and a path that normalises outside are all the same refusal.
 //
-//   BOUNDS ARE CLAMPED, NOT TRUSTED. A caller may ask for less; it cannot ask for more than the ceiling, and it cannot
-//   make an unbounded run by omitting the field.
+//   BOUNDS ARE CAPPED BY REFUSAL, NOT TRUSTED - AND NOT SILENTLY CLAMPED. A caller may ask for less; asking for MORE
+//   than the ceiling is REFUSED BY NAME, and omitting the field cannot make an unbounded run because a default applies.
+//   The word "clamped" stood here first and was wrong: a caller who believed a too-large number had been quietly
+//   reduced would design against a guarantee that does not exist. MEASURED AGAINST A LIVE CITY 2026-10-08 (the filed
+//   probe): timeoutMs 99999999 -> TIMEOUT_EXCEEDS_LIMIT, maxOutputBytes 99999999 -> OUTPUT_LIMIT_EXCEEDS_LIMIT and a
+//   non-positive bound -> BOUNDS_INVALID, each with NO task created - and the bounds really bind, since a program that
+//   outlived a 1500 ms timeout came back timedOut with the process stopped and a 400000-byte output came back
+//   truncated at the declared 4096.
 //
 //   NO ENVIRONMENT INJECTION in v1. The node runs with its own environment. Letting the City set environment variables
 //   would be a second, quieter way to change what a program does, and it is not needed for the purpose this exists for.

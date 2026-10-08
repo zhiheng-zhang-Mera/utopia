@@ -55,8 +55,12 @@ const settle = async taskId => {
     await sleep(1000);
   }
   const row = await operationRow(taskId);
+  // The AUDIT fields are part of the row and have to be carried here too, or a check about the audit reads undefined
+  // from a healthy City and reports a failure that is the probe's own - which is exactly what happened on the first
+  // run of the bounds section.
   return row ? {state: row.state, assignedNodeId: row.assignedNodeId, shell: row.shell, operationDigest: row.operationDigest,
-    result: row.result, receipt: row.receipt} : null;
+    purpose: row.purpose, executable: row.executable, argv: row.argv, cwd: row.cwd, timeoutMs: row.timeoutMs,
+    maxOutputBytes: row.maxOutputBytes, result: row.result, receipt: row.receipt} : null;
 };
 
 const results = {schema: 'city-remote-operation-live-probe-v1', at: new Date().toISOString(), city: CITY, target,
@@ -84,7 +88,58 @@ check('the operation row records shell:false', noShellRow?.shell === false, `she
 check('the metacharacter string is reported as ONE argv element by the program', String(noShellRow?.result?.stderr ?? '').includes("'rev-parse;echo INERT'"), JSON.stringify(String(noShellRow?.result?.stderr ?? '').trim()));
 check('nothing was interpreted as a second command', noShellRow?.result?.stdout === '' && !/\bINERT\b/.test(String(noShellRow?.result?.stdout ?? '')), `stdout=${JSON.stringify(String(noShellRow?.result?.stdout ?? ''))}`);
 
-// 3. Typed refusals, each of which must be named AND must leave no task behind.
+// 3. BOUNDS AND AUDIT, measured rather than read off the source. The narrative in this record says the capability is
+//    BOUNDED; these are the measurements behind that. Note the shape of the answer: a value above the ceiling is
+//    REFUSED BY NAME, not silently reduced - which is what the contract's code does, and what its own header comment
+//    said loosely ("clamped"). A caller that believes a too-large number was quietly capped would design against a
+//    guarantee that does not exist.
+const overTimeout = await dispatch({executable: 'git', argv: ['--version'], cwd: 'D:/utopia-remote-op',
+  purpose: 'live probe bounds: timeout above the ceiling', timeoutMs: 99999999});
+results.bounds = {overTimeout};
+check('a timeout above the ceiling is refused by name', overTimeout.errorCode === 'TIMEOUT_EXCEEDS_LIMIT' && overTimeout.taskId === null,
+  `code=${overTimeout.errorCode} task=${overTimeout.taskId}`);
+
+const overOutput = await dispatch({executable: 'git', argv: ['--version'], cwd: 'D:/utopia-remote-op',
+  purpose: 'live probe bounds: output cap above the ceiling', timeoutMs: 30000, maxOutputBytes: 99999999});
+results.bounds.overOutput = overOutput;
+check('an output cap above the ceiling is refused by name', overOutput.errorCode === 'OUTPUT_LIMIT_EXCEEDS_LIMIT' && overOutput.taskId === null,
+  `code=${overOutput.errorCode} task=${overOutput.taskId}`);
+
+const zeroTimeout = await dispatch({executable: 'git', argv: ['--version'], cwd: 'D:/utopia-remote-op',
+  purpose: 'live probe bounds: zero timeout', timeoutMs: 0});
+results.bounds.zeroTimeout = zeroTimeout;
+check('a non-positive bound is refused by name', zeroTimeout.errorCode === 'BOUNDS_INVALID' && zeroTimeout.taskId === null,
+  `code=${zeroTimeout.errorCode} task=${zeroTimeout.taskId}`);
+
+// Environment injection is refused by PRESENCE, so an EMPTY env object must be refused too - otherwise "no environment
+// injection" would depend on what the object happened to contain.
+const emptyEnv = await dispatch({executable: 'git', argv: ['--version'], cwd: 'D:/utopia-remote-op',
+  purpose: 'live probe bounds: environment override', timeoutMs: 30000, env: {}});
+results.bounds.emptyEnv = emptyEnv;
+check('an environment override is refused even when empty', emptyEnv.errorCode === 'ENVIRONMENT_OVERRIDE_REFUSED' && emptyEnv.taskId === null,
+  `code=${emptyEnv.errorCode} task=${emptyEnv.taskId}`);
+
+// The bound has to BIND: a program that outlives its timeout must be killed, and the receipt must say so.
+const slow = await dispatch({executable: 'node', argv: ['-e', 'setTimeout(()=>{}, 15000)'], cwd: 'D:/utopia-remote-op',
+  purpose: 'live probe bounds: a program that outlives its timeout must be stopped', timeoutMs: 1500});
+const slowRow = slow.taskId ? await settle(slow.taskId) : null;
+results.bounds.timedOutRun = {dispatch: slow, row: slowRow};
+check('a program that outlives its timeout is stopped and the receipt says so', slowRow?.result?.timedOut === true,
+  `state=${slowRow?.state} timedOut=${JSON.stringify(slowRow?.result?.timedOut)} durationMs=${slowRow?.result?.durationMs}`);
+
+// And the output cap has to bind too: a program that prints more than the cap must come back truncated.
+const loud = await dispatch({executable: 'node', argv: ['-e', "process.stdout.write('x'.repeat(400000))"], cwd: 'D:/utopia-remote-op',
+  purpose: 'live probe bounds: output beyond the cap must be truncated', timeoutMs: 30000, maxOutputBytes: 4096});
+const loudRow = loud.taskId ? await settle(loud.taskId) : null;
+results.bounds.truncatedRun = {dispatch: loud, row: loudRow};
+check('output beyond the declared cap comes back truncated', loudRow?.result?.truncated === true,
+  `truncated=${JSON.stringify(loudRow?.result?.truncated)} stdoutBytes=${JSON.stringify(loudRow?.result?.stdoutBytes ?? String(loudRow?.result?.stdout ?? '').length)}`);
+
+// AUDIT: the purpose is not decoration - it is stored on the row with the program, the argv and the workspace.
+check('the audit row carries the purpose, program, argv and workspace', Boolean(loudRow?.purpose && loudRow?.executable && Array.isArray(loudRow?.argv) && loudRow?.cwd),
+  `purpose=${JSON.stringify(String(loudRow?.purpose ?? '').slice(0, 40))} executable=${loudRow?.executable} cwd=${loudRow?.cwd}`);
+
+// 4. Typed refusals, each of which must be named AND must leave no task behind.
 const refusals = [
   ['executable not on the allowlist', {executable: 'powershell', argv: ['-Command', 'echo no'], cwd: 'D:/utopia-remote-op', purpose: 'live probe refusal check', timeoutMs: 30000}, 'EXECUTABLE_NOT_ALLOWED'],
   ['an absolute path instead of a program name', {executable: 'C:/Windows/System32/cmd.exe', argv: ['/c', 'echo no'], cwd: 'D:/utopia-remote-op', purpose: 'live probe refusal check', timeoutMs: 30000}, 'EXECUTABLE_REQUIRED'],

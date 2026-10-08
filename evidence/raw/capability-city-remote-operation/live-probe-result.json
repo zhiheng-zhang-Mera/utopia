@@ -1,6 +1,6 @@
 {
   "schema": "city-remote-operation-live-probe-v1",
-  "at": "2026-10-08T03:45:18.528Z",
+  "at": "2026-10-08T03:59:07.601Z",
   "city": "http://172.31.12.151:4310",
   "target": "dev-544adda130594c6fae7d71ddfd0f3b8c",
   "onlineNodes": [
@@ -10,7 +10,7 @@
     {
       "name": "the live City accepted a declarative dispatch",
       "ok": true,
-      "detail": "http=200 task=Q-95a80f01-db4a-4d22-bc69-08c2ee37cf05"
+      "detail": "http=200 task=Q-31c373d0-52e2-4620-b24c-a17cf3a774cd"
     },
     {
       "name": "the program really ran on the named node",
@@ -41,6 +41,41 @@
       "name": "nothing was interpreted as a second command",
       "ok": true,
       "detail": "stdout=\"\""
+    },
+    {
+      "name": "a timeout above the ceiling is refused by name",
+      "ok": true,
+      "detail": "code=TIMEOUT_EXCEEDS_LIMIT task=null"
+    },
+    {
+      "name": "an output cap above the ceiling is refused by name",
+      "ok": true,
+      "detail": "code=OUTPUT_LIMIT_EXCEEDS_LIMIT task=null"
+    },
+    {
+      "name": "a non-positive bound is refused by name",
+      "ok": true,
+      "detail": "code=BOUNDS_INVALID task=null"
+    },
+    {
+      "name": "an environment override is refused even when empty",
+      "ok": true,
+      "detail": "code=ENVIRONMENT_OVERRIDE_REFUSED task=null"
+    },
+    {
+      "name": "a program that outlives its timeout is stopped and the receipt says so",
+      "ok": true,
+      "detail": "state=FAILED timedOut=true durationMs=1541"
+    },
+    {
+      "name": "output beyond the declared cap comes back truncated",
+      "ok": true,
+      "detail": "truncated=true stdoutBytes=4096"
+    },
+    {
+      "name": "the audit row carries the purpose, program, argv and workspace",
+      "ok": true,
+      "detail": "purpose=\"live probe bounds: output beyond the cap\" executable=node cwd=D:/utopia-remote-op"
     },
     {
       "name": "refused by name: executable not on the allowlist",
@@ -84,12 +119,20 @@
       "actionStatus": "QUEUED",
       "errorCode": null,
       "errorMessage": null,
-      "taskId": "Q-95a80f01-db4a-4d22-bc69-08c2ee37cf05",
+      "taskId": "Q-31c373d0-52e2-4620-b24c-a17cf3a774cd",
       "row": {
         "state": "COMPLETED",
         "assignedNodeId": "dev-544adda130594c6fae7d71ddfd0f3b8c",
         "shell": false,
         "operationDigest": "f2e313c196e45e2a4e0eb10bcb2c72ee6805ff20aa5c3c26019fdf3ba53b044c",
+        "purpose": "CAP-CITY-REMOTE-OPERATION-001 live probe: dispatch an allowlisted program and read the receipt",
+        "executable": "git",
+        "argv": [
+          "--version"
+        ],
+        "cwd": "D:/utopia-remote-op",
+        "timeoutMs": 30000,
+        "maxOutputBytes": 262144,
         "result": {
           "operationDigest": "f2e313c196e45e2a4e0eb10bcb2c72ee6805ff20aa5c3c26019fdf3ba53b044c",
           "state": "COMPLETED",
@@ -98,7 +141,7 @@
           "stdout": "git version 2.51.2.windows.1\n",
           "stderr": "",
           "truncated": false,
-          "durationMs": 134,
+          "durationMs": 112,
           "error": null
         },
         "receipt": {
@@ -117,12 +160,20 @@
       "actionStatus": "QUEUED",
       "errorCode": null,
       "errorMessage": null,
-      "taskId": "Q-ce75c778-5258-44fc-bf91-7561cd3635f8",
+      "taskId": "Q-3adf2aa7-132c-4239-984c-ddbad713f1c9",
       "row": {
         "state": "FAILED",
         "assignedNodeId": "dev-544adda130594c6fae7d71ddfd0f3b8c",
         "shell": false,
         "operationDigest": "f5dc09ffcf28def729154960a2495338854cdba7dc1c2823202ee82cfbe650c1",
+        "purpose": "CAP-CITY-REMOTE-OPERATION-001 live probe: show that ; is data and no shell interprets it",
+        "executable": "git",
+        "argv": [
+          "rev-parse;echo INERT"
+        ],
+        "cwd": "D:/utopia-remote-op",
+        "timeoutMs": 30000,
+        "maxOutputBytes": 262144,
         "result": {
           "operationDigest": "f5dc09ffcf28def729154960a2495338854cdba7dc1c2823202ee82cfbe650c1",
           "state": "FAILED",
@@ -131,7 +182,7 @@
           "stdout": "",
           "stderr": "git: 'rev-parse;echo INERT' is not a git command. See 'git --help'.\n",
           "truncated": false,
-          "durationMs": 157,
+          "durationMs": 144,
           "error": "exit code 1"
         },
         "receipt": {
@@ -211,9 +262,127 @@
       "taskId": null
     }
   ],
+  "bounds": {
+    "overTimeout": {
+      "httpStatus": 200,
+      "actionStatus": "REFUSED",
+      "errorCode": "TIMEOUT_EXCEEDS_LIMIT",
+      "errorMessage": "timeoutMs exceeds the 1800000 ms ceiling",
+      "taskId": null
+    },
+    "overOutput": {
+      "httpStatus": 200,
+      "actionStatus": "REFUSED",
+      "errorCode": "OUTPUT_LIMIT_EXCEEDS_LIMIT",
+      "errorMessage": "maxOutputBytes exceeds the 4194304 byte ceiling",
+      "taskId": null
+    },
+    "zeroTimeout": {
+      "httpStatus": 200,
+      "actionStatus": "REFUSED",
+      "errorCode": "BOUNDS_INVALID",
+      "errorMessage": "timeoutMs must be a positive integer",
+      "taskId": null
+    },
+    "emptyEnv": {
+      "httpStatus": 200,
+      "actionStatus": "REFUSED",
+      "errorCode": "ENVIRONMENT_OVERRIDE_REFUSED",
+      "errorMessage": "this City does not let a caller set the node environment",
+      "taskId": null
+    },
+    "timedOutRun": {
+      "dispatch": {
+        "httpStatus": 200,
+        "actionStatus": "QUEUED",
+        "errorCode": null,
+        "errorMessage": null,
+        "taskId": "Q-90bd45a3-03f7-47e0-a3a4-29fe38a8c921"
+      },
+      "row": {
+        "state": "FAILED",
+        "assignedNodeId": "dev-544adda130594c6fae7d71ddfd0f3b8c",
+        "shell": false,
+        "operationDigest": "8bd674484aafe5d315151473ed8eaa5cf5e820e9c8ce580e985d4eb08fd2af83",
+        "purpose": "live probe bounds: a program that outlives its timeout must be stopped",
+        "executable": "node",
+        "argv": [
+          "-e",
+          "setTimeout(()=>{}, 15000)"
+        ],
+        "cwd": "D:/utopia-remote-op",
+        "timeoutMs": 1500,
+        "maxOutputBytes": 262144,
+        "result": {
+          "operationDigest": "8bd674484aafe5d315151473ed8eaa5cf5e820e9c8ce580e985d4eb08fd2af83",
+          "state": "FAILED",
+          "exitCode": null,
+          "timedOut": true,
+          "stdout": "",
+          "stderr": "",
+          "truncated": false,
+          "durationMs": 1541,
+          "error": "timed out after 1500 ms"
+        },
+        "receipt": {
+          "valid": true,
+          "state": "FAILED",
+          "exitCode": null,
+          "timedOut": true,
+          "stdoutBytes": 0,
+          "stderrBytes": 0,
+          "acceptanceAuthority": false
+        }
+      }
+    },
+    "truncatedRun": {
+      "dispatch": {
+        "httpStatus": 200,
+        "actionStatus": "QUEUED",
+        "errorCode": null,
+        "errorMessage": null,
+        "taskId": "Q-02f270eb-650b-46a0-9ba1-4462829c4fbd"
+      },
+      "row": {
+        "state": "COMPLETED",
+        "assignedNodeId": "dev-544adda130594c6fae7d71ddfd0f3b8c",
+        "shell": false,
+        "operationDigest": "522517ff9e88b79b7a4445f88ba143a8a20f888c73129e6136dcf474ca4573fd",
+        "purpose": "live probe bounds: output beyond the cap must be truncated",
+        "executable": "node",
+        "argv": [
+          "-e",
+          "process.stdout.write('x'.repeat(400000))"
+        ],
+        "cwd": "D:/utopia-remote-op",
+        "timeoutMs": 30000,
+        "maxOutputBytes": 4096,
+        "result": {
+          "operationDigest": "522517ff9e88b79b7a4445f88ba143a8a20f888c73129e6136dcf474ca4573fd",
+          "state": "COMPLETED",
+          "exitCode": 0,
+          "timedOut": false,
+          "stdout": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "stderr": "",
+          "truncated": true,
+          "durationMs": 140,
+          "error": null
+        },
+        "receipt": {
+          "valid": true,
+          "state": "COMPLETED",
+          "exitCode": 0,
+          "timedOut": false,
+          "stdoutBytes": 4096,
+          "stderrBytes": 0,
+          "acceptanceAuthority": false
+        }
+      }
+    }
+  },
   "summary": {
-    "checks": 14,
-    "passed": 14,
+    "checks": 21,
+    "passed": 21,
     "failed": [],
     "scope": "same physical host: the City and the node it targets run on this machine. The cross-host case is NOT RUN."
   }

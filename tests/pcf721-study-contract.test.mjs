@@ -294,9 +294,17 @@ test('PCF-721 line 48/49: failure, no-benefit and unfavourable samples are retai
   assert.ok(metricsCsv(artifact).includes('NOT_MEASURED'));
 
   // The pack itself: manifest, sanitized dataset, raw pointers/digests, environment/versions, limitations, reproduction.
+  // PLUS THE RECORDS THE POINTERS POINT AT: `raw-pointers.json` publishes `trace:<eventId>` for every trace record the
+  // export scoped in, and those bytes used to live only in the City, whose trace retention is bounded (a 256-record
+  // window over 2 MiB and ONE previous generation). Measured: the dev study's 206 pointers resolved 206/206 from the
+  // durable store on the morning of 2026-10-08 and 0/206 the same afternoon, and the City's backup predated the study -
+  // so the evidence was gone from every store while the pack went on publishing the pointers as if retrievable. A pack
+  // now carries them (trace-records.jsonl) and declares how many (trace-coverage.json). Both are emitted even when
+  // there are no records, so a reader never has to guess whether a file is absent or empty.
   const files = artifactFiles(artifact);
   assert.deepEqual(Object.keys(files), ['manifest.json', 'environment.json', 'topology.json', 'raw-pointers.json', 'normalized-dataset.json',
-    'metrics.csv', 'failures.json', 'exclusions.json', 'tables.json', 'reproduction.json']);
+    'metrics.csv', 'failures.json', 'exclusions.json', 'tables.json', 'reproduction.json',
+    'trace-records.jsonl', 'trace-coverage.json']);
   assert.equal(JSON.parse(files['environment.json']).node, process.version);
   assert.deepEqual(JSON.parse(files['raw-pointers.json']).canonicalTasks, ['task:T1', 'task:T2']);
   assert.ok(artifact.reproduction.steps.length >= 3 && artifact.reproduction.steps.some(step => step.includes('recompute')));

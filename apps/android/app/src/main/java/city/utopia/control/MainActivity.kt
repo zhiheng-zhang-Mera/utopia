@@ -54,6 +54,7 @@ class MainActivity : ComponentActivity() {
   var selectedNode by remember { mutableStateOf<String?>(null) }
   var selected by remember { mutableStateOf<String?>(null) }
   var client by remember { mutableStateOf<CityClient?>(null) }
+  var ownerControlDraft by remember(client) { mutableStateOf<OwnerControlDraft?>(null) }
   var creating by remember { mutableStateOf(false) }
   // MESH-301: the device this surface's next safe task is strictly bound to. "" means unspecified, which is
   // the pre-existing scheduler behaviour and must stay reachable - a target surface that cannot express "no
@@ -90,6 +91,8 @@ class MainActivity : ComponentActivity() {
    "Activity" to UtopiaIcons.Activity,
   )
   val advancedNav = listOf(
+   "RemoteOperation" to "远程执行",
+   "AgentJobs" to "Agent 作业",
    "ResearchRun" to "研究运行",
    "ResearchTrace" to "研究记录",
    "Services" to "能力服务",
@@ -109,8 +112,8 @@ class MainActivity : ComponentActivity() {
    UtopiaNavigationBar(primaryNav, page, onSelect = { page = it; selected = null; selectedNode = null })
   }) { padding ->
    LazyColumn(Modifier.fillMaxSize().padding(padding).imePadding().padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(Space.md), contentPadding = PaddingValues(top = Space.lg, bottom = Space.xl)) {
-    item { Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) { Text("UTOPIA", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, letterSpacing = 3.sp); Spacer(Modifier.width(Space.md)); MeasuredStatusChip(state.connection); Spacer(Modifier.width(Space.xs)); Box { IconButton(onClick = { advancedOpen.value = true }) { Icon(UtopiaIcons.More, contentDescription = "更多", tint = MaterialTheme.colorScheme.onSurfaceVariant) }; DropdownMenu(expanded = advancedOpen.value, onDismissRequest = { advancedOpen.value = false }) { advancedNav.forEach { (target, label) -> DropdownMenuItem(text = { Text(label) }, onClick = { page = target; selected = null; selectedNode = null; advancedOpen.value = false }) } } } } }
-    item { Column { Text(if (selected != null) "Task details" else when (page) { "Home" -> "Digital City"; "Find" -> "Welcome"; "Ask" -> "Ask / Do"; "Rooms" -> "Rooms · local tools"; "Action" -> "Actions"; "Devices" -> if(selectedNode == null) "Devices" else "Device details"; "ResearchTrace" -> "研究记录"; "Services" -> "City services"; "Tasks" -> "Your tasks"; "Activity" -> "City activity"; else -> "Connect your city" }, fontSize = 32.sp, color = Ink, fontWeight = FontWeight.Medium); Text(if (online) "Your devices. One shared view." else "Cached information · connection is not live", fontSize = 12.sp, color = Color.Gray) } }
+    item { Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) { Text("UTOPIA", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold, letterSpacing = 3.sp); Spacer(Modifier.width(Space.md)); MeasuredStatusChip(state.connection); Spacer(Modifier.width(Space.xs)); Box { IconButton(onClick = { advancedOpen.value = true }) { Icon(UtopiaIcons.More, contentDescription = "更多", tint = MaterialTheme.colorScheme.onSurfaceVariant) }; DropdownMenu(expanded = advancedOpen.value, onDismissRequest = { advancedOpen.value = false }) { advancedNav.forEach { (target, label) -> DropdownMenuItem(text = { Text(label) }, onClick = { ownerControlDraft = null; page = target; selected = null; selectedNode = null; advancedOpen.value = false }) } } } } }
+    item { Column { Text(if (selected != null) "Task details" else when (page) { "Home" -> "Digital City"; "Find" -> "Welcome"; "Ask" -> "Ask / Do"; "Rooms" -> "Rooms · local tools"; "Action" -> "Actions"; "Devices" -> if(selectedNode == null) "Devices" else "Device details"; "ResearchTrace" -> "研究记录"; "RemoteOperation" -> "远程执行"; "AgentJobs" -> "Agent 作业"; "Services" -> "City services"; "Tasks" -> "Your tasks"; "Activity" -> "City activity"; else -> "Connect your city" }, fontSize = 32.sp, color = Ink, fontWeight = FontWeight.Medium); Text(if (online) "Your devices. One shared view." else "Cached information · connection is not live", fontSize = 12.sp, color = Color.Gray) } }
     if (state.message.isNotBlank()) item { UtFeedback(state.message, kind = "error") }
     if (page == "Find") {
      item { ownerOnboarding?.let { OwnerOnboardingPanel(it,client,online,state.snapshot?.optString("displayName")?.takeIf { it.isNotBlank() } ?: "当前城市",now) } ?: Text("连接城市后可邀请设备并审批入网。") }
@@ -155,7 +158,10 @@ class MainActivity : ComponentActivity() {
     } else if (page == "Rooms") {
      item { RoomsPanel(state,client) }
     } else if (page == "Ask") {
-     item { AskPanel(state,client) }
+     item { AskPanel(state,client) { draft->ownerControlDraft=draft;page=if(draft.kind=="REMOTE_OPERATION")"RemoteOperation" else "AgentJobs" } }
+    } else if (page == "RemoteOperation" || page == "AgentJobs") {
+     val kind=if(page=="RemoteOperation")"REMOTE_OPERATION" else "AGENT_JOB"
+     item { OwnerControlsPanel(state,client,kind,ownerControlDraft?.takeIf{it.kind==kind}) }
     } else if (page == "Action") {
      item { ActionsPanel(state,client) }
     } else if (page == "Settings") {

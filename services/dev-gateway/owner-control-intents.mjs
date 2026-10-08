@@ -19,9 +19,9 @@ function explicitArgv(text){
  const rest=text.slice(match.index+match[0].length);let quoted=false,escape=false,depth=0;
  for(let i=0;i<rest.length;i++){
   const c=rest[i];if(escape){escape=false;continue;}if(quoted&&c==='\\'){escape=true;continue;}if(c==='"'){quoted=!quoted;continue;}
-  if(!quoted){if(c==='[')depth++;if(c===']'&&--depth===0){try{const result=JSON.parse(rest.slice(0,i+1));return Array.isArray(result)&&result.every(v=>typeof v==='string')?result:[];}catch{return [];}}}
+  if(!quoted){if(c==='[')depth++;if(c===']'&&--depth===0){try{const result=JSON.parse(rest.slice(0,i+1));return Array.isArray(result)&&result.every(v=>typeof v==='string')?result:false;}catch{return false;}}}
  }
- return [];
+ return false;
 }
 function nodeChoice(text,nodes){
  const explicit=quotedField(text,'device|node|设备|目标');
@@ -49,11 +49,11 @@ export function prepareOwnerControlAsk(request,context){
  let operation=null,job=null,missingFields=choice.targetDeviceRef?[]:['targetDeviceRef'];
  if(kind==='REMOTE_OPERATION'){
   const executable=quotedField(text,'executable|程序')||/(?:run|execute|start|运行|执行)\s+([A-Za-z0-9_.-]+)/i.exec(text)?.[1]||'';
-  const explicit=explicitArgv(text);const argv=explicit??(/(?:查看版本|--version|\bversion\b)/i.test(text)&&executable==='git'?['--version']:[]);
+  const explicit=explicitArgv(text);const argv=explicit===false?[]:explicit??(/(?:查看版本|--version|\bversion\b)/i.test(text)&&executable==='git'?['--version']:[]);
   operation={executable,argv,cwd:quotedField(text,'cwd|目录'),purpose};
   for(const field of ['executable','cwd','purpose'])if(!operation[field])missingFields.push(field);
   if(executable&&!(context.remoteOperation?.allowlist??[]).includes(executable))missingFields.push('allowlisted executable');
-  if(explicit!==null&&explicit.length===0)missingFields.push('valid argv JSON');
+  if(explicit===false)missingFields.push('valid argv JSON');
  }else{
   job={title:quotedField(text,'title|标题'),instruction:quotedField(text,'instruction|指令')||/(?:\bagent\b|智能体)\s*[:：]?\s*(.+)$/i.exec(text)?.[1]||'',purpose,inputs:[]};
   for(const field of ['title','instruction','purpose'])if(!job[field])missingFields.push(field);

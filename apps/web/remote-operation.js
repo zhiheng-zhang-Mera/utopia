@@ -14,7 +14,7 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
  * Two decisions the reader should be able to check rather than trust:
  *
  *   ARGUMENTS ARE ONE PER LINE. A single "command line" box would have to invent a quoting rule, and any quoting rule
- *   is a shell by another name. One argument per line is the operation's argv, exactly as the contract carries it, so
+ *   is a shell by another name. JSON arrays preserve empty strings and newlines; the legacy one-per-line form remains available, so
  *   what the owner typed and what the node runs are the same list - a space or a quote in an argument is just data.
  *
  *   THE DANGER ZONE IS A GATE, NOT A LABEL. The dispatch button lives behind a collapsed region and a typed
@@ -25,7 +25,7 @@ export function createRemoteOperationView(){
  let state=null,pendingDraft=null;
  return {seedDraft(draft,contextKey){pendingDraft={draft:structuredClone(draft),contextKey};},reset(){if(state?.timer)clearTimeout(state.timer);state=null;pendingDraft=null;},render(root,{contextKey,online,api,isCurrent}){
   if(!state||state.contextKey!==contextKey)state={contextKey,draft:{nodeRef:'',executable:'',argv:'',cwd:'',purpose:'',timeoutMs:'',maxOutputBytes:''},confirm:'',data:null,nodes:[],error:'',busy:false,open:null,timer:null,dangerOpen:false};
-  if(pendingDraft){if(pendingDraft.contextKey===contextKey){const d=pendingDraft.draft;Object.assign(state.draft,{nodeRef:d.targetDeviceRef??'',executable:d.operation?.executable??'',argv:(d.operation?.argv??[]).join('\n'),cwd:d.operation?.cwd??'',purpose:d.operation?.purpose??'',confirm:''});state.requestText=d.requestText;}pendingDraft=null;}
+  if(pendingDraft){if(pendingDraft.contextKey===contextKey){const d=pendingDraft.draft;Object.assign(state.draft,{nodeRef:d.targetDeviceRef??'',executable:d.operation?.executable??'',argv:JSON.stringify(d.operation?.argv??[]),cwd:d.operation?.cwd??'',purpose:d.operation?.purpose??'',confirm:''});state.requestText=d.requestText;}pendingDraft=null;}
   if(!online)state.draft.confirm='';
   const s=state;s.online=online;const current=()=>state===s&&isCurrent();
   // The page is re-rendered on every City event and every four seconds, so the Danger Zone's open state and the field
@@ -41,7 +41,7 @@ export function createRemoteOperationView(){
    <section class="panel" style="margin-top:12px"><h2>${L('Run a program','运行程序')}</h2>
    <label for="rop-node">${L('Target machine','目标机器')}</label><select id="rop-node"></select>
    <label for="rop-executable">${L('Executable (must be on the allowlist)','可执行文件（必须在允许列表内）')}</label><input id="rop-executable" autocomplete="off" spellcheck="false">
-   <label for="rop-argv">${L('Arguments, one per line','参数，每行一个')}</label><textarea id="rop-argv" rows="4" spellcheck="false"></textarea>
+   <label for="rop-argv">${L('Arguments: JSON array or one per line','参数：JSON 数组或每行一个')}</label><textarea id="rop-argv" rows="4" spellcheck="false"></textarea>
    <label for="rop-cwd">${L('Working directory','工作目录')}</label><input id="rop-cwd" autocomplete="off" spellcheck="false">
    <label for="rop-purpose">${L('Why (required)','目的（必填）')}</label><input id="rop-purpose" autocomplete="off">
    <div class="rop-bounds"><label for="rop-timeout">${L('Timeout (ms)','超时（毫秒）')}</label><input id="rop-timeout" inputmode="numeric">
@@ -105,7 +105,7 @@ export function createRemoteOperationView(){
    if(stop)run(async()=>{await api('tasks/'+encodeURIComponent(stop.dataset.ropStop)+'/cancel',{});await load();});
   };
   root.querySelector('#rop-dispatch').onclick=()=>run(async()=>{
-   const operation={executable:s.draft.executable.trim(),argv:s.draft.argv.split('\n').map(x=>x).filter(x=>x!==''),cwd:s.draft.cwd.trim(),purpose:s.draft.purpose.trim()};
+   const operation={executable:s.draft.executable.trim(),argv:parseRemoteArgv(s.draft.argv),cwd:s.draft.cwd.trim(),purpose:s.draft.purpose.trim()};
    if(s.draft.timeoutMs!=='')operation.timeoutMs=Number(s.draft.timeoutMs);
    if(s.draft.maxOutputBytes!=='')operation.maxOutputBytes=Number(s.draft.maxOutputBytes);
    const created=await api('actions',{intent:s.requestText??'Remote operation',route:'CITY_TASK',target:'city.task',operation:'OWNER_REMOTE_OPERATION',
@@ -119,4 +119,10 @@ export function createRemoteOperationView(){
   });
   show();restoreFocus(root,focus);if(!s.data&&!s.busy&&online)run(load);
  }};
+}
+
+export function parseRemoteArgv(value){
+ const raw=String(value??'');
+ if(raw.trim().startsWith('[')){const result=JSON.parse(raw);if(!Array.isArray(result)||!result.every(v=>typeof v==='string'))throw new TypeError('argv JSON must be an array of strings');return result;}
+ return raw.split('\n').filter(v=>v!=='');
 }

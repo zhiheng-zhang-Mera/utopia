@@ -52,30 +52,39 @@ const results = {schema: 'city-auth-boundary-probe-v1', at: new Date().toISOStri
 const check = (name, ok, detail) => { results.checks.push({name, status: ok === true ? 'PASS' : ok === null ? 'NOT_RUN' : 'FAIL', detail: String(detail ?? '')});
   console.log(`${ok === true ? 'PASS' : ok === null ? 'NOT_RUN' : 'FAIL'}  ${name.padEnd(60)} ${detail ?? ''}`); };
 
-const ownerRead = await ask('node/jobs', ownerToken);
-check('the owner token reads the owner route', ownerRead.status === 200 && Array.isArray(ownerRead.body?.jobs),
-  `http=${ownerRead.status} jobs=${ownerRead.body?.jobs?.length ?? 'n/a'}`);
+// BOTH owner READ SURFACES ARE CHECKED, because each capability's record claims owner-only for its own view: the
+// agent-job surface reads jobs, the remote-operation surface reads the operation log. A boundary measured on one of them
+// would not answer the other's claim.
+const ROUTES = [
+  ['node/jobs', body => Array.isArray(body?.jobs), 'jobs'],
+  ['node/operations', body => Array.isArray(body?.operations), 'operations']
+];
 
-const wrongRead = await ask('node/jobs', WRONG);
-check('a wrong token is refused', wrongRead.status === 401 || wrongRead.status === 403, `http=${wrongRead.status}`);
-check('and the refusal carries no job data', !Array.isArray(wrongRead.body?.jobs) && !wrongRead.text.includes('taskId'),
-  `body=${JSON.stringify(wrongRead.body).slice(0, 80)}`);
+const ownerReads = [];
+for (const [route, looksRight, label] of ROUTES) {
+  const ownerRead = await ask(route, ownerToken);
+  ownerReads.push(ownerRead);
+  check(`the owner token reads the owner route ${route}`, ownerRead.status === 200 && looksRight(ownerRead.body),
+    `http=${ownerRead.status} ${label}=${ownerRead.body?.[label]?.length ?? 'n/a'}`);
 
-const anonymousRead = await ask('node/jobs', null);
-check('no credential at all is refused', anonymousRead.status === 401 || anonymousRead.status === 403, `http=${anonymousRead.status}`);
-check('and that refusal carries no job data either', !Array.isArray(anonymousRead.body?.jobs) && !anonymousRead.text.includes('taskId'),
-  `body=${JSON.stringify(anonymousRead.body).slice(0, 80)}`);
+  const wrongRead = await ask(route, WRONG);
+  check(`a wrong token is refused on ${route}`, wrongRead.status === 401 || wrongRead.status === 403, `http=${wrongRead.status}`);
+  check(`and that refusal carries no ${label} data`, !looksRight(wrongRead.body) && !wrongRead.text.includes('taskId'),
+    `body=${JSON.stringify(wrongRead.body).slice(0, 80)}`);
 
-if (nodeToken) {
-  const nodeRead = await ask('node/jobs', nodeToken);
-  check('the NODE token is not the owner and is refused on the owner route', nodeRead.status === 401 || nodeRead.status === 403,
-    `http=${nodeRead.status} (this is a real credential for the same City, just not the owner's)`);
-  check('and that refusal carries no job data either', !Array.isArray(nodeRead.body?.jobs) && !nodeRead.text.includes('taskId'),
-    `body=${JSON.stringify(nodeRead.body).slice(0, 80)}`);
-} else {
-  check('the NODE token is not the owner and is refused on the owner route', null,
-    'no --node-config was supplied, so this credential boundary could not be measured on this run');
+  const anonymousRead = await ask(route, null);
+  check(`no credential at all is refused on ${route}`, anonymousRead.status === 401 || anonymousRead.status === 403, `http=${anonymousRead.status}`);
+
+  if (nodeToken) {
+    const nodeRead = await ask(route, nodeToken);
+    check(`the NODE token is not the owner and is refused on ${route}`, nodeRead.status === 401 || nodeRead.status === 403,
+      `http=${nodeRead.status} (a real credential for the same City, just not the owner's)`);
+  } else {
+    check(`the NODE token is not the owner and is refused on ${route}`, null,
+      'no --node-config was supplied, so this credential boundary could not be measured on this run');
+  }
 }
+const refusalBodies = ownerReads.map(read => read.text);
 
 // 5. An unauthenticated dispatch must not create anything. Counted, not assumed.
 const before = await jobCount(ownerToken);
@@ -87,7 +96,7 @@ check('an unauthenticated dispatch is refused and creates no job', (dispatch.sta
   `http=${dispatch.status} jobs ${before} -> ${after}`);
 
 // 6. A credential must never come back in a response body.
-const bodies = [ownerRead.text, wrongRead.text, anonymousRead.text, JSON.stringify(dispatch.body ?? '')];
+const bodies = [...refusalBodies, JSON.stringify(dispatch.body ?? '')];
 check('no response echoes a credential back', !bodies.some(body => body.includes(ownerToken) || body.includes(WRONG) || (nodeToken && body.includes(nodeToken))),
   `checked ${bodies.length} response bodies`);
 

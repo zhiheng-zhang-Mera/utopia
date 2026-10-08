@@ -25,6 +25,7 @@ import {existsSync} from 'node:fs';
 import {resolve, join} from 'node:path';
 import {hostname} from 'node:os';
 import {createHash} from 'node:crypto';
+import {execFileSync} from 'node:child_process';
 // The global WebSocket that Node ships, NOT the `ws` package: this harness must run from a BARE CHECKOUT, and a
 // dependency would mean the reproducing host has to install the project before it can check anything. That is the
 // difference between "fetch the branch and run one command" and "get a toolchain working first" - and an instrument
@@ -35,6 +36,25 @@ if (typeof WebSocket !== 'function') {
   process.stderr.write(`REX890 reproduction: this harness needs a Node with a global WebSocket (Node 22 or newer); found ${process.version}\n`);
   process.exit(2);
 }
+
+// THE SOFTWARE IDENTITY OF *THIS* RUN, OBSERVED FROM THE CHECKOUT THAT IS ACTUALLY RUNNING.
+//
+// The first version hardcoded `utopia@185d043e...` - the 4-in-1 verified head the study was exported from - and the
+// manifest contract rendered it as `exact: true` on EVERY reproduction campaign. So a run from any other checkout
+// produced a receipt that claimed, exactly, a software identity which had not run it. Measured, not supposed: a
+// rehearsal from 6014f94 wrote a campaign whose context.manifest.softwareRefs says 185d043e with exact:true. That is
+// the declared-versus-observed failure this programme exists to catch, and this instrument wrote it.
+//
+// The contract requires at least one exact 40-character ref, so there is nothing honest to put there but the commit
+// the harness is running from. When that cannot be observed, the correct answer is NOT to run: a campaign whose
+// software identity nobody observed would manufacture precisely the provenance the rule forbids.
+const checkoutRoot = resolve(import.meta.dirname, '..');
+let softwareHead = null, softwareTreeClean = null, softwareIdentityFailure = null;
+try {
+  softwareHead = execFileSync('git', ['-C', checkoutRoot, 'rev-parse', 'HEAD'], {encoding: 'utf8', timeout: 10000}).trim();
+  softwareTreeClean = execFileSync('git', ['-C', checkoutRoot, 'status', '--porcelain'], {encoding: 'utf8', timeout: 10000}).trim() === '';
+  if (!/^[0-9a-f]{40}$/.test(softwareHead)) { softwareIdentityFailure = 'HEAD_NOT_A_FULL_SHA'; softwareHead = null; }
+} catch (error) { softwareIdentityFailure = 'CHECKOUT_NOT_READABLE'; softwareHead = null; }
 
 const argv = process.argv.slice(2);
 const flag = (name, fallback = null) => { const i = argv.indexOf('--' + name); return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : fallback; };
@@ -290,10 +310,11 @@ const reproductionManifest = {
   stopConditions: [{kind: 'MAX_REPETITIONS', value: REPETITIONS}, {kind: 'MAX_FAILURES', value: REPETITIONS}],
   artifactPolicy: {retention: 'SUMMARY_ONLY'},
   acceptance: {primary: 'Every repetition is a canonical task that reached a terminal state', notes: [manifest.artifactId, `reproduced by ${LABEL}`]},
-  softwareRefs: ['utopia@185d043e11ae8516a1e7a492d09d031610be576b'],
+  softwareRefs: [`utopia@${softwareHead ?? 'UNOBSERVED'}`],
 };
-const registered = surface ? await ask('research/experiments', {body: {manifest: reproductionManifest}}) : {status: 0, text: 'no control surface, so no reproduction manifest'};
-if (registered.status !== 200) { executed.reason = `manifest refused: HTTP ${registered.status} ${registered.text.slice(0, 200)}`; note('INDEPENDENT EXECUTION NOT RUN: ' + executed.reason); }
+const registered = surface && softwareHead ? await ask('research/experiments', {body: {manifest: reproductionManifest}}) : {status: 0, text: softwareHead ? 'no control surface, so no reproduction manifest' : `software identity not observable (${softwareIdentityFailure})`};
+if (!softwareHead) { executed.reason = `SOFTWARE_IDENTITY_UNOBSERVABLE: ${softwareIdentityFailure}`; note('INDEPENDENT EXECUTION NOT RUN: a campaign would have to declare an exact software identity nobody observed'); }
+else if (registered.status !== 200) { executed.reason = `manifest refused: HTTP ${registered.status} ${registered.text.slice(0, 200)}`; note('INDEPENDENT EXECUTION NOT RUN: ' + executed.reason); }
 else {
   const started = await ask('research/campaigns', {body: {experimentId: reproductionManifest.experimentId, scenarioId: 'WAIT'}});
   const campaignId = started.json?.started?.campaignId ?? null;
@@ -328,10 +349,22 @@ else {
 }
 
 await mkdir(OUT, {recursive: true});
+// A DIRTY TREE IS NOT REPRODUCIBLE FROM ITS COMMIT. The SHA is still a real 40-character identity, so the manifest is
+// well formed - but nobody can re-create this run from that commit alone, which makes it an evidence gap rather than a
+// silent detail. Recorded before the report so `reproductionComplete` accounts for it.
+if (softwareHead) {
+  note(`software identity observed from the checkout: utopia@${softwareHead} (tree ${softwareTreeClean ? 'clean' : 'DIRTY'})`);
+  if (softwareTreeClean === false) EVIDENCE_GAPS.push({what: 'checkout has uncommitted changes, so this run is not reproducible from its declared commit', head: softwareHead});
+} else {
+  note(`software identity NOT OBSERVABLE (${softwareIdentityFailure}); no independent execution was attempted`);
+}
 const report = {
   schema: 'rex890-opposite-host-reproduction-v1', at: new Date().toISOString(),
   host: LABEL, hostname: hostname(), platform: process.platform, node: process.version,
   city: CITY, artifact: ARTIFACT, artifactId: manifest.artifactId,
+  // The software identity is OBSERVED here, not assumed: it names the commit that ran this harness, which is what the
+  // campaign's exact software ref must mean.
+  software: {observedHead: softwareHead, treeClean: softwareTreeClean, source: softwareHead ? 'OBSERVED_FROM_CHECKOUT' : null, failure: softwareIdentityFailure},
   packageIntegrity: integrity, recipe: recipe.steps,
   rebuilt, receiptsSeen, recomputed, reportedMetrics: reported, pointerChecks,
   executed, inconsistencies: INCONSISTENCIES, evidenceGaps: EVIDENCE_GAPS, notes: NOTES,

@@ -37,3 +37,23 @@ test('HARNESS-RUNNABLE 2: the token comes from a FILE, never from the command li
   assert.ok(!/flag\('token'/.test(source),'there must be no --token option');
   assert.ok(!/argv\[[^\]]*\]\s*[^;\n]*token/.test(source),'no positional argument may be read as a token');
 });
+
+test('HARNESS-RUNNABLE 3: the software identity is OBSERVED from the checkout, never hardcoded',()=>{
+  // MEASURED DEFECT THIS PINS. The harness hardcoded `utopia@185d043e...` - the head the study was exported from - and
+  // the manifest contract rendered it as `exact: true` on every campaign the harness started. Measured against the
+  // City: a rehearsal running 6014f94 wrote a receipt declaring 185d043e with exact:true, and the campaign started
+  // after the fix declares 6014f9473c698b9eebf34b25450103b079f12d7b. A reproduction instrument that states the wrong
+  // software identity with `exact: true` manufactures the very provenance this programme exists to check.
+  const source=read('scripts/rex890-opposite-host-reproduce.mjs');
+  const refLine=source.split('\n').find(line=>line.includes('softwareRefs:'));
+  assert.ok(refLine,'the manifest must carry softwareRefs');
+  assert.ok(!/[0-9a-f]{40}/.test(refLine),`softwareRefs must not be a literal commit: ${refLine.trim()}`);
+  // The identity is read from the checkout that is running, and the report says so.
+  assert.match(source,/rev-parse',\s*\['?HEAD|'rev-parse', 'HEAD'|rev-parse HEAD/,'the identity must be read from the checkout');
+  assert.match(source,/OBSERVED_FROM_CHECKOUT/,'the report must state that the identity was observed');
+  assert.match(source,/treeClean/,'a dirty checkout must be recorded, not glossed over');
+  // And an identity nobody can observe must STOP the execution instead of inventing one: the manifest contract demands
+  // an exact 40-character ref, so there is no honest value to put there when the checkout cannot be read.
+  assert.match(source,/SOFTWARE_IDENTITY_UNOBSERVABLE/,'an unobservable identity must refuse the execution');
+  assert.match(source,/if \(!softwareHead\)/,'the refusal must actually gate the execution');
+});

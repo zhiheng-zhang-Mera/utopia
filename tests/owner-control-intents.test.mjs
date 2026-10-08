@@ -20,6 +20,8 @@ test('Agent request carries the actual instruction and still needs a title/purpo
  const out=prepare({text:'让 Alien 的 Agent 检查项目测试'});
  assert.equal(out.draft.kind,'AGENT_JOB');assert.equal(out.draft.targetDeviceRef,'dev-alien');assert.equal(out.draft.job.instruction,'检查项目测试');
  assert.equal(out.draft.job.title,'');assert.equal(out.draft.job.purpose,'');assert.equal(out.action,null);
+ const english=prepare({text:'ask the Agent on Alien to inspect the tests'});
+ assert.equal(english.draft.job.instruction,'inspect the tests');
 });
 test('device name ambiguity remains unselected, even if both are online',()=>{
  const out=prepare({text:'run git on Alien'}, {...context,nodes:[{id:'a',displayName:'Alien-PC',online:true},{id:'b',displayName:'Alien-Laptop',online:true}]});

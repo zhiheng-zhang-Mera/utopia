@@ -56,7 +56,7 @@ export function prepareOwnerControlAsk(request,context){
   if(executable&&!(context.remoteOperation?.allowlist??[]).includes(executable))missingFields.push('allowlisted executable');
   if(explicit===false)missingFields.push('valid argv JSON');
  }else{
-  job={title:quotedField(text,'title|标题'),instruction:quotedField(text,'instruction|指令')||/(?:\bagent\b|智能体)\s*[:：]?\s*(.+)$/i.exec(text)?.[1]||'',purpose,inputs:[]};
+  job={title:quotedField(text,'title|标题'),instruction:quotedField(text,'instruction|指令')||/\bagent\s+on\s+.+?\s+to\s+(.+)$/i.exec(text)?.[1]||/(?:\bagent\b|智能体)\s*[:：]?\s*(.+)$/i.exec(text)?.[1]||'',purpose,inputs:[]};
   for(const field of ['title','instruction','purpose'])if(!job[field])missingFields.push(field);
  }
  return {...base,status:'DRAFT_REQUIRED',message:'Nothing executed. Review the draft, fill required fields, and confirm on the control page. / 尚未执行；请检查草稿、补齐必填项并确认。',draft:{kind,requestText:text,...choice,operation,job,missingFields}};

@@ -1,6 +1,6 @@
 {
   "schema": "city-remote-operation-live-probe-v1",
-  "at": "2026-10-08T03:15:31.082Z",
+  "at": "2026-10-08T03:45:18.528Z",
   "city": "http://172.31.12.151:4310",
   "target": "dev-544adda130594c6fae7d71ddfd0f3b8c",
   "onlineNodes": [
@@ -10,7 +10,7 @@
     {
       "name": "the live City accepted a declarative dispatch",
       "ok": true,
-      "detail": "http=200 task=Q-34171dc6-8335-47bb-81f1-4fecf9c8e449"
+      "detail": "http=200 task=Q-95a80f01-db4a-4d22-bc69-08c2ee37cf05"
     },
     {
       "name": "the program really ran on the named node",
@@ -84,7 +84,7 @@
       "actionStatus": "QUEUED",
       "errorCode": null,
       "errorMessage": null,
-      "taskId": "Q-34171dc6-8335-47bb-81f1-4fecf9c8e449",
+      "taskId": "Q-95a80f01-db4a-4d22-bc69-08c2ee37cf05",
       "row": {
         "state": "COMPLETED",
         "assignedNodeId": "dev-544adda130594c6fae7d71ddfd0f3b8c",
@@ -98,7 +98,7 @@
           "stdout": "git version 2.51.2.windows.1\n",
           "stderr": "",
           "truncated": false,
-          "durationMs": 110,
+          "durationMs": 134,
           "error": null
         },
         "receipt": {
@@ -117,7 +117,7 @@
       "actionStatus": "QUEUED",
       "errorCode": null,
       "errorMessage": null,
-      "taskId": "Q-9e6672ab-ae3a-4dbf-b4bb-74f0e0b965e9",
+      "taskId": "Q-ce75c778-5258-44fc-bf91-7561cd3635f8",
       "row": {
         "state": "FAILED",
         "assignedNodeId": "dev-544adda130594c6fae7d71ddfd0f3b8c",
@@ -131,7 +131,7 @@
           "stdout": "",
           "stderr": "git: 'rev-parse;echo INERT' is not a git command. See 'git --help'.\n",
           "truncated": false,
-          "durationMs": 148,
+          "durationMs": 157,
           "error": "exit code 1"
         },
         "receipt": {

@@ -1,4 +1,4 @@
-﻿// Research artifact export: turn a set of REAL campaigns into an inspectable package.
+// Research artifact export: turn a set of REAL campaigns into an inspectable package.
 //
 // The workbook for this task names eleven sections (manifest, environment, topology, raw pointers, normalized dataset,
 // metrics.csv, failures, exclusions, tables, reproduction, checksums) and about two dozen metrics, and it is explicit
@@ -291,6 +291,23 @@ export function buildArtifact({cityId, generatedAt, environment = {}, topology =
     failures,
     exclusions,
     tables,
+    // THE RECORDS THE POINTERS POINT AT, carried by the package itself.
+    //
+    // rawPointers publishes `trace:<eventId>` for every record this export scoped in, and until now the BYTES were not
+    // in the package: a reproducer had to fetch them back from the City. That works only while the City still holds
+    // them, and the City's trace retention is bounded (a 256-record window over 2 MiB and ONE previous generation), so
+    // a package can outlive the state it points into. Measured: the dev study's 206 pointers resolved 206/206 from the
+    // durable store in the morning of 2026-10-08 and 0/206 the same afternoon, and the City's own backup was older
+    // than the study, so the evidence was gone from every store - while the package still published the pointers as if
+    // they were retrievable. Carrying the records make the package self-contained for exactly what it claims, and the
+    // coverage declaration makes it say how much that is.
+    traceExcerpt: {
+      records: copy(traceRecords ?? []).sort((a, b) => String(a.eventId).localeCompare(String(b.eventId))),
+      listed: (traceRecords ?? []).length,
+      captured: (traceRecords ?? []).filter(record => record?.eventId).length,
+      source: 'CITY_TRACE_AT_EXPORT',
+      note: 'these are the records this package points at, copied at export time; a pointer that is absent here was never published by this package',
+    },
     reproduction: {
       steps: [
         'read the raw pointers listed in rawPointers from the City that produced them (owner credential required)',
@@ -327,6 +344,10 @@ export function artifactFiles(artifact) {
     'exclusions.json': JSON.stringify({exclusions: artifact.exclusions}, null, 2) + '\n',
     'tables.json': JSON.stringify(artifact.tables, null, 2) + '\n',
     'reproduction.json': JSON.stringify(artifact.reproduction, null, 2) + '\n',
+    // One record per line so the file is a stream a reproducer can read without parsing the whole package, and sorted
+    // by eventId by buildArtifact so the same export always produces the same bytes.
+    'trace-records.jsonl': (artifact.traceExcerpt?.records ?? []).map(record => JSON.stringify(record)).join('\n') + ((artifact.traceExcerpt?.records ?? []).length ? '\n' : ''),
+    'trace-coverage.json': JSON.stringify(Object.fromEntries(Object.entries(artifact.traceExcerpt ?? {}).filter(([key]) => key !== 'records')), null, 2) + '\n',
   };
 }
 

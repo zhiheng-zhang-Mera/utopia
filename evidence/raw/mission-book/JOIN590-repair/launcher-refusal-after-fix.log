@@ -1,0 +1,38 @@
+✖ two installation launchers share one City across ports and recover the same identity after a crash (16.6067ms)
+✔ forgetting migrated enrollment cannot import the legacy credential again (1924.4314ms)
+✖ remote short code enrolls with a local member agent and reconnects without launching a host City (2.3082ms)
+✖ PRIMARY launcher reports successful MEMBER transition and normal main restart preserves it (2.986ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 1
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3051.924
+
+✖ failing tests:
+
+test at tests\host-city-launcher.test.mjs:13:1
+✖ two installation launchers share one City across ports and recover the same identity after a crash (16.6067ms)
+  Error: Host integration requires a free coordination port; refusing to disturb an active City
+      at TestContext.<anonymous> (file:///D:/Utopia-JOIN590-Review/tests/host-city-launcher.test.mjs:14:36)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+
+test at tests\host-city-launcher.test.mjs:90:1
+✖ remote short code enrolls with a local member agent and reconnects without launching a host City (2.3082ms)
+  Error: Host integration requires a free coordination port; refusing to disturb an active City
+      at TestContext.<anonymous> (file:///D:/Utopia-JOIN590-Review/tests/host-city-launcher.test.mjs:93:36)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+
+test at tests\host-city-launcher.test.mjs:114:1
+✖ PRIMARY launcher reports successful MEMBER transition and normal main restart preserves it (2.986ms)
+  Error: Requires a free local host reservation
+      at TestContext.<anonymous> (file:///D:/Utopia-JOIN590-Review/tests/host-city-launcher.test.mjs:115:33)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)

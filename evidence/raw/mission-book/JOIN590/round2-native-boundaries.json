@@ -1,0 +1,98 @@
+[
+  {
+    "trialId": "75b37cfb-4a54-462e-9e3e-46cda74d55b7",
+    "mode": "owner-code",
+    "event": "start",
+    "timestamp": "2026-10-05T09:37:13.426286Z",
+    "userActions": 0,
+    "retryCount": 0
+  },
+  {
+    "trialId": "75b37cfb-4a54-462e-9e3e-46cda74d55b7",
+    "mode": "owner-code",
+    "event": "action",
+    "timestamp": "2026-10-05T09:37:13.427384Z",
+    "userActions": 1,
+    "retryCount": 0
+  },
+  {
+    "trialId": "75b37cfb-4a54-462e-9e3e-46cda74d55b7",
+    "mode": "owner-code",
+    "event": "relayasking",
+    "timestamp": "2026-10-05T09:38:13.731281Z",
+    "userActions": 1,
+    "retryCount": 0
+  },
+  {
+    "trialId": "75b37cfb-4a54-462e-9e3e-46cda74d55b7",
+    "mode": "owner-code",
+    "event": "relaywaiting",
+    "timestamp": "2026-10-05T09:38:13.752777Z",
+    "userActions": 1,
+    "retryCount": 0
+  },
+  {
+    "trialId": "75b37cfb-4a54-462e-9e3e-46cda74d55b7",
+    "mode": "owner-code",
+    "event": "retry",
+    "timestamp": "2026-10-05T09:41:14.844430Z",
+    "userActions": 1,
+    "retryCount": 1
+  },
+  {
+    "trialId": "6058df0d-afac-4746-b171-3846d1458f31",
+    "mode": "owner-code",
+    "event": "start",
+    "timestamp": "2026-10-05T10:00:38.518530Z",
+    "userActions": 0,
+    "retryCount": 0
+  },
+  {
+    "trialId": "6058df0d-afac-4746-b171-3846d1458f31",
+    "mode": "owner-code",
+    "event": "action",
+    "timestamp": "2026-10-05T10:00:38.520449Z",
+    "userActions": 1,
+    "retryCount": 0
+  },
+  {
+    "trialId": "6058df0d-afac-4746-b171-3846d1458f31",
+    "mode": "owner-code",
+    "event": "relayasking",
+    "timestamp": "2026-10-05T10:00:41.301720Z",
+    "userActions": 1,
+    "retryCount": 0
+  },
+  {
+    "trialId": "6058df0d-afac-4746-b171-3846d1458f31",
+    "mode": "owner-code",
+    "event": "relaywaiting",
+    "timestamp": "2026-10-05T10:00:41.320669Z",
+    "userActions": 1,
+    "retryCount": 0
+  },
+  {
+    "trialId": "145a1cea-8b57-4422-ae7d-44b496cf8f50",
+    "mode": "mdns",
+    "event": "start",
+    "timestamp": "2026-10-05T10:03:13.420382Z",
+    "userActions": 0,
+    "retryCount": 0
+  },
+  {
+    "trialId": "145a1cea-8b57-4422-ae7d-44b496cf8f50",
+    "mode": "mdns",
+    "event": "action",
+    "timestamp": "2026-10-05T10:03:13.421209Z",
+    "userActions": 1,
+    "retryCount": 0
+  },
+  {
+    "trialId": "145a1cea-8b57-4422-ae7d-44b496cf8f50",
+    "mode": "mdns",
+    "event": "retry",
+    "timestamp": "2026-10-05T10:03:42.617643Z",
+    "userActions": 1,
+    "retryCount": 1
+  }
+]

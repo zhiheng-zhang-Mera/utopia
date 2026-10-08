@@ -98,3 +98,23 @@ test('REX807 actual campaign storage failure cannot render an idle run',()=>rig(
  assert.match(await page.locator('#research-alerts').innerText(),/Campaign storage is unavailable/);
  assert.doesNotMatch(await page.locator('#research-run').innerText(),/No run is live/);
 }));
+
+test('REX807 the primary-surface guard runs on the shipped page, not only inside its own test',()=>rig(async({page,enter})=>{
+ // The workbook's claim is that the primary surfaces stay free of research controls and that this guard "is data, not a
+ // convention". As shipped it was neither: researchView() was called without primarySurfaces, so view.primarySurfaces was
+ // always empty and only tests/rex807-surface.test.mjs ever executed the check. The page now derives the list from the
+ // REAL navigation, so this test performs the edit the guard exists to refuse - promoting Research out of the Advanced
+ // group - and requires the shipped page to reject it rather than quietly render a research control on Home.
+ const pageErrors=[];
+ let refusePromotion=()=>{};
+ const refused=new Promise(resolve=>{refusePromotion=resolve;});
+ page.on('pageerror',error=>{const message=String(error?.message??error);pageErrors.push(message);if(message.includes('PRIMARY_SURFACE_POLLUTED'))refusePromotion(message);});
+ await enter();
+ assert.deepEqual(pageErrors,[],'the shipped page must render without a page error');
+ await page.evaluate(()=>{const nav=document.querySelector('nav');nav.insertBefore(nav.querySelector('[data-page="Research"]'),nav.querySelector('.nav-group'));});
+ await page.locator('#research-refresh').click();
+ // The refusal escapes show(), so it arrives as a page error rather than as field text - the same shape the workbook's
+ // "a later edit cannot ship unconfirmed" requirement takes everywhere else on this surface.
+ const verdict=await Promise.race([refused,new Promise(resolve=>setTimeout(()=>resolve(null),10000))]);
+ assert.ok(verdict,`promoting Research onto the primary nav must be refused by the page: ${pageErrors.join(' | ')}`);
+}));

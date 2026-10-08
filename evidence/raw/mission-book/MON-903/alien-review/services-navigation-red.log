@@ -1,0 +1,39 @@
+✖ Services: an old invocation cannot mark a new editor busy or clear its newer invocation (1216.6075ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3965.5947
+
+✖ failing tests:
+
+test at tests\services-navigation-review.test.mjs:7:1
+✖ Services: an old invocation cannot mark a new editor busy or clear its newer invocation (1216.6075ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    {
+  +   calls: 1,
+  +   disabled: false,
+  +   finished: 'RUNNING',
+  +   reentered: 'RUNNING',
+  -   calls: 2,
+  -   disabled: true,
+  -   finished: 'COMPLETED',
+  -   reentered: '',
+      whileNew: 'RUNNING'
+    }
+  
+      at TestContext.<anonymous> (file:///D:/Utopia-MON903/tests/services-navigation-review.test.mjs:19:13)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { calls: 1, reentered: 'RUNNING', whileNew: 'RUNNING', disabled: false, finished: 'RUNNING' },
+    expected: { calls: 2, reentered: '', whileNew: 'RUNNING', disabled: true, finished: 'COMPLETED' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

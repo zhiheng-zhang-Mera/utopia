@@ -44,8 +44,9 @@ export async function serveWeb(res, urlPath) {
   } catch {
     return false;
   }
-  const candidate = resolve(WEB_ROOT, normalize(decoded).replace(/^([/\\])+/, ''));
-  if (candidate !== WEB_ROOT && !candidate.startsWith(WEB_ROOT + sep)) return false;
+  const sharedLabels = decoded === '/contracts/device-platform/labels.mjs';
+  const candidate = sharedLabels ? resolve(WEB_ROOT, '../../contracts/device-platform/labels.mjs') : resolve(WEB_ROOT, normalize(decoded).replace(/^([/\\])+/, ''));
+  if (!sharedLabels && candidate !== WEB_ROOT && !candidate.startsWith(WEB_ROOT + sep)) return false;
 
   let info;
   try {

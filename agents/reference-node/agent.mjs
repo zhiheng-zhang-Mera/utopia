@@ -12,7 +12,10 @@ export async function startAgent({url,token,workspace='.runtime/workspace',id='h
  // its hardware. `platform()` alone is Node's internal token ("win32") and cannot tell Windows 11 from Windows 10, so
  // the full fact set (name, release, architecture, hostname, runtime) travels with registration.
  const facts=()=>platformFacts({os:{platform,release,arch,hostname,version:osVersion}});
- const register=()=>api('register',{id,displayName,metadata:facts(),capabilities:['task.execute.safe','filesystem.temp'],...metrics()});
+ // `city.remote-operation.v1` is advertised only because THIS build implements the node half of an owner remote
+ // operation. A node that does not say it has it is never offered one, so an older agent on a machine that has not
+ // been updated is skipped by name instead of being handed a task it will answer with a legacy-shaped result.
+ const register=()=>api('register',{id,displayName,metadata:facts(),capabilities:['task.execute.safe','filesystem.temp','city.remote-operation.v1'],...metrics()});
  const tick=async()=>{
   if(stopped)return;
   try{try{await api('heartbeat',{id,...metrics()});}catch{await register();}

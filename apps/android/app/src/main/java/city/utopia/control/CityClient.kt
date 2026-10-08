@@ -92,7 +92,7 @@ class CityClient(context: Context, private val host: String, token: String, priv
       val raw = response.body?.string() ?: "{}"
    // UNION: every widened typed-refusal path is kept - capabilities/invocations (base), research/trace (REX-802),
    // the scheduler switch-declined route (CEX-702) and the member-management device routes (CEX-705).
-   if (!response.isSuccessful && (path.startsWith("capabilities/") || path.startsWith("capability-invocations/") || path=="research/trace" || path.endsWith("/switch-declined") || path.startsWith("device/installations") || path.startsWith("members/messages") || path.startsWith("join/requests") || path.startsWith("pairing/") || path=="node/sharing" || path=="city/name")) {
+   if (!response.isSuccessful && (path.startsWith("capabilities/") || path.startsWith("capability-invocations/") || path=="research/trace" || path.endsWith("/switch-declined") || path.startsWith("device/installations") || path.startsWith("members/messages") || path.startsWith("join/requests") || path.startsWith("pairing/") || path=="node/sharing" || path=="city/name" || path.startsWith("node/operations") || path.startsWith("node/jobs") || path=="actions" || path=="ask" || path.endsWith("/cancel"))) {
     val error = runCatching { JSONObject(raw) }.getOrNull()
 throw CapabilityRequestException(error?.optString("errorCode")?.takeIf { it.isNotBlank() } ?: "HTTP_${response.code}",response.code,error?.optString("error")?.takeIf { it.isNotBlank() } ?: "Request failed: ${response.code}")
    }
@@ -226,6 +226,10 @@ throw CapabilityRequestException(error?.optString("errorCode")?.takeIf { it.isNo
  fun researchTrace(done:(JSONObject)->Unit) { submit { deliver(row("research/trace"),done) } }
  // REX-807: run observation. Read-only like researchTrace above - the phone observes, the Web authorises.
  fun researchCampaigns(done:(JSONObject)->Unit) { submit { deliver(row("research/campaigns"),done) } }
+ fun ownerControls(kind:String,done:(JSONObject)->Unit) { submit { deliver(row(if(kind=="REMOTE_OPERATION")"node/operations" else "node/jobs"),done) } }
+ fun dispatchOwnerControl(body:JSONObject,done:(JSONObject)->Unit) { submit { deliver(row("actions",body),done);refresh() } }
+ fun cancelOwnerControl(taskId:String,done:(JSONObject)->Unit) { submit { deliver(row("tasks/"+java.net.URLEncoder.encode(taskId,"UTF-8")+"/cancel",JSONObject()),done);refresh() } }
+ fun collectAgentJob(taskId:String,done:(JSONObject)->Unit) { submit { deliver(row("node/jobs/"+java.net.URLEncoder.encode(taskId,"UTF-8")+"/consumed",JSONObject()),done);refresh() } }
  fun actions(limit: Int, done: (JSONObject) -> Unit) { submit { deliver(row("actions?limit="+limit.coerceIn(1,200)),done) } }
  fun actionDetail(actionId: String, done: (JSONObject) -> Unit) { submit { deliver(row("actions/"+java.net.URLEncoder.encode(actionId,"UTF-8")),done) } }
  /**

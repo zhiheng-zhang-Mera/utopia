@@ -1,0 +1,12 @@
+{
+  "at": "2026-10-05T11:34:00.866Z",
+  "scope": "physical revoked Windows normal launcher refusal",
+  "launcherExitCode": 1,
+  "launcherMessage": "Member agent did not become ready",
+  "selectedRole": "MEMBER",
+  "cityId": "031fdba6-e94c-4298-a095-6ff04a65481d",
+  "hostReservationPresent": false,
+  "primaryFallbackStarted": false,
+  "refusalCodeObserved": "INSTALLATION_RETIRED",
+  "refusalHttpStatusObserved": 403
+}

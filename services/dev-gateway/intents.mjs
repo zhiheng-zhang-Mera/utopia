@@ -17,9 +17,10 @@
  */
 
 import { ROOM_OPERATIONS, CAPABILITY_OPERATIONS, CITY_TASK_TYPES } from './actions.mjs';
+import {ownerControlTargets} from './owner-control-intents.mjs';
 
 /** Every target the manual picker can offer, with its own truth. */
-export function buildTargets({ roomState, capabilities, cityAvailability, roomsAvailable }) {
+export function buildTargets({ roomState, capabilities, cityAvailability, roomsAvailable, ownerControls }) {
   const targets = [];
 
   for (const [operation, meta] of Object.entries(ROOM_OPERATIONS)) {
@@ -71,6 +72,7 @@ export function buildTargets({ roomState, capabilities, cityAvailability, roomsA
     });
   }
 
+  if(ownerControls)targets.push(...ownerControlTargets(ownerControls));
   return targets;
 }
 

@@ -1,0 +1,38 @@
+{
+  "capturedAt": "2026-10-05T10:54:51.396701+00:00",
+  "reviewSourceSha": "b91677d1478950feb79742f618d0c981773d5bb7",
+  "correctionSoftwareSha": "ec3b6f996240ca71505b3b67af12cc222d1b283a",
+  "author": "Alien-codex",
+  "physicalApplicationId": "city.utopia.control.join590review",
+  "applicationIdHarnessDifference": true,
+  "apkSha256": "970839d29a3066e01ecee8aab3040f9dc2ac81959727b144ab0694dd3d183800",
+  "originalAppPreferencesByteUnchanged": true,
+  "round4Request": "join-c301d67807",
+  "round4Result": "APPROVAL_TIMEOUT_NO_OBSERVED_APPROVAL",
+  "physicalDurableEnrollment": "NOT_RUN",
+  "physicalRetirement": "NOT_RUN",
+  "androidUnitTests": 91,
+  "androidUnitFailures": 0,
+  "focusedGatewayTests": 28,
+  "focusedGatewayFailures": 0,
+  "fullSuite": {
+    "pass": 1245,
+    "fail": 3,
+    "total": 1248,
+    "liveHostInterferenceObserved": true
+  },
+  "hostRecovery": {
+    "role": "PRIMARY",
+    "cityId": "e1d87b2a-0ec5-457e-822b-91d81e40dc67",
+    "gatewayPid": 40720
+  },
+  "acceptance": "INCOMPLETE",
+  "artifacts": {
+    "android-unit-summary.json": "9ce58d8c5e6b65df0bf33ab49ad5e96496eebd18e40e24b65e426e53632ca8a1",
+    "focused-tests.log": "84d0a2c7b981095482935ba47eedfe077c4293ff0a7b479e17245879fffcb186",
+    "launcher-refusal-after-fix.log": "649ecf42d7dc47c144e4a6956ec3700f6651b7f2a94c2ed081926a2686821c52",
+    "root-tests-with-live-host.log": "4c2a4e507b26d918777643a5be59021c30f6f7647a0b353a1b16bdcd6d575b17",
+    "round4-request.xml": "35595c76930a6d2e616ac1e69615df2d38e0877d70b3d248a24a39bcb20e28d6",
+    "round4-timeout.xml": "a07791d2fd13f68ea1ca28beaeff8fd05d14b0ba2c1d066829646ef28f501ed8"
+  }
+}

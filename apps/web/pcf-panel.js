@@ -1,0 +1,15 @@
+const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+export function renderFabricPanel(projection,locale='en',draft='',appId='cpu-sort',output=''){
+ const zh=locale==='zh-CN';
+ const title=zh?'高级：个人算力织网':'Advanced: personal compute fabric';
+ const absent=zh?'当前身份无法读取算力织网状态':'Fabric status is unavailable to this identity';
+ if(!projection)return `<details><summary>${title}</summary><p>${absent}</p></details>`;
+ const pending=zh?'候选完整流待验证；资源共享不代表执行器就绪。':'Complete-flow candidate awaits verification; sharing does not imply executor readiness.';
+ const controls=projection.controls?.enabled===true?`<p>${zh?'已批准的本机应用；异机验证仍待完成。':'Approved local applications; opposite-host verification remains pending.'}</p><form id="pcf-app-form"><label>${zh?'应用':'Application'} <select name="appId"><option value="cpu-sort" ${appId==='cpu-sort'?'selected':''}>${zh?'数字排序':'Sort numbers'}</option><option value="cpu-sum" ${appId==='cpu-sum'?'selected':''}>${zh?'数字求和':'Sum numbers'}</option></select></label><label>${zh?'数字（以逗号分隔）':'Numbers (comma-separated)'} <input name="values" id="pcf-values" value="${escape(draft)}" maxlength="16384" required></label><button>${zh?'在本机运行':'Run locally'}</button></form>${(projection.tasks??[]).map(t=>`<p>${escape(t.appId)} · ${escape(t.state)} ${t.state==='COMPLETED'?`<button data-pcf-action="collect" data-pcf-task="${escape(t.id)}">${zh?'读取结果':'Read result'}</button>`:['QUEUED','RUNNING'].includes(t.state)?`<button data-pcf-action="cancel" data-pcf-task="${escape(t.id)}">${zh?'取消':'Cancel'}</button>`:''}</p>`).join('')}<pre id="pcf-output">${escape(output)}</pre>`:`<button disabled>${zh?'本机服务未启用':'Local service is not enabled'}</button>`;
+ // Active risk and partial/unknown data bubble to the overview: a calm panel must never stand in for an unresolved task.
+ const risk=projection.activeRisk?.present===true?`<p data-pcf-risk="active">${zh?'需要 Owner 关注':'Needs Owner attention'}: ${projection.activeRisk.items.map(item=>escape(item.id+' · '+item.attention)).join(', ')}</p>`:'';
+ const partial=projection.completeness==='PARTIAL'?`<p data-pcf-risk="partial">${zh?'部分数据':'Partial data'}: ${escape(projection.unknown?.reason??'UNKNOWN')}</p>`:'';
+ return `<details id="pcf-panel"><summary>${title}</summary><p>${pending}</p><p>${escape(projection.state)} · ${zh?'运行':'Running'}: ${escape(projection.running)} · ${zh?'预留':'Reservations'}: ${escape(projection.reservations)}</p><p>${zh?'回执返回':'Result returned'}: ${escape(projection.resultReturned)} · ${zh?'Agent 已消费':'Agent consumed'}: ${escape(projection.agentConsumed)}</p>${risk}${partial}${controls}</details>`;
+}
+
+export function parseFabricNumbers(value){const chunks=String(value).split(',');if(!chunks.length||chunks.length>1024||chunks.some(x=>!x.trim()))throw new Error('Enter up to 1024 comma-separated numbers.');const values=chunks.map(x=>Number(x.trim()));if(values.some(x=>!Number.isFinite(x)))throw new Error('Every value must be a finite number.');return values;}

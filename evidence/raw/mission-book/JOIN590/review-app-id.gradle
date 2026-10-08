@@ -1,0 +1,7 @@
+gradle.beforeProject { app ->
+    app.pluginManager.withPlugin('com.android.application') {
+        app.extensions.getByName('androidComponents').finalizeDsl { android ->
+            android.defaultConfig.applicationId = 'city.utopia.control.join590review'
+        }
+    }
+}

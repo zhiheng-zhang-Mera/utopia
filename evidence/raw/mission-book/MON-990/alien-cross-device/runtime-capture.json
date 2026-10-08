@@ -1,0 +1,5348 @@
+{
+  "sourceSha": "523eb472e8b21d069e914fa6e862406bc33df092",
+  "measuredAt": "2026-10-06T05:42:42.289Z",
+  "host": "MERA-ALIANWARE",
+  "fixture": "REAL_ISOLATED_GATEWAY_WITH_CONTROLLED_CANONICAL_NODE_REPORTS",
+  "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505",
+  "device": {
+    "serial": "BICIPVNB5HS85H9T",
+    "model": "PERM00",
+    "sdk": "31",
+    "package": "city.utopia.control.mon990review",
+    "variant": "monitorReviewVariant=true; applicationId/version suffix only",
+    "apkSha256": "e5224b8ef4da21c98711bdde57fdda6264777ea8c4331f3d6ef2a34ef804758f"
+  },
+  "canonicalTask": {
+    "id": "Q-34e4b0b0-e803-4d1f-bc2c-5a6198bbc7ce",
+    "type": "WAIT",
+    "domain": "system",
+    "state": "FAILED",
+    "createdAt": "2026-10-06T05:37:42.552Z",
+    "updatedAt": "2026-10-06T05:37:43.134Z",
+    "assignedNodeId": "controlled-worker",
+    "progress": 60,
+    "lastCheckpoint": null,
+    "result": null,
+    "error": "Controlled fixture endpoint refused work"
+  },
+  "canonicalSurfaces": [
+    {
+      "clientRef": "android-PERM00",
+      "clientLabel": "PERM00",
+      "connectedAt": "2026-10-06T05:37:44.511Z"
+    },
+    {
+      "clientRef": "dev-1c8c2aee650f4a3fb739897e3a57e505",
+      "clientLabel": "Web · Win32",
+      "connectedAt": "2026-10-06T05:42:09.330Z"
+    }
+  ],
+  "graph": {
+    "schemaVersion": 1,
+    "authoritative": false,
+    "projectionOf": {
+      "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505",
+      "observedAt": "2026-10-06T05:37:43.147Z",
+      "projectedAt": "2026-10-06T05:37:43.147Z",
+      "health": "PARTIAL",
+      "reportedHealth": "PARTIAL",
+      "scope": "BOUNDED_CANONICAL_WINDOW",
+      "eventSource": "CANONICAL_GATEWAY_STORE"
+    },
+    "nodes": [
+      {
+        "id": "controlled-worker",
+        "kind": "HOST",
+        "label": "Controlled review worker",
+        "state": "ONLINE",
+        "hostRef": null,
+        "progress": null,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": []
+      },
+      {
+        "id": "Q-34e4b0b0-e803-4d1f-bc2c-5a6198bbc7ce",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "FAILED",
+        "hostRef": "controlled-worker",
+        "progress": 60,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "TASK_FAILED",
+            "level": "ACTIVE",
+            "detail": "The task is FAILED in the canonical City.",
+            "evidenceRef": "e4cb603d-bb6e-4497-9251-d9c064d6fd1c"
+          },
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "77fbd6c2-cf7a-4a74-8201-d22c44f1d6f4",
+          "c7ecc353-8317-4023-9d5d-dbaec9a883a4",
+          "e4cb603d-bb6e-4497-9251-d9c064d6fd1c",
+          "efc7c934-0621-4d2e-8159-f73306f53dca"
+        ]
+      },
+      {
+        "id": "Q-429711ec-0cae-4d2d-b16e-5f2e52e1ee4a",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-56f3260b-48eb-4439-9baf-dd6e088d7dfe",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-a69fcf58-bd55-4463-bfd4-6059fe6cc13d",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-c81e3aec-4bd7-43e5-875e-be7bb311f9b1",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-c344c223-5603-4400-90e0-bf19505b2e6d",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-e8dcc089-c70c-403e-b30a-a3565292eb5a",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-8afb82ad-1952-4286-bb6e-e902cb35e213",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-64038dfb-cbfd-4da1-bc9d-c4e1a7c02367",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-e01857df-41de-4e18-aced-f70576050bfb",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-56b8c171-016c-4f18-a242-9130f1e24c26",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-a678d7b6-48ee-4be7-a30d-0c66fe8f21d0",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-61fc9e17-3b9b-43c8-9329-9898dfa1ca54",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-e2f63f71-c45b-4070-844e-97a3fb851e50",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-8127c05c-a4f7-4603-9a00-ae18c9339d77",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-fd6d77e7-984e-43ba-aab4-bd31e8fab9e0",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-db02e787-b3d5-421e-8fa5-c324d2f50500",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-514fcc2a-bff0-472b-b0e4-a2b806b45f25",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-7bf069f0-f63c-443e-87fa-6ddbce7ab99d",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-700dbe3e-ec88-41a9-b093-7290362e0454",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-31f2063f-0ce0-4243-8584-19926990938f",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-72dc0542-08c8-45b1-aa31-eadbca434909",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-764cc89f-bd16-47c6-b505-800ef2eb8afa",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-0277e902-8ea0-451d-83f0-1fd6b33c0927",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-132e164f-610a-4d94-9272-b3bcbfe72896",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-1964f78c-ddae-4af8-82ea-60fee111e0a6",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-d0a16b16-9343-4c76-ad80-30dc6ecc3cc1",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-6d7a7b22-b5bc-44a7-9487-67a24c6d2085",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-c8bd1f98-38b7-4211-add1-85cf2b9fd473",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-6823fe32-62aa-4308-882e-69275c4c841a",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-93448526-31fb-404f-b3dd-5f5c6f8c0bd6",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-d60e3cd3-3627-4ed4-aa40-28451b122966",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-9240b6ca-06e2-48d3-b9fd-78f99268a139",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-8a238f65-0440-4fdb-b2a3-e98e94a75b3e",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-8c51d3f7-c906-45d2-ac4c-294dd0206fab",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-f0881c8e-c62b-43cc-a6a2-6e0127a55817",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-51b26708-bb73-4eeb-81e6-685252dfe076",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-8bb00b5f-db95-41b0-875e-54f49ed8f835",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-3d5f2367-dd23-43ae-83fd-ebfe970b01ff",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-eb236a01-df60-45b7-a176-17441edb00c3",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-749f470e-8a4b-45c1-a285-3130cdcb7b8c",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-1162aa71-d85d-40d6-86b9-ace69f10b952",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-f919e8e7-e4ed-41e6-8c5d-43b790173936",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-7f1feaa5-9df8-434d-837d-e2b2c5936630",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-fe740c2e-9661-4636-afd9-b238359b4710",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-043d9490-088a-4b6f-89ec-ffc2340e1add",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-90b7cdde-aa9e-42ff-bdd8-57388af51d92",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-d8b192a2-4287-4253-99a2-663edf035c35",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-466324fa-318d-41f4-80c6-1ac40d1f09cc",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-74f8eec0-43d1-4dd9-9648-d324261c28a9",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-3ad1bbfb-6635-429f-a7de-e0697f859f44",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-7c588307-2fe8-464c-837a-2150bfc0159f",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-38640af1-843a-4ac9-8b67-52ea97524dbf",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-a522dbe1-88ba-495b-b2ac-cb81ca2f3910",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-7b1ea754-84fb-42de-abd3-f75aa018e9a0",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-89a9a078-1e74-454d-b52f-0a0fcacd0fff",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-737af1f0-9552-4bde-a14b-009fa435cd55",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-5688f18b-d639-4a66-a4e8-5514320aa942",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-b3af7535-e2e4-40ca-b731-25ee16d2dbf8",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-421d94c7-860e-4c85-b36d-197fca194278",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-0d174235-0dd4-4e54-846d-fb91c91846d8",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-5113ec06-ccb1-4f1c-af2b-77c6ed1f98af",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-dba41f70-347c-4787-b31a-8c505d99b92d",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-588c0efb-3712-4c1b-a200-45d1cf793aef",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-a6e8c5c8-75a1-4f9e-abe8-9e951c24b471",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-6f37169e-4ce2-4d63-86bc-e20ffeeb40ad",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-029db8be-c23d-4d53-ab60-9c74a48d412d",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-9a322170-3dd6-4f6d-93a8-61f20c8ee787",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-699d10d9-693c-4542-830c-6d29d6ae1514",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-586a28e6-f70b-4a15-a307-f68576b30a66",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-7b478147-808b-41ce-a3e9-c4b24f199cee",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-6285cdb9-0516-4b33-9ea1-7cc75c36ba55",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-ac7c100a-ed3a-419d-99a1-c5ccb2afbc3d",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-04958f30-7451-4063-aec3-cf5ce0efbe8c",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-d8652e6f-c6b5-46ce-b34d-fc2df9cd6521",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-0759bd4a-fdc8-46dc-ab0d-3dec49ebd9e7",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-e64f75ae-db62-481e-bb96-4ed49a53b759",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-e9514514-9ba3-4951-b174-99e5a765738a",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-ba5f4924-c069-4302-b87d-432613d4dd0d",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "09ae44d7-e4b7-4d5a-867d-5e6d1c160da3",
+          "c681a11c-0c5b-4b53-aa15-d8593b280b81"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-3803c6a9-a8c3-45b8-81a1-86d767fae031",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "e5a4253f-20a5-438b-aef8-51a377a4dd76",
+          "d2457c84-d38e-46d1-8500-af98b36a435b"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-9a3f0110-67c3-4626-8a15-33593a43c211",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "c875a432-fe27-4529-bd85-a3d26018be7d",
+          "006d4f91-6b72-4661-933f-3b4de9818e89"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-669503a2-2f20-45cd-b0ea-87c72bdb9ae6",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "ea4d2c15-2e04-4cbb-9e8c-c38b073dbc10",
+          "a57b902e-e6e5-4bac-ae7c-83308889d4a6"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-cb1db54c-97c1-43aa-a152-e5c863a1c875",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "43ebc877-2a52-4bb3-88dd-1e52d823b4ea",
+          "7f014253-4ef6-4786-a0a6-4a35471150c1"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-f4054c79-6e8c-458a-9714-a7a70dbaed07",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "807dd421-a30f-48b6-98d0-6d55b7e20693",
+          "837eafc8-854e-44e8-88b1-d4e35e12eccf"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-e5e4625c-493f-42f8-b375-8cc7dea51809",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "505eea85-a739-4b89-aa15-0aaee8bbd087",
+          "157ec6eb-d243-4616-afe7-2c8034e7d15e"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-1908d43d-c13c-49ad-8767-f40446806fd4",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "787f6955-b3f2-4777-879e-5daee3802203",
+          "d66a9532-4d86-4e28-869a-12c760f3bfe5"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-40df9acc-2bf9-4424-8ec5-c7a88cc0cfc2",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "63a636cc-911e-4a29-bfba-3dfeb09a7c2e",
+          "e6b1486b-db72-4edf-84f9-f8c9e06b727d"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-880e6317-05b4-44a7-93cb-9213efef8bf7",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "13f4505b-3a34-46e8-876a-ffc300d9e49b",
+          "cbaf7775-7f82-41a4-aecf-19b2526ef34f"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-f95bbf43-a1c6-4728-8d88-fbf4e19fd36b",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "d2a10df0-34c9-48cc-aaab-52fc1c59c583",
+          "93d364ca-9c58-435e-a0f9-71f51b0c66b1"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-1b8691e8-4f93-4fae-9690-8f24ae44f915",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "2013f217-0f51-40e6-a4e4-11c694261111",
+          "c76dc3f6-a1f8-4102-a3dd-0a67b0764da1"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-00ec3c38-fbc1-426d-b1ce-ac56db037b7e",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "3b5468ee-ba0b-49c5-ab42-d4e94b89cb59",
+          "26023599-1b00-412c-aea0-35f9dd98f327"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-b310bc58-6ada-4711-b001-4e866757ffab",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "abca02cc-1f89-4a61-add3-a7a2cad21c30",
+          "09462532-79dc-45b5-87e8-8b129af22181"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-dad18c59-e993-45fb-b6f8-36d1daa79a42",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "859d8d7d-3d35-4b64-9033-a8c17de08623",
+          "6266db23-d2a8-4afe-818c-2bc15a47a22a"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-761f8a80-2f34-482f-9b26-a61e74aeec2d",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "891e1155-c8b9-4546-b9bf-02dc8cd6ad8a",
+          "581fa031-6ce6-44d7-980a-fdfcabd4b14e"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-994318a6-68e4-4720-a0c6-4c0d419c815c",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "7f3c9dfa-3525-4934-a6d6-3164be2baa63",
+          "637cc16c-a1da-4ed4-819c-ebde33721ea9"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-b5c90558-9fc0-494e-81bf-1046f7bd0664",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "2a5500f3-ed71-44d5-ac17-3ff67e6775b7",
+          "24075b99-87b1-4500-a76e-d58295db8052"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-e6d0bbb7-1b1f-4b5c-9b67-f8b6b425052d",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "1f3b08b3-0e02-46b4-a8f3-53f140172338",
+          "b0dee5b9-6fdc-4021-a629-dbc1aa165628"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-fd520c8e-2af2-4d02-9803-8464df1a240a",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "cf16d114-13f7-48ff-ad8e-ccf26e0282a2",
+          "7d804b0f-8d2d-460b-9072-8b44ccd6b493"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-d9b11779-a5ab-439c-9d47-291f449234a7",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "8bc02bfc-1b58-4905-886f-881f5500f33b",
+          "ac76c11a-e50f-4598-a157-f3608c260394"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-8add678c-8b5b-4a46-b1f0-a48025c0acdf",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "4ce45a06-3741-4e60-afb2-47f74bb72e86",
+          "8d52a910-1976-4aaa-93ea-9374776be7dc"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-2f3bd326-38a7-4e21-8004-996f9a80ca28",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "c6a3e29e-6728-4c34-8031-e56e29faad4d",
+          "f25376d6-2a2a-4790-be2b-8bfc538e0934"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-e5d1cb57-8e41-4a1c-8d87-06d5ae198ea5",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "49c3191b-992a-4de2-ac07-0328c5e21e81",
+          "c80d97ec-a97b-4595-aab5-bb0d3bb5a746"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-8e576e1c-00e3-4227-919f-4c302a6c02b1",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "af9a25cd-f2aa-4999-a907-8e61de836871",
+          "57717bc3-bd0a-451a-a4fb-c49301fffba7"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-c39aebbd-4bcf-4c0d-acd6-0224f11b76d0",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "88f7c685-6988-45cd-9240-3357dcd00023",
+          "f9dcbe41-6fa8-4c58-a5a5-0be58d10dd8d"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-48c0d35e-c237-4d07-b93f-c0904792ab33",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "3a250b30-fce3-4600-899b-ac755e4f7b89",
+          "65cab491-a3dd-46d0-bdaf-6ed15b8a49d6"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-4cd5c563-4aad-4af4-ae63-a96834ca01e6",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "07bb3c19-a6b1-4b38-83ba-a2651a072c2b",
+          "e3559862-6590-4b5b-92bf-bf1ce1aec82d"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-c5a94766-1400-4094-a5a9-0317cbca7647",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "a76462ed-1e1b-481d-8c70-c4ae9d3399e4",
+          "ac82247d-edc7-4c33-8fb7-aecb4cbb5d33"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-4d591594-9b88-4b14-a273-3f61f49c49ee",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "7409407a-b71e-4e38-889b-4eff6aefcb29",
+          "b5d3d671-eb64-4242-a427-dd70011de7f2"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-28d9984f-5cf5-4634-983a-54b18ed1cbf3",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "cab0ee83-6c55-4dd3-a379-c94c94f57e3d",
+          "2a038508-e89a-4d73-8cf2-5e7d0e365ada"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-96738e7f-84d4-4aa6-afb2-55720e100d1a",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "18dcdd64-387d-4cbd-8daf-c0080ccb67c2",
+          "0700dc15-6317-419e-aef4-d2c9dd4060cc"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-3895fe31-b320-47b6-ad62-a76d02397757",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "b658ee57-211c-4554-9646-a68a8b7e7a2b",
+          "1e3ac8ea-fb41-43d1-ae01-7504f83fd6bd"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-45cff988-3f99-403c-b069-c15d2271900b",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "424c40f1-687f-401a-a040-259d43579c6c",
+          "a769c338-b6e7-455c-9c2b-42032a9af28f"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-d932f8f4-5e3f-4c09-9d37-603ffefa191c",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "a2d75544-61fc-4a81-b4b4-a7f992c276f2",
+          "08b0e1a5-3924-4b0d-8db9-41bb389b4f95"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-6018ab15-3646-4d41-953c-bc6805fac381",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "60d57ae3-e112-400c-8422-b09e520e9b3a",
+          "aea5e678-9c35-4be0-8efc-b589f6a778f3"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-356aea62-9872-463f-9192-e58c0183acad",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "fc8bef43-7aa3-486f-bf46-addb606a038c",
+          "db9da193-c651-4c56-9f13-0be5a2f5b717"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-d6be7231-0b3a-43e2-8e53-4ff1308de6ef",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "a7da707b-f3b9-41a4-bc04-69d83d87420b",
+          "958ea199-224c-4f88-814d-8d4a813a70e5"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-1aea2f90-d063-455e-b064-bc204af794a0",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "9427176d-c92f-46a8-a5d4-18175f98dd7d",
+          "ba141e28-29d9-4d3c-a6aa-77f932974320"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-dffcade0-8b8e-4ba1-8630-d60a096585ad",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "cb181596-a385-4521-a5e5-780ac2c3ed8b",
+          "885f60de-ffd7-4f56-8732-905bb19fd703"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-d960d702-2f27-4a0b-b8a4-289610c1fe82",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "62ce676c-497b-4eca-8cfb-9e35fdfaeb4e",
+          "47b811d5-7a94-4144-9001-18625df85362"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-0a863d35-0887-4d51-9dc2-8e2076e6afe3",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "8818df8c-9a1a-4024-a9f9-a0819755c113",
+          "a73939fa-18e8-47ce-98e7-a31a295ac671"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-5317a91f-b909-4458-aaf9-4ec6aa038b5a",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "5a64e76c-5c13-4f23-b43f-093978927a6a",
+          "7fe85759-2709-4773-956d-0cd59b19adb4"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-138d2636-1f64-4875-a04c-7694fed86840",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "f6fc21e4-a136-4ff8-81ab-653b5203ac92",
+          "4aa747ca-e488-43b4-b093-81e2f59f6481"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-a3e02afe-1e3e-4f8b-a513-eed3d43b94f7",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "283d1273-de5c-469b-b899-9385d8e607de",
+          "a34005b0-1e9d-4a40-979d-a7eef1e4648d"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-800d5210-77b0-4f6d-972b-461359ba9774",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "1b14e19e-0bff-4641-bd41-e7f1f3f430a7",
+          "9e6b1e1e-6c6b-47cc-978e-29fcef962647"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-e0f06e7b-5d72-453b-8426-2c2b157a1f67",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "7bbc4a7f-369f-48cf-a006-370a0baffae3",
+          "9cc9dd1b-de42-4bb0-960a-d03a2188d056"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-182e6df8-74a1-41df-84d8-1fe5ffda3aba",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "e45a3e48-6f53-4da3-9f49-0b33ffdd832d",
+          "b529d019-5b8b-48cc-b305-ebbf4de4c5f1"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-a68355c1-d5d2-4b6f-92b6-d67074915dad",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "9b66d81f-f00b-46d4-b5e1-8ae6967efb22",
+          "586e8ff4-f8d0-47f0-bbc2-108f0203e971"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "Q-e718a7cb-5160-492e-80a0-0b2da74ade0d",
+        "kind": "TASK",
+        "label": "WAIT",
+        "state": "QUEUED",
+        "hostRef": null,
+        "progress": 0,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "RETRY_HISTORY_NOT_OBSERVABLE",
+            "level": "NOT_OBSERVABLE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          }
+        ],
+        "historicalRetryCount": 0,
+        "evidenceRefs": [
+          "3917b149-b7d4-4dfe-9218-c787d956d67e",
+          "a70e77a9-39d5-42a1-b1ed-797b88351c58"
+        ],
+        "clusterRef": "cluster:TASK:QUEUED"
+      },
+      {
+        "id": "observation:window",
+        "kind": "OBSERVATION",
+        "label": "Observation window",
+        "state": "PARTIAL",
+        "hostRef": null,
+        "progress": null,
+        "ownerObservability": "NOT_OBSERVABLE",
+        "riskReasons": [
+          {
+            "code": "WINDOW_INCOMPLETE",
+            "level": "ACTIVE",
+            "detail": "This picture omits 12 tasks, 158 events that exist in the City.",
+            "evidenceRef": "observation:completeness"
+          },
+          {
+            "code": "HISTORY_GAP",
+            "level": "ACTIVE",
+            "detail": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+            "evidenceRef": "observation:completeness"
+          },
+          {
+            "code": "MONITOR_PARTIAL",
+            "level": "ACTIVE",
+            "detail": "The observation source reports PARTIAL.",
+            "evidenceRef": "observation:health"
+          }
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "id": "Q-34e4b0b0-e803-4d1f-bc2c-5a6198bbc7ce->controlled-worker:ASSIGNED_TO",
+        "from": "Q-34e4b0b0-e803-4d1f-bc2c-5a6198bbc7ce",
+        "to": "controlled-worker",
+        "type": "ASSIGNED_TO",
+        "reason": "Canonical task.assignedNodeId",
+        "reasonSource": "CANONICAL",
+        "targetPresent": true,
+        "incomplete": false,
+        "relatedEvents": [
+          {
+            "canonicalEventId": "77fbd6c2-cf7a-4a74-8201-d22c44f1d6f4",
+            "seq": 283,
+            "type": "TASK_ASSIGNED",
+            "taskRef": "Q-34e4b0b0-e803-4d1f-bc2c-5a6198bbc7ce",
+            "actorRef": "controlled-worker",
+            "timestamp": "2026-10-06T05:37:43.126Z",
+            "evidenceRef": "77fbd6c2-cf7a-4a74-8201-d22c44f1d6f4"
+          },
+          {
+            "canonicalEventId": "c7ecc353-8317-4023-9d5d-dbaec9a883a4",
+            "seq": 284,
+            "type": "TASK_STARTED",
+            "taskRef": "Q-34e4b0b0-e803-4d1f-bc2c-5a6198bbc7ce",
+            "actorRef": "controlled-worker",
+            "timestamp": "2026-10-06T05:37:43.130Z",
+            "evidenceRef": "c7ecc353-8317-4023-9d5d-dbaec9a883a4"
+          },
+          {
+            "canonicalEventId": "e4cb603d-bb6e-4497-9251-d9c064d6fd1c",
+            "seq": 285,
+            "type": "TASK_FAILED",
+            "taskRef": "Q-34e4b0b0-e803-4d1f-bc2c-5a6198bbc7ce",
+            "actorRef": "controlled-worker",
+            "timestamp": "2026-10-06T05:37:43.134Z",
+            "evidenceRef": "e4cb603d-bb6e-4497-9251-d9c064d6fd1c"
+          },
+          {
+            "canonicalEventId": "efc7c934-0621-4d2e-8159-f73306f53dca",
+            "seq": 286,
+            "type": "MONITOR_DECISION_REQUESTED",
+            "taskRef": "Q-34e4b0b0-e803-4d1f-bc2c-5a6198bbc7ce",
+            "actorRef": "user",
+            "timestamp": "2026-10-06T05:37:43.140Z",
+            "evidenceRef": "efc7c934-0621-4d2e-8159-f73306f53dca"
+          }
+        ],
+        "evidenceRefs": [
+          "77fbd6c2-cf7a-4a74-8201-d22c44f1d6f4",
+          "c7ecc353-8317-4023-9d5d-dbaec9a883a4",
+          "e4cb603d-bb6e-4497-9251-d9c064d6fd1c",
+          "efc7c934-0621-4d2e-8159-f73306f53dca"
+        ],
+        "timestamp": null,
+        "durationMs": null,
+        "metadataNotObservable": [
+          "model/provider routes",
+          "review handoffs",
+          "assignment timestamp",
+          "duration"
+        ]
+      }
+    ],
+    "clusters": [
+      {
+        "id": "cluster:TASK:QUEUED",
+        "kind": "TASK",
+        "state": "QUEUED",
+        "count": 127,
+        "nodeIds": [
+          "Q-00ec3c38-fbc1-426d-b1ce-ac56db037b7e",
+          "Q-0277e902-8ea0-451d-83f0-1fd6b33c0927",
+          "Q-029db8be-c23d-4d53-ab60-9c74a48d412d",
+          "Q-043d9490-088a-4b6f-89ec-ffc2340e1add",
+          "Q-04958f30-7451-4063-aec3-cf5ce0efbe8c",
+          "Q-0759bd4a-fdc8-46dc-ab0d-3dec49ebd9e7",
+          "Q-0a863d35-0887-4d51-9dc2-8e2076e6afe3",
+          "Q-0d174235-0dd4-4e54-846d-fb91c91846d8",
+          "Q-1162aa71-d85d-40d6-86b9-ace69f10b952",
+          "Q-132e164f-610a-4d94-9272-b3bcbfe72896",
+          "Q-138d2636-1f64-4875-a04c-7694fed86840",
+          "Q-182e6df8-74a1-41df-84d8-1fe5ffda3aba",
+          "Q-1908d43d-c13c-49ad-8767-f40446806fd4",
+          "Q-1964f78c-ddae-4af8-82ea-60fee111e0a6",
+          "Q-1aea2f90-d063-455e-b064-bc204af794a0",
+          "Q-1b8691e8-4f93-4fae-9690-8f24ae44f915",
+          "Q-28d9984f-5cf5-4634-983a-54b18ed1cbf3",
+          "Q-2f3bd326-38a7-4e21-8004-996f9a80ca28",
+          "Q-31f2063f-0ce0-4243-8584-19926990938f",
+          "Q-356aea62-9872-463f-9192-e58c0183acad",
+          "Q-3803c6a9-a8c3-45b8-81a1-86d767fae031",
+          "Q-38640af1-843a-4ac9-8b67-52ea97524dbf",
+          "Q-3895fe31-b320-47b6-ad62-a76d02397757",
+          "Q-3ad1bbfb-6635-429f-a7de-e0697f859f44",
+          "Q-3d5f2367-dd23-43ae-83fd-ebfe970b01ff",
+          "Q-40df9acc-2bf9-4424-8ec5-c7a88cc0cfc2",
+          "Q-421d94c7-860e-4c85-b36d-197fca194278",
+          "Q-429711ec-0cae-4d2d-b16e-5f2e52e1ee4a",
+          "Q-45cff988-3f99-403c-b069-c15d2271900b",
+          "Q-466324fa-318d-41f4-80c6-1ac40d1f09cc",
+          "Q-48c0d35e-c237-4d07-b93f-c0904792ab33",
+          "Q-4cd5c563-4aad-4af4-ae63-a96834ca01e6",
+          "Q-4d591594-9b88-4b14-a273-3f61f49c49ee",
+          "Q-5113ec06-ccb1-4f1c-af2b-77c6ed1f98af",
+          "Q-514fcc2a-bff0-472b-b0e4-a2b806b45f25",
+          "Q-51b26708-bb73-4eeb-81e6-685252dfe076",
+          "Q-5317a91f-b909-4458-aaf9-4ec6aa038b5a",
+          "Q-5688f18b-d639-4a66-a4e8-5514320aa942",
+          "Q-56b8c171-016c-4f18-a242-9130f1e24c26",
+          "Q-56f3260b-48eb-4439-9baf-dd6e088d7dfe",
+          "Q-586a28e6-f70b-4a15-a307-f68576b30a66",
+          "Q-588c0efb-3712-4c1b-a200-45d1cf793aef",
+          "Q-6018ab15-3646-4d41-953c-bc6805fac381",
+          "Q-61fc9e17-3b9b-43c8-9329-9898dfa1ca54",
+          "Q-6285cdb9-0516-4b33-9ea1-7cc75c36ba55",
+          "Q-64038dfb-cbfd-4da1-bc9d-c4e1a7c02367",
+          "Q-669503a2-2f20-45cd-b0ea-87c72bdb9ae6",
+          "Q-6823fe32-62aa-4308-882e-69275c4c841a",
+          "Q-699d10d9-693c-4542-830c-6d29d6ae1514",
+          "Q-6d7a7b22-b5bc-44a7-9487-67a24c6d2085",
+          "Q-6f37169e-4ce2-4d63-86bc-e20ffeeb40ad",
+          "Q-700dbe3e-ec88-41a9-b093-7290362e0454",
+          "Q-72dc0542-08c8-45b1-aa31-eadbca434909",
+          "Q-737af1f0-9552-4bde-a14b-009fa435cd55",
+          "Q-749f470e-8a4b-45c1-a285-3130cdcb7b8c",
+          "Q-74f8eec0-43d1-4dd9-9648-d324261c28a9",
+          "Q-761f8a80-2f34-482f-9b26-a61e74aeec2d",
+          "Q-764cc89f-bd16-47c6-b505-800ef2eb8afa",
+          "Q-7b1ea754-84fb-42de-abd3-f75aa018e9a0",
+          "Q-7b478147-808b-41ce-a3e9-c4b24f199cee",
+          "Q-7bf069f0-f63c-443e-87fa-6ddbce7ab99d",
+          "Q-7c588307-2fe8-464c-837a-2150bfc0159f",
+          "Q-7f1feaa5-9df8-434d-837d-e2b2c5936630",
+          "Q-800d5210-77b0-4f6d-972b-461359ba9774",
+          "Q-8127c05c-a4f7-4603-9a00-ae18c9339d77",
+          "Q-880e6317-05b4-44a7-93cb-9213efef8bf7",
+          "Q-89a9a078-1e74-454d-b52f-0a0fcacd0fff",
+          "Q-8a238f65-0440-4fdb-b2a3-e98e94a75b3e",
+          "Q-8add678c-8b5b-4a46-b1f0-a48025c0acdf",
+          "Q-8afb82ad-1952-4286-bb6e-e902cb35e213",
+          "Q-8bb00b5f-db95-41b0-875e-54f49ed8f835",
+          "Q-8c51d3f7-c906-45d2-ac4c-294dd0206fab",
+          "Q-8e576e1c-00e3-4227-919f-4c302a6c02b1",
+          "Q-90b7cdde-aa9e-42ff-bdd8-57388af51d92",
+          "Q-9240b6ca-06e2-48d3-b9fd-78f99268a139",
+          "Q-93448526-31fb-404f-b3dd-5f5c6f8c0bd6",
+          "Q-96738e7f-84d4-4aa6-afb2-55720e100d1a",
+          "Q-994318a6-68e4-4720-a0c6-4c0d419c815c",
+          "Q-9a322170-3dd6-4f6d-93a8-61f20c8ee787",
+          "Q-9a3f0110-67c3-4626-8a15-33593a43c211",
+          "Q-a3e02afe-1e3e-4f8b-a513-eed3d43b94f7",
+          "Q-a522dbe1-88ba-495b-b2ac-cb81ca2f3910",
+          "Q-a678d7b6-48ee-4be7-a30d-0c66fe8f21d0",
+          "Q-a68355c1-d5d2-4b6f-92b6-d67074915dad",
+          "Q-a69fcf58-bd55-4463-bfd4-6059fe6cc13d",
+          "Q-a6e8c5c8-75a1-4f9e-abe8-9e951c24b471",
+          "Q-ac7c100a-ed3a-419d-99a1-c5ccb2afbc3d",
+          "Q-b310bc58-6ada-4711-b001-4e866757ffab",
+          "Q-b3af7535-e2e4-40ca-b731-25ee16d2dbf8",
+          "Q-b5c90558-9fc0-494e-81bf-1046f7bd0664",
+          "Q-ba5f4924-c069-4302-b87d-432613d4dd0d",
+          "Q-c344c223-5603-4400-90e0-bf19505b2e6d",
+          "Q-c39aebbd-4bcf-4c0d-acd6-0224f11b76d0",
+          "Q-c5a94766-1400-4094-a5a9-0317cbca7647",
+          "Q-c81e3aec-4bd7-43e5-875e-be7bb311f9b1",
+          "Q-c8bd1f98-38b7-4211-add1-85cf2b9fd473",
+          "Q-cb1db54c-97c1-43aa-a152-e5c863a1c875",
+          "Q-d0a16b16-9343-4c76-ad80-30dc6ecc3cc1",
+          "Q-d60e3cd3-3627-4ed4-aa40-28451b122966",
+          "Q-d6be7231-0b3a-43e2-8e53-4ff1308de6ef",
+          "Q-d8652e6f-c6b5-46ce-b34d-fc2df9cd6521",
+          "Q-d8b192a2-4287-4253-99a2-663edf035c35",
+          "Q-d932f8f4-5e3f-4c09-9d37-603ffefa191c",
+          "Q-d960d702-2f27-4a0b-b8a4-289610c1fe82",
+          "Q-d9b11779-a5ab-439c-9d47-291f449234a7",
+          "Q-dad18c59-e993-45fb-b6f8-36d1daa79a42",
+          "Q-db02e787-b3d5-421e-8fa5-c324d2f50500",
+          "Q-dba41f70-347c-4787-b31a-8c505d99b92d",
+          "Q-dffcade0-8b8e-4ba1-8630-d60a096585ad",
+          "Q-e01857df-41de-4e18-aced-f70576050bfb",
+          "Q-e0f06e7b-5d72-453b-8426-2c2b157a1f67",
+          "Q-e2f63f71-c45b-4070-844e-97a3fb851e50",
+          "Q-e5d1cb57-8e41-4a1c-8d87-06d5ae198ea5",
+          "Q-e5e4625c-493f-42f8-b375-8cc7dea51809",
+          "Q-e64f75ae-db62-481e-bb96-4ed49a53b759",
+          "Q-e6d0bbb7-1b1f-4b5c-9b67-f8b6b425052d",
+          "Q-e718a7cb-5160-492e-80a0-0b2da74ade0d",
+          "Q-e8dcc089-c70c-403e-b30a-a3565292eb5a",
+          "Q-e9514514-9ba3-4951-b174-99e5a765738a",
+          "Q-eb236a01-df60-45b7-a176-17441edb00c3",
+          "Q-f0881c8e-c62b-43cc-a6a2-6e0127a55817",
+          "Q-f4054c79-6e8c-458a-9714-a7a70dbaed07",
+          "Q-f919e8e7-e4ed-41e6-8c5d-43b790173936",
+          "Q-f95bbf43-a1c6-4728-8d88-fbf4e19fd36b",
+          "Q-fd520c8e-2af2-4d02-9803-8464df1a240a",
+          "Q-fd6d77e7-984e-43ba-aab4-bd31e8fab9e0",
+          "Q-fe740c2e-9661-4636-afd9-b238359b4710"
+        ],
+        "collapsed": true,
+        "activeRiskCount": 0,
+        "worstRisk": "NOT_OBSERVABLE"
+      }
+    ],
+    "visibleNodeIds": [
+      "observation:window",
+      "Q-34e4b0b0-e803-4d1f-bc2c-5a6198bbc7ce",
+      "controlled-worker"
+    ],
+    "events": [
+      {
+        "canonicalEventId": "09ae44d7-e4b7-4d5a-867d-5e6d1c160da3",
+        "seq": 159,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-ba5f4924-c069-4302-b87d-432613d4dd0d",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.873Z",
+        "evidenceRef": "09ae44d7-e4b7-4d5a-867d-5e6d1c160da3"
+      },
+      {
+        "canonicalEventId": "c681a11c-0c5b-4b53-aa15-d8593b280b81",
+        "seq": 160,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-ba5f4924-c069-4302-b87d-432613d4dd0d",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.873Z",
+        "evidenceRef": "c681a11c-0c5b-4b53-aa15-d8593b280b81"
+      },
+      {
+        "canonicalEventId": "e5a4253f-20a5-438b-aef8-51a377a4dd76",
+        "seq": 161,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-3803c6a9-a8c3-45b8-81a1-86d767fae031",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.877Z",
+        "evidenceRef": "e5a4253f-20a5-438b-aef8-51a377a4dd76"
+      },
+      {
+        "canonicalEventId": "d2457c84-d38e-46d1-8500-af98b36a435b",
+        "seq": 162,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-3803c6a9-a8c3-45b8-81a1-86d767fae031",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.877Z",
+        "evidenceRef": "d2457c84-d38e-46d1-8500-af98b36a435b"
+      },
+      {
+        "canonicalEventId": "c875a432-fe27-4529-bd85-a3d26018be7d",
+        "seq": 163,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-9a3f0110-67c3-4626-8a15-33593a43c211",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.881Z",
+        "evidenceRef": "c875a432-fe27-4529-bd85-a3d26018be7d"
+      },
+      {
+        "canonicalEventId": "006d4f91-6b72-4661-933f-3b4de9818e89",
+        "seq": 164,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-9a3f0110-67c3-4626-8a15-33593a43c211",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.881Z",
+        "evidenceRef": "006d4f91-6b72-4661-933f-3b4de9818e89"
+      },
+      {
+        "canonicalEventId": "ea4d2c15-2e04-4cbb-9e8c-c38b073dbc10",
+        "seq": 165,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-669503a2-2f20-45cd-b0ea-87c72bdb9ae6",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.885Z",
+        "evidenceRef": "ea4d2c15-2e04-4cbb-9e8c-c38b073dbc10"
+      },
+      {
+        "canonicalEventId": "a57b902e-e6e5-4bac-ae7c-83308889d4a6",
+        "seq": 166,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-669503a2-2f20-45cd-b0ea-87c72bdb9ae6",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.885Z",
+        "evidenceRef": "a57b902e-e6e5-4bac-ae7c-83308889d4a6"
+      },
+      {
+        "canonicalEventId": "43ebc877-2a52-4bb3-88dd-1e52d823b4ea",
+        "seq": 167,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-cb1db54c-97c1-43aa-a152-e5c863a1c875",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.889Z",
+        "evidenceRef": "43ebc877-2a52-4bb3-88dd-1e52d823b4ea"
+      },
+      {
+        "canonicalEventId": "7f014253-4ef6-4786-a0a6-4a35471150c1",
+        "seq": 168,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-cb1db54c-97c1-43aa-a152-e5c863a1c875",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.889Z",
+        "evidenceRef": "7f014253-4ef6-4786-a0a6-4a35471150c1"
+      },
+      {
+        "canonicalEventId": "807dd421-a30f-48b6-98d0-6d55b7e20693",
+        "seq": 169,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-f4054c79-6e8c-458a-9714-a7a70dbaed07",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.893Z",
+        "evidenceRef": "807dd421-a30f-48b6-98d0-6d55b7e20693"
+      },
+      {
+        "canonicalEventId": "837eafc8-854e-44e8-88b1-d4e35e12eccf",
+        "seq": 170,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-f4054c79-6e8c-458a-9714-a7a70dbaed07",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.893Z",
+        "evidenceRef": "837eafc8-854e-44e8-88b1-d4e35e12eccf"
+      },
+      {
+        "canonicalEventId": "505eea85-a739-4b89-aa15-0aaee8bbd087",
+        "seq": 171,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-e5e4625c-493f-42f8-b375-8cc7dea51809",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.897Z",
+        "evidenceRef": "505eea85-a739-4b89-aa15-0aaee8bbd087"
+      },
+      {
+        "canonicalEventId": "157ec6eb-d243-4616-afe7-2c8034e7d15e",
+        "seq": 172,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-e5e4625c-493f-42f8-b375-8cc7dea51809",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.897Z",
+        "evidenceRef": "157ec6eb-d243-4616-afe7-2c8034e7d15e"
+      },
+      {
+        "canonicalEventId": "787f6955-b3f2-4777-879e-5daee3802203",
+        "seq": 173,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-1908d43d-c13c-49ad-8767-f40446806fd4",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.901Z",
+        "evidenceRef": "787f6955-b3f2-4777-879e-5daee3802203"
+      },
+      {
+        "canonicalEventId": "d66a9532-4d86-4e28-869a-12c760f3bfe5",
+        "seq": 174,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-1908d43d-c13c-49ad-8767-f40446806fd4",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.901Z",
+        "evidenceRef": "d66a9532-4d86-4e28-869a-12c760f3bfe5"
+      },
+      {
+        "canonicalEventId": "63a636cc-911e-4a29-bfba-3dfeb09a7c2e",
+        "seq": 175,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-40df9acc-2bf9-4424-8ec5-c7a88cc0cfc2",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.905Z",
+        "evidenceRef": "63a636cc-911e-4a29-bfba-3dfeb09a7c2e"
+      },
+      {
+        "canonicalEventId": "e6b1486b-db72-4edf-84f9-f8c9e06b727d",
+        "seq": 176,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-40df9acc-2bf9-4424-8ec5-c7a88cc0cfc2",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.905Z",
+        "evidenceRef": "e6b1486b-db72-4edf-84f9-f8c9e06b727d"
+      },
+      {
+        "canonicalEventId": "13f4505b-3a34-46e8-876a-ffc300d9e49b",
+        "seq": 177,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-880e6317-05b4-44a7-93cb-9213efef8bf7",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.909Z",
+        "evidenceRef": "13f4505b-3a34-46e8-876a-ffc300d9e49b"
+      },
+      {
+        "canonicalEventId": "cbaf7775-7f82-41a4-aecf-19b2526ef34f",
+        "seq": 178,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-880e6317-05b4-44a7-93cb-9213efef8bf7",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.909Z",
+        "evidenceRef": "cbaf7775-7f82-41a4-aecf-19b2526ef34f"
+      },
+      {
+        "canonicalEventId": "d2a10df0-34c9-48cc-aaab-52fc1c59c583",
+        "seq": 179,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-f95bbf43-a1c6-4728-8d88-fbf4e19fd36b",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.913Z",
+        "evidenceRef": "d2a10df0-34c9-48cc-aaab-52fc1c59c583"
+      },
+      {
+        "canonicalEventId": "93d364ca-9c58-435e-a0f9-71f51b0c66b1",
+        "seq": 180,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-f95bbf43-a1c6-4728-8d88-fbf4e19fd36b",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.913Z",
+        "evidenceRef": "93d364ca-9c58-435e-a0f9-71f51b0c66b1"
+      },
+      {
+        "canonicalEventId": "2013f217-0f51-40e6-a4e4-11c694261111",
+        "seq": 181,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-1b8691e8-4f93-4fae-9690-8f24ae44f915",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.917Z",
+        "evidenceRef": "2013f217-0f51-40e6-a4e4-11c694261111"
+      },
+      {
+        "canonicalEventId": "c76dc3f6-a1f8-4102-a3dd-0a67b0764da1",
+        "seq": 182,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-1b8691e8-4f93-4fae-9690-8f24ae44f915",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.917Z",
+        "evidenceRef": "c76dc3f6-a1f8-4102-a3dd-0a67b0764da1"
+      },
+      {
+        "canonicalEventId": "3b5468ee-ba0b-49c5-ab42-d4e94b89cb59",
+        "seq": 183,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-00ec3c38-fbc1-426d-b1ce-ac56db037b7e",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.921Z",
+        "evidenceRef": "3b5468ee-ba0b-49c5-ab42-d4e94b89cb59"
+      },
+      {
+        "canonicalEventId": "26023599-1b00-412c-aea0-35f9dd98f327",
+        "seq": 184,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-00ec3c38-fbc1-426d-b1ce-ac56db037b7e",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.921Z",
+        "evidenceRef": "26023599-1b00-412c-aea0-35f9dd98f327"
+      },
+      {
+        "canonicalEventId": "abca02cc-1f89-4a61-add3-a7a2cad21c30",
+        "seq": 185,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-b310bc58-6ada-4711-b001-4e866757ffab",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.925Z",
+        "evidenceRef": "abca02cc-1f89-4a61-add3-a7a2cad21c30"
+      },
+      {
+        "canonicalEventId": "09462532-79dc-45b5-87e8-8b129af22181",
+        "seq": 186,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-b310bc58-6ada-4711-b001-4e866757ffab",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.925Z",
+        "evidenceRef": "09462532-79dc-45b5-87e8-8b129af22181"
+      },
+      {
+        "canonicalEventId": "859d8d7d-3d35-4b64-9033-a8c17de08623",
+        "seq": 187,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-dad18c59-e993-45fb-b6f8-36d1daa79a42",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.929Z",
+        "evidenceRef": "859d8d7d-3d35-4b64-9033-a8c17de08623"
+      },
+      {
+        "canonicalEventId": "6266db23-d2a8-4afe-818c-2bc15a47a22a",
+        "seq": 188,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-dad18c59-e993-45fb-b6f8-36d1daa79a42",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.929Z",
+        "evidenceRef": "6266db23-d2a8-4afe-818c-2bc15a47a22a"
+      },
+      {
+        "canonicalEventId": "891e1155-c8b9-4546-b9bf-02dc8cd6ad8a",
+        "seq": 189,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-761f8a80-2f34-482f-9b26-a61e74aeec2d",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.933Z",
+        "evidenceRef": "891e1155-c8b9-4546-b9bf-02dc8cd6ad8a"
+      },
+      {
+        "canonicalEventId": "581fa031-6ce6-44d7-980a-fdfcabd4b14e",
+        "seq": 190,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-761f8a80-2f34-482f-9b26-a61e74aeec2d",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.933Z",
+        "evidenceRef": "581fa031-6ce6-44d7-980a-fdfcabd4b14e"
+      },
+      {
+        "canonicalEventId": "7f3c9dfa-3525-4934-a6d6-3164be2baa63",
+        "seq": 191,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-994318a6-68e4-4720-a0c6-4c0d419c815c",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.937Z",
+        "evidenceRef": "7f3c9dfa-3525-4934-a6d6-3164be2baa63"
+      },
+      {
+        "canonicalEventId": "637cc16c-a1da-4ed4-819c-ebde33721ea9",
+        "seq": 192,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-994318a6-68e4-4720-a0c6-4c0d419c815c",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.937Z",
+        "evidenceRef": "637cc16c-a1da-4ed4-819c-ebde33721ea9"
+      },
+      {
+        "canonicalEventId": "2a5500f3-ed71-44d5-ac17-3ff67e6775b7",
+        "seq": 193,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-b5c90558-9fc0-494e-81bf-1046f7bd0664",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.941Z",
+        "evidenceRef": "2a5500f3-ed71-44d5-ac17-3ff67e6775b7"
+      },
+      {
+        "canonicalEventId": "24075b99-87b1-4500-a76e-d58295db8052",
+        "seq": 194,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-b5c90558-9fc0-494e-81bf-1046f7bd0664",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.941Z",
+        "evidenceRef": "24075b99-87b1-4500-a76e-d58295db8052"
+      },
+      {
+        "canonicalEventId": "1f3b08b3-0e02-46b4-a8f3-53f140172338",
+        "seq": 195,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-e6d0bbb7-1b1f-4b5c-9b67-f8b6b425052d",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.945Z",
+        "evidenceRef": "1f3b08b3-0e02-46b4-a8f3-53f140172338"
+      },
+      {
+        "canonicalEventId": "b0dee5b9-6fdc-4021-a629-dbc1aa165628",
+        "seq": 196,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-e6d0bbb7-1b1f-4b5c-9b67-f8b6b425052d",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.945Z",
+        "evidenceRef": "b0dee5b9-6fdc-4021-a629-dbc1aa165628"
+      },
+      {
+        "canonicalEventId": "cf16d114-13f7-48ff-ad8e-ccf26e0282a2",
+        "seq": 197,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-fd520c8e-2af2-4d02-9803-8464df1a240a",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.949Z",
+        "evidenceRef": "cf16d114-13f7-48ff-ad8e-ccf26e0282a2"
+      },
+      {
+        "canonicalEventId": "7d804b0f-8d2d-460b-9072-8b44ccd6b493",
+        "seq": 198,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-fd520c8e-2af2-4d02-9803-8464df1a240a",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.949Z",
+        "evidenceRef": "7d804b0f-8d2d-460b-9072-8b44ccd6b493"
+      },
+      {
+        "canonicalEventId": "8bc02bfc-1b58-4905-886f-881f5500f33b",
+        "seq": 199,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-d9b11779-a5ab-439c-9d47-291f449234a7",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.953Z",
+        "evidenceRef": "8bc02bfc-1b58-4905-886f-881f5500f33b"
+      },
+      {
+        "canonicalEventId": "ac76c11a-e50f-4598-a157-f3608c260394",
+        "seq": 200,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-d9b11779-a5ab-439c-9d47-291f449234a7",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.953Z",
+        "evidenceRef": "ac76c11a-e50f-4598-a157-f3608c260394"
+      },
+      {
+        "canonicalEventId": "4ce45a06-3741-4e60-afb2-47f74bb72e86",
+        "seq": 201,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-8add678c-8b5b-4a46-b1f0-a48025c0acdf",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.957Z",
+        "evidenceRef": "4ce45a06-3741-4e60-afb2-47f74bb72e86"
+      },
+      {
+        "canonicalEventId": "8d52a910-1976-4aaa-93ea-9374776be7dc",
+        "seq": 202,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-8add678c-8b5b-4a46-b1f0-a48025c0acdf",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.957Z",
+        "evidenceRef": "8d52a910-1976-4aaa-93ea-9374776be7dc"
+      },
+      {
+        "canonicalEventId": "c6a3e29e-6728-4c34-8031-e56e29faad4d",
+        "seq": 203,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-2f3bd326-38a7-4e21-8004-996f9a80ca28",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.961Z",
+        "evidenceRef": "c6a3e29e-6728-4c34-8031-e56e29faad4d"
+      },
+      {
+        "canonicalEventId": "f25376d6-2a2a-4790-be2b-8bfc538e0934",
+        "seq": 204,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-2f3bd326-38a7-4e21-8004-996f9a80ca28",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.961Z",
+        "evidenceRef": "f25376d6-2a2a-4790-be2b-8bfc538e0934"
+      },
+      {
+        "canonicalEventId": "49c3191b-992a-4de2-ac07-0328c5e21e81",
+        "seq": 205,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-e5d1cb57-8e41-4a1c-8d87-06d5ae198ea5",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.965Z",
+        "evidenceRef": "49c3191b-992a-4de2-ac07-0328c5e21e81"
+      },
+      {
+        "canonicalEventId": "c80d97ec-a97b-4595-aab5-bb0d3bb5a746",
+        "seq": 206,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-e5d1cb57-8e41-4a1c-8d87-06d5ae198ea5",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.965Z",
+        "evidenceRef": "c80d97ec-a97b-4595-aab5-bb0d3bb5a746"
+      },
+      {
+        "canonicalEventId": "af9a25cd-f2aa-4999-a907-8e61de836871",
+        "seq": 207,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-8e576e1c-00e3-4227-919f-4c302a6c02b1",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.969Z",
+        "evidenceRef": "af9a25cd-f2aa-4999-a907-8e61de836871"
+      },
+      {
+        "canonicalEventId": "57717bc3-bd0a-451a-a4fb-c49301fffba7",
+        "seq": 208,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-8e576e1c-00e3-4227-919f-4c302a6c02b1",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.969Z",
+        "evidenceRef": "57717bc3-bd0a-451a-a4fb-c49301fffba7"
+      },
+      {
+        "canonicalEventId": "88f7c685-6988-45cd-9240-3357dcd00023",
+        "seq": 209,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-c39aebbd-4bcf-4c0d-acd6-0224f11b76d0",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.973Z",
+        "evidenceRef": "88f7c685-6988-45cd-9240-3357dcd00023"
+      },
+      {
+        "canonicalEventId": "f9dcbe41-6fa8-4c58-a5a5-0be58d10dd8d",
+        "seq": 210,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-c39aebbd-4bcf-4c0d-acd6-0224f11b76d0",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.973Z",
+        "evidenceRef": "f9dcbe41-6fa8-4c58-a5a5-0be58d10dd8d"
+      },
+      {
+        "canonicalEventId": "3a250b30-fce3-4600-899b-ac755e4f7b89",
+        "seq": 211,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-48c0d35e-c237-4d07-b93f-c0904792ab33",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.977Z",
+        "evidenceRef": "3a250b30-fce3-4600-899b-ac755e4f7b89"
+      },
+      {
+        "canonicalEventId": "65cab491-a3dd-46d0-bdaf-6ed15b8a49d6",
+        "seq": 212,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-48c0d35e-c237-4d07-b93f-c0904792ab33",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.977Z",
+        "evidenceRef": "65cab491-a3dd-46d0-bdaf-6ed15b8a49d6"
+      },
+      {
+        "canonicalEventId": "07bb3c19-a6b1-4b38-83ba-a2651a072c2b",
+        "seq": 213,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-4cd5c563-4aad-4af4-ae63-a96834ca01e6",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.981Z",
+        "evidenceRef": "07bb3c19-a6b1-4b38-83ba-a2651a072c2b"
+      },
+      {
+        "canonicalEventId": "e3559862-6590-4b5b-92bf-bf1ce1aec82d",
+        "seq": 214,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-4cd5c563-4aad-4af4-ae63-a96834ca01e6",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.981Z",
+        "evidenceRef": "e3559862-6590-4b5b-92bf-bf1ce1aec82d"
+      },
+      {
+        "canonicalEventId": "a76462ed-1e1b-481d-8c70-c4ae9d3399e4",
+        "seq": 215,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-c5a94766-1400-4094-a5a9-0317cbca7647",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.985Z",
+        "evidenceRef": "a76462ed-1e1b-481d-8c70-c4ae9d3399e4"
+      },
+      {
+        "canonicalEventId": "ac82247d-edc7-4c33-8fb7-aecb4cbb5d33",
+        "seq": 216,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-c5a94766-1400-4094-a5a9-0317cbca7647",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.985Z",
+        "evidenceRef": "ac82247d-edc7-4c33-8fb7-aecb4cbb5d33"
+      },
+      {
+        "canonicalEventId": "7409407a-b71e-4e38-889b-4eff6aefcb29",
+        "seq": 217,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-4d591594-9b88-4b14-a273-3f61f49c49ee",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.989Z",
+        "evidenceRef": "7409407a-b71e-4e38-889b-4eff6aefcb29"
+      },
+      {
+        "canonicalEventId": "b5d3d671-eb64-4242-a427-dd70011de7f2",
+        "seq": 218,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-4d591594-9b88-4b14-a273-3f61f49c49ee",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.989Z",
+        "evidenceRef": "b5d3d671-eb64-4242-a427-dd70011de7f2"
+      },
+      {
+        "canonicalEventId": "cab0ee83-6c55-4dd3-a379-c94c94f57e3d",
+        "seq": 219,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-28d9984f-5cf5-4634-983a-54b18ed1cbf3",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.993Z",
+        "evidenceRef": "cab0ee83-6c55-4dd3-a379-c94c94f57e3d"
+      },
+      {
+        "canonicalEventId": "2a038508-e89a-4d73-8cf2-5e7d0e365ada",
+        "seq": 220,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-28d9984f-5cf5-4634-983a-54b18ed1cbf3",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.993Z",
+        "evidenceRef": "2a038508-e89a-4d73-8cf2-5e7d0e365ada"
+      },
+      {
+        "canonicalEventId": "18dcdd64-387d-4cbd-8daf-c0080ccb67c2",
+        "seq": 221,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-96738e7f-84d4-4aa6-afb2-55720e100d1a",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.997Z",
+        "evidenceRef": "18dcdd64-387d-4cbd-8daf-c0080ccb67c2"
+      },
+      {
+        "canonicalEventId": "0700dc15-6317-419e-aef4-d2c9dd4060cc",
+        "seq": 222,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-96738e7f-84d4-4aa6-afb2-55720e100d1a",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:42.997Z",
+        "evidenceRef": "0700dc15-6317-419e-aef4-d2c9dd4060cc"
+      },
+      {
+        "canonicalEventId": "b658ee57-211c-4554-9646-a68a8b7e7a2b",
+        "seq": 223,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-3895fe31-b320-47b6-ad62-a76d02397757",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.001Z",
+        "evidenceRef": "b658ee57-211c-4554-9646-a68a8b7e7a2b"
+      },
+      {
+        "canonicalEventId": "1e3ac8ea-fb41-43d1-ae01-7504f83fd6bd",
+        "seq": 224,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-3895fe31-b320-47b6-ad62-a76d02397757",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.001Z",
+        "evidenceRef": "1e3ac8ea-fb41-43d1-ae01-7504f83fd6bd"
+      },
+      {
+        "canonicalEventId": "424c40f1-687f-401a-a040-259d43579c6c",
+        "seq": 225,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-45cff988-3f99-403c-b069-c15d2271900b",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.005Z",
+        "evidenceRef": "424c40f1-687f-401a-a040-259d43579c6c"
+      },
+      {
+        "canonicalEventId": "a769c338-b6e7-455c-9c2b-42032a9af28f",
+        "seq": 226,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-45cff988-3f99-403c-b069-c15d2271900b",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.005Z",
+        "evidenceRef": "a769c338-b6e7-455c-9c2b-42032a9af28f"
+      },
+      {
+        "canonicalEventId": "a2d75544-61fc-4a81-b4b4-a7f992c276f2",
+        "seq": 227,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-d932f8f4-5e3f-4c09-9d37-603ffefa191c",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.009Z",
+        "evidenceRef": "a2d75544-61fc-4a81-b4b4-a7f992c276f2"
+      },
+      {
+        "canonicalEventId": "08b0e1a5-3924-4b0d-8db9-41bb389b4f95",
+        "seq": 228,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-d932f8f4-5e3f-4c09-9d37-603ffefa191c",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.009Z",
+        "evidenceRef": "08b0e1a5-3924-4b0d-8db9-41bb389b4f95"
+      },
+      {
+        "canonicalEventId": "60d57ae3-e112-400c-8422-b09e520e9b3a",
+        "seq": 229,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-6018ab15-3646-4d41-953c-bc6805fac381",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.013Z",
+        "evidenceRef": "60d57ae3-e112-400c-8422-b09e520e9b3a"
+      },
+      {
+        "canonicalEventId": "aea5e678-9c35-4be0-8efc-b589f6a778f3",
+        "seq": 230,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-6018ab15-3646-4d41-953c-bc6805fac381",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.013Z",
+        "evidenceRef": "aea5e678-9c35-4be0-8efc-b589f6a778f3"
+      },
+      {
+        "canonicalEventId": "fc8bef43-7aa3-486f-bf46-addb606a038c",
+        "seq": 231,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-356aea62-9872-463f-9192-e58c0183acad",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.017Z",
+        "evidenceRef": "fc8bef43-7aa3-486f-bf46-addb606a038c"
+      },
+      {
+        "canonicalEventId": "db9da193-c651-4c56-9f13-0be5a2f5b717",
+        "seq": 232,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-356aea62-9872-463f-9192-e58c0183acad",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.017Z",
+        "evidenceRef": "db9da193-c651-4c56-9f13-0be5a2f5b717"
+      },
+      {
+        "canonicalEventId": "a7da707b-f3b9-41a4-bc04-69d83d87420b",
+        "seq": 233,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-d6be7231-0b3a-43e2-8e53-4ff1308de6ef",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.021Z",
+        "evidenceRef": "a7da707b-f3b9-41a4-bc04-69d83d87420b"
+      },
+      {
+        "canonicalEventId": "958ea199-224c-4f88-814d-8d4a813a70e5",
+        "seq": 234,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-d6be7231-0b3a-43e2-8e53-4ff1308de6ef",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.021Z",
+        "evidenceRef": "958ea199-224c-4f88-814d-8d4a813a70e5"
+      },
+      {
+        "canonicalEventId": "9427176d-c92f-46a8-a5d4-18175f98dd7d",
+        "seq": 235,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-1aea2f90-d063-455e-b064-bc204af794a0",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.025Z",
+        "evidenceRef": "9427176d-c92f-46a8-a5d4-18175f98dd7d"
+      },
+      {
+        "canonicalEventId": "ba141e28-29d9-4d3c-a6aa-77f932974320",
+        "seq": 236,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-1aea2f90-d063-455e-b064-bc204af794a0",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.025Z",
+        "evidenceRef": "ba141e28-29d9-4d3c-a6aa-77f932974320"
+      },
+      {
+        "canonicalEventId": "cb181596-a385-4521-a5e5-780ac2c3ed8b",
+        "seq": 237,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-dffcade0-8b8e-4ba1-8630-d60a096585ad",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.029Z",
+        "evidenceRef": "cb181596-a385-4521-a5e5-780ac2c3ed8b"
+      },
+      {
+        "canonicalEventId": "885f60de-ffd7-4f56-8732-905bb19fd703",
+        "seq": 238,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-dffcade0-8b8e-4ba1-8630-d60a096585ad",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.029Z",
+        "evidenceRef": "885f60de-ffd7-4f56-8732-905bb19fd703"
+      },
+      {
+        "canonicalEventId": "62ce676c-497b-4eca-8cfb-9e35fdfaeb4e",
+        "seq": 239,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-d960d702-2f27-4a0b-b8a4-289610c1fe82",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.033Z",
+        "evidenceRef": "62ce676c-497b-4eca-8cfb-9e35fdfaeb4e"
+      },
+      {
+        "canonicalEventId": "47b811d5-7a94-4144-9001-18625df85362",
+        "seq": 240,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-d960d702-2f27-4a0b-b8a4-289610c1fe82",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.033Z",
+        "evidenceRef": "47b811d5-7a94-4144-9001-18625df85362"
+      },
+      {
+        "canonicalEventId": "8818df8c-9a1a-4024-a9f9-a0819755c113",
+        "seq": 241,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-0a863d35-0887-4d51-9dc2-8e2076e6afe3",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.037Z",
+        "evidenceRef": "8818df8c-9a1a-4024-a9f9-a0819755c113"
+      },
+      {
+        "canonicalEventId": "a73939fa-18e8-47ce-98e7-a31a295ac671",
+        "seq": 242,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-0a863d35-0887-4d51-9dc2-8e2076e6afe3",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.037Z",
+        "evidenceRef": "a73939fa-18e8-47ce-98e7-a31a295ac671"
+      },
+      {
+        "canonicalEventId": "5a64e76c-5c13-4f23-b43f-093978927a6a",
+        "seq": 243,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-5317a91f-b909-4458-aaf9-4ec6aa038b5a",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.041Z",
+        "evidenceRef": "5a64e76c-5c13-4f23-b43f-093978927a6a"
+      },
+      {
+        "canonicalEventId": "7fe85759-2709-4773-956d-0cd59b19adb4",
+        "seq": 244,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-5317a91f-b909-4458-aaf9-4ec6aa038b5a",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.041Z",
+        "evidenceRef": "7fe85759-2709-4773-956d-0cd59b19adb4"
+      },
+      {
+        "canonicalEventId": "f6fc21e4-a136-4ff8-81ab-653b5203ac92",
+        "seq": 245,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-138d2636-1f64-4875-a04c-7694fed86840",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.047Z",
+        "evidenceRef": "f6fc21e4-a136-4ff8-81ab-653b5203ac92"
+      },
+      {
+        "canonicalEventId": "4aa747ca-e488-43b4-b093-81e2f59f6481",
+        "seq": 246,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-138d2636-1f64-4875-a04c-7694fed86840",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.047Z",
+        "evidenceRef": "4aa747ca-e488-43b4-b093-81e2f59f6481"
+      },
+      {
+        "canonicalEventId": "283d1273-de5c-469b-b899-9385d8e607de",
+        "seq": 247,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-a3e02afe-1e3e-4f8b-a513-eed3d43b94f7",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.051Z",
+        "evidenceRef": "283d1273-de5c-469b-b899-9385d8e607de"
+      },
+      {
+        "canonicalEventId": "a34005b0-1e9d-4a40-979d-a7eef1e4648d",
+        "seq": 248,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-a3e02afe-1e3e-4f8b-a513-eed3d43b94f7",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.051Z",
+        "evidenceRef": "a34005b0-1e9d-4a40-979d-a7eef1e4648d"
+      },
+      {
+        "canonicalEventId": "1b14e19e-0bff-4641-bd41-e7f1f3f430a7",
+        "seq": 249,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-800d5210-77b0-4f6d-972b-461359ba9774",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.055Z",
+        "evidenceRef": "1b14e19e-0bff-4641-bd41-e7f1f3f430a7"
+      },
+      {
+        "canonicalEventId": "9e6b1e1e-6c6b-47cc-978e-29fcef962647",
+        "seq": 250,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-800d5210-77b0-4f6d-972b-461359ba9774",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.055Z",
+        "evidenceRef": "9e6b1e1e-6c6b-47cc-978e-29fcef962647"
+      },
+      {
+        "canonicalEventId": "7bbc4a7f-369f-48cf-a006-370a0baffae3",
+        "seq": 251,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-e0f06e7b-5d72-453b-8426-2c2b157a1f67",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.059Z",
+        "evidenceRef": "7bbc4a7f-369f-48cf-a006-370a0baffae3"
+      },
+      {
+        "canonicalEventId": "9cc9dd1b-de42-4bb0-960a-d03a2188d056",
+        "seq": 252,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-e0f06e7b-5d72-453b-8426-2c2b157a1f67",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.059Z",
+        "evidenceRef": "9cc9dd1b-de42-4bb0-960a-d03a2188d056"
+      },
+      {
+        "canonicalEventId": "e45a3e48-6f53-4da3-9f49-0b33ffdd832d",
+        "seq": 253,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-182e6df8-74a1-41df-84d8-1fe5ffda3aba",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.063Z",
+        "evidenceRef": "e45a3e48-6f53-4da3-9f49-0b33ffdd832d"
+      },
+      {
+        "canonicalEventId": "b529d019-5b8b-48cc-b305-ebbf4de4c5f1",
+        "seq": 254,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-182e6df8-74a1-41df-84d8-1fe5ffda3aba",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.063Z",
+        "evidenceRef": "b529d019-5b8b-48cc-b305-ebbf4de4c5f1"
+      },
+      {
+        "canonicalEventId": "9b66d81f-f00b-46d4-b5e1-8ae6967efb22",
+        "seq": 255,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-a68355c1-d5d2-4b6f-92b6-d67074915dad",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.067Z",
+        "evidenceRef": "9b66d81f-f00b-46d4-b5e1-8ae6967efb22"
+      },
+      {
+        "canonicalEventId": "586e8ff4-f8d0-47f0-bbc2-108f0203e971",
+        "seq": 256,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-a68355c1-d5d2-4b6f-92b6-d67074915dad",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.067Z",
+        "evidenceRef": "586e8ff4-f8d0-47f0-bbc2-108f0203e971"
+      },
+      {
+        "canonicalEventId": "3917b149-b7d4-4dfe-9218-c787d956d67e",
+        "seq": 257,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-e718a7cb-5160-492e-80a0-0b2da74ade0d",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.072Z",
+        "evidenceRef": "3917b149-b7d4-4dfe-9218-c787d956d67e"
+      },
+      {
+        "canonicalEventId": "a70e77a9-39d5-42a1-b1ed-797b88351c58",
+        "seq": 258,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-e718a7cb-5160-492e-80a0-0b2da74ade0d",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.072Z",
+        "evidenceRef": "a70e77a9-39d5-42a1-b1ed-797b88351c58"
+      },
+      {
+        "canonicalEventId": "e96d90ba-f010-44dd-8b9e-3aa2316b2887",
+        "seq": 259,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-be2a7da2-5b2e-4cbc-a1e8-2532c0e2fae4",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.076Z",
+        "evidenceRef": "e96d90ba-f010-44dd-8b9e-3aa2316b2887"
+      },
+      {
+        "canonicalEventId": "277a6730-bded-43e5-ab0d-d7a0ab978ff9",
+        "seq": 260,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-be2a7da2-5b2e-4cbc-a1e8-2532c0e2fae4",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.076Z",
+        "evidenceRef": "277a6730-bded-43e5-ab0d-d7a0ab978ff9"
+      },
+      {
+        "canonicalEventId": "fdbe072d-1eb6-4575-95f0-fa8fd37a4db7",
+        "seq": 261,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-50b489f2-484e-45a6-b5d6-a2655f236767",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.080Z",
+        "evidenceRef": "fdbe072d-1eb6-4575-95f0-fa8fd37a4db7"
+      },
+      {
+        "canonicalEventId": "c1038bd6-3553-49aa-97d2-40b60bc8f9ad",
+        "seq": 262,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-50b489f2-484e-45a6-b5d6-a2655f236767",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.080Z",
+        "evidenceRef": "c1038bd6-3553-49aa-97d2-40b60bc8f9ad"
+      },
+      {
+        "canonicalEventId": "cbcedcc9-ddc0-4fb2-bc24-d482e18e18fc",
+        "seq": 263,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-dd0da89d-5c24-4f53-a5fa-c3353c0f615b",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.084Z",
+        "evidenceRef": "cbcedcc9-ddc0-4fb2-bc24-d482e18e18fc"
+      },
+      {
+        "canonicalEventId": "e47818ad-c176-4999-8147-b4f49afdd945",
+        "seq": 264,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-dd0da89d-5c24-4f53-a5fa-c3353c0f615b",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.084Z",
+        "evidenceRef": "e47818ad-c176-4999-8147-b4f49afdd945"
+      },
+      {
+        "canonicalEventId": "a4524524-af92-4466-9228-373f52ae0bc5",
+        "seq": 265,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-5ab36c65-3d76-46a1-b4a5-fcf18dc9f594",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.088Z",
+        "evidenceRef": "a4524524-af92-4466-9228-373f52ae0bc5"
+      },
+      {
+        "canonicalEventId": "5a831812-fe8e-4cc7-a42b-8b422ebc10ba",
+        "seq": 266,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-5ab36c65-3d76-46a1-b4a5-fcf18dc9f594",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.088Z",
+        "evidenceRef": "5a831812-fe8e-4cc7-a42b-8b422ebc10ba"
+      },
+      {
+        "canonicalEventId": "29aeab18-b5c4-460b-820b-8b155d409361",
+        "seq": 267,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-a0980a23-3b1e-417c-a0aa-5e194187381b",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.092Z",
+        "evidenceRef": "29aeab18-b5c4-460b-820b-8b155d409361"
+      },
+      {
+        "canonicalEventId": "7cf3e36a-f5f9-47fa-82a4-6c55e8af0792",
+        "seq": 268,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-a0980a23-3b1e-417c-a0aa-5e194187381b",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.092Z",
+        "evidenceRef": "7cf3e36a-f5f9-47fa-82a4-6c55e8af0792"
+      },
+      {
+        "canonicalEventId": "faf8bb27-1589-4a6a-84d7-8e04bb0451a2",
+        "seq": 269,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-a7ad7e6f-b087-43d5-9dba-ed36c25ce0e9",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.096Z",
+        "evidenceRef": "faf8bb27-1589-4a6a-84d7-8e04bb0451a2"
+      },
+      {
+        "canonicalEventId": "4ad98e7f-8a76-40ac-9769-f63a1d7f3ce1",
+        "seq": 270,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-a7ad7e6f-b087-43d5-9dba-ed36c25ce0e9",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.096Z",
+        "evidenceRef": "4ad98e7f-8a76-40ac-9769-f63a1d7f3ce1"
+      },
+      {
+        "canonicalEventId": "4ed5ed6c-1ae9-45b3-80c3-9dd477580c62",
+        "seq": 271,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-626f44f2-3ad8-47bd-a279-de65be2f1bdf",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.100Z",
+        "evidenceRef": "4ed5ed6c-1ae9-45b3-80c3-9dd477580c62"
+      },
+      {
+        "canonicalEventId": "b34df272-2d7b-43d7-a73a-ea67bac2d688",
+        "seq": 272,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-626f44f2-3ad8-47bd-a279-de65be2f1bdf",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.100Z",
+        "evidenceRef": "b34df272-2d7b-43d7-a73a-ea67bac2d688"
+      },
+      {
+        "canonicalEventId": "1c194486-f835-4c10-99db-91b66f648a6d",
+        "seq": 273,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-b76bd703-2ed9-4dd9-83bc-b32aa7a9be83",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.104Z",
+        "evidenceRef": "1c194486-f835-4c10-99db-91b66f648a6d"
+      },
+      {
+        "canonicalEventId": "56c735fa-d660-45db-861d-f02db598d750",
+        "seq": 274,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-b76bd703-2ed9-4dd9-83bc-b32aa7a9be83",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.104Z",
+        "evidenceRef": "56c735fa-d660-45db-861d-f02db598d750"
+      },
+      {
+        "canonicalEventId": "700e3c2c-1532-4e55-8f87-47ce09454db2",
+        "seq": 275,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-32ef1ea2-e2b4-4eee-95c2-271f79e0cf54",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.108Z",
+        "evidenceRef": "700e3c2c-1532-4e55-8f87-47ce09454db2"
+      },
+      {
+        "canonicalEventId": "141e50f0-6de5-4f6a-b82f-9f958b0059e9",
+        "seq": 276,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-32ef1ea2-e2b4-4eee-95c2-271f79e0cf54",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.108Z",
+        "evidenceRef": "141e50f0-6de5-4f6a-b82f-9f958b0059e9"
+      },
+      {
+        "canonicalEventId": "2d1e0787-3347-4db0-8d7d-df11d3a2f844",
+        "seq": 277,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-c40214f7-71b0-42e6-9261-c9c5d54d9d50",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.112Z",
+        "evidenceRef": "2d1e0787-3347-4db0-8d7d-df11d3a2f844"
+      },
+      {
+        "canonicalEventId": "034e9dac-d732-4510-84fd-e812e13ceca7",
+        "seq": 278,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-c40214f7-71b0-42e6-9261-c9c5d54d9d50",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.112Z",
+        "evidenceRef": "034e9dac-d732-4510-84fd-e812e13ceca7"
+      },
+      {
+        "canonicalEventId": "80c96c25-b43b-4fd9-b620-dc20fd8fd36b",
+        "seq": 279,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-ff9c9f24-b5c2-4666-9e29-11228a46e784",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.116Z",
+        "evidenceRef": "80c96c25-b43b-4fd9-b620-dc20fd8fd36b"
+      },
+      {
+        "canonicalEventId": "8b7bfb82-2bad-46a1-a187-29ba8eb38a20",
+        "seq": 280,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-ff9c9f24-b5c2-4666-9e29-11228a46e784",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.116Z",
+        "evidenceRef": "8b7bfb82-2bad-46a1-a187-29ba8eb38a20"
+      },
+      {
+        "canonicalEventId": "fb50eea4-3176-4be3-8bd5-067d80b78fde",
+        "seq": 281,
+        "type": "COMMAND_ACCEPTED",
+        "taskRef": "Q-a004d599-d197-465e-b583-46f43bab212b",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.120Z",
+        "evidenceRef": "fb50eea4-3176-4be3-8bd5-067d80b78fde"
+      },
+      {
+        "canonicalEventId": "c4fa62ab-50a5-4bdb-8657-31c967d80ab5",
+        "seq": 282,
+        "type": "TASK_CREATED",
+        "taskRef": "Q-a004d599-d197-465e-b583-46f43bab212b",
+        "actorRef": "gateway",
+        "timestamp": "2026-10-06T05:37:43.120Z",
+        "evidenceRef": "c4fa62ab-50a5-4bdb-8657-31c967d80ab5"
+      },
+      {
+        "canonicalEventId": "77fbd6c2-cf7a-4a74-8201-d22c44f1d6f4",
+        "seq": 283,
+        "type": "TASK_ASSIGNED",
+        "taskRef": "Q-34e4b0b0-e803-4d1f-bc2c-5a6198bbc7ce",
+        "actorRef": "controlled-worker",
+        "timestamp": "2026-10-06T05:37:43.126Z",
+        "evidenceRef": "77fbd6c2-cf7a-4a74-8201-d22c44f1d6f4"
+      },
+      {
+        "canonicalEventId": "c7ecc353-8317-4023-9d5d-dbaec9a883a4",
+        "seq": 284,
+        "type": "TASK_STARTED",
+        "taskRef": "Q-34e4b0b0-e803-4d1f-bc2c-5a6198bbc7ce",
+        "actorRef": "controlled-worker",
+        "timestamp": "2026-10-06T05:37:43.130Z",
+        "evidenceRef": "c7ecc353-8317-4023-9d5d-dbaec9a883a4"
+      },
+      {
+        "canonicalEventId": "e4cb603d-bb6e-4497-9251-d9c064d6fd1c",
+        "seq": 285,
+        "type": "TASK_FAILED",
+        "taskRef": "Q-34e4b0b0-e803-4d1f-bc2c-5a6198bbc7ce",
+        "actorRef": "controlled-worker",
+        "timestamp": "2026-10-06T05:37:43.134Z",
+        "evidenceRef": "e4cb603d-bb6e-4497-9251-d9c064d6fd1c"
+      },
+      {
+        "canonicalEventId": "efc7c934-0621-4d2e-8159-f73306f53dca",
+        "seq": 286,
+        "type": "MONITOR_DECISION_REQUESTED",
+        "taskRef": "Q-34e4b0b0-e803-4d1f-bc2c-5a6198bbc7ce",
+        "actorRef": "user",
+        "timestamp": "2026-10-06T05:37:43.140Z",
+        "evidenceRef": "efc7c934-0621-4d2e-8159-f73306f53dca"
+      }
+    ],
+    "evidence": [
+      {
+        "canonicalEventId": "09ae44d7-e4b7-4d5a-867d-5e6d1c160da3",
+        "seq": 159,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "c681a11c-0c5b-4b53-aa15-d8593b280b81",
+        "seq": 160,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "e5a4253f-20a5-438b-aef8-51a377a4dd76",
+        "seq": 161,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "d2457c84-d38e-46d1-8500-af98b36a435b",
+        "seq": 162,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "c875a432-fe27-4529-bd85-a3d26018be7d",
+        "seq": 163,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "006d4f91-6b72-4661-933f-3b4de9818e89",
+        "seq": 164,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "ea4d2c15-2e04-4cbb-9e8c-c38b073dbc10",
+        "seq": 165,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "a57b902e-e6e5-4bac-ae7c-83308889d4a6",
+        "seq": 166,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "43ebc877-2a52-4bb3-88dd-1e52d823b4ea",
+        "seq": 167,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "7f014253-4ef6-4786-a0a6-4a35471150c1",
+        "seq": 168,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "807dd421-a30f-48b6-98d0-6d55b7e20693",
+        "seq": 169,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "837eafc8-854e-44e8-88b1-d4e35e12eccf",
+        "seq": 170,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "505eea85-a739-4b89-aa15-0aaee8bbd087",
+        "seq": 171,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "157ec6eb-d243-4616-afe7-2c8034e7d15e",
+        "seq": 172,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "787f6955-b3f2-4777-879e-5daee3802203",
+        "seq": 173,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "d66a9532-4d86-4e28-869a-12c760f3bfe5",
+        "seq": 174,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "63a636cc-911e-4a29-bfba-3dfeb09a7c2e",
+        "seq": 175,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "e6b1486b-db72-4edf-84f9-f8c9e06b727d",
+        "seq": 176,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "13f4505b-3a34-46e8-876a-ffc300d9e49b",
+        "seq": 177,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "cbaf7775-7f82-41a4-aecf-19b2526ef34f",
+        "seq": 178,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "d2a10df0-34c9-48cc-aaab-52fc1c59c583",
+        "seq": 179,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "93d364ca-9c58-435e-a0f9-71f51b0c66b1",
+        "seq": 180,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "2013f217-0f51-40e6-a4e4-11c694261111",
+        "seq": 181,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "c76dc3f6-a1f8-4102-a3dd-0a67b0764da1",
+        "seq": 182,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "3b5468ee-ba0b-49c5-ab42-d4e94b89cb59",
+        "seq": 183,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "26023599-1b00-412c-aea0-35f9dd98f327",
+        "seq": 184,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "abca02cc-1f89-4a61-add3-a7a2cad21c30",
+        "seq": 185,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "09462532-79dc-45b5-87e8-8b129af22181",
+        "seq": 186,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "859d8d7d-3d35-4b64-9033-a8c17de08623",
+        "seq": 187,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "6266db23-d2a8-4afe-818c-2bc15a47a22a",
+        "seq": 188,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "891e1155-c8b9-4546-b9bf-02dc8cd6ad8a",
+        "seq": 189,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "581fa031-6ce6-44d7-980a-fdfcabd4b14e",
+        "seq": 190,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "7f3c9dfa-3525-4934-a6d6-3164be2baa63",
+        "seq": 191,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "637cc16c-a1da-4ed4-819c-ebde33721ea9",
+        "seq": 192,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "2a5500f3-ed71-44d5-ac17-3ff67e6775b7",
+        "seq": 193,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "24075b99-87b1-4500-a76e-d58295db8052",
+        "seq": 194,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "1f3b08b3-0e02-46b4-a8f3-53f140172338",
+        "seq": 195,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "b0dee5b9-6fdc-4021-a629-dbc1aa165628",
+        "seq": 196,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "cf16d114-13f7-48ff-ad8e-ccf26e0282a2",
+        "seq": 197,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "7d804b0f-8d2d-460b-9072-8b44ccd6b493",
+        "seq": 198,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "8bc02bfc-1b58-4905-886f-881f5500f33b",
+        "seq": 199,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "ac76c11a-e50f-4598-a157-f3608c260394",
+        "seq": 200,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "4ce45a06-3741-4e60-afb2-47f74bb72e86",
+        "seq": 201,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "8d52a910-1976-4aaa-93ea-9374776be7dc",
+        "seq": 202,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "c6a3e29e-6728-4c34-8031-e56e29faad4d",
+        "seq": 203,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "f25376d6-2a2a-4790-be2b-8bfc538e0934",
+        "seq": 204,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "49c3191b-992a-4de2-ac07-0328c5e21e81",
+        "seq": 205,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "c80d97ec-a97b-4595-aab5-bb0d3bb5a746",
+        "seq": 206,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "af9a25cd-f2aa-4999-a907-8e61de836871",
+        "seq": 207,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "57717bc3-bd0a-451a-a4fb-c49301fffba7",
+        "seq": 208,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "88f7c685-6988-45cd-9240-3357dcd00023",
+        "seq": 209,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "f9dcbe41-6fa8-4c58-a5a5-0be58d10dd8d",
+        "seq": 210,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "3a250b30-fce3-4600-899b-ac755e4f7b89",
+        "seq": 211,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "65cab491-a3dd-46d0-bdaf-6ed15b8a49d6",
+        "seq": 212,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "07bb3c19-a6b1-4b38-83ba-a2651a072c2b",
+        "seq": 213,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "e3559862-6590-4b5b-92bf-bf1ce1aec82d",
+        "seq": 214,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "a76462ed-1e1b-481d-8c70-c4ae9d3399e4",
+        "seq": 215,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "ac82247d-edc7-4c33-8fb7-aecb4cbb5d33",
+        "seq": 216,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "7409407a-b71e-4e38-889b-4eff6aefcb29",
+        "seq": 217,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "b5d3d671-eb64-4242-a427-dd70011de7f2",
+        "seq": 218,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "cab0ee83-6c55-4dd3-a379-c94c94f57e3d",
+        "seq": 219,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "2a038508-e89a-4d73-8cf2-5e7d0e365ada",
+        "seq": 220,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "18dcdd64-387d-4cbd-8daf-c0080ccb67c2",
+        "seq": 221,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "0700dc15-6317-419e-aef4-d2c9dd4060cc",
+        "seq": 222,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "b658ee57-211c-4554-9646-a68a8b7e7a2b",
+        "seq": 223,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "1e3ac8ea-fb41-43d1-ae01-7504f83fd6bd",
+        "seq": 224,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "424c40f1-687f-401a-a040-259d43579c6c",
+        "seq": 225,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "a769c338-b6e7-455c-9c2b-42032a9af28f",
+        "seq": 226,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "a2d75544-61fc-4a81-b4b4-a7f992c276f2",
+        "seq": 227,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "08b0e1a5-3924-4b0d-8db9-41bb389b4f95",
+        "seq": 228,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "60d57ae3-e112-400c-8422-b09e520e9b3a",
+        "seq": 229,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "aea5e678-9c35-4be0-8efc-b589f6a778f3",
+        "seq": 230,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "fc8bef43-7aa3-486f-bf46-addb606a038c",
+        "seq": 231,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "db9da193-c651-4c56-9f13-0be5a2f5b717",
+        "seq": 232,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "a7da707b-f3b9-41a4-bc04-69d83d87420b",
+        "seq": 233,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "958ea199-224c-4f88-814d-8d4a813a70e5",
+        "seq": 234,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "9427176d-c92f-46a8-a5d4-18175f98dd7d",
+        "seq": 235,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "ba141e28-29d9-4d3c-a6aa-77f932974320",
+        "seq": 236,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "cb181596-a385-4521-a5e5-780ac2c3ed8b",
+        "seq": 237,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "885f60de-ffd7-4f56-8732-905bb19fd703",
+        "seq": 238,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "62ce676c-497b-4eca-8cfb-9e35fdfaeb4e",
+        "seq": 239,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "47b811d5-7a94-4144-9001-18625df85362",
+        "seq": 240,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "8818df8c-9a1a-4024-a9f9-a0819755c113",
+        "seq": 241,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "a73939fa-18e8-47ce-98e7-a31a295ac671",
+        "seq": 242,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "5a64e76c-5c13-4f23-b43f-093978927a6a",
+        "seq": 243,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "7fe85759-2709-4773-956d-0cd59b19adb4",
+        "seq": 244,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "f6fc21e4-a136-4ff8-81ab-653b5203ac92",
+        "seq": 245,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "4aa747ca-e488-43b4-b093-81e2f59f6481",
+        "seq": 246,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "283d1273-de5c-469b-b899-9385d8e607de",
+        "seq": 247,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "a34005b0-1e9d-4a40-979d-a7eef1e4648d",
+        "seq": 248,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "1b14e19e-0bff-4641-bd41-e7f1f3f430a7",
+        "seq": 249,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "9e6b1e1e-6c6b-47cc-978e-29fcef962647",
+        "seq": 250,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "7bbc4a7f-369f-48cf-a006-370a0baffae3",
+        "seq": 251,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "9cc9dd1b-de42-4bb0-960a-d03a2188d056",
+        "seq": 252,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "e45a3e48-6f53-4da3-9f49-0b33ffdd832d",
+        "seq": 253,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "b529d019-5b8b-48cc-b305-ebbf4de4c5f1",
+        "seq": 254,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "9b66d81f-f00b-46d4-b5e1-8ae6967efb22",
+        "seq": 255,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "586e8ff4-f8d0-47f0-bbc2-108f0203e971",
+        "seq": 256,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "3917b149-b7d4-4dfe-9218-c787d956d67e",
+        "seq": 257,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "a70e77a9-39d5-42a1-b1ed-797b88351c58",
+        "seq": 258,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "e96d90ba-f010-44dd-8b9e-3aa2316b2887",
+        "seq": 259,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "277a6730-bded-43e5-ab0d-d7a0ab978ff9",
+        "seq": 260,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "fdbe072d-1eb6-4575-95f0-fa8fd37a4db7",
+        "seq": 261,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "c1038bd6-3553-49aa-97d2-40b60bc8f9ad",
+        "seq": 262,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "cbcedcc9-ddc0-4fb2-bc24-d482e18e18fc",
+        "seq": 263,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "e47818ad-c176-4999-8147-b4f49afdd945",
+        "seq": 264,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "a4524524-af92-4466-9228-373f52ae0bc5",
+        "seq": 265,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "5a831812-fe8e-4cc7-a42b-8b422ebc10ba",
+        "seq": 266,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "29aeab18-b5c4-460b-820b-8b155d409361",
+        "seq": 267,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "7cf3e36a-f5f9-47fa-82a4-6c55e8af0792",
+        "seq": 268,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "faf8bb27-1589-4a6a-84d7-8e04bb0451a2",
+        "seq": 269,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "4ad98e7f-8a76-40ac-9769-f63a1d7f3ce1",
+        "seq": 270,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "4ed5ed6c-1ae9-45b3-80c3-9dd477580c62",
+        "seq": 271,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "b34df272-2d7b-43d7-a73a-ea67bac2d688",
+        "seq": 272,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "1c194486-f835-4c10-99db-91b66f648a6d",
+        "seq": 273,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "56c735fa-d660-45db-861d-f02db598d750",
+        "seq": 274,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "700e3c2c-1532-4e55-8f87-47ce09454db2",
+        "seq": 275,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "141e50f0-6de5-4f6a-b82f-9f958b0059e9",
+        "seq": 276,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "2d1e0787-3347-4db0-8d7d-df11d3a2f844",
+        "seq": 277,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "034e9dac-d732-4510-84fd-e812e13ceca7",
+        "seq": 278,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "80c96c25-b43b-4fd9-b620-dc20fd8fd36b",
+        "seq": 279,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "8b7bfb82-2bad-46a1-a187-29ba8eb38a20",
+        "seq": 280,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "fb50eea4-3176-4be3-8bd5-067d80b78fde",
+        "seq": 281,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "c4fa62ab-50a5-4bdb-8657-31c967d80ab5",
+        "seq": 282,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "77fbd6c2-cf7a-4a74-8201-d22c44f1d6f4",
+        "seq": 283,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "c7ecc353-8317-4023-9d5d-dbaec9a883a4",
+        "seq": 284,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "e4cb603d-bb6e-4497-9251-d9c064d6fd1c",
+        "seq": 285,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      },
+      {
+        "canonicalEventId": "efc7c934-0621-4d2e-8159-f73306f53dca",
+        "seq": 286,
+        "source": "CANONICAL_GATEWAY_STORE",
+        "path": "/api/v0/events",
+        "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+      }
+    ],
+    "summary": {
+      "taskCounts": {
+        "FAILED": 1,
+        "QUEUED": 127
+      },
+      "activeRiskPresent": true,
+      "activeRiskCount": 4,
+      "riskBubbled": true,
+      "worstRisk": "ACTIVE",
+      "falseSafeSummary": false,
+      "safeSummaryAvailable": false,
+      "unobserved": {
+        "tasks": 12,
+        "nodes": 0,
+        "events": 158,
+        "historyGap": true
+      },
+      "retryHistory": "NOT_OBSERVABLE",
+      "retryHistoryReason": "The canonical event window has a gap (firstSeq 159, lastSeq 286, high watermark 286).",
+      "ownerRequired": {
+        "state": "NOT_OBSERVABLE",
+        "count": null,
+        "refs": [],
+        "reason": "This window projects canonical tasks only; Mission Book Owner gates and escalations are not part of MON-901, so \"no Owner action is required\" cannot be claimed from it."
+      },
+      "incompleteEdges": 0
+    },
+    "navigation": {
+      "budgetSteps": 3,
+      "designedMaxSteps": 3,
+      "worstSteps": null,
+      "measurementStatus": "NOT_OBSERVABLE",
+      "note": "The design budget is three interactions. Actual navigation measurements belong to browser/runtime evidence, not this projection."
+    },
+    "layout": {
+      "reflowKey": "n3:e1:c1:observation:window,Q-34e4b0b0-e803-4d1f-bc2c-5a6198bbc7ce,controlled-worker",
+      "stable": true
+    }
+  },
+  "decisions": {
+    "apiVersion": 0,
+    "schemaVersion": 0,
+    "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505",
+    "window": {
+      "schemaVersion": 1,
+      "authoritative": false,
+      "persistence": "READY",
+      "persistenceReason": null,
+      "decisions": [
+        {
+          "schemaVersion": 1,
+          "decisionId": "decision-06d9ba2b-e6b4-4bae-a102-561bc152d5c9",
+          "taskRef": "Q-34e4b0b0-e803-4d1f-bc2c-5a6198bbc7ce",
+          "triggerEvent": {
+            "kind": "SCOPE_CHANGE",
+            "origin": "SUBMITTED",
+            "eventId": null,
+            "eventSeq": null,
+            "eventType": null,
+            "reason": "Controlled cross-surface review boundary"
+          },
+          "preState": "FAILED",
+          "postState": "FAILED",
+          "source": "RULE",
+          "action": "OWNER_REQUIRED",
+          "confidence": null,
+          "confidenceReason": "NOT_AVAILABLE: a deterministic rule is not a probability and no resolver reported one",
+          "queueWaitMs": 3,
+          "decisionLatencyMs": 0,
+          "timeoutOrFallback": [],
+          "escalationTarget": "OWNER",
+          "escalationReason": "OWNER_BOUNDARY_KIND",
+          "ownerRequired": true,
+          "evidenceRefs": [],
+          "appliedBy": null,
+          "application": "RECORDED_ONLY",
+          "applicationReason": "NOT_APPLICABLE: this overlay owns no task writer and grants no authority",
+          "decisionTrace": [
+            {
+              "stage": "OBSERVATION",
+              "at": "2026-10-06T05:37:43.143Z",
+              "detail": "trigger SCOPE_CHANGE from SUBMITTED"
+            },
+            {
+              "stage": "RULE",
+              "at": "2026-10-06T05:37:43.143Z",
+              "detail": "owner boundary: no resolver consulted"
+            }
+          ],
+          "decidedAt": "2026-10-06T05:37:43.143Z",
+          "brokerNote": "decision recorded by the MON-903 overlay; canonical task state remains the City's own"
+        },
+        {
+          "schemaVersion": 1,
+          "decisionId": "decision-7afacbb9-2a5e-4eec-bf81-d40f310ca4f0",
+          "taskRef": "Q-34e4b0b0-e803-4d1f-bc2c-5a6198bbc7ce",
+          "triggerEvent": {
+            "kind": "FAILED",
+            "origin": "CANONICAL_EVENT",
+            "eventId": "e4cb603d-bb6e-4497-9251-d9c064d6fd1c",
+            "eventSeq": 285,
+            "eventType": "TASK_FAILED",
+            "reason": null
+          },
+          "preState": "FAILED",
+          "postState": "FAILED",
+          "source": "RULE",
+          "action": "RETRY_RECOMMENDED",
+          "confidence": null,
+          "confidenceReason": "NOT_AVAILABLE: a deterministic rule is not a probability and no resolver reported one",
+          "queueWaitMs": 3,
+          "decisionLatencyMs": 0,
+          "timeoutOrFallback": [],
+          "escalationTarget": null,
+          "escalationReason": null,
+          "ownerRequired": false,
+          "evidenceRefs": [
+            {
+              "canonicalEventId": "e4cb603d-bb6e-4497-9251-d9c064d6fd1c",
+              "seq": 285,
+              "source": "CANONICAL_GATEWAY_STORE",
+              "path": "/api/v0/events"
+            }
+          ],
+          "appliedBy": null,
+          "application": "RECORDED_ONLY",
+          "applicationReason": "NOT_APPLICABLE: this overlay owns no task writer and grants no authority",
+          "decisionTrace": [
+            {
+              "stage": "OBSERVATION",
+              "at": "2026-10-06T05:37:43.137Z",
+              "detail": "trigger FAILED from CANONICAL_EVENT"
+            },
+            {
+              "stage": "RULE",
+              "at": "2026-10-06T05:37:43.137Z",
+              "detail": "first attributable failure with retry budget remaining"
+            }
+          ],
+          "decidedAt": "2026-10-06T05:37:43.137Z",
+          "brokerNote": "decision recorded by the MON-903 overlay; canonical task state remains the City's own"
+        }
+      ],
+      "retained": 2,
+      "retainedLimit": 200,
+      "retentionTruncated": false,
+      "broken": [],
+      "failures": [],
+      "failuresDropped": 0,
+      "observedEvents": 288,
+      "window": {
+        "over": "TRIGGER_EVENTS",
+        "note": "firstSeq/lastSeq span the canonical events that were DECISION TRIGGERS, not every canonical event; non-trigger events are deliberately not decisions",
+        "firstSeq": 285,
+        "lastSeq": null,
+        "triggerEvents": 2,
+        "observedEvents": 288,
+        "canonicalHighWatermark": null,
+        "canonicalHighWatermarkReason": "NOT_OBSERVABLE: this overlay is handed individual events and never reads the canonical stream itself"
+      },
+      "unsupportedSources": [
+        "model/provider identity (a resolver is a seam, not an identified model)",
+        "hidden reasoning (never requested, never stored)"
+      ]
+    },
+    "metrics": {
+      "decisions": 2,
+      "retained": 2,
+      "retainedLimit": 200,
+      "retentionTruncated": false,
+      "windowNote": "Rate is over the whole retained window (2 of a limit of 200).",
+      "latencySamples": 2,
+      "latencyNotObservable": 0,
+      "bySource": {
+        "RULE": 2,
+        "FAST_MODEL": 0,
+        "CRITIC": 0,
+        "OWNER": 0
+      },
+      "ownerRequired": 1,
+      "autoResolved": 1,
+      "autoResolutionRate": 0.5,
+      "autoResolutionRateReason": null,
+      "timeouts": 0,
+      "meanDecisionLatencyMs": 0,
+      "meanQueueWaitMs": 3,
+      "unrelatedTaskBlocking": "ABSENT_BY_CONSTRUCTION",
+      "unrelatedTaskBlockingBasis": "the queue map is keyed by task and observe() is never awaited on the canonical path",
+      "concurrentDecisionTasks": 0,
+      "persistence": "READY",
+      "persistenceReason": null,
+      "resolverFailures": [],
+      "resolverFailuresDropped": 0,
+      "unsupportedSources": [
+        "wrong auto-decision and repair (requires an independent judge, not this overlay)",
+        "confidence versus final review outcome (no resolver is configured in this City)"
+      ]
+    },
+    "kinds": [
+      "FAILED",
+      "BLOCKED",
+      "READY_FOR_REVIEW",
+      "RETRY_REQUESTED",
+      "RESOURCE_CONFLICT",
+      "SCOPE_CHANGE",
+      "MERGE_READY",
+      "OWNER_DECISION_CANDIDATE"
+    ],
+    "sources": [
+      "RULE",
+      "FAST_MODEL",
+      "CRITIC",
+      "OWNER"
+    ],
+    "actions": [
+      "RETRY_RECOMMENDED",
+      "WAIT_FOR_TARGET_RECOVERY",
+      "DEFER_TO_SCHEDULER",
+      "RETRY_ADVISORY",
+      "AWAIT_OWNER_APPROVAL",
+      "AWAIT_OWNER_REVIEW",
+      "AWAIT_OWNER_MERGE",
+      "AWAIT_OWNER_SCOPE_DECISION",
+      "OWNER_REQUIRED",
+      "NO_ACTION_RECORDED"
+    ]
+  },
+  "webEvidence": {
+    "source": "CANONICAL_GATEWAY_STORE",
+    "reference": "e4cb603d-bb6e-4497-9251-d9c064d6fd1c",
+    "pointer": {
+      "canonicalEventId": "e4cb603d-bb6e-4497-9251-d9c064d6fd1c",
+      "seq": 285,
+      "source": "CANONICAL_GATEWAY_STORE",
+      "path": "/api/v0/events",
+      "cityId": "1c8c2aee-650f-4a3f-b739-897e3a57e505"
+    },
+    "event": {
+      "canonicalEventId": "e4cb603d-bb6e-4497-9251-d9c064d6fd1c",
+      "seq": 285,
+      "type": "TASK_FAILED",
+      "taskRef": "Q-34e4b0b0-e803-4d1f-bc2c-5a6198bbc7ce",
+      "actorRef": "controlled-worker",
+      "timestamp": "2026-10-06T05:37:43.134Z",
+      "evidenceRef": "e4cb603d-bb6e-4497-9251-d9c064d6fd1c"
+    }
+  },
+  "nativeRiskEvidence": {
+    "ref": "e4cb603d-bb6e-4497-9251-d9c064d6fd1c",
+    "steps": 2,
+    "interactions": {
+      "taps": 2,
+      "swipes": 0
+    },
+    "visibleUiVerified": true
+  },
+  "nativePathEvidence": {
+    "ref": "e4cb603d-bb6e-4497-9251-d9c064d6fd1c",
+    "steps": 3,
+    "interactions": {
+      "taps": 3,
+      "swipes": 0
+    },
+    "visibleUiVerified": true
+  },
+  "nativeCollapseFilter": "PASS: expanded failure remains visible; hidden-route inspector contains no assignment control",
+  "nativeOffline": "PASS: source cleared and disconnected notice visible",
+  "webPathEvidence": {
+    "ref": "e4cb603d-bb6e-4497-9251-d9c064d6fd1c",
+    "steps": 3
+  },
+  "realProvider": "NOT_RUN",
+  "oppositeHostReview": "NOT_RUN",
+  "phoneExistingApps": "PRESERVED: ordinary and join590review not modified"
+}

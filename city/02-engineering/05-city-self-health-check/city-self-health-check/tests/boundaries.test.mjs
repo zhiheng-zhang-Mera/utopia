@@ -16,6 +16,38 @@ test('case evidence is mandatory before quarterly proposal can be routed', () =>
 test('case text values minimize credentials before hashing and prototype kinds cannot route', () => { const h = appendCaseRevision([], { case_id: 'C1', symptom: 'Authorization: Bearer abcdef-secret-value', hypotheses: ['password=hunter-secret-123'], repairs: { note: 'ghp_123456789012345678901234567890123456' } }); assert.equal(JSON.stringify(h).includes('abcdef-secret-value'), false); assert.equal(JSON.stringify(h).includes('hunter-secret-123'), false); assert.equal(JSON.stringify(h).includes('ghp_123456789012345678901234567890123456'), false); const r = quarterlyReview({ findings: [] }, { caseHistory: h, candidates: [{ candidate_id: 'E1', kind: 'toString', source_cases: ['C1'], evidence: [{ path: 'episode.json' }] }] }); assert.equal(r.candidate_receipts[0].receipt_state, 'DEFERRED'); });
 test('externally signed unsafe history is rejected and quarterly rationale values are minimized', async () => { const { createHash } = await import('node:crypto'); const h = appendCaseRevision([], { case_id: 'C1', symptom: 'safe' }); const { hash, ...body } = h[0]; body.symptom = 'token=unsafe-imported-history'; const unsafe = [{ ...body, hash: createHash('sha256').update(JSON.stringify(body)).digest('hex') }]; assert.throws(() => validateCaseHistory(unsafe), /sensitive/i); const q = quarterlyReview({ findings: [] }, { bossObservations: { 'BLG-001': { disposition: 'KEEP_AS_REFERENCE', rationale: 'password=unsafe-rationale', evidence: [{ path: 'e.json' }] } } }); assert.equal(JSON.stringify(q).includes('unsafe-rationale'), false); });
 test('registry directory references resolve existing tracked sources without false dead records', async t => { const f = await repo(t); await f.put('utopia', 'services/feature/index.mjs', 'export function feature() {}'); await f.put('city', 'capability-registry/records/CAP-X.yaml', JSON.stringify({ capability_id: 'CAP-X-001', implementation: { paths: ['services/feature/'], symbols: ['feature'] } })); const r = await runHealthCheck(f.opts); assert.equal(r.findings.some(x => ['DEAD_CAPABILITY_RECORD', 'DEAD_CAPABILITY_SYMBOL'].includes(x.code)), false); });
+test('credential paths a real machine carries are refused by name, reported as refused, and never hashed', async t => {
+  // Found while accepting the four-series integration pack. The filter named `.env*`, a `credentials`/`secrets`/`tokens`
+  // path segment and a few key extensions, so a declared implementation path of `config/id_rsa` and a tracked `.npmrc`
+  // were BOTH read and written into source-manifest.json with their sha256. A filter that misses the files a developer
+  // machine actually holds cannot support the claim that these files are never read.
+  const f = await repo(t);
+  await f.put('utopia', 'config/id_rsa', '-----BEGIN OPENSSH PRIVATE KEY-----\nchk-fixture-key\n-----END OPENSSH PRIVATE KEY-----\n');
+  await f.put('utopia', '.npmrc', '//registry.example.invalid/:_authToken=npm-fixture-token\n');
+  await f.put('city', 'capability-registry/records/CAP-X.yaml', JSON.stringify({ capability_id: 'CAP-X-001', ownership: { city_owner: 'owner' }, implementation: { paths: ['config/id_rsa'] }, exposure: { class: 'INTERNAL_ONLY', internal_only_exemption_reason: 'fixture' } }));
+  const r = await runHealthCheck(f.opts);
+  const hashed = r.evidence_manifest.map(x => x.path);
+  assert.equal(hashed.includes('config/id_rsa'), false, 'an ssh private key must never be read');
+  assert.equal(hashed.includes('.npmrc'), false, 'an npm credential file must never be read');
+  assert.ok(r.coverage.skipped.some(x => x.path === 'utopia:config/id_rsa' && x.reason === 'UNSAFE_PATH'));
+  assert.ok(r.coverage.skipped.some(x => x.path === 'utopia:.npmrc' && x.reason === 'UNSAFE_PATH'));
+  // A scan that refused files is not a complete static scan, and the refusal must be visible rather than implied.
+  assert.equal(r.coverage.static_scan_complete, false);
+  assert.ok(r.findings.some(x => x.code === 'CAPABILITY_PATH_NOT_READ' && x.detail.includes('config/id_rsa')));
+  assert.equal(r.findings.some(x => x.code === 'DEAD_CAPABILITY_RECORD' && x.detail.includes('config/id_rsa')), false, 'a deliberately-unread path is not a dead capability record');
+  assert.equal(JSON.stringify(r).includes('chk-fixture-key'), false, 'no key material may reach the report');
+  assert.equal(JSON.stringify(r).includes('npm-fixture-token'), false, 'no token material may reach the report');
+});
+test('redaction covers AWS-style key ids and PEM bodies, not only GitHub tokens and password pairs', async t => {
+  // The earlier rule set redacted `ghp_…`, `password=…`, bearer headers and JWTs, so a probe that carried an AWS key id
+  // through `ownership.city_owner` reached report.json and report.md in plain text. Redaction stays pattern-based - the
+  // limitation is stated in sanitize.mjs - but the shapes a health check actually meets are now covered.
+  const f = await repo(t);
+  await f.put('city', 'capability-registry/records/CAP-X.yaml', JSON.stringify({ capability_id: 'CAP-X-001', ownership: { city_owner: 'AKIAIOSFODNN7EXAMPLE' }, implementation: { paths: [] }, exposure: { class: 'INTERNAL_ONLY', internal_only_exemption_reason: 'fixture' } }));
+  const serialized = JSON.stringify(await runHealthCheck(f.opts));
+  assert.equal(serialized.includes('AKIAIOSFODNN7EXAMPLE'), false, 'an AWS key id must not reach the report');
+  assert.ok(serialized.includes('[REDACTED_AWS_KEY_ID]'));
+});
 test('canonical tolerant frontmatter normalizes quoted booleans and colon-bearing notes', async t => { const f = await repo(t); await f.put('city', 'mission-book/mission-group/example/WB.md', '---\nworkbook_id: CHK-101\nstatus: COMPLETE\nreview_complete: "true"\nnote: Accepted: exact historical evidence\n---\n'); const r = await runHealthCheck(f.opts); assert.equal(r.findings.some(x => ['UNREADABLE_RECORD', 'FALSE_COMPLETE'].includes(x.code)), false); assert.equal(r.census.workbook_count, 1); });
 test('topology module census identifies dead manifest paths and retains rule debt unknowns', async t => { const f = await repo(t); await f.put('utopia', 'city/CITY_IMPLEMENTATION_MANIFEST.json', JSON.stringify({ schemaVersion: 2, districts: [{ id: '02-engineering', buildings: [{ id: '01-example', modules: [{ id: 'missing', path: 'city/02-engineering/01-example/missing', lifecycle: 'ACTIVE' }] }] }] })); await f.put('city', 'mission-book/CONSTRUCTION_RULES.md', '# Rules\n\n## Rule one\nDo not modify without authority.\n'); const r = await runHealthCheck(f.opts); assert.ok(r.findings.some(x => x.code === 'CITY_MAPPING_DRIFT')); assert.equal(r.census.governance_rules[0].source_failure, 'UNKNOWN'); });
 test('CLI rejects output inside either inspected checkout', async t => { const f = await repo(t); const cli = join(import.meta.dirname, '../../../../../scripts/city-health-check.mjs'); const child = await import('node:child_process'); const result = child.spawnSync(process.execPath, [cli, '--utopia', f.utopia, '--city', f.city, '--out', join(f.utopia, 'report')], { encoding: 'utf8' }); assert.notEqual(result.status, 0); assert.match(result.stderr, /outside inspected repositories/); });

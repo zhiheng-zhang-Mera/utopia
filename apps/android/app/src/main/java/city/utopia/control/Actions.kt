@@ -207,8 +207,9 @@ val ASK_COMPLETED = "COMPLETED"
 val ASK_FAILED = "FAILED"
 val ASK_REFUSED = "REFUSED"
 val ASK_UNAVAILABLE = "UNAVAILABLE"
+val ASK_DRAFT_REQUIRED = "DRAFT_REQUIRED"
 
-val ASK_STATUSES = setOf(ASK_RESOLVED, ASK_AWAITING_CONFIRMATION, ASK_AMBIGUOUS, ASK_UNMATCHED, ASK_COMPLETED, ASK_FAILED, ASK_REFUSED, ASK_UNAVAILABLE)
+val ASK_STATUSES = setOf(ASK_RESOLVED, ASK_AWAITING_CONFIRMATION, ASK_AMBIGUOUS, ASK_UNMATCHED, ASK_COMPLETED, ASK_FAILED, ASK_REFUSED, ASK_UNAVAILABLE, ASK_DRAFT_REQUIRED)
 
 fun isAskStatus(status: String) = status in ASK_STATUSES
 
@@ -216,7 +217,7 @@ fun isAskStatus(status: String) = status in ASK_STATUSES
 fun askShowsAction(status: String) = status in setOf(ASK_RESOLVED, ASK_COMPLETED, ASK_FAILED, ASK_REFUSED, ASK_UNAVAILABLE)
 
 /** The request needs something from the user before anything executes. */
-fun askNeedsUser(status: String) = status in setOf(ASK_AWAITING_CONFIRMATION, ASK_AMBIGUOUS, ASK_UNMATCHED)
+fun askNeedsUser(status: String) = status in setOf(ASK_AWAITING_CONFIRMATION, ASK_AMBIGUOUS, ASK_UNMATCHED, ASK_DRAFT_REQUIRED)
 
 /** Truthful, non-alarming description of why nothing ran. UNAVAILABLE/UNMATCHED are product states, not errors. */
 fun askStatusLabel(status: String) = when (status) {
@@ -228,6 +229,7 @@ fun askStatusLabel(status: String) = when (status) {
  ASK_FAILED -> "FAILED"
  ASK_REFUSED -> "REFUSED · not allowed by policy"
  ASK_UNAVAILABLE -> "UNAVAILABLE · the target cannot run right now"
+ ASK_DRAFT_REQUIRED -> "REVIEW DRAFT · complete fields before confirming"
  else -> if (status.isBlank()) "UNKNOWN" else status
 }
 
@@ -258,6 +260,7 @@ data class AskResult(
  val routerLabel: String,
  val deterministic: Boolean,
  val llm: Boolean,
+ val ownerDraft: OwnerControlDraft? = null,
 ) {
  val isKnownStatus: Boolean get() = isAskStatus(status)
  /** A rule matched, so Confirm may be offered with the matched route/target/operation. */
@@ -294,6 +297,7 @@ fun parseAskResult(row: JSONObject): AskResult {
   routerLabel = askRouterLabel(router, deterministic, llm),
   deterministic = deterministic,
   llm = llm,
+  ownerDraft = row.optJSONObject("draft")?.let { parseOwnerControlDraft(it) },
  )
 }
 

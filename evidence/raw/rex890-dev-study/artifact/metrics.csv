@@ -1,0 +1,28 @@
+metric,scope,value,reason,n,provenance
+completion_time_ms,G1,6532,,15,campaign-12c003ce-f9f9-49e1-9b80-9201aab0d1d4:0 -> Q-65680b1a-d3ad-4a05-a080-698b67032b06 | campaign-647b74cd-b4d2-415b-ab7b-c9914fbb7697:0 -> Q-119388af-2908-4dec-8819-7c1b0ee33035 | campaign-1a4ab016-4447-4ff0-a9cb-401eddd43e7f:0 -> Q-7b1a0ca2-6d2f-493d-8c16-4af83916693a | campaign-1a4ab016-4447-4ff0-a9cb-401eddd43e7f:1 -> Q-02716157-4adf-4b6b-9783-15f738c49f2e | campaign-1a4ab016-4447-4ff0-a9cb-401eddd43e7f:2 -> Q-a37bb24d-df0b-4277-9375-0e13625e7073 | campaign-1a4ab016-4447-4ff0-a9cb-401eddd43e7f:3 -> Q-ea7ec41d-bb9d-4fc8-b4fd-319a818a4086 | campaign-1a4ab016-4447-4ff0-a9cb-401eddd43e7f:4 -> Q-4272b9d0-a566-4113-9226-554e49d20993 | campaign-1a4ab016-4447-4ff0-a9cb-401eddd43e7f:5 -> Q-e53aa05d-fa74-4b25-a359-460457bd62c5 | campaign-e0e08faf-57d2-4ffe-a218-63704e342478:0 -> Q-a27c201d-12c3-45ed-961d-0f116f078b73 | campaign-0213d95d-ae62-4f0c-be8d-6238c0ec6d2c:0 -> Q-03b7bfdb-0f25-49a9-b80b-6283f456d98e | campaign-0213d95d-ae62-4f0c-be8d-6238c0ec6d2c:1 -> Q-f6ce64d0-0cba-4984-ba9e-056fd2467aea | campaign-0213d95d-ae62-4f0c-be8d-6238c0ec6d2c:2 -> Q-3a96d66b-f858-4f8e-8a40-4c4daff5bef1 | campaign-0213d95d-ae62-4f0c-be8d-6238c0ec6d2c:3 -> Q-1fb2f875-e4ce-410b-a061-9e627f6de796 | campaign-0213d95d-ae62-4f0c-be8d-6238c0ec6d2c:4 -> Q-0e8383f6-97b7-4094-ad35-738413e6a241 | campaign-0213d95d-ae62-4f0c-be8d-6238c0ec6d2c:5 -> Q-dfad53d4-c33b-4025-b42f-488cdf486a85
+failure_rate,G1,0,,15,"accounted=15 failed=0 timedOut=0 over terminal campaigns: campaign-12c003ce-f9f9-49e1-9b80-9201aab0d1d4, campaign-647b74cd-b4d2-415b-ab7b-c9914fbb7697, campaign-1a4ab016-4447-4ff0-a9cb-401eddd43e7f, campaign-e0e08faf-57d2-4ffe-a218-63704e342478, campaign-0213d95d-ae62-4f0c-be8d-6238c0ec6d2c | undelivered planned runs=0 from none"
+duplicate_execution_count,G1,0,,15,"15 run references, each owned by exactly one canonical task"
+convergence_missing_event_count,G2,0,,15,15 measured runs all resolved to a canonical task in the export
+retry_count,G2,NOT_MEASURED,campaign repetitions are not retries and no retry event is recorded in these sources; counting repetitions here would inflate an autonomy number,,
+recovery_time_ms,G1,NOT_MEASURED,no fault or recovery receipt is present in the provided sources,,
+handoff_time_ms,G1,NOT_MEASURED,"no handoff transition between workers appears in these sources; placements were seed-selected, not handed off",,
+intervention_count,G3,NOT_MEASURED,"Owner actions are not represented in the canonical City records, so no complete intervention window can be claimed; the guard forbids reporting 0 for an unknown window",,
+transitions_before_intervention,G3,NOT_MEASURED,"requires Owner actions, which these sources do not carry",,
+time_to_first_intervention_ms,G3,NOT_MEASURED,"requires a first Owner action, which these sources do not carry",,
+steps_to_first_intervention,G3,NOT_MEASURED,"requires a first Owner action, which these sources do not carry",,
+intervention_free_survival,G3,NOT_MEASURED,"no censored intervention episodes exist in these sources; the guard says export raw episodes rather than draw a curve, and there are none to export",,
+intervention_cause_taxonomy,G3,NOT_MEASURED,requires Owner actions with stated causes,,
+task_pool_drain_before_intervention,G3,NOT_MEASURED,requires Owner actions alongside the task pool,,
+high_value_owner_decision_count,G3,NOT_MEASURED,requires Owner decisions with a stated value,,
+avoidable_technical_escalation_count,G3,NOT_MEASURED,requires escalations classified as avoidable,,
+repeat_clarification_count,G3,NOT_MEASURED,requires clarification episodes,,
+escalation_to_autonomy_resumed_ms,G3,NOT_MEASURED,requires escalation episodes with a resume time,,
+batchable_escalation_count,G3,NOT_MEASURED,"requires escalation bursts, which these sources do not carry",,
+control_plane_mismatch_count,G4,NOT_MEASURED,requires control-plane records reconciled against observed reality; this exporter was given city records only,,
+control_plane_reconciliation_time_ms,G4,NOT_MEASURED,"requires reconciliation episodes, which are not City records",,
+exposure_lag_ms,G4,NOT_MEASURED,requires implementation/wiring/reachability/intent timestamps; the trace records in these sources carry null provenance fields,,
+intent_lag_ms,G4,NOT_MEASURED,"requires the same transition timestamps, which are absent",,
+registry_localization_cost,G4,NOT_MEASURED,requires registry-assisted localization episodes,,
+rule_activation_conflict_falseblock_retirement,G4,NOT_MEASURED,"requires rule lifecycle observations, which are not City records",,
+textually_clean_semantic_failure_count,G4,NOT_MEASURED,"requires integration episodes; these are programme records rather than City campaign data, and v1 of this exporter is deliberately campaign-scoped",,
+independently_green_integrated_failure_count,G4,NOT_MEASURED,same integration-episode source as above,,

@@ -1,0 +1,11 @@
+✔ Research: reconnecting the same credential and City preserves its draft (1642.3687ms)
+✔ Web Research discovers imports validates registers and inspects canonical experiments without running (2209.3006ms)
+✔ a failed list refresh cannot hide a successful canonical registration (1786.5025ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7548.7309

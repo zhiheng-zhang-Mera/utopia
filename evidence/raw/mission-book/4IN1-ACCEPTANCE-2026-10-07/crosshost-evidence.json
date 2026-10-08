@@ -1,0 +1,315 @@
+{
+  "schema": "4in1-crosshost-evidence-v1",
+  "takenAt": "2026-10-07T11:27:47.019Z",
+  "city": "http://172.31.12.151:4310",
+  "implementation": {
+    "head": "185d043e11ae8516a1e7a492d09d031610be576b",
+    "branch": "4-in-1-REX+PCF+CHK+DGX",
+    "treeClean": true
+  },
+  "nodes": [
+    {
+      "id": "dev-544adda130594c6fae7d71ddfd0f3b8c",
+      "displayName": "Mega-rep",
+      "hostname": "Mega-rep",
+      "online": true,
+      "agentVersion": "0.2.0",
+      "lastHeartbeatAt": "2026-10-07T11:27:47.189Z",
+      "descriptor": {
+        "contractVersion": 1,
+        "nodeId": "dev-544adda130594c6fae7d71ddfd0f3b8c",
+        "displayName": "Mega-rep",
+        "platform": "win32",
+        "agentVersion": "0.2.0",
+        "roles": [
+          "EXECUTION_NODE"
+        ],
+        "roleSource": "LEGACY_DEFAULT",
+        "isExecutionResource": true,
+        "capabilities": [
+          "filesystem.temp",
+          "task.execute.safe"
+        ],
+        "resources": {
+          "cpu": {
+            "cores": {
+              "presence": "UNKNOWN",
+              "value": null,
+              "unit": "count",
+              "at": "2026-10-07T11:27:45.167Z",
+              "reason": "NOT_REPORTED"
+            },
+            "loadPercent": {
+              "presence": "KNOWN",
+              "value": 19.31588981294725,
+              "unit": "percent",
+              "at": "2026-10-07T11:27:45.167Z",
+              "reason": null
+            }
+          },
+          "memory": {
+            "totalBytes": {
+              "presence": "KNOWN",
+              "value": 34066345984,
+              "unit": "bytes",
+              "at": "2026-10-07T11:27:45.167Z",
+              "reason": null
+            },
+            "usedBytes": {
+              "presence": "KNOWN",
+              "value": 16145592320,
+              "unit": "bytes",
+              "at": "2026-10-07T11:27:45.167Z",
+              "reason": null
+            },
+            "freeBytes": {
+              "presence": "UNKNOWN",
+              "value": null,
+              "unit": "bytes",
+              "at": "2026-10-07T11:27:45.167Z",
+              "reason": "NOT_REPORTED"
+            }
+          },
+          "disk": {
+            "totalBytes": {
+              "presence": "KNOWN",
+              "value": 701013946368,
+              "unit": "bytes",
+              "at": "2026-10-07T11:27:45.167Z",
+              "reason": null
+            },
+            "usedBytes": {
+              "presence": "KNOWN",
+              "value": 422753411072,
+              "unit": "bytes",
+              "at": "2026-10-07T11:27:45.167Z",
+              "reason": null
+            },
+            "freeBytes": {
+              "presence": "KNOWN",
+              "value": 278260535296,
+              "unit": "bytes",
+              "at": "2026-10-07T11:27:45.167Z",
+              "reason": null
+            }
+          },
+          "gpu": {
+            "presence": "UNKNOWN",
+            "value": null,
+            "unit": "devices",
+            "at": "2026-10-07T11:27:45.167Z",
+            "reason": "NOT_REPORTED"
+          },
+          "network": {
+            "reachable": true,
+            "metered": null
+          },
+          "observedAt": "2026-10-07T11:27:45.167Z"
+        },
+        "availability": {
+          "state": "ONLINE",
+          "acceptingWork": true,
+          "sharingEnabled": true,
+          "reason": null
+        },
+        "health": {
+          "state": "HEALTHY",
+          "reason": null
+        },
+        "trustRef": {
+          "authority": "CITY_NODE_REGISTRY",
+          "devicePrincipalId": "dev-544adda130594c6fae7d71ddfd0f3b8c",
+          "descriptorIsNotAuthority": true
+        }
+      }
+    },
+    {
+      "id": "dev-1428bce5297146df88720f270af71bc3",
+      "displayName": "Alien",
+      "hostname": "Mera-Alianware",
+      "online": true,
+      "agentVersion": "0.2.0",
+      "lastHeartbeatAt": "2026-10-07T11:27:46.859Z",
+      "descriptor": {
+        "contractVersion": 1,
+        "nodeId": "dev-1428bce5297146df88720f270af71bc3",
+        "displayName": "Alien",
+        "platform": "win32",
+        "agentVersion": "0.2.0",
+        "roles": [
+          "EXECUTION_NODE"
+        ],
+        "roleSource": "LEGACY_DEFAULT",
+        "isExecutionResource": true,
+        "capabilities": [
+          "filesystem.temp",
+          "task.execute.safe"
+        ],
+        "resources": {
+          "cpu": {
+            "cores": {
+              "presence": "UNKNOWN",
+              "value": null,
+              "unit": "count",
+              "at": "2026-10-07T11:27:45.226Z",
+              "reason": "NOT_REPORTED"
+            },
+            "loadPercent": {
+              "presence": "KNOWN",
+              "value": 12.023399576816162,
+              "unit": "percent",
+              "at": "2026-10-07T11:27:45.226Z",
+              "reason": null
+            }
+          },
+          "memory": {
+            "totalBytes": {
+              "presence": "KNOWN",
+              "value": 34101420032,
+              "unit": "bytes",
+              "at": "2026-10-07T11:27:45.226Z",
+              "reason": null
+            },
+            "usedBytes": {
+              "presence": "KNOWN",
+              "value": 14312153088,
+              "unit": "bytes",
+              "at": "2026-10-07T11:27:45.226Z",
+              "reason": null
+            },
+            "freeBytes": {
+              "presence": "UNKNOWN",
+              "value": null,
+              "unit": "bytes",
+              "at": "2026-10-07T11:27:45.226Z",
+              "reason": "NOT_REPORTED"
+            }
+          },
+          "disk": {
+            "totalBytes": {
+              "presence": "KNOWN",
+              "value": 895354925056,
+              "unit": "bytes",
+              "at": "2026-10-07T11:27:45.226Z",
+              "reason": null
+            },
+            "usedBytes": {
+              "presence": "KNOWN",
+              "value": 225262256128,
+              "unit": "bytes",
+              "at": "2026-10-07T11:27:45.226Z",
+              "reason": null
+            },
+            "freeBytes": {
+              "presence": "KNOWN",
+              "value": 670092668928,
+              "unit": "bytes",
+              "at": "2026-10-07T11:27:45.226Z",
+              "reason": null
+            }
+          },
+          "gpu": {
+            "presence": "UNKNOWN",
+            "value": null,
+            "unit": "devices",
+            "at": "2026-10-07T11:27:45.226Z",
+            "reason": "NOT_REPORTED"
+          },
+          "network": {
+            "reachable": true,
+            "metered": null
+          },
+          "observedAt": "2026-10-07T11:27:45.226Z"
+        },
+        "availability": {
+          "state": "ONLINE",
+          "acceptingWork": true,
+          "sharingEnabled": true,
+          "reason": null
+        },
+        "health": {
+          "state": "HEALTHY",
+          "reason": null
+        },
+        "trustRef": {
+          "authority": "CITY_NODE_REGISTRY",
+          "devicePrincipalId": "dev-1428bce5297146df88720f270af71bc3",
+          "descriptorIsNotAuthority": true
+        }
+      }
+    }
+  ],
+  "execution": [
+    {
+      "label": "alien",
+      "requestedTarget": "dev-1428bce5297146df88720f270af71bc3",
+      "targetStateAtCreation": "ELIGIBLE",
+      "taskId": "Q-ae583be6-02b7-44ec-bc88-e541d18e670f",
+      "state": "COMPLETED",
+      "progress": 100,
+      "assignedNodeId": "dev-1428bce5297146df88720f270af71bc3",
+      "result": {
+        "bytes": 65,
+        "sha256": "248dbb6778be39e9de1460909c35dd4628944852c89f6d6dda4fa97f8fe3f001",
+        "cleaned": true
+      },
+      "assignedToRequestedTarget": true
+    },
+    {
+      "label": "mech",
+      "requestedTarget": "dev-544adda130594c6fae7d71ddfd0f3b8c",
+      "targetStateAtCreation": "ELIGIBLE",
+      "taskId": "Q-cff22088-ed21-4ec6-84d1-815d947f797c",
+      "state": "COMPLETED",
+      "progress": 100,
+      "assignedNodeId": "dev-544adda130594c6fae7d71ddfd0f3b8c",
+      "result": {
+        "bytes": 65,
+        "sha256": "53e95ca874947f7a956cb25de033f6dc6341e586b9d8d36152bc97b290a4f912",
+        "cleaned": true
+      },
+      "assignedToRequestedTarget": true
+    }
+  ],
+  "lanBrowse": {
+    "status": "OK",
+    "bounded": true,
+    "discovered": 1,
+    "excludedSelf": 1,
+    "unavailable": false,
+    "reason": null,
+    "rows": 0
+  },
+  "health": {
+    "apiVersion": 0,
+    "schemaVersion": 0,
+    "status": "healthy",
+    "components": {
+      "gateway": {
+        "state": "READY"
+      },
+      "rooms": {
+        "state": "READY",
+        "reason": null,
+        "hubUrl": "http://127.0.0.1:4320/"
+      },
+      "execution": {
+        "state": "READY",
+        "reason": null,
+        "detail": null,
+        "profile": "STANDARD_DEVICES",
+        "backendId": "standard-devices",
+        "ready": true,
+        "endpointCount": 2,
+        "readyEndpointCount": 2
+      },
+      "artifacts": {
+        "state": "READY",
+        "reason": null
+      }
+    }
+  },
+  "tasksTotal": 3,
+  "pcf": "COMPLETE",
+  "governance": "AVAILABLE"
+}

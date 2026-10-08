@@ -1,0 +1,39 @@
+{
+  "at": "2026-10-05T11:46:10.113296+00:00",
+  "author": "Alien-codex",
+  "softwareSourceSha": "ec3b6f996240ca71505b3b67af12cc222d1b283a",
+  "mechReportedDeployedSha": "0ea9203d3409a59194675d48d93950c7af9fb92f",
+  "mechRestartReportCommit": "33a04b6d7fce43e4c086c269d660a817a1c3a0fd",
+  "mechReportedPidBefore": 5092,
+  "mechReportedPidAfter": 22248,
+  "observedCityStartedSeq": 172,
+  "retiredWindowsRenewalAfterCityRestart": {
+    "status": 403,
+    "code": "INSTALLATION_RETIRED"
+  },
+  "priorEvidenceHead": "151c065363e52fb6ba38b0332000a7a3687042c3",
+  "priorEvidenceCi": {
+    "id": 37303827480,
+    "conclusion": "success"
+  },
+  "mergedMainAcceptance": "NOT_RUN",
+  "fullOppositeHostAndroidRepairReview": "NOT_RUN",
+  "files": [
+    {
+      "path": "round7-after-city-restart.xml",
+      "sha256": "37b8ad255294803fdcbb5a0db11f9d79cafba7988cb578dbbc7c6674558f37ab"
+    },
+    {
+      "path": "round7-city-restart-proof.json",
+      "sha256": "a6d09f29ff746e5bc713994fb1ba9e8e8b3218612bf41017e94a1227dc5a2098"
+    },
+    {
+      "path": "round6-lan-browse.xml",
+      "sha256": "1cf3ba955c4a4c8a06181430eb8f143d68e6b784fbcfa49ead9fc9dfb6fda539"
+    },
+    {
+      "path": "round6-after-windows-revoke.json",
+      "sha256": "4f930ac0702e3ff0770a3ac0205ab125fad157d045b8c0a69e9f788c1b2a9eaa"
+    }
+  ]
+}

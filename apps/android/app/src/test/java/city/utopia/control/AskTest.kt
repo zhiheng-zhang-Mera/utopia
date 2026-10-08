@@ -75,7 +75,7 @@ class AskTest {
   assertNull(ask.confirmation)
  }
  @Test fun askStatusVocabularyIsExhaustiveAndClassifiedOnce() {
-  assertEquals(setOf("RESOLVED","AWAITING_CONFIRMATION","AMBIGUOUS","UNMATCHED","COMPLETED","FAILED","REFUSED","UNAVAILABLE"),ASK_STATUSES)
+  assertEquals(setOf("RESOLVED","AWAITING_CONFIRMATION","AMBIGUOUS","UNMATCHED","COMPLETED","FAILED","REFUSED","UNAVAILABLE","DRAFT_REQUIRED"),ASK_STATUSES)
   ASK_STATUSES.forEach { assertTrue(isAskStatus(it));assertNotEquals(askShowsAction(it),askNeedsUser(it)) }
   assertFalse(isAskStatus("PENDING"))
   assertEquals("PENDING",askStatusLabel("PENDING"))

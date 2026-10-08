@@ -1,0 +1,29 @@
+Error: CONTROLLED_OBSERVER_UNAVAILABLE
+    at app.observation.refresh (file:///D:/Utopia-MON990/tests/mon990-cross-surface.test.mjs:8:294)
+    at Server.<anonymous> (file:///D:/Utopia-MON990/services/dev-gateway/server.mjs:836:49)
+    at Server.emit (node:events:509:28)
+    at parserOnIncoming (node:_http_server:1282:12)
+    at HTTPParser.parserOnHeadersComplete (node:_http_common:125:17)
+✔ MON990: decision projection binds canonical City and graph/decision failures do not stop task creation (143.6042ms)
+✖ MON990: overview has a working contextual link to advisory decision provenance (4411.9474ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5934.8867
+
+✖ failing tests:
+
+test at tests\mon990-cross-surface.test.mjs:9:1
+✖ MON990: overview has a working contextual link to advisory decision provenance (4411.9474ms)
+  locator.click: Timeout 3000ms exceeded.
+  Call log:
+  [2m  - waiting for locator('#view [data-page="Decisions"]')[22m
+  
+      at D:\Utopia-MON990\tests\mon990-cross-surface.test.mjs:9:615
+      at async fixture (D:\Utopia-MON990\tests\mon990-cross-surface.test.mjs:7:506) {
+    name: 'TimeoutError'
+  }

@@ -17,7 +17,7 @@
 // The view model is pure, so the shape can be asserted without a browser; this file only renders it.
 import {getLocale} from './i18n/index.js';
 import {renderFaults} from './research-faults.js';
-import {researchMarkup, researchView} from './research-surface.js';
+import {researchMarkup, researchView, assertPrimarySurfacesClean} from './research-surface.js';
 const states=new WeakMap();
 // Local escaper for the one message this page still builds itself (the storage-unavailable line inside the list, which
 // the accepted REX-801 suite reads from that element). Dropping it while moving the other fragments into
@@ -47,6 +47,15 @@ export function renderResearch(container,online,api,contextKey,capabilities={}){
     observationErrors:state.observationErrors,runUnavailable:state.observationErrors.some(row=>row.source==='campaigns'),
     metrics:{reported:artifact?.metrics??[],notMeasured:artifact?.metrics?.filter(row=>row.value==='NOT_MEASURED')??[]},
     exclusions:artifact?.exclusions??[],provenance:artifact?{manifest:artifact.manifest,rawPointers:artifact.rawPointers,metrics:artifact.metrics.map(row=>({metric:row.metric,provenance:row.provenance})),checksums:state.artifact.checksums}:null},{locale:getLocale()});
+   // REX-807 requires the primary product surfaces to stay free of research controls, and the workbook's own claim is
+   // that this guard "is data, not a convention". It was neither: `researchView` was called without `primarySurfaces`, so
+   // the list was always empty and the check only ever ran inside its own test. The navigation is where a pollution
+   // would actually appear, so the guard is fed from the REAL nav here - every entry outside the Advanced group is a
+   // primary surface - and promoting Research into the primary nav now throws on the page instead of shipping. Outside a
+   // document (the shape tests render the page into a stub container) the declared defaults are used, so the guard is
+   // never skipped silently in a browser and never invents a surface list it could not read.
+   const primarySurfaces=(()=>{try{const nav=[...document.querySelectorAll('nav [data-page]')].filter(node=>!node.closest('.nav-group')).map(node=>node.dataset.page).filter(Boolean);return nav.length?nav:['home','ask','devices'];}catch{return ['home','ask','devices'];}})();
+   assertPrimarySurfacesClean(view,{primarySurfaces});
    const markup=researchMarkup(view,{locale:getLocale()});
    root.querySelector('#research-intro').textContent=L('Research is an advanced surface: describe and validate an experiment here. Registering does not run tasks and does not grant fault permissions.','研究属于高级面：在此描述并验证实验。登记不会执行任务，也不会授予故障注入权限。');
    root.querySelector('#research-alerts').innerHTML=markup.alerts;

@@ -1,0 +1,21 @@
+{
+  "softwareSourceSha": "ec3b6f996240ca71505b3b67af12cc222d1b283a",
+  "apkSha256": "970839d29a3066e01ecee8aab3040f9dc2ac81959727b144ab0694dd3d183800",
+  "applicationId": "city.utopia.control.join590review",
+  "cityId": "031fdba6-e94c-4298-a095-6ff04a65481d",
+  "requestRef": "join-535174ce61",
+  "requestId": "6ef1a08f-eac9-4b42-8192-de785f7c0749",
+  "result": "APPROVED_EXCHANGED_REFUSED_INCOMPLETE_ENROLLMENT",
+  "credentialPersisted": false,
+  "deployedMechSourceSha": null,
+  "physicalRestart": "NOT_RUN",
+  "physicalRevocation": "NOT_RUN",
+  "acceptance": "INCOMPLETE",
+  "artifacts": {
+    "round5-after-approval.xml": "c08c18d41f5c936ffdd7b55c5c51d6414cfba52b21a3e31fd8bb42a55f0cc2b2",
+    "round5-mech-readonly-proof.json": "9fe05ef599dc33af0aef357b106a0e975889143509a2c6daa570a3d2f1ff2d8c",
+    "round5-native-proof.json": "c687fc673fce07d6e9aa17f997f070305c4a19c5e40ca1a5638802fa9147801a",
+    "round5-request.xml": "b579f3ce874249901f244c7b3e304ba736038fc655f1e5e5306cfbbd516b85de",
+    "source-ci.json": "0bb681081b32605cb7e869347bec3b2a6db09f939d83465b5cd5a9019e32ca01"
+  }
+}

@@ -1,0 +1,36 @@
+✔ versioned authenticated gateway rejects unsafe commands and persists history (246.6671ms)
+✔ the post-restart resume decision is owned by the migrated checkpoint gate (143.9083ms)
+✔ the gateway places work on exactly the nodes its own policy and the Core both accept (1366.4381ms)
+✔ an interrupted task is never falsified as success across a gateway restart (185.6553ms)
+✔ JOIN-503 (1)(2): one join enrolls an installation, and a RESTART reconnects with nothing typed (201.9215ms)
+✔ JOIN-503 (3): an EXPIRED session is replaced by an internal re-auth, with no user-visible token prompt (137.0091ms)
+✔ JOIN-503 (4)(5): REVOKE denies reconnect, and a revoked installation cannot mint new membership (167.4628ms)
+✔ JOIN-503 (6): a REINSTALL mints new identities and is unbound until an explicit rebind (204.9585ms)
+✔ JOIN-503 (7): the secret-exposure sweep - no durable secret in the snapshot, events, records or a URL (106.7748ms)
+✔ JOIN-503: a broken or foreign device file is refused rather than half-used (7.8383ms)
+✔ JOIN-503 (8): the engineering manual fallback still exists and is not the default path (127.2561ms)
+✔ JOIN-503: an invite of either shape is understood, and junk is refused instead of guessed at (0.6067ms)
+✔ JOIN-503: enrollment events are emitted on a CLONE, which is the population-level half of detection (119.1958ms)
+✔ Android approval enrolls a named member; durable reconnect survives City restart and self-revoke (283.3075ms)
+✔ short code preserves identity pinning, reports lockout, and never sends a code to the wrong City (226.5803ms)
+✔ code handoff carries only a selected City, six digits and the existing transport in a fragment (0.5202ms)
+✔ S1: a peer that cannot be dialled registers over an OUTBOUND socket, and the City names its ref (128.1439ms)
+✔ S1: admission reuses the City’s OWN credentials - a session ref comes from the registry, and a bad one is refused (110.9075ms)
+✔ S3: a real join completes over the pipe - the CITY runs the payload, the owner approves, the claim is spent once (87.9011ms)
+✔ S3: without approval the pipe grants nothing - the City is not joined just because a path exists (69.2229ms)
+✔ S2/S3: the relay refuses to be an open proxy - no path outside the list, and no widening by method (106.0585ms)
+✔ S3: a City refusal travels back as its OWN status, so the surface can say why instead of "unreachable" (64.6534ms)
+✔ S2: the dialling peer also SERVES the City - a payload the City PUSHES runs on the City it was dialled to (68.3608ms)
+✔ N2: the whole cross-network join runs over the pipe - capability, ask, decision, credential (138.7108ms)
+✔ N2: a rejection is reported AS a rejection and never retried; the flow stops there (132.8544ms)
+✔ N2: a pipe that answers for ANOTHER City is refused before an ask is created (66.2355ms)
+✔ N2: the reach decision sends the same link to navigation and the far network to the pipe (0.3338ms)
+✔ S1: a pipe that never stops is rate-limited, and the version check still applies to the handshake (940.2838ms)
+ℹ tests 28
+ℹ suites 0
+ℹ pass 28
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6601.8162

@@ -33,6 +33,13 @@ import {
   executionEndpoint,
 } from '../../../contracts/execution-backend-v1/execution-backend.mjs';
 import { acceptsWork } from '../../../city/00-foundation/01-city-core/fleet-routing/index.mjs';
+// A task type may need the NODE to implement something. The same rule is asked at dispatch time in server.mjs; keeping
+// the vocabulary in one module is what stops "eligible to be sent" and "eligible to be claimed" from diverging.
+import { nodeSupportsTask } from '../node-task-capabilities.mjs';
+// A job the City handed out with a deadline must not be handed out AFTER that deadline: the request can no longer be
+// answered in time, and asking a remote agent to spend work on it would be the City spending someone else's budget on
+// an answer that is already too late. Expiry is the City's decision, not the agent's.
+import { isJobExpired } from '../../../contracts/city-agent-job-v1/job.mjs';
 
 /** The backend id, as a stable machine-readable name. */
 export const STANDARD_DEVICES_BACKEND_ID = 'standard-devices';
@@ -179,6 +186,20 @@ export function createStandardDevicesBackend({
   }
 
   /**
+   * Is this task's own deadline already in the past?
+   *
+   * Only AGENT_JOB carries one, and the answer is read from the job the City normalised rather than from a clock the
+   * node keeps, so two machines cannot disagree about whether a request is still live. A task whose job did not survive
+   * a restart intact is treated as NOT expired here: this predicate withholds work, and withholding it on a guess would
+   * strand a job the owner is still waiting for. The read surface reports that case separately, by name.
+   */
+  const jobDeadlinePassed = task => {
+    if (task.type !== 'AGENT_JOB' || !task.job) return false;
+    // `isJobExpired` reads `createdAt` off the object it is given; the task IS the record that owns that timestamp.
+    return isJobExpired({ ...task.job, state: task.state, createdAt: task.createdAt });
+  };
+
+  /**
    * Dispatch one already-decided task. In STANDARD_DEVICES the decision was made by whoever created the task,
    * so this is the placement step only: it refuses when the named endpoint is not a real, ready execution
    * endpoint, and otherwise performs the same assignment transition the claim path performs.
@@ -189,6 +210,7 @@ export function createStandardDevicesBackend({
     if (!row) throw new ExecutionBackendError('UNKNOWN_ENDPOINT', `no execution endpoint ${String(endpointRef)} is registered with this City`, { endpointRef: endpointRef ?? null });
     if (!row.ready) throw new ExecutionBackendError('ENDPOINT_NOT_READY', `execution endpoint ${row.endpointRef} cannot accept work (${row.readinessReason})`, { endpointRef: row.endpointRef, readinessReason: row.readinessReason });
     const task = requireRecord('tasks', taskId);
+    if(task.executionBackendId==='pcf-v1')throw new ExecutionBackendError('TASK_NOT_CLAIMABLE','PCF attempts require capsule and epoch validation at their own backend');
     if (task.state !== 'QUEUED') throw new ExecutionBackendError('INVALID_TRANSITION', `task ${taskId} is already ${task.state}`, { taskId, state: task.state });
     if(!claimAllowedByTarget(task,row.endpointRef)||!handoffClaimAllowed({subjectRef:task.id,deviceRef:row.endpointRef,reservedFor:typeof task.handoffTargetRef==='string'&&task.handoffTargetRef.length>0?task.handoffTargetRef:null}))throw new ExecutionBackendError('TASK_NOT_CLAIMABLE','task target or reservation does not permit this endpoint',{taskId,endpointRef:row.endpointRef});
     noteAssignment({ subjectRef: task.id, deviceRef: row.endpointRef });
@@ -207,7 +229,9 @@ export function createStandardDevicesBackend({
     const rows = endpoints();
     const ready = nodeAcceptsWork(target);
     const busy = tasks().some(task => task.assignedNodeId === target.id && !isTerminal(task));
-    const claimable = task => task.state === 'QUEUED'
+    const claimable = task => task.executionBackendId !== 'pcf-v1' && task.state === 'QUEUED'
+      && nodeSupportsTask(task, target)
+      && !jobDeadlinePassed(task)
       && claimAllowedByTarget(task, target.id)
       && handoffClaimAllowed({
         subjectRef: task.id,
@@ -242,6 +266,7 @@ export function createStandardDevicesBackend({
    */
   function report({ taskId, nodeId, endpointRef = nodeId, state, progress, lastCheckpoint, result, error } = {}) {
     const task = requireRecord('tasks', taskId);
+    if(task.executionBackendId==='pcf-v1')throw new ExecutionBackendError('TASK_NOT_CLAIMABLE','PCF attempts require capsule and epoch validation at their own backend');
     if (task.assignedNodeId !== endpointRef) fail(403, 'Task belongs to another node');
     if (isTerminal(task)) return task;
     if (!reportTransitionAllowed(task.state, state)) fail(409, 'Invalid task transition');
@@ -261,6 +286,7 @@ export function createStandardDevicesBackend({
   function control({ taskId, action = 'cancel' } = {}) {
     if (action !== 'cancel') throw new ExecutionBackendError('INVALID_REQUEST', `STANDARD_DEVICES supports the control action "cancel", got ${String(action)}`);
     const task = requireRecord('tasks', taskId);
+    if(task.executionBackendId==='pcf-v1')throw new ExecutionBackendError('TASK_NOT_CLAIMABLE','PCF attempts require capsule and epoch validation at their own backend');
     if (isTerminal(task)) fail(409, 'Task already finished');
     return { task: changeTask(task, 'CANCELLED'), action, endpointRef: task.assignedNodeId ?? null };
   }

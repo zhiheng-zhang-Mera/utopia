@@ -1,0 +1,5 @@
+{"trialId":"75b37cfb-4a54-462e-9e3e-46cda74d55b7","mode":"owner-code","event":"start","timestamp":"2026-10-05T09:37:13.426286Z","userActions":0,"retryCount":0}
+{"trialId":"75b37cfb-4a54-462e-9e3e-46cda74d55b7","mode":"owner-code","event":"action","timestamp":"2026-10-05T09:37:13.427384Z","userActions":1,"retryCount":0}
+{"trialId":"75b37cfb-4a54-462e-9e3e-46cda74d55b7","mode":"owner-code","event":"relayasking","timestamp":"2026-10-05T09:38:13.731281Z","userActions":1,"retryCount":0}
+{"trialId":"75b37cfb-4a54-462e-9e3e-46cda74d55b7","mode":"owner-code","event":"relaywaiting","timestamp":"2026-10-05T09:38:13.752777Z","userActions":1,"retryCount":0}
+{"trialId":"75b37cfb-4a54-462e-9e3e-46cda74d55b7","mode":"owner-code","event":"retry","timestamp":"2026-10-05T09:41:14.844430Z","userActions":1,"retryCount":1}

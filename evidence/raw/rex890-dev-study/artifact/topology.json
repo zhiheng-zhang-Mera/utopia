@@ -1,0 +1,22 @@
+{
+  "nodes": [
+    {
+      "id": "dev-544adda130594c6fae7d71ddfd0f3b8c",
+      "online": true,
+      "sharingEnabled": true
+    },
+    {
+      "id": "dev-1428bce5297146df88720f270af71bc3",
+      "online": true,
+      "sharingEnabled": true
+    }
+  ],
+  "controlSurfaces": [
+    "rex890-dev-surface"
+  ],
+  "members": [
+    "dev-544adda130594c6fae7d71ddfd0f3b8c",
+    "dev-1428bce5297146df88720f270af71bc3",
+    "rex890-dev-surface"
+  ]
+}

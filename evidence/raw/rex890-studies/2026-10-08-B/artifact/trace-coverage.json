@@ -1,0 +1,6 @@
+{
+  "listed": 243,
+  "captured": 243,
+  "source": "CITY_TRACE_AT_EXPORT",
+  "note": "these are the records this package points at, copied at export time; a pointer that is absent here was never published by this package"
+}

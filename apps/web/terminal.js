@@ -163,6 +163,9 @@ function askResultMarkup() {
     + (text(result.route) || text(result.target) ? `<small class="task-id">${esc([result.route, result.target, result.operation].filter(Boolean).join(' · '))}</small>` : '')
     + '</div>' + badge(status, statusLabel(status)) + '</div>';
   const candidates = list(result.candidates);
+  if(status==='DRAFT_REQUIRED'&&result.draft){
+    return head+'<button class="primary" data-terminal="ask-owner-draft">Review draft / 检查操作草稿</button>'+banner;
+  }
   if (status === 'AWAITING_CONFIRMATION') {
     const candidate = result.confirmation ?? {};
     return head + `<div class="terminal-confirm"><strong>${esc(candidate.label ?? tr('terminal.ask.actionLabel'))}</strong>`
@@ -343,6 +346,7 @@ function newIdempotencyKey() {
 
 async function submitAsk(body) {
   const askState = state.ask;
+  const epoch=catalogEpoch;
   const selectedDraft=preparedTarget;
   if (askState.busy) return;
   // The same action retried (after a timeout, say) reuses its key so the gateway replays
@@ -356,13 +360,15 @@ async function submitAsk(body) {
   askState.busy = true; askState.error = ''; askState.note = '';
   try {
     const result = await ask({ ...body, idempotencyKey: askState.pendingKey });
+    if(epoch!==catalogEpoch||askState!==state.ask)return;
     if (!result) { askState.error = t('terminal.ask.malformed'); return; }
     if(selectedDraft&&preparedTarget===selectedDraft&&body.selection===selectedDraft.selection)preparedTarget=null;
     askState.result = result;
     askState.confirmed = body.confirm === true;
     askState.pendingFor = null; askState.pendingKey = null;
     if (result.status === 'UNMATCHED' && !list(result.candidates).length) await ensureTargets();
-  } catch (error) { askState.error = error?.message || String(error); } finally {
+  } catch (error) { if(epoch!==catalogEpoch||askState!==state.ask)return;askState.error = error?.message || String(error); } finally {
+    if(epoch!==catalogEpoch||askState!==state.ask)return;
     askState.busy = false;
     controller.render();
   }
@@ -421,8 +427,8 @@ const controller = {
     host = container;
     if (typeof api === 'function') call = api;
     if (hooks && typeof hooks === 'object') {
-      if(hooks.credentialContext!==undefined&&hooks.credentialContext!==catalogCredential){catalogCredential=hooks.credentialContext;++catalogEpoch;catalogOpen=false;catalogBusy=false;preparedTarget=null;state.ask.targets=[];}
-      context = { online: isOnline === true, go: hooks.go ?? context.go, page: hooks.page ?? context.page, external: hooks.external !== false };
+      if(hooks.credentialContext!==undefined&&hooks.credentialContext!==catalogCredential){catalogCredential=hooks.credentialContext;++catalogEpoch;catalogOpen=false;catalogBusy=false;preparedTarget=null;state.ask={input:'',busy:false,result:null,targets:[],error:'',confirmed:false,note:'',pendingFor:null,pendingKey:null};}
+      context = { online: isOnline === true, go: hooks.go ?? context.go, page: hooks.page ?? context.page, external: hooks.external !== false, openOwnerDraft:hooks.openOwnerDraft??context.openOwnerDraft };
     }
     const page = context.page;
     if (page === 'Rooms') renderRooms(container);
@@ -481,6 +487,8 @@ const controller = {
       const selection = candidatePayload(candidate ?? {});
       if (!Object.keys(selection).length) return;
       submitAsk({ text: state.ask.result?.text ?? state.ask.input, selection }).catch(() => {});
+    } else if (action === 'ask-owner-draft') {
+      if(context.online&&state.ask.result?.status==='DRAFT_REQUIRED'&&state.ask.result?.draft)context.openOwnerDraft?.(structuredClone(state.ask.result.draft));
     } else if (action === 'ask-confirm') {
       const confirmation = state.ask.result?.confirmation ?? {};
       submitAsk({ text: state.ask.result?.text ?? state.ask.input, selection: candidatePayload(confirmation), confirm: true }).catch(() => {});
@@ -527,7 +535,7 @@ export function renderTerminal(container, snapshot, isOnline, api, hooks = {}) {
   if (typeof hooks.api === 'function') call = hooks.api;
   if (typeof api === 'function') call = api;
   context = { online: isOnline === true, go: hooks.go ?? null, page: hooks.page, external: true };
-  controller.render(container);
+  controller.render(container,snapshot,isOnline,api,hooks);
   // The caller keeps this as its terminal handle (`terminal = renderTerminal(...)`), so it
   // must be the controller itself. Returning a boolean here made every later
   // `terminal.isPage(...)` / `terminal.submit(...)` a silent no-op.

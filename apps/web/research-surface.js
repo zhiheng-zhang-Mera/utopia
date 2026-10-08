@@ -149,9 +149,12 @@ export const researchView = (payload = {}, {locale = 'en', primarySurfaces = []}
       collapsed: false,
       items: experiments.map(experiment => summariseExperiment(experiment, locale)),
       controls: [
-        {id: 'create', label: L(locale, 'Create experiment', '创建实验'), level: SURFACE_LEVELS.DIRECT_CONTROL, requiresConfirmation: false},
-        {id: 'start', label: L(locale, 'Start run', '开始运行'), level: SURFACE_LEVELS.DIRECT_CONTROL, requiresConfirmation: false, enabled: Boolean(live) === false},
-        {id: 'stop', label: L(locale, 'Stop run', '停止运行'), level: SURFACE_LEVELS.DIRECT_CONTROL, requiresConfirmation: false, enabled: Boolean(live)},
+        // Every DIRECT_CONTROL declares where it is really implemented. Only `replay`/`export` used to carry this, so the
+        // series' "the wiring metadata no longer lies" claim held for two of five controls; the acceptance pass added the
+        // rest rather than leaving three controls with no statement at all.
+        {id: 'create', label: L(locale, 'Create experiment', '创建实验'), level: SURFACE_LEVELS.DIRECT_CONTROL, requiresConfirmation: false, wired: true, wiredAt: 'research-register'},
+        {id: 'start', label: L(locale, 'Start run', '开始运行'), level: SURFACE_LEVELS.DIRECT_CONTROL, requiresConfirmation: false, enabled: Boolean(live) === false, wired: true, wiredAt: 'research-campaign'},
+        {id: 'stop', label: L(locale, 'Stop run', '停止运行'), level: SURFACE_LEVELS.DIRECT_CONTROL, requiresConfirmation: false, enabled: Boolean(live), wired: true, wiredAt: 'research-campaign'},
       ],
     },
     {
@@ -204,7 +207,9 @@ export const researchView = (payload = {}, {locale = 'en', primarySurfaces = []}
 
   const view = {
     entry: Object.freeze({id: 'research', label: L(locale, 'Research / Experiments', '研究与实验'), level: 'SECONDARY', section: 'advanced'}),
-    // The primary product surfaces must stay free of research controls; the guard is data, not a convention.
+    // The primary product surfaces must stay free of research controls. This is enforced in production from the real
+    // navigation in apps/web/research.js (`assertPrimarySurfacesClean`), not only asserted in a test; the list recorded
+    // here is what the page passed in.
     primarySurfaces: Object.freeze([...primarySurfaces]),
     alerts: Object.freeze(alerts),
     sections: Object.freeze(sections),

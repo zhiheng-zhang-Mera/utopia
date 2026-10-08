@@ -1,0 +1,74 @@
+{
+  "schema": "city-auth-boundary-probe-v1",
+  "at": "2026-10-08T04:51:17.947Z",
+  "city": "http://172.31.12.151:4310",
+  "checks": [
+    {
+      "name": "the owner token reads the owner route node/jobs",
+      "status": "PASS",
+      "detail": "http=200 jobs=8"
+    },
+    {
+      "name": "a wrong token is refused on node/jobs",
+      "status": "PASS",
+      "detail": "http=401"
+    },
+    {
+      "name": "and that refusal carries no jobs data",
+      "status": "PASS",
+      "detail": "body={\"apiVersion\":0,\"schemaVersion\":0,\"error\":\"Invalid pairing token\"}"
+    },
+    {
+      "name": "no credential at all is refused on node/jobs",
+      "status": "PASS",
+      "detail": "http=401"
+    },
+    {
+      "name": "the NODE token is not the owner and is refused on node/jobs",
+      "status": "PASS",
+      "detail": "http=401 (a real credential for the same City, just not the owner's)"
+    },
+    {
+      "name": "the owner token reads the owner route node/operations",
+      "status": "PASS",
+      "detail": "http=200 operations=20"
+    },
+    {
+      "name": "a wrong token is refused on node/operations",
+      "status": "PASS",
+      "detail": "http=401"
+    },
+    {
+      "name": "and that refusal carries no operations data",
+      "status": "PASS",
+      "detail": "body={\"apiVersion\":0,\"schemaVersion\":0,\"error\":\"Invalid pairing token\"}"
+    },
+    {
+      "name": "no credential at all is refused on node/operations",
+      "status": "PASS",
+      "detail": "http=401"
+    },
+    {
+      "name": "the NODE token is not the owner and is refused on node/operations",
+      "status": "PASS",
+      "detail": "http=401 (a real credential for the same City, just not the owner's)"
+    },
+    {
+      "name": "an unauthenticated dispatch is refused and creates no job",
+      "status": "PASS",
+      "detail": "http=401 jobs 8 -> 8"
+    },
+    {
+      "name": "no response echoes a credential back",
+      "status": "PASS",
+      "detail": "checked 3 response bodies"
+    }
+  ],
+  "summary": {
+    "checks": 12,
+    "passed": 12,
+    "failed": [],
+    "notRun": [],
+    "note": "no member device was enrolled: this measures the boundary with credentials that already exist, so the roster the opposite host compares against is unchanged"
+  }
+}

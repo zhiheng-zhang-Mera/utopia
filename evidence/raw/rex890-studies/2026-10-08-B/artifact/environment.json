@@ -1,0 +1,7 @@
+{
+  "cityEndpoint": "http://172.31.12.151:4310",
+  "cityStatus": "ONLINE",
+  "deployedCandidateObservedBy": "the operator who deployed it; this exporter reads the City, not the process tree",
+  "nodeRuntime": "v24.14.0",
+  "platform": "win32"
+}

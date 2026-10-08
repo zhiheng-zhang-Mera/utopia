@@ -1,0 +1,36 @@
+{
+  "artifactId": "artifact-544adda1-3059-4c6f-ae7d-71ddfd0f3b8c-5-campaigns",
+  "cityId": "544adda1-3059-4c6f-ae7d-71ddfd0f3b8c",
+  "generatedAt": "2026-10-07T13:46:23.339Z",
+  "campaignIds": [
+    "campaign-12c003ce-f9f9-49e1-9b80-9201aab0d1d4",
+    "campaign-647b74cd-b4d2-415b-ab7b-c9914fbb7697",
+    "campaign-1a4ab016-4447-4ff0-a9cb-401eddd43e7f",
+    "campaign-e0e08faf-57d2-4ffe-a218-63704e342478",
+    "campaign-0213d95d-ae62-4f0c-be8d-6238c0ec6d2c"
+  ],
+  "runCount": 15,
+  "measuredRuns": 15,
+  "metricsReported": 4,
+  "metricsNotMeasured": 23,
+  "metricCatalogueSize": 27,
+  "supporting": {
+    "campaigns": 5,
+    "replays": 3,
+    "ablations": 1,
+    "comparisonsProvided": 0,
+    "accounting": {
+      "planned": 15,
+      "accounted": 15,
+      "measured": 15,
+      "failed": 0,
+      "timedOut": 0,
+      "excluded": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "interrupted": 0,
+      "undeliveredCampaigns": []
+    }
+  },
+  "narrative": "Statistics only. No claim is made here about autonomy, performance or causality; duration deltas do not establish performance and NOT_MEASURED is not zero."
+}

@@ -25,16 +25,16 @@ import org.json.JSONObject
 // facts (router, route/target/operation, candidate coordinates) are folded into 运行详情
 // rather than printed inline. They are folded, not removed.
 
-@Composable fun AskPanel(state: CityState, client: CityClient?) {
+@Composable fun AskPanel(state: CityState, client: CityClient?, onOwnerDraft:(OwnerControlDraft)->Unit = {}) {
  val online = state.connection == "ONLINE"
  // One fence per in-flight request, so loading the manual picker cannot strand an Ask in flight.
  val askFence = remember(client) { CallbackFence() }
  val targetFence = remember(client) { CallbackFence() }
  DisposableEffect(askFence, targetFence) { onDispose { askFence.close(); targetFence.close() } }
  var text by remember { mutableStateOf("") }
- var busy by remember { mutableStateOf(false) }
- var failure by remember { mutableStateOf<String?>(null) }
- var result by remember { mutableStateOf<AskResult?>(null) }
+ var busy by remember(client) { mutableStateOf(false) }
+ var failure by remember(client) { mutableStateOf<String?>(null) }
+ var result by remember(client) { mutableStateOf<AskResult?>(null) }
  var targets by remember(client) { mutableStateOf<List<TargetOption>?>(null) }
  var preparedSelection by remember(client) { mutableStateOf<JSONObject?>(null) }
  var targetsBusy by remember(client) { mutableStateOf(false) }
@@ -103,6 +103,9 @@ import org.json.JSONObject
     if (!answer.isKnownStatus) UtFeedback("Gateway 返回了未识别的状态，这里按原样显示。", kind = "warn")
     // router label, route/target/operation: folded, still reachable
     TechnicalDetails(askTechnicalRows(answer))
+   }
+   if(answer.status==ASK_DRAFT_REQUIRED)answer.ownerDraft?.let { draft->
+    Button(onClick={onOwnerDraft(draft)},enabled=online&&!busy){Text("检查操作草稿 / Review draft")}
    }
    if (answer.status == ASK_AWAITING_CONFIRMATION) {
     val confirmation = answer.confirmation

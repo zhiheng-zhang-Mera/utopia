@@ -7,6 +7,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, readFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
 import { resolve } from 'node:path';
 import { createGateway } from '../services/dev-gateway/server.mjs';
 import { createJoinRequests, MAX_PENDING, shortRef } from '../services/dev-gateway/join.mjs';
@@ -287,4 +288,51 @@ test('JOIN-502: decisions are canonical events, and their payloads carry no secr
     assert.ok(!serialized.includes('claimDigest'));
     assert.ok(events.every(event => event.payload.grantsTrust === false));
   } finally { await app?.close(); await rm(dir, { recursive: true, force: true }); }
+});
+
+test('JOIN-502: a discovery scan that outlives its City returns a list instead of throwing out of the process', async () => {
+  // Found while accepting the four-series integration pack (4-in-1-REX+PCF+CHK+DGX). The browse is PUBLIC by design, so
+  // a scan can be started and then the City closed underneath it; the self-filter then reads this City's own listening
+  // port. A closing listener answers `null` for `server.address()`, so the read threw a bare TypeError out of a request
+  // handler with nothing to catch it - the process printed a stack it never asked for and, on the measured run that
+  // found it, died. A discovery scan must not be able to do that to the City.
+  //
+  // The race is GATED rather than timed, using the `nearbyBrowser` seam the gateway already exposes, so this guard is
+  // deterministic instead of flaky: the browse answer is held until the listener is provably gone. It runs in a CHILD
+  // PROCESS because the property is "the process survives" - an in-process listener could not observe the throw, and
+  // the first version of this guard passed against the unfixed code for exactly that reason.
+  const child = `
+    import {mkdtemp, rm} from 'node:fs/promises';
+    import {resolve} from 'node:path';
+    import {createGateway} from '${new URL('../services/dev-gateway/server.mjs', import.meta.url).href}';
+    const dir = await mkdtemp(resolve(${JSON.stringify(process.cwd())}, '.scratch-join-scan-'));
+    let release;
+    const gate = new Promise(r => { release = r; });
+    const app = await createGateway({host: '127.0.0.1', port: 0, dir, token: 'owner', nodeToken: 'node', roomsDisabled: true, nearbyTimeoutMs: 5000,
+      nearbyBrowser: async () => {
+        await gate;
+        // Not this City by identity, so the address/port half of the self-filter is the half that runs.
+        return {candidates: [{cityId: null, cityRef: 'peer', displayName: 'Peer', address: '192.0.2.9', port: 4310, transport: 'LAN'}], bounded: true, discovered: 1, unavailable: false};
+      }});
+    const pending = fetch(app.url + '/api/v0/join/nearby', {headers: {'X-City-Api-Version': '0', 'X-City-Schema-Version': '0'}})
+      .then(r => r.status).catch(() => 'request-failed');
+    await new Promise(r => setTimeout(r, 150));
+    await app.close();
+    release();
+    await pending;
+    await new Promise(r => setTimeout(r, 300));
+    await rm(dir, {recursive: true, force: true});
+    console.log('SCAN-SURVIVED');
+  `;
+  const dir = await mkdtemp(resolve('.scratch-join-'));
+  try {
+    const {stdout, stderr, code} = await new Promise(resolveRun => {
+      execFile(process.execPath, ['--input-type=module', '-e', child], {cwd: process.cwd(), timeout: 60000},
+        (error, stdout, stderr) => resolveRun({stdout, stderr, code: error?.code ?? 0}));
+    });
+    assert.ok(stdout.includes('SCAN-SURVIVED'), `the scan never completed: ${stdout} ${stderr}`);
+    assert.equal(code, 0, `the child did not exit cleanly: ${stderr}`);
+    // The exact regression: a bare TypeError escaping the nearby route while the listener is closed.
+    assert.ok(!/TypeError/.test(stderr), `a scan outliving the City threw out of the process: ${stderr}`);
+  } finally { await rm(dir, { recursive: true, force: true }); }
 });

@@ -346,6 +346,7 @@ function newIdempotencyKey() {
 
 async function submitAsk(body) {
   const askState = state.ask;
+  const epoch=catalogEpoch;
   const selectedDraft=preparedTarget;
   if (askState.busy) return;
   // The same action retried (after a timeout, say) reuses its key so the gateway replays
@@ -359,13 +360,15 @@ async function submitAsk(body) {
   askState.busy = true; askState.error = ''; askState.note = '';
   try {
     const result = await ask({ ...body, idempotencyKey: askState.pendingKey });
+    if(epoch!==catalogEpoch||askState!==state.ask)return;
     if (!result) { askState.error = t('terminal.ask.malformed'); return; }
     if(selectedDraft&&preparedTarget===selectedDraft&&body.selection===selectedDraft.selection)preparedTarget=null;
     askState.result = result;
     askState.confirmed = body.confirm === true;
     askState.pendingFor = null; askState.pendingKey = null;
     if (result.status === 'UNMATCHED' && !list(result.candidates).length) await ensureTargets();
-  } catch (error) { askState.error = error?.message || String(error); } finally {
+  } catch (error) { if(epoch!==catalogEpoch||askState!==state.ask)return;askState.error = error?.message || String(error); } finally {
+    if(epoch!==catalogEpoch||askState!==state.ask)return;
     askState.busy = false;
     controller.render();
   }
@@ -424,7 +427,7 @@ const controller = {
     host = container;
     if (typeof api === 'function') call = api;
     if (hooks && typeof hooks === 'object') {
-      if(hooks.credentialContext!==undefined&&hooks.credentialContext!==catalogCredential){catalogCredential=hooks.credentialContext;++catalogEpoch;catalogOpen=false;catalogBusy=false;preparedTarget=null;state.ask.targets=[];}
+      if(hooks.credentialContext!==undefined&&hooks.credentialContext!==catalogCredential){catalogCredential=hooks.credentialContext;++catalogEpoch;catalogOpen=false;catalogBusy=false;preparedTarget=null;state.ask={input:'',busy:false,result:null,targets:[],error:'',confirmed:false,note:'',pendingFor:null,pendingKey:null};}
       context = { online: isOnline === true, go: hooks.go ?? context.go, page: hooks.page ?? context.page, external: hooks.external !== false, openOwnerDraft:hooks.openOwnerDraft??context.openOwnerDraft };
     }
     const page = context.page;
@@ -532,7 +535,7 @@ export function renderTerminal(container, snapshot, isOnline, api, hooks = {}) {
   if (typeof hooks.api === 'function') call = hooks.api;
   if (typeof api === 'function') call = api;
   context = { online: isOnline === true, go: hooks.go ?? null, page: hooks.page, external: true };
-  controller.render(container);
+  controller.render(container,snapshot,isOnline,api,hooks);
   // The caller keeps this as its terminal handle (`terminal = renderTerminal(...)`), so it
   // must be the controller itself. Returning a boolean here made every later
   // `terminal.isPage(...)` / `terminal.submit(...)` a silent no-op.

@@ -69,7 +69,7 @@ import org.json.JSONObject
      val probe=ownerControlAction(d,"preview").toString()
      if(pendingPayload!=probe){pendingPayload=probe;pendingKey=newIdempotencyKey()}
      val body=ownerControlAction(d,pendingKey?:newIdempotencyKey())
-     mutate{done->client?.dispatchOwnerControl(body,done)}
+     mutate{done->client?.dispatchOwnerControl(body){response->if(ownerDispatchAnswered(response)){pendingKey=null;pendingPayload=null};done(response)}}
     }
    },enabled=client!=null&&form.canDispatch(online,busy,view?.enabled==true),modifier=Modifier.fillMaxWidth()){Text(if(busy)"正在发送…" else "确认并派发")}
   }

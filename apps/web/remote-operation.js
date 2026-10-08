@@ -94,7 +94,7 @@ export function createRemoteOperationView(){
   };
   const run=async fn=>{if(s.busy||!s.online)return;s.busy=true;s.error='';show();try{await fn();}catch(e){if(current())s.error=e.message;}finally{s.busy=false;show();}};
   const load=async()=>{const [data,nodes]=await Promise.all([api('node/operations'),api('nodes')]);if(current()){s.data=data;s.nodes=nodes.nodes??[];}};
-  const invalidate=()=>{s.draft.confirm='';root.querySelector('#rop-confirm').value='';};
+  const invalidate=()=>{s.pendingFingerprint=null;s.pendingKey=null;s.draft.confirm='';root.querySelector('#rop-confirm').value='';};
   const bind=(id,key)=>root.querySelector('#'+id).oninput=e=>{s.draft[key]=e.target.value;if(key!=='confirm')invalidate();show();};
   for(const [id,key] of [['rop-executable','executable'],['rop-argv','argv'],['rop-cwd','cwd'],['rop-purpose','purpose'],['rop-timeout','timeoutMs'],['rop-output','maxOutputBytes'],['rop-confirm','confirm']])bind(id,key);
   root.querySelector('#rop-danger').ontoggle=e=>{s.dangerOpen=e.target.open;};
@@ -108,9 +108,12 @@ export function createRemoteOperationView(){
    const operation={executable:s.draft.executable.trim(),argv:parseRemoteArgv(s.draft.argv),cwd:s.draft.cwd.trim(),purpose:s.draft.purpose.trim()};
    if(s.draft.timeoutMs!=='')operation.timeoutMs=Number(s.draft.timeoutMs);
    if(s.draft.maxOutputBytes!=='')operation.maxOutputBytes=Number(s.draft.maxOutputBytes);
-   const created=await api('actions',{intent:s.requestText??'Remote operation',route:'CITY_TASK',target:'city.task',operation:'OWNER_REMOTE_OPERATION',
-    input:{targetDeviceRef:s.draft.nodeRef,operation},
-    idempotencyKey:(crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random())});
+   const body={intent:s.requestText??'Remote operation',route:'CITY_TASK',target:'city.task',operation:'OWNER_REMOTE_OPERATION',input:{targetDeviceRef:s.draft.nodeRef,operation}};
+   const fingerprint=JSON.stringify(body);
+   if(s.pendingFingerprint!==fingerprint){s.pendingFingerprint=fingerprint;s.pendingKey=crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random();}
+   let created;
+   try{created=await api('actions',{...body,idempotencyKey:s.pendingKey});s.pendingFingerprint=null;s.pendingKey=null;}
+   catch(error){if(Number.isInteger(error.status)){s.pendingFingerprint=null;s.pendingKey=null;}throw error;}
    // A refusal is a RESULT the owner must see. The Action facade reports it as a refused action rather than as a
    // thrown error, so it is surfaced here instead of being swallowed by a successful-looking response.
    if(created?.action?.status==='REFUSED')s.error=`${created.action.error?.code}: ${created.action.error?.message}`;

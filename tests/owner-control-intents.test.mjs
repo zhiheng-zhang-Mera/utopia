@@ -35,6 +35,7 @@ test('switch OFF is unavailable, not successful and not an executable draft',()=
  const out=prepare({text:'run git on Alien'}, {...context,remoteOperation:{enabled:false}});assert.equal(out.status,'UNAVAILABLE');assert.equal(out.draft,null);assert.equal(out.action,null);
 });
 test('legacy commands fall through unchanged and two owner targets are discoverable',()=>{
+ for(const selection of [{route:'CITY_TASK',target:'city.task',operation:'WAIT'},{route:'ROOM',target:'knowledge',operation:'knowledge.search'},{route:'CAPABILITY',target:'capability',operation:'query'}])assert.equal(prepare({text:'run git on Alien',selection,confirm:true}),null,'explicit manual selection wins');
  assert.equal(prepare({text:'hash D:/file.txt'}),null);assert.equal(typeof feature.ownerControlTargets,'function');
  const targets=feature.ownerControlTargets(context);assert.equal(targets.length,2);assert.ok(targets.every(t=>t.sideEffect===true&&t.route==='CITY_TASK'));
  assert.ok(feature.ownerControlTargets({...context,isOwner:false}).every(t=>t.available===false));

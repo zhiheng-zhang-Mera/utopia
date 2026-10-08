@@ -1,6 +1,10 @@
 package city.utopia.control
+
 import org.json.JSONArray
 import org.json.JSONObject
+
+/** A lost transport response keeps the same key; a definite HTTP response ends that attempt. */
+fun ownerDispatchAnswered(response:JSONObject):Boolean = !response.has("errorCode") || response.opt("httpStatus") is Number
 
 data class OwnerControlDraft(
  val kind:String, val targetDeviceRef:String="", val requestText:String="",
@@ -60,7 +64,9 @@ fun parseOwnerControls(response:JSONObject,kind:String):OwnerControlView {
  val parsed=arrayObjects(rows).map { row ->
   val state=row.field("state");val report=row.optJSONObject(if(kind=="REMOTE_OPERATION")"result" else "report")
   val collection=row.field("consumptionState")
-  OwnerControlRow(row.field("taskId"),state,if(kind=="REMOTE_OPERATION")row.field("executable") else row.optJSONObject("job")?.field("title").orEmpty(),"目标: "+row.field("assignedNodeId")+" · "+row.field("targetStateAtCreation"),report?.toString(2).orEmpty(),row.field("error"),(row.optJSONObject(if(kind=="REMOTE_OPERATION")"receipt" else "reportValidation")?.toString(2)).orEmpty(),collection,state in setOf("QUEUED","ASSIGNED","RUNNING"),kind=="AGENT_JOB"&&report!=null&&collection=="AWAITING_COLLECTION")
+  val deadline=row.optJSONObject("deadline")
+  val explanation=listOf("目标: "+row.field("assignedNodeId")+" · "+row.field("targetStateAtCreation"),row.field("targetStateDetail"),deadline?.field("projectedState")?.takeIf{it.isNotBlank()}?.let{"期限投影: "+it+" · "+deadline.field("deadlineAt")}.orEmpty()).filter{it.isNotBlank()}.joinToString("\n")
+  OwnerControlRow(row.field("taskId"),state,if(kind=="REMOTE_OPERATION")row.field("executable") else row.optJSONObject("job")?.field("title").orEmpty(),explanation,report?.toString(2).orEmpty(),row.field("error"),(row.optJSONObject(if(kind=="REMOTE_OPERATION")"receipt" else "reportValidation")?.toString(2)).orEmpty(),collection,state in setOf("QUEUED","ASSIGNED","RUNNING"),kind=="AGENT_JOB"&&report!=null&&collection=="AWAITING_COLLECTION")
  }
  fun strings(key:String):List<String>{val a=config.optJSONArray(key)?:return emptyList();return (0 until a.length()).map { a.getString(it) }}
  return OwnerControlView(config.optBoolean("enabled"),false,null,strings("allowlist"),strings("workspaces"),parsed,notice)

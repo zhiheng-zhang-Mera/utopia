@@ -28,6 +28,15 @@ test('Web Ask drafts open the real forms, preserve edits and invalidate old conf
  assert.equal(await page.locator('#rop-dispatch').isDisabled(),false);
  await page.locator('#rop-purpose').fill('updated explicit purpose');
  assert.equal(await page.locator('#rop-confirm').inputValue(),'');assert.equal(await page.locator('#rop-dispatch').isDisabled(),true);
+ const lostResponses=new Set();const requestKeys={};
+ await page.route('**/api/v0/actions',async route=>{
+  if(route.request().method()!=='POST')return route.continue();
+  const body=route.request().postDataJSON();(requestKeys[body.operation]??=[]).push(body.idempotencyKey);
+  if(!lostResponses.has(body.operation)){lostResponses.add(body.operation);await route.fetch();return route.abort('failed');}
+  return route.continue();
+ });
+ await page.locator('#rop-confirm').fill('node');await page.locator('#rop-dispatch').click();
+ await page.waitForFunction(()=>document.querySelector('#rop-error')?.textContent?.length>0);
  await page.locator('#rop-confirm').fill('node');await page.locator('#rop-dispatch').click();
  await page.waitForFunction(()=>document.querySelector('#rop-list')?.textContent?.includes('draft-ok'));
  assert.equal(await page.locator('#rop-purpose').inputValue(),'updated explicit purpose','refresh must not replay the original seed');
@@ -39,7 +48,13 @@ test('Web Ask drafts open the real forms, preserve edits and invalidate old conf
  await page.locator('#aj-instruction').fill('Inspect the updated test evidence.');
  assert.equal(await page.locator('#aj-confirm').inputValue(),'');assert.equal(await page.locator('#aj-dispatch').isDisabled(),true);
  await page.locator('#aj-confirm').fill('Review current tests');await page.locator('#aj-dispatch').click();
+ await page.waitForFunction(()=>document.querySelector('#aj-error')?.textContent?.length>0);
+ await page.locator('#aj-confirm').fill('Review current tests');await page.locator('#aj-dispatch').click();
  await page.waitForFunction(()=>document.querySelector('#aj-list')?.textContent?.includes('Review current tests'));
  const tasks=(await (await fetch(app.url+'/api/v0/tasks',{headers:H})).json()).tasks;assert.equal(tasks.length,2);
  assert.equal(tasks.find(t=>t.type==='OWNER_REMOTE_OPERATION').state,'COMPLETED');assert.equal(tasks.find(t=>t.type==='AGENT_JOB').targetDeviceRef,'dev-review');
+ for(const keys of Object.values(requestKeys))assert.equal(keys[0],keys[1],'lost response retry must replay one canonical task');
+ await page.locator('#aj-confirm').fill('Review current tests');await page.locator('#aj-dispatch').click();
+ await page.waitForFunction(()=>document.querySelectorAll('#aj-list article').length===2);
+ assert.notEqual(requestKeys.AGENT_JOB[1],requestKeys.AGENT_JOB[2],'a new confirmed dispatch after success is new work');
 });

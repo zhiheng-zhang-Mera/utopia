@@ -33,7 +33,8 @@ function nodeChoice(text,nodes){
 }
 export function prepareOwnerControlAsk(request,context){
  const text=typeof request?.text==='string'?request.text.trim():'';
- const selected=request?.selection?.route==='CITY_TASK'&&request?.selection?.target==='city.task'?request.selection.operation:null;
+  const selected=request?.selection?.route==='CITY_TASK'&&request?.selection?.target==='city.task'?request.selection.operation:null;
+  if(request?.selection&& !['AGENT_JOB','OWNER_REMOTE_OPERATION'].includes(selected))return null;
  let kind=selected==='AGENT_JOB'?'AGENT_JOB':selected==='OWNER_REMOTE_OPERATION'?'REMOTE_OPERATION':null;
  if(!kind){
   if(/(?:让|请|ask|tell|let|give|send|create).*(?:\bagent\b|智能体)|(?:agent\s+job|Agent\s*作业)/i.test(text))kind='AGENT_JOB';

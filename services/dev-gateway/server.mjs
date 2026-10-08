@@ -236,7 +236,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   let faults=null;
   const captureResearch=e=>faults?faults.capture(e):researchTrace.captureCanonical(e);
   const atomicWithTrace=fn=>{const staged=[];transactionTrace=staged;try{const result=store.atomic(fn);transactionTrace=null;for(const event of staged)captureResearch(event);return result;}finally{transactionTrace=null;}};
-  const emit=(type,id,payload,actor)=>{const e=store.event(type,id,payload,actor);if(transactionTrace)transactionTrace.push(e);else captureResearch(e);for(const c of wss.clients) if(c.readyState===1)c.send(JSON.stringify(envelope({event:e})));return e;};
+  const emit=(type,id,payload,actor)=>{const e=store.event(type,id,payload,actor);if(transactionTrace)transactionTrace.push(e);else captureResearch(e);for(const c of wss.clients) if(c.readyState===1&&(c.ownerEventsAllowed===true||!ownerEvent(e)))c.send(JSON.stringify(envelope({event:e})));return e;};
   join=createJoinRequests({file:resolve(dir,'join-requests.json'),clock:pairingClock,credential:token,onChange:(kind,view)=>{
     const type={created:'JOIN_REQUEST_CREATED',approved:'JOIN_REQUEST_APPROVED',rejected:'JOIN_REQUEST_REJECTED',consumed:'JOIN_REQUEST_CONSUMED',updated:'JOIN_REQUEST_UPDATED'}[kind]||'JOIN_REQUEST_UPDATED';
     // The payload is the bounded public row: no claim digest, no secret, nothing that becomes a
@@ -776,7 +776,15 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   const isLocalRequest=req=>{const address=req?.socket?.remoteAddress?.replace(/^::ffff:/,'');return address==='127.0.0.1'||address==='::1'||Object.values(networkInterfaces()).flat().some(n=>n?.address===address);};
   const members=()=>memberSnapshot({store,installations:enrollment.list(),surfaces:liveSurfaces(),hostDeviceId,hostnames:hostNames});
   const memberRef=req=>req.citySession?req.citySession.installation.deviceId:hostDeviceId;
-  const snapshot=(req)=>envelope({hostDeviceId,currentMemberRef:req?.citySession?memberRef(req):isLocalRequest(req)?hostDeviceId:null,members:members(),hostJoinAvailable:Boolean(hostJoin)&&!req?.citySession&&isLocalRequest(req),status:'ONLINE',updatedAt:now(),cityId:store.cityId,displayName:store.cityName,descriptor:pairing.descriptor(),discovery:discoveryState,nodes:store.list('nodes'),controlSurfaces:liveSurfaces(),tasks:store.list('tasks'),events:store.events(),capabilities:bridge.registry(),invocations:bridge.list(),joinRequests:join.snapshot(),
+  // Owner command/job content stays out of shared control surfaces. Workers still receive their own
+  // canonical payload through the separately authenticated node claim/report path.
+  const ownerTask=task=>OWNER_TASK_TYPES.includes(task?.type);
+  const ownerEvent=event=>ownerTask(store.get('tasks',event?.taskId))||OWNER_TASK_TYPES.includes(event?.payload?.type);
+  const visibleTasks=req=>store.list('tasks').filter(task=>!req?.citySession||!ownerTask(task));
+  const visibleEvents=req=>store.events().filter(event=>!req?.citySession||!ownerEvent(event));
+  const ownerAction=action=>OWNER_TASK_TYPES.includes(action?.operation)||ownerTask(store.get('tasks',action?.backendRef?.taskId));
+  const assertTaskAccess=(req,task)=>{if(req.citySession&&ownerTask(task))refuse('OWNER_TASK_OWNER_REQUIRED',403,'Owner tasks require the City owner');return task;};
+  const snapshot=(req)=>envelope({hostDeviceId,currentMemberRef:req?.citySession?memberRef(req):isLocalRequest(req)?hostDeviceId:null,members:members(),hostJoinAvailable:Boolean(hostJoin)&&!req?.citySession&&isLocalRequest(req),status:'ONLINE',updatedAt:now(),cityId:store.cityId,displayName:store.cityName,descriptor:pairing.descriptor(),discovery:discoveryState,nodes:store.list('nodes'),controlSurfaces:liveSurfaces(),tasks:visibleTasks(req),events:visibleEvents(req),capabilities:bridge.registry(),invocations:bridge.list(),joinRequests:join.snapshot(),
     // JOIN-503: the surface that is asking is told which INSTALLATION it is. A control-token client gets null
     // (it is the owner, not an enrolled installation), which is exactly what the Settings page needs in order to
     // show an enrollment summary for an enrolled client and the engineering fallback for a control-token one.
@@ -1119,13 +1127,13 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       // RS-202 eligibility the City's own modules already produced, mapped through the frozen RS-290
       // contract so the UI can show user language instead of scheduler vocabulary. Finished tasks are
       // excluded by default because a scheduler status surface is about work in flight.
-      else if(req.method==='GET' && path==='/api/v0/presentation')out=buildPresentationFeed({tasks:store.list('tasks'),nodes:store.list('nodes'),generatedAt:now()});
+      else if(req.method==='GET' && path==='/api/v0/presentation')out=buildPresentationFeed({tasks:visibleTasks(req),nodes:store.list('nodes'),generatedAt:now()});
       // --- Pre-assistant product closeout (T1鈥揟3) --------------------------------
       // Rooms: truthful availability plus the catalog, through the authenticated path.
       else if(req.method==='GET' && path==='/api/v0/rooms')out={rooms:await rooms.probe()};
       // Canonical Action facade. Repeating an idempotency key replays, never re-executes.
-      else if(req.method==='GET' && path==='/api/v0/actions')out={actions:actions.list(new URL(req.url,'http://city').searchParams.get('limit')??undefined)};
-      else if(req.method==='GET' && /^\/api\/v0\/actions\/[^/]+$/.test(path))out={action:actions.get(decodeURIComponent(path.split('/').at(-1)))||refuse('ACTION_NOT_FOUND',404)};
+      else if(req.method==='GET' && path==='/api/v0/actions')out={actions:actions.list(new URL(req.url,'http://city').searchParams.get('limit')??undefined).filter(action=>!req.citySession||!ownerAction(action))};
+      else if(req.method==='GET' && /^\/api\/v0\/actions\/[^/]+$/.test(path)){const action=actions.get(decodeURIComponent(path.split('/').at(-1)))||refuse('ACTION_NOT_FOUND',404);if(req.citySession&&ownerAction(action))refuse('OWNER_TASK_OWNER_REQUIRED',403);out={action};}
       else if(req.method==='POST' && path==='/api/v0/actions'){
         const actionBody=await body(req);
         // OWNER ONLY, checked before the Action is recorded so a member's attempt leaves no half-made request behind.
@@ -1155,7 +1163,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         if(req.citySession||!hostJoin)fail(403,'Only the local host owner may read the join ticket');out=await hostJoin.status(new URL(req.url,'http://city').searchParams.get('ticketId'));
       }
       else if(req.method==='GET' && path==='/api/v0/nodes')out={nodes:store.list('nodes'),nodeDescriptors:nodeDescriptors()};
-      else if(req.method==='GET' && path==='/api/v0/tasks')out={tasks:store.list('tasks')};
+      else if(req.method==='GET' && path==='/api/v0/tasks')out={tasks:visibleTasks(req)};
       // The owner's view of the remote-operation surface. Owner-only for the same reason the dispatch is: a member
       // must not see what programs are being run on the other machines, and the operations carry command lines.
       // Every receipt is re-checked against the operation the City dispatched before it is shown, so this surface
@@ -1234,19 +1242,19 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
           out={consumption:receipt,idempotent:false,consumptionState:'COLLECTED'};
         }
       }
-      else if(req.method==='GET' && path==='/api/v0/events')out={events:store.events()};
+      else if(req.method==='GET' && path==='/api/v0/events')out={events:visibleEvents(req)};
       // JOIN-502 owner decisions. These are AUTHENTICATED: deciding who joins is exactly the authority
       // a control credential carries, and an unauthenticated decision route would let any machine that
       // can reach the LAN approve itself.
       else if(req.method==='GET' && path==='/api/v0/join/requests')out=join.list();
       else if(req.method==='POST' && /^\/api\/v0\/join\/requests\/[^/]+\/approve$/.test(path))out=join.approve({requestId:decodeURIComponent(path.split('/').at(-2))});
       else if(req.method==='POST' && /^\/api\/v0\/join\/requests\/[^/]+\/reject$/.test(path))out=join.reject({requestId:decodeURIComponent(path.split('/').at(-2))});
-      else if(req.method==='GET' && /^\/api\/v0\/tasks\/[^/]+$/.test(path))out=required('tasks',path.split('/').at(-1));
+      else if(req.method==='GET' && /^\/api\/v0\/tasks\/[^/]+$/.test(path))out=assertTaskAccess(req,required('tasks',path.split('/').at(-1)));
       else if(req.method==='POST' && path==='/api/v0/tasks'){
         const b=await body(req);validateCommand(b);
         out=createCityTask(b.type);
       } else if(req.method==='POST' && /^\/api\/v0\/tasks\/[^/]+\/cancel$/.test(path)){
-        const t=required('tasks',path.split('/').at(-2));if(terminal.includes(t.state))fail(409,'Task already finished');out=change(t,'CANCELLED');
+        const t=assertTaskAccess(req,required('tasks',path.split('/').at(-2)));if(terminal.includes(t.state))fail(409,'Task already finished');out=change(t,'CANCELLED');
       } else if(req.method==='POST' && /^\/api\/v0\/tasks\/[^/]+\/provider-choice$/.test(path)){
           // UXI-301: THE SWITCH PATH, made really executable. The workbook's gate requires the switch and
           // no-switch paths both be genuinely executable and that the user's choice really returns to the
@@ -1258,7 +1266,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
           // different service".
           const b=await body(req);
           if(typeof b.providerRef!=='string'||b.providerRef.length===0||b.providerRef.length>200)fail(400,'providerRef must be a non-empty string');
-          const t=required('tasks',path.split('/').at(-2));
+          const t=assertTaskAccess(req,required('tasks',path.split('/').at(-2)));
           if(terminal.includes(t.state))fail(409,'Task already finished');
           out=change(t,'QUEUED',{assignedNodeId:null,chosenProviderRef:b.providerRef,userChoiceAt:now()});
           emit('TASK_PROVIDER_CHOSEN',t.id,{providerRef:b.providerRef},'user');
@@ -1268,7 +1276,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
           // reaches ALTERNATE_DEVICE on, and it means "do not switch provider - use another of my own
           // devices instead". Recorded as an explicit user intent that the routing planner then acts on,
           // rather than as a flag set by a test.
-          const t=required('tasks',path.split('/').at(-2));
+          const t=assertTaskAccess(req,required('tasks',path.split('/').at(-2)));
           if(terminal.includes(t.state))fail(409,'Task already finished');
           const explicitAlternate=b.decision==='ALTERNATE_DEVICE';
           if(b.decision!==undefined&&!explicitAlternate)refuse('CHOICE_INVALID',400,'Unsupported scheduler decision');
@@ -1614,6 +1622,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
       auth(req);if(u.searchParams.get('apiVersion')!=='0'||u.searchParams.get('schemaVersion')!=='0')fail(409,'Protocol mismatch');
       const identity=req.citySession?{clientRef:memberRef(req),clientLabel:enrollment.describe(req.citySession.session.installationId)?.displayName}:readClientIdentity(u.searchParams);
       wss.handleUpgrade(req,socket,head,ws=>{
+        ws.ownerEventsAllowed=!req.citySession;
         const key=refKey(identity.clientRef);
         const liveBefore=surfaceCounts.get(key)??0;
         controlSurfaces.set(ws,{...identity,connectedAt:now()});

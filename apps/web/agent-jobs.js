@@ -106,8 +106,8 @@ export function createAgentJobsView(){
    if(pending&&s.online)s.timer=setTimeout(async()=>{if(!current())return;try{await load();}catch{/* the next paint reports it */}if(current())show();},1500);
   };
   const run=async fn=>{if(s.busy||!s.online)return;s.busy=true;s.error='';show();try{await fn();}catch(e){if(current())s.error=e.message;}finally{s.busy=false;show();}};
-  const load=async()=>{const [data,nodes]=await Promise.all([api('node/jobs'),api('nodes')]);if(current()){s.data=data;s.nodes=(nodes.nodes??[]).filter(n=>n.online);}};
-  const invalidate=()=>{s.draft.confirm='';root.querySelector('#aj-confirm').value='';};
+  const load=async()=>{const [data,nodes]=await Promise.all([api('node/jobs'),api('nodes')]);if(current()){s.data=data;s.nodes=nodes.nodes??[];}};
+  const invalidate=()=>{s.pendingFingerprint=null;s.pendingKey=null;s.draft.confirm='';root.querySelector('#aj-confirm').value='';};
   const bind=(id,key)=>root.querySelector('#'+id).oninput=e=>{s.draft[key]=e.target.value;if(key!=='confirm')invalidate();show();};
   for(const [id,key] of [['aj-title','title'],['aj-instruction','instruction'],['aj-refs','refs'],['aj-purpose','purpose'],['aj-deadline','deadlineMinutes'],['aj-confirm','confirm']])bind(id,key);
   // Opening or closing the zone is the OWNER's state, so it is remembered in the view rather than in an attribute the
@@ -140,9 +140,12 @@ export function createAgentJobsView(){
    if(inputs.length)job.inputs=inputs;
    const minutes=Number(s.draft.deadlineMinutes);
    if(Number.isSafeInteger(minutes)&&minutes>0)job.deadlineMs=minutes*60000;
-   const created=await api('actions',{intent:s.requestText??'Agent job',route:'CITY_TASK',target:'city.task',operation:'AGENT_JOB',
-    input:{targetDeviceRef:s.draft.nodeRef,job},
-    idempotencyKey:(crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random())});
+   const body={intent:s.requestText??'Agent job',route:'CITY_TASK',target:'city.task',operation:'AGENT_JOB',input:{targetDeviceRef:s.draft.nodeRef,job}};
+   const fingerprint=JSON.stringify(body);
+   if(s.pendingFingerprint!==fingerprint){s.pendingFingerprint=fingerprint;s.pendingKey=crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random();}
+   let created;
+   try{created=await api('actions',{...body,idempotencyKey:s.pendingKey});s.pendingFingerprint=null;s.pendingKey=null;}
+   catch(error){if(Number.isInteger(error.status)){s.pendingFingerprint=null;s.pendingKey=null;}throw error;}
    // A refusal is a RESULT the owner must see: the Action facade reports it as a refused action rather than as a thrown
    // error, so it is surfaced instead of being swallowed by a successful-looking response.
    if(created?.action?.status==='REFUSED')s.error=`${created.action.error?.code}: ${created.action.error?.message}`;

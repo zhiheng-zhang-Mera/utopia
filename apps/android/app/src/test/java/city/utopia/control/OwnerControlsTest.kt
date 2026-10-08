@@ -5,6 +5,15 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class OwnerControlsTest {
+ @Test fun expirationAndUnavailableTargetExplainStateWithoutReplacingCanonicalState(){
+  val view=parseOwnerControls(JSONObject("""{"config":{"enabled":true},"jobs":[{"taskId":"Q-expired","state":"QUEUED","targetStateAtCreation":"UNAVAILABLE","targetStateDetail":"Target cannot execute agent jobs","deadline":{"projectedState":"EXPIRED","deadlineAt":"2026-10-08T01:00:00Z"},"job":{"title":"Review"}}]}"""),"AGENT_JOB")
+  assertEquals("QUEUED",view.rows.single().state);assertTrue(view.rows.single().summary.contains("EXPIRED"));assertTrue(view.rows.single().summary.contains("Target cannot execute agent jobs"))
+ }
+ @Test fun completedResponsesReleaseRequestKeyButTransportFailureKeepsIt(){
+  assertTrue(ownerDispatchAnswered(JSONObject("""{"action":{"status":"QUEUED"}}""")))
+  assertTrue(ownerDispatchAnswered(JSONObject("""{"errorCode":"OWNER_REQUIRED","httpStatus":403}""")))
+  assertFalse(ownerDispatchAnswered(JSONObject("""{"errorCode":"OFFLINE","httpStatus":null}""")))
+ }
  @Test fun askDraftStatusRequiresReviewAndHasNoAction(){
   val answer=parseAskResult(JSONObject("""{"status":"DRAFT_REQUIRED","draft":{"kind":"AGENT_JOB","job":{"title":"Review","instruction":"Inspect tests","purpose":"verify"}},"action":null}"""))
   assertTrue(answer.isKnownStatus);assertTrue(askNeedsUser(answer.status));assertFalse(askShowsAction(answer.status));assertNull(answer.action);assertEquals("Review",answer.ownerDraft?.title)

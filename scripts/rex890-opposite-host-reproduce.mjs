@@ -202,6 +202,22 @@ note(`the package declares ${exclusions.exclusions?.length ?? 0} exclusion(s); t
 
 console.log('\n--- compare trace and provenance with the City ---');
 const pointers = await pkg('raw-pointers.json');
+// THE PACKAGE'S OWN COPY OF THE RECORDS IT POINTS AT, when it carries one.
+//
+// A package that publishes `trace:<eventId>` while keeping the bytes out of itself can only be reproduced while the
+// City still holds them - and the City's trace retention is bounded. Measured: the dev study's 206 pointers resolved
+// 206/206 from the durable store on the morning of 2026-10-08 and 0/206 that afternoon, and the City's backup predated
+// the study, so the evidence was gone everywhere while the package went on publishing the pointers. A package built
+// from an exporter that writes this file is self-contained for exactly what it claims, and the comparison below can
+// then be COMPLETE - labelled with which copy answered, because the package's copy is the exporter's record at export
+// time and not the City's current state, and those are different strengths of evidence.
+let packageTraceIds = new Set(), packageTraceCoverage = null;
+try {
+  const excerpt = await readFile(join(ARTIFACT, 'trace-records.jsonl'), 'utf8');
+  packageTraceIds = new Set(excerpt.split('\n').filter(Boolean).map(line => { try { return JSON.parse(line)?.eventId; } catch { return null; } }).filter(Boolean));
+  note(`the package carries ${packageTraceIds.size} trace record(s) of its own`);
+} catch { note('the package carries no trace records of its own, so its pointers can only be answered by the City'); }
+try { packageTraceCoverage = await pkg('trace-coverage.json'); } catch { packageTraceCoverage = null; }
 const traceNow = (await ask('research/trace')).json?.trace ?? null;
 const tracedIds = new Set((traceNow?.records ?? []).map(r => r.eventId).filter(Boolean));
 const taskIdsNow = new Set(taskById.keys());
@@ -236,7 +252,11 @@ for (const [name, listed] of Object.entries(pointers)) {
         storeTruncated = answer.storeTruncated ?? storeTruncated;
       }
     }
-    const resolvable = inWindow.length + inStore.length;
+    // The package's own copy answers for pointers the City can no longer serve, and the union is what a reader can
+    // actually compare. Kept as a SEPARATE count so the strength of the evidence stays visible: a record answered by
+    // the City is current state, a record answered by the package is the exporter's copy at export time.
+    const inExcerpt = outside.filter(id => !new Set(inStore).has(id) && packageTraceIds.has(id));
+    const resolvable = inWindow.length + inStore.length + inExcerpt.length;
     // NAME THE REASON, because "trace comparison incomplete" cannot be acted on and the causes are different facts.
     // Measured on the real City: the study's 206 pointers resolved 206/206 from the durable store earlier on
     // 2026-10-08 and 0/206 later the same day, with the store's rotation ceiling reached (trace.previous.jsonl exactly
@@ -250,10 +270,11 @@ for (const [name, listed] of Object.entries(pointers)) {
       listed: ids.length, resolvable, storeFailure,
       cityTruncated: traceNow?.retentionTruncated ?? null, cityCompleteness: traceNow?.completeness ?? null});
     pointerChecks.traceRecords = {listed: ids.length, presentInRetainedWindow: inWindow.length,
-      presentInDurableStore: inStore.length, resolvable, absent: ids.length - resolvable,
+      presentInDurableStore: inStore.length, presentInPackageExcerpt: inExcerpt.length, resolvable, absent: ids.length - resolvable,
+      packageExcerptCoverage: packageTraceCoverage,
       storeScope, storeTruncated, storeFailure,
       cityCompleteness: traceNow?.completeness ?? null, cityDropped: traceNow?.droppedRecords ?? null, cityTruncated: traceNow?.retentionTruncated ?? null};
-    note(`trace pointers: ${inWindow.length}/${ids.length} in the retained window, +${inStore.length} resolved from the durable store = ${resolvable}/${ids.length} (city completeness=${traceNow?.completeness ?? 'n/a'} dropped=${JSON.stringify(traceNow?.droppedRecords ?? null)})`);
+    note(`trace pointers: ${inWindow.length}/${ids.length} in the retained window, +${inStore.length} resolved from the durable store, +${inExcerpt.length} from the package's own copy = ${resolvable}/${ids.length} (city completeness=${traceNow?.completeness ?? 'n/a'} dropped=${JSON.stringify(traceNow?.droppedRecords ?? null)})`);
     // VACUOUS IS NOT VERIFIED. If the window moved on and the store could not be asked, this element compared NOTHING,
     // and saying "0 inconsistencies" without saying that would be the exact overclaim this programme exists to avoid.
     if (inWindow.length === 0 && outside.length && inStore.length === 0 && storeFailure) {

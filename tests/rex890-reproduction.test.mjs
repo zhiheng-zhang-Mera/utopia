@@ -6,7 +6,27 @@ import {mkdtemp, writeFile, readFile, rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createHash} from 'node:crypto';
-import {spawn} from 'node:child_process';
+import {spawn, execFileSync} from 'node:child_process';
+
+// WHICH TREE THESE CASES RUN FROM IS PART OF THEIR RESULT, so it is declared instead of discovered.
+//
+// The instrument observes the software identity of the checkout it is running from - by construction, its own - and a
+// dirty tree is an evidence GAP, because a run from uncommitted code is not reproducible from the commit it names.
+// That rule is deliberate and stays. But it makes every case in this file depend on the developer's working tree: with
+// one edited file the positive control returns exit 2 while the comparison logic is perfectly healthy, and the two
+// negative controls that expect exit 1 also return 2. Measured on 2026-10-08, when adding two new files to this tree
+// turned `2 !== 0` into a red suite. A test that reports a false inconsistency because of an unrelated local edit is
+// the exact defect class this programme keeps paying for.
+//
+// So the precondition is named, and unmet means NOT RUN rather than a failure - the same rule the study instrument now
+// applies to its own deliberate skips. CI checks out a clean tree, so the gate is still enforced where it matters.
+const checkoutDirty = (() => {
+  try { return execFileSync('git', ['status', '--porcelain'], {encoding: 'utf8', timeout: 10000}).trim() !== ''; }
+  catch { return false; }
+})();
+const precondition = checkoutDirty
+  ? {skip: 'NOT RUN: this checkout has uncommitted changes, so the instrument rightly reports a checkout evidence gap and no case here could distinguish that gap from the comparison result it tests (run these on a clean tree)'}
+  : {};
 
 // Exercise the real CLI against bounded HTTP/WS responses. No physical-host
 // evidence is claimed: these cases test whether incomplete evidence earns exit 0.
@@ -63,7 +83,7 @@ async function reproduce(t, options = {}) {
   return {...result, report: JSON.parse(await readFile(join(dir, 'opposite-host-reproduction.json'), 'utf8'))};
 }
 
-test('complete evidence and two-device independent execution can return zero', async t => {
+test('complete evidence and two-device independent execution can return zero', precondition, async t => {
   const result = await reproduce(t);
   assert.equal(result.code, 0, result.output);
   assert.equal(result.report.reproductionComplete, true);
@@ -71,7 +91,7 @@ test('complete evidence and two-device independent execution can return zero', a
 // The positive control above is only worth something if the fixture looks like a real City receipt, so this pins the
 // vocabulary directly: a run whose RECEIPT says MEASURED and whose TASK says COMPLETED is complete evidence, while the
 // same run with a task that did not complete is not.
-test('a measured run names its run state and its task state separately', async t => {
+test('a measured run names its run state and its task state separately', precondition, async t => {
   const good = await reproduce(t);
   assert.equal(good.report.executed.runs.every(r => r.runState === 'MEASURED' && r.taskState === 'COMPLETED'), true, good.output);
   assert.equal(good.report.inconsistencies.length, 0, good.output);
@@ -84,7 +104,7 @@ for (const [name, options] of [
   ['an independent campaign with missing repetitions', {shortRuns: true}],
   ['a trace comparison that could not read any evidence', {vacuousTrace: true}],
   ['a measured run whose canonical task did not complete', {runTaskState: 'FAILED'}],
-]) test(`does not return zero for ${name}`, async t => {
+]) test(`does not return zero for ${name}`, precondition, async t => {
   const result = await reproduce(t, options);
   assert.equal(result.code, options.vacuousTrace ? 2 : 1, result.output);
   assert.equal(result.report.reproductionComplete, false);

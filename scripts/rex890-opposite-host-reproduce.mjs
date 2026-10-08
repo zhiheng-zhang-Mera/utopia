@@ -25,7 +25,16 @@ import {existsSync} from 'node:fs';
 import {resolve, join} from 'node:path';
 import {hostname} from 'node:os';
 import {createHash} from 'node:crypto';
-import WebSocket from 'ws';
+// The global WebSocket that Node ships, NOT the `ws` package: this harness must run from a BARE CHECKOUT, and a
+// dependency would mean the reproducing host has to install the project before it can check anything. That is the
+// difference between "fetch the branch and run one command" and "get a toolchain working first" - and an instrument
+// that needs its own install is one more step that can fail for reasons that have nothing to do with the study. The API
+// differs in exactly one place: the standard socket emits standard events, so `on('open')` becomes `addEventListener`.
+const WebSocket = globalThis.WebSocket;
+if (typeof WebSocket !== 'function') {
+  process.stderr.write(`REX890 reproduction: this harness needs a Node with a global WebSocket (Node 22 or newer); found ${process.version}\n`);
+  process.exit(2);
+}
 
 const argv = process.argv.slice(2);
 const flag = (name, fallback = null) => { const i = argv.indexOf('--' + name); return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : fallback; };
@@ -261,7 +270,7 @@ const surfaceRef = 'rex890-repro-' + Date.now().toString(36);
 let surface = null;
 try {
   surface = new WebSocket(CITY.replace('http', 'ws') + `/api/v0/events/stream?apiVersion=0&schemaVersion=0&clientRef=${surfaceRef}&clientLabel=REX-890%20reproduction%20surface`, ['city-token.' + Buffer.from(token).toString('base64url')]);
-  await new Promise((yes, no) => { surface.on('open', yes); surface.on('error', no); });
+  await new Promise((yes, no) => { surface.addEventListener('open', yes, {once: true}); surface.addEventListener('error', no, {once: true}); });
   note(`attached control surface ${surfaceRef}`);
 } catch (error) {
   executed.reason = `could not attach a control surface: ${error.message}`;

@@ -64,6 +64,21 @@ cat evidence/raw/rex890-studies/2026-10-08-B/artifact/trace-coverage.json   # li
 
 ## How the opposite host reproduces it / 对侧怎么复现
 
+**Before the run, a read-only pre-flight** (`readiness-check.mjs`, beside this README). The harness legitimately STARTS a
+campaign, which adds a receipt and therefore moves the environment it is measuring; this check sends only GETs, so it
+answers "can this City still substantiate this package?" at no cost:
+
+```bash
+node evidence/raw/rex890-studies/2026-10-08-B/readiness-check.mjs \
+  --artifact evidence/raw/rex890-studies/2026-10-08-B/artifact --city <the City> --config <a file holding a token>
+```
+
+Measured 2026-10-08: **7/7** - package checksums (12 files), external manifest (13 entries), the package's own trace
+records (listed 243 = captured 243), every campaign read BY ID (41, summing to the 205 runs the package claims) and
+every canonical task those runs point at (205). It also **reports** the City's bounded receipt window (total 54 /
+limit 50 / truncated) instead of failing on it: four package campaigns are no longer in the window's LISTING, and all
+41 still read by id - which is why both this check and the harness ask per campaign rather than for the list.
+
 ```bash
 node scripts/rex890-opposite-host-reproduce.mjs \
   --artifact evidence/raw/rex890-studies/2026-10-08-B/artifact \

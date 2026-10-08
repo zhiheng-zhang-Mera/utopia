@@ -163,6 +163,9 @@ function askResultMarkup() {
     + (text(result.route) || text(result.target) ? `<small class="task-id">${esc([result.route, result.target, result.operation].filter(Boolean).join(' · '))}</small>` : '')
     + '</div>' + badge(status, statusLabel(status)) + '</div>';
   const candidates = list(result.candidates);
+  if(status==='DRAFT_REQUIRED'&&result.draft){
+    return head+'<button class="primary" data-terminal="ask-owner-draft">Review draft / 检查操作草稿</button>'+banner;
+  }
   if (status === 'AWAITING_CONFIRMATION') {
     const candidate = result.confirmation ?? {};
     return head + `<div class="terminal-confirm"><strong>${esc(candidate.label ?? tr('terminal.ask.actionLabel'))}</strong>`
@@ -422,7 +425,7 @@ const controller = {
     if (typeof api === 'function') call = api;
     if (hooks && typeof hooks === 'object') {
       if(hooks.credentialContext!==undefined&&hooks.credentialContext!==catalogCredential){catalogCredential=hooks.credentialContext;++catalogEpoch;catalogOpen=false;catalogBusy=false;preparedTarget=null;state.ask.targets=[];}
-      context = { online: isOnline === true, go: hooks.go ?? context.go, page: hooks.page ?? context.page, external: hooks.external !== false };
+      context = { online: isOnline === true, go: hooks.go ?? context.go, page: hooks.page ?? context.page, external: hooks.external !== false, openOwnerDraft:hooks.openOwnerDraft??context.openOwnerDraft };
     }
     const page = context.page;
     if (page === 'Rooms') renderRooms(container);
@@ -481,6 +484,8 @@ const controller = {
       const selection = candidatePayload(candidate ?? {});
       if (!Object.keys(selection).length) return;
       submitAsk({ text: state.ask.result?.text ?? state.ask.input, selection }).catch(() => {});
+    } else if (action === 'ask-owner-draft') {
+      if(context.online&&state.ask.result?.status==='DRAFT_REQUIRED'&&state.ask.result?.draft)context.openOwnerDraft?.(structuredClone(state.ask.result.draft));
     } else if (action === 'ask-confirm') {
       const confirmation = state.ask.result?.confirmation ?? {};
       submitAsk({ text: state.ask.result?.text ?? state.ask.input, selection: candidatePayload(confirmation), confirm: true }).catch(() => {});

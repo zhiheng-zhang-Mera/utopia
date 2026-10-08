@@ -22,9 +22,11 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
  *   read from the City, not inferred from a missing button.
  */
 export function createRemoteOperationView(){
- let state=null;
- return {reset(){if(state?.timer)clearTimeout(state.timer);state=null;},render(root,{contextKey,online,api,isCurrent}){
+ let state=null,pendingDraft=null;
+ return {seedDraft(draft,contextKey){pendingDraft={draft:structuredClone(draft),contextKey};},reset(){if(state?.timer)clearTimeout(state.timer);state=null;pendingDraft=null;},render(root,{contextKey,online,api,isCurrent}){
   if(!state||state.contextKey!==contextKey)state={contextKey,draft:{nodeRef:'',executable:'',argv:'',cwd:'',purpose:'',timeoutMs:'',maxOutputBytes:''},confirm:'',data:null,nodes:[],error:'',busy:false,open:null,timer:null,dangerOpen:false};
+  if(pendingDraft){if(pendingDraft.contextKey===contextKey){const d=pendingDraft.draft;Object.assign(state.draft,{nodeRef:d.targetDeviceRef??'',executable:d.operation?.executable??'',argv:(d.operation?.argv??[]).join('\n'),cwd:d.operation?.cwd??'',purpose:d.operation?.purpose??'',confirm:''});state.requestText=d.requestText;}pendingDraft=null;}
+  if(!online)state.draft.confirm='';
   const s=state;s.online=online;const current=()=>state===s&&isCurrent();
   // The page is re-rendered on every City event and every four seconds, so the Danger Zone's open state and the field
   // being typed into are carried across the rebuild rather than being thrown away with the DOM. Without this an owner
@@ -91,11 +93,12 @@ export function createRemoteOperationView(){
    if(pending&&s.online)s.timer=setTimeout(async()=>{if(!current())return;try{await load();}catch{/* the next paint reports it */}if(current())show();},1000);
   };
   const run=async fn=>{if(s.busy||!s.online)return;s.busy=true;s.error='';show();try{await fn();}catch(e){if(current())s.error=e.message;}finally{s.busy=false;show();}};
-  const load=async()=>{const [data,nodes]=await Promise.all([api('node/operations'),api('nodes')]);if(current()){s.data=data;s.nodes=(nodes.nodes??[]).filter(n=>n.online);}};
-  const bind=(id,key)=>root.querySelector('#'+id).oninput=e=>{s.draft[key]=e.target.value;show();};
+  const load=async()=>{const [data,nodes]=await Promise.all([api('node/operations'),api('nodes')]);if(current()){s.data=data;s.nodes=nodes.nodes??[];}};
+  const invalidate=()=>{s.draft.confirm='';root.querySelector('#rop-confirm').value='';};
+  const bind=(id,key)=>root.querySelector('#'+id).oninput=e=>{s.draft[key]=e.target.value;if(key!=='confirm')invalidate();show();};
   for(const [id,key] of [['rop-executable','executable'],['rop-argv','argv'],['rop-cwd','cwd'],['rop-purpose','purpose'],['rop-timeout','timeoutMs'],['rop-output','maxOutputBytes'],['rop-confirm','confirm']])bind(id,key);
   root.querySelector('#rop-danger').ontoggle=e=>{s.dangerOpen=e.target.open;};
-  root.querySelector('#rop-node').onchange=e=>{s.draft.nodeRef=e.target.value;show();};
+  root.querySelector('#rop-node').onchange=e=>{s.draft.nodeRef=e.target.value;invalidate();show();};
   root.querySelector('#rop-refresh').onclick=()=>run(load);
   root.querySelector('#rop-list').onclick=e=>{
    const stop=e.target.closest('[data-rop-stop]');
@@ -105,7 +108,7 @@ export function createRemoteOperationView(){
    const operation={executable:s.draft.executable.trim(),argv:s.draft.argv.split('\n').map(x=>x).filter(x=>x!==''),cwd:s.draft.cwd.trim(),purpose:s.draft.purpose.trim()};
    if(s.draft.timeoutMs!=='')operation.timeoutMs=Number(s.draft.timeoutMs);
    if(s.draft.maxOutputBytes!=='')operation.maxOutputBytes=Number(s.draft.maxOutputBytes);
-   const created=await api('actions',{route:'CITY_TASK',target:'city.task',operation:'OWNER_REMOTE_OPERATION',
+   const created=await api('actions',{intent:s.requestText??'Remote operation',route:'CITY_TASK',target:'city.task',operation:'OWNER_REMOTE_OPERATION',
     input:{targetDeviceRef:s.draft.nodeRef,operation},
     idempotencyKey:(crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random())});
    // A refusal is a RESULT the owner must see. The Action facade reports it as a refused action rather than as a

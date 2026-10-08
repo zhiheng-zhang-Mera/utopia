@@ -25,9 +25,11 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
  *   refuses a credential-shaped key or value by name, so the form does not offer a field that could hold a token.
  */
 export function createAgentJobsView(){
- let state=null;
- return {reset(){if(state?.timer)clearTimeout(state.timer);state=null;},render(root,{contextKey,online,api,isCurrent}){
+ let state=null,pendingDraft=null;
+ return {seedDraft(draft,contextKey){pendingDraft={draft:structuredClone(draft),contextKey};},reset(){if(state?.timer)clearTimeout(state.timer);state=null;pendingDraft=null;},render(root,{contextKey,online,api,isCurrent}){
   if(!state||state.contextKey!==contextKey)state={contextKey,draft:{nodeRef:'',title:'',instruction:'',purpose:'',refs:'',deadlineMinutes:'30'},confirm:'',data:null,nodes:[],error:'',busy:false,timer:null,dangerOpen:false};
+  if(pendingDraft){if(pendingDraft.contextKey===contextKey){const d=pendingDraft.draft;Object.assign(state.draft,{nodeRef:d.targetDeviceRef??'',title:d.job?.title??'',instruction:d.job?.instruction??'',purpose:d.job?.purpose??'',confirm:''});state.requestText=d.requestText;}pendingDraft=null;}
+  if(!online)state.draft.confirm='';
   const s=state;s.online=online;const current=()=>state===s&&isCurrent();
   // The page is re-rendered on every City event and every four seconds, so the Danger Zone's open state and the field
   // being typed into are carried across the rebuild rather than being thrown away with the DOM.
@@ -105,12 +107,13 @@ export function createAgentJobsView(){
   };
   const run=async fn=>{if(s.busy||!s.online)return;s.busy=true;s.error='';show();try{await fn();}catch(e){if(current())s.error=e.message;}finally{s.busy=false;show();}};
   const load=async()=>{const [data,nodes]=await Promise.all([api('node/jobs'),api('nodes')]);if(current()){s.data=data;s.nodes=(nodes.nodes??[]).filter(n=>n.online);}};
-  const bind=(id,key)=>root.querySelector('#'+id).oninput=e=>{s.draft[key]=e.target.value;show();};
+  const invalidate=()=>{s.draft.confirm='';root.querySelector('#aj-confirm').value='';};
+  const bind=(id,key)=>root.querySelector('#'+id).oninput=e=>{s.draft[key]=e.target.value;if(key!=='confirm')invalidate();show();};
   for(const [id,key] of [['aj-title','title'],['aj-instruction','instruction'],['aj-refs','refs'],['aj-purpose','purpose'],['aj-deadline','deadlineMinutes'],['aj-confirm','confirm']])bind(id,key);
   // Opening or closing the zone is the OWNER's state, so it is remembered in the view rather than in an attribute the
   // next re-render discards.
   root.querySelector('#aj-danger').ontoggle=e=>{s.dangerOpen=e.target.open;};
-  root.querySelector('#aj-node').onchange=e=>{s.draft.nodeRef=e.target.value;show();};
+  root.querySelector('#aj-node').onchange=e=>{s.draft.nodeRef=e.target.value;invalidate();show();};
   root.querySelector('#aj-refresh').onclick=()=>run(load);
   root.querySelector('#aj-list').onclick=e=>{
    const stop=e.target.closest('[data-aj-stop]');
@@ -137,7 +140,7 @@ export function createAgentJobsView(){
    if(inputs.length)job.inputs=inputs;
    const minutes=Number(s.draft.deadlineMinutes);
    if(Number.isSafeInteger(minutes)&&minutes>0)job.deadlineMs=minutes*60000;
-   const created=await api('actions',{route:'CITY_TASK',target:'city.task',operation:'AGENT_JOB',
+   const created=await api('actions',{intent:s.requestText??'Agent job',route:'CITY_TASK',target:'city.task',operation:'AGENT_JOB',
     input:{targetDeviceRef:s.draft.nodeRef,job},
     idempotencyKey:(crypto.randomUUID?crypto.randomUUID():String(Date.now())+'-'+Math.random())});
    // A refusal is a RESULT the owner must see: the Action facade reports it as a refused action rather than as a thrown

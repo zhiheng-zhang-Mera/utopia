@@ -2,7 +2,7 @@
 
 Connect to a running City with the City Owner credential. Web entries are under Advanced > Remote operation / Agent jobs; Android entries are under the header overflow > 远程执行 / Agent 作业. Ordinary members cannot dispatch, cancel or read private Owner tasks.
 
-Both capabilities default to OFF. Explicit startup configuration is `CITY_REMOTE_OPERATION=1`, `CITY_REMOTE_OPERATION_ALLOWLIST`, `CITY_REMOTE_OPERATION_WORKSPACES` and `CITY_AGENT_JOB=1`. Declare only needed programs and workspaces. Nodes must advertise the respective capability. A strict offline target waits rather than moving to another machine.
+Both capabilities default to OFF. Explicit startup configuration is `CITY_REMOTE_OPERATION=1`, `CITY_REMOTE_OPERATION_ALLOWLIST`, `CITY_REMOTE_OPERATION_WORKSPACES` and `CITY_AGENT_JOB=1`. Allowlist and workspace lists use comma-separated values. Declare only needed programs and workspaces. Nodes must advertise the respective capability. A strict offline target waits rather than moving to another machine.
 
 Remote operation: select a device; enter executable, a JSON string-array of arguments (for example `["--version"]`), working directory and purpose; review timeout/output bounds; type the executable name and dispatch. Web also accepts one argument per line. Arguments are an array and never pass through a shell. Actual state, stdout, stderr, exit code, timeout, truncation and receipt are displayed. Pending operations can be stopped.
 

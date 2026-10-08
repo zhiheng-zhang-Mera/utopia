@@ -2,7 +2,7 @@
 
 连接正在运行的 City，并使用 City Owner 凭据。Web 从 Advanced 打开 Remote operation / Agent jobs；Android 从顶部「更多」打开「远程执行」/「Agent 作业」。普通成员无法派发、撤回或查看 Owner 私有任务。
 
-两条能力默认关闭。City 启动时需明确配置 `CITY_REMOTE_OPERATION=1`、`CITY_REMOTE_OPERATION_ALLOWLIST`、`CITY_REMOTE_OPERATION_WORKSPACES`，以及 `CITY_AGENT_JOB=1`。只声明确实需要的程序和工作区。Node 必须在线并声明对应能力；严格指定的离线设备会等待，不会换机器。
+两条能力默认关闭。City 启动时需明确配置 `CITY_REMOTE_OPERATION=1`、`CITY_REMOTE_OPERATION_ALLOWLIST`、`CITY_REMOTE_OPERATION_WORKSPACES`，以及 `CITY_AGENT_JOB=1`。允许程序与工作区列表使用逗号分隔。只声明确实需要的程序和工作区。Node 必须在线并声明对应能力；严格指定的离线设备会等待，不会换机器。
 
 远程执行：选择设备，填写程序、参数 JSON 字符串数组（例如 `["--version"]`）、工作目录和目的；检查超时与输出上限；输入程序名确认，再派发。Web 也接受每行一个参数。参数作为数组传递，不经过 shell。任务页显示真实状态、stdout、stderr、退出码、超时、截断和回执；运行期间可停止。
 

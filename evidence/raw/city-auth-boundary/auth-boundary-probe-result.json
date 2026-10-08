@@ -1,0 +1,59 @@
+{
+  "schema": "city-auth-boundary-probe-v1",
+  "at": "2026-10-08T04:50:19.693Z",
+  "city": "http://172.31.12.151:4310",
+  "checks": [
+    {
+      "name": "the owner token reads the owner route",
+      "status": "PASS",
+      "detail": "http=200 jobs=8"
+    },
+    {
+      "name": "a wrong token is refused",
+      "status": "PASS",
+      "detail": "http=401"
+    },
+    {
+      "name": "and the refusal carries no job data",
+      "status": "PASS",
+      "detail": "body={\"apiVersion\":0,\"schemaVersion\":0,\"error\":\"Invalid pairing token\"}"
+    },
+    {
+      "name": "no credential at all is refused",
+      "status": "PASS",
+      "detail": "http=401"
+    },
+    {
+      "name": "and that refusal carries no job data either",
+      "status": "PASS",
+      "detail": "body={\"apiVersion\":0,\"schemaVersion\":0,\"error\":\"Invalid pairing token\"}"
+    },
+    {
+      "name": "the NODE token is not the owner and is refused on the owner route",
+      "status": "PASS",
+      "detail": "http=401 (this is a real credential for the same City, just not the owner's)"
+    },
+    {
+      "name": "and that refusal carries no job data either",
+      "status": "PASS",
+      "detail": "body={\"apiVersion\":0,\"schemaVersion\":0,\"error\":\"Invalid pairing token\"}"
+    },
+    {
+      "name": "an unauthenticated dispatch is refused and creates no job",
+      "status": "PASS",
+      "detail": "http=401 jobs 8 -> 8"
+    },
+    {
+      "name": "no response echoes a credential back",
+      "status": "PASS",
+      "detail": "checked 4 response bodies"
+    }
+  ],
+  "summary": {
+    "checks": 9,
+    "passed": 9,
+    "failed": [],
+    "notRun": [],
+    "note": "no member device was enrolled: this measures the boundary with credentials that already exist, so the roster the opposite host compares against is unchanged"
+  }
+}

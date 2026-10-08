@@ -782,7 +782,7 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   const ownerEvent=event=>ownerTask(store.get('tasks',event?.taskId))||OWNER_TASK_TYPES.includes(event?.payload?.type);
   const visibleTasks=req=>store.list('tasks').filter(task=>!req?.citySession||!ownerTask(task));
   const visibleEvents=req=>store.events().filter(event=>!req?.citySession||!ownerEvent(event));
-  const ownerAction=action=>OWNER_TASK_TYPES.includes(action?.operation)||ownerTask(store.get('tasks',action?.backendRef?.taskId));
+  const ownerAction=action=>OWNER_TASK_TYPES.includes(action?.target?.operation)||ownerTask(store.get('tasks',action?.backendRef?.taskId));
   const assertTaskAccess=(req,task)=>{if(req.citySession&&ownerTask(task))refuse('OWNER_TASK_OWNER_REQUIRED',403,'Owner tasks require the City owner');return task;};
   const snapshot=(req)=>envelope({hostDeviceId,currentMemberRef:req?.citySession?memberRef(req):isLocalRequest(req)?hostDeviceId:null,members:members(),hostJoinAvailable:Boolean(hostJoin)&&!req?.citySession&&isLocalRequest(req),status:'ONLINE',updatedAt:now(),cityId:store.cityId,displayName:store.cityName,descriptor:pairing.descriptor(),discovery:discoveryState,nodes:store.list('nodes'),controlSurfaces:liveSurfaces(),tasks:visibleTasks(req),events:visibleEvents(req),capabilities:bridge.registry(),invocations:bridge.list(),joinRequests:join.snapshot(),
     // JOIN-503: the surface that is asking is told which INSTALLATION it is. A control-token client gets null

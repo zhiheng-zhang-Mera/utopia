@@ -31,5 +31,9 @@ test('unrelated members cannot read or mutate Owner tasks through generic projec
    assert.equal((await (await req('tasks/'+id)).json()).state,'QUEUED');
    await new Promise(ok=>setTimeout(ok,80));assert.equal(messages.join('').includes(secret),false,'member live stream must not reveal owner event payload');
   }
+  const refused=await (await req('actions',{route:'CITY_TASK',target:'city.task',operation:'OWNER_REMOTE_OPERATION',input:{targetDeviceRef:'dev-private',operation:{executable:'cmd',argv:['private-refused-input'],cwd:dir,purpose:'private-refused-input'}},idempotencyKey:'refused'})).json();
+  assert.equal(refused.action.status,'REFUSED');
+  assert.equal(JSON.stringify(await (await req('actions',undefined,M)).json()).includes('private-refused-input'),false,'refused actions without a task remain owner-only');
+  assert.equal((await req('actions/'+refused.action.id,undefined,M)).status,403);
  }finally{ws?.terminate();await app.close();await rm(dir,{recursive:true,force:true});}
 });

@@ -1,0 +1,220 @@
+{
+  "schema": "city-remote-operation-live-probe-v1",
+  "at": "2026-10-08T03:15:31.082Z",
+  "city": "http://172.31.12.151:4310",
+  "target": "dev-544adda130594c6fae7d71ddfd0f3b8c",
+  "onlineNodes": [
+    "dev-544adda130594c6fae7d71ddfd0f3b8c"
+  ],
+  "checks": [
+    {
+      "name": "the live City accepted a declarative dispatch",
+      "ok": true,
+      "detail": "http=200 task=Q-34171dc6-8335-47bb-81f1-4fecf9c8e449"
+    },
+    {
+      "name": "the program really ran on the named node",
+      "ok": true,
+      "detail": "state=COMPLETED exit=0 stdout=\"git version 2.51.2.windows.1\""
+    },
+    {
+      "name": "the node that ran it is the node the owner named",
+      "ok": true,
+      "detail": "assigned=dev-544adda130594c6fae7d71ddfd0f3b8c named=dev-544adda130594c6fae7d71ddfd0f3b8c"
+    },
+    {
+      "name": "the City re-checked the receipt and records that it is not an acceptance",
+      "ok": true,
+      "detail": "{\"valid\":true,\"state\":\"COMPLETED\",\"exitCode\":0,\"timedOut\":false,\"stdoutBytes\":29,\"stderrBytes\":0,\"acceptanceAuthority\":false}"
+    },
+    {
+      "name": "the operation row records shell:false",
+      "ok": true,
+      "detail": "shell=false"
+    },
+    {
+      "name": "the metacharacter string is reported as ONE argv element by the program",
+      "ok": true,
+      "detail": "\"git: 'rev-parse;echo INERT' is not a git command. See 'git --help'.\""
+    },
+    {
+      "name": "nothing was interpreted as a second command",
+      "ok": true,
+      "detail": "stdout=\"\""
+    },
+    {
+      "name": "refused by name: executable not on the allowlist",
+      "ok": true,
+      "detail": "code=EXECUTABLE_NOT_ALLOWED (expected EXECUTABLE_NOT_ALLOWED) task=null"
+    },
+    {
+      "name": "refused by name: an absolute path instead of a program name",
+      "ok": true,
+      "detail": "code=EXECUTABLE_REQUIRED (expected EXECUTABLE_REQUIRED) task=null"
+    },
+    {
+      "name": "refused by name: a working directory outside every declared workspace root",
+      "ok": true,
+      "detail": "code=WORKING_DIRECTORY_OUTSIDE_WORKSPACE (expected WORKING_DIRECTORY_OUTSIDE_WORKSPACE) task=null"
+    },
+    {
+      "name": "refused by name: a working directory that climbs out with ..",
+      "ok": true,
+      "detail": "code=WORKING_DIRECTORY_OUTSIDE_WORKSPACE (expected WORKING_DIRECTORY_OUTSIDE_WORKSPACE) task=null"
+    },
+    {
+      "name": "refused by name: no purpose at all",
+      "ok": true,
+      "detail": "code=PURPOSE_REQUIRED (expected PURPOSE_REQUIRED) task=null"
+    },
+    {
+      "name": "refused by name: argv is not an array of strings",
+      "ok": true,
+      "detail": "code=ARGV_INVALID (expected ARGV_INVALID) task=null"
+    },
+    {
+      "name": "refused by name: an argument carrying a NUL byte",
+      "ok": true,
+      "detail": "code=ARGV_INVALID (expected ARGV_INVALID) task=null"
+    }
+  ],
+  "ran": {
+    "allowed": {
+      "httpStatus": 200,
+      "actionStatus": "QUEUED",
+      "errorCode": null,
+      "errorMessage": null,
+      "taskId": "Q-34171dc6-8335-47bb-81f1-4fecf9c8e449",
+      "row": {
+        "state": "COMPLETED",
+        "assignedNodeId": "dev-544adda130594c6fae7d71ddfd0f3b8c",
+        "shell": false,
+        "operationDigest": "f2e313c196e45e2a4e0eb10bcb2c72ee6805ff20aa5c3c26019fdf3ba53b044c",
+        "result": {
+          "operationDigest": "f2e313c196e45e2a4e0eb10bcb2c72ee6805ff20aa5c3c26019fdf3ba53b044c",
+          "state": "COMPLETED",
+          "exitCode": 0,
+          "timedOut": false,
+          "stdout": "git version 2.51.2.windows.1\n",
+          "stderr": "",
+          "truncated": false,
+          "durationMs": 110,
+          "error": null
+        },
+        "receipt": {
+          "valid": true,
+          "state": "COMPLETED",
+          "exitCode": 0,
+          "timedOut": false,
+          "stdoutBytes": 29,
+          "stderrBytes": 0,
+          "acceptanceAuthority": false
+        }
+      }
+    },
+    "noShell": {
+      "httpStatus": 200,
+      "actionStatus": "QUEUED",
+      "errorCode": null,
+      "errorMessage": null,
+      "taskId": "Q-9e6672ab-ae3a-4dbf-b4bb-74f0e0b965e9",
+      "row": {
+        "state": "FAILED",
+        "assignedNodeId": "dev-544adda130594c6fae7d71ddfd0f3b8c",
+        "shell": false,
+        "operationDigest": "f5dc09ffcf28def729154960a2495338854cdba7dc1c2823202ee82cfbe650c1",
+        "result": {
+          "operationDigest": "f5dc09ffcf28def729154960a2495338854cdba7dc1c2823202ee82cfbe650c1",
+          "state": "FAILED",
+          "exitCode": 1,
+          "timedOut": false,
+          "stdout": "",
+          "stderr": "git: 'rev-parse;echo INERT' is not a git command. See 'git --help'.\n",
+          "truncated": false,
+          "durationMs": 148,
+          "error": "exit code 1"
+        },
+        "receipt": {
+          "valid": true,
+          "state": "FAILED",
+          "exitCode": 1,
+          "timedOut": false,
+          "stdoutBytes": 0,
+          "stderrBytes": 68,
+          "acceptanceAuthority": false
+        }
+      }
+    }
+  },
+  "refusals": [
+    {
+      "name": "executable not on the allowlist",
+      "expected": "EXECUTABLE_NOT_ALLOWED",
+      "httpStatus": 200,
+      "actionStatus": "REFUSED",
+      "errorCode": "EXECUTABLE_NOT_ALLOWED",
+      "errorMessage": "executable \"powershell\" is not on this City's allowlist",
+      "taskId": null
+    },
+    {
+      "name": "an absolute path instead of a program name",
+      "expected": "EXECUTABLE_REQUIRED",
+      "httpStatus": 200,
+      "actionStatus": "REFUSED",
+      "errorCode": "EXECUTABLE_REQUIRED",
+      "errorMessage": "executable must be a plain program name",
+      "taskId": null
+    },
+    {
+      "name": "a working directory outside every declared workspace root",
+      "expected": "WORKING_DIRECTORY_OUTSIDE_WORKSPACE",
+      "httpStatus": 200,
+      "actionStatus": "REFUSED",
+      "errorCode": "WORKING_DIRECTORY_OUTSIDE_WORKSPACE",
+      "errorMessage": "cwd \"E:/outside-the-roots\" is not inside a declared workspace root",
+      "taskId": null
+    },
+    {
+      "name": "a working directory that climbs out with ..",
+      "expected": "WORKING_DIRECTORY_OUTSIDE_WORKSPACE",
+      "httpStatus": 200,
+      "actionStatus": "REFUSED",
+      "errorCode": "WORKING_DIRECTORY_OUTSIDE_WORKSPACE",
+      "errorMessage": "cwd \"D:/utopia-remote-op/../../Windows\" is not inside a declared workspace root",
+      "taskId": null
+    },
+    {
+      "name": "no purpose at all",
+      "expected": "PURPOSE_REQUIRED",
+      "httpStatus": 200,
+      "actionStatus": "REFUSED",
+      "errorCode": "PURPOSE_REQUIRED",
+      "errorMessage": "purpose is required: an unexplained remote execution is refused",
+      "taskId": null
+    },
+    {
+      "name": "argv is not an array of strings",
+      "expected": "ARGV_INVALID",
+      "httpStatus": 200,
+      "actionStatus": "REFUSED",
+      "errorCode": "ARGV_INVALID",
+      "errorMessage": "argv[1] is not a string",
+      "taskId": null
+    },
+    {
+      "name": "an argument carrying a NUL byte",
+      "expected": "ARGV_INVALID",
+      "httpStatus": 200,
+      "actionStatus": "REFUSED",
+      "errorCode": "ARGV_INVALID",
+      "errorMessage": "argv[0] contains a NUL byte",
+      "taskId": null
+    }
+  ],
+  "summary": {
+    "checks": 14,
+    "passed": 14,
+    "failed": [],
+    "scope": "same physical host: the City and the node it targets run on this machine. The cross-host case is NOT RUN."
+  }
+}

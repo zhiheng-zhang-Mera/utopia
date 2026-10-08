@@ -8,7 +8,12 @@ for ($i=0; $i -lt 40; $i++) {
     try { $null = Invoke-RestMethod 'http://127.0.0.1:4389/' -TimeoutSec 1 } catch { break }
     Start-Sleep -Milliseconds 100
 }
-foreach ($key in @('CITY_MANAGE_SERVICES','CITY_ROOMS_DISABLED','ROOMS_PORT','CITY_DISCOVERY_DISABLED','CITY_TELEMETRY_DISABLED')) {
+# THE CAPABILITY SWITCHES ARE REPLAYED TOO. They live only in the environment, so a restart that dropped them brought
+# the City up with the owner's remote-operation and agent-job decisions silently undone - the far side's requests would
+# be refused as if nobody had turned them on. Recorded by main.mjs and replayed here as a pair; adding a switch in one
+# place without the other is the defect this list exists to prevent.
+foreach ($key in @('CITY_MANAGE_SERVICES','CITY_ROOMS_DISABLED','ROOMS_PORT','CITY_DISCOVERY_DISABLED','CITY_TELEMETRY_DISABLED',
+  'CITY_REMOTE_OPERATION','CITY_REMOTE_OPERATION_ALLOWLIST','CITY_REMOTE_OPERATION_WORKSPACES','CITY_AGENT_JOB')) {
     [Environment]::SetEnvironmentVariable($key, [string]$record.startup.$key, 'Process')
 }
 & node (Join-Path $PSScriptRoot 'utopia-client-launcher.mjs') --host-only --host $uri.Host --port $uri.Port --no-open

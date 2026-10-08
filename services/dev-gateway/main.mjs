@@ -65,7 +65,16 @@ try {
     const {startAgent} = await import('../../agents/reference-node/agent.mjs');
     agent = await startAgent({url:app.url,token:config.nodeToken,id:'dev-'+app.store.cityId.replaceAll('-',''),displayName:config.deviceName||hostname(),workspace:resolve(reservation.dataDir,'workspace')});
   }
-  const startup = {CITY_MANAGE_SERVICES:process.env.CITY_MANAGE_SERVICES ?? '0',CITY_ROOMS_DISABLED:process.env.CITY_ROOMS_DISABLED ?? '0',ROOMS_PORT:process.env.ROOMS_PORT ?? '4320',CITY_DISCOVERY_DISABLED:process.env.CITY_DISCOVERY_DISABLED ?? '0',CITY_TELEMETRY_DISABLED:process.env.CITY_TELEMETRY_DISABLED ?? '0'};
+  // THE OWNER'S STARTUP DECISIONS ARE PART OF WHAT A RESTART MUST PRESERVE. These four switches are read from the
+  // environment and are recorded in NO durable place: not in local-config.json, and - until this line - not in the
+  // reservation's `startup` record either, which is the only thing restart-gateway.ps1 replays. So restarting the
+  // canonical way brought the City up with BOTH cross-machine channels silently DISABLED, and the far side's requests
+  // would have been refused as if the owner had never turned them on. Measured 2026-10-08 by reading the live
+  // reservation: its `startup` carried CITY_MANAGE_SERVICES, CITY_ROOMS_DISABLED, ROOMS_PORT, CITY_DISCOVERY_DISABLED
+  // and CITY_TELEMETRY_DISABLED only, while the live City reported remoteOperation.enabled true with an allowlist and
+  // agentJob.enabled true. Recording them here is what makes "the owner turned it on" survive a restart.
+  const startup = {CITY_MANAGE_SERVICES:process.env.CITY_MANAGE_SERVICES ?? '0',CITY_ROOMS_DISABLED:process.env.CITY_ROOMS_DISABLED ?? '0',ROOMS_PORT:process.env.ROOMS_PORT ?? '4320',CITY_DISCOVERY_DISABLED:process.env.CITY_DISCOVERY_DISABLED ?? '0',CITY_TELEMETRY_DISABLED:process.env.CITY_TELEMETRY_DISABLED ?? '0',
+    CITY_REMOTE_OPERATION:process.env.CITY_REMOTE_OPERATION ?? '0',CITY_REMOTE_OPERATION_ALLOWLIST:process.env.CITY_REMOTE_OPERATION_ALLOWLIST ?? '',CITY_REMOTE_OPERATION_WORKSPACES:process.env.CITY_REMOTE_OPERATION_WORKSPACES ?? '',CITY_AGENT_JOB:process.env.CITY_AGENT_JOB ?? '0'};
   await reservation.publish({state:'ONLINE',role:'PRIMARY',deviceId:'dev-'+app.store.cityId.replaceAll('-',''),endpoint:app.url,cityId:app.store.cityId,configFile,servicesManaged:process.env.CITY_MANAGE_SERVICES==='1',startup});
   broker=createHostJoin({localCityId:app.store.cityId,localEndpoint:app.url,deviceFile,deviceId:'dev-'+app.store.cityId.replaceAll('-',''),canJoin:()=>!app.store.list('tasks').some(t=>!['COMPLETED','FAILED','CANCELLED'].includes(t.state)),transition:async record=>{
     const result=await demoteLocalHost({record,app,agent,closeRooms:roomHub?async()=>{await closeRooms();roomHub=null;}:null,reservation,memberEnrollmentFile:deviceFile,workspace:resolve(clientDir,'workspace')});agent=result.agent;closeTimer=result.timer;

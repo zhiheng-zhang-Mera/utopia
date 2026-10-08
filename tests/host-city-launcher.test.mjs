@@ -26,7 +26,12 @@ const busyReason = 'NOT RUN: a City already holds this machine\'s coordination r
 test('two installation launchers share one City across ports and recover the same identity after a crash', {timeout:180000}, async t => {
   if(await hostReservationBusy()) return t.skip(busyReason);
   const dir=await mkdtemp(resolve('.scratch-host-launch-'));
-  const env={...process.env,UTOPIA_HOST_STATE_DIR:resolve(dir,'host'),UTOPIA_CLIENT_STATE_DIR:resolve(dir,'client'),CITY_DISCOVERY_DISABLED:'1',CITY_MANAGE_SERVICES:'1',CITY_ROOMS_DISABLED:'0',ROOMS_PORT:'0',CITY_TELEMETRY_DISABLED:'1'};
+  const env={...process.env,UTOPIA_HOST_STATE_DIR:resolve(dir,'host'),UTOPIA_CLIENT_STATE_DIR:resolve(dir,'client'),CITY_DISCOVERY_DISABLED:'1',CITY_MANAGE_SERVICES:'1',CITY_ROOMS_DISABLED:'0',ROOMS_PORT:'0',CITY_TELEMETRY_DISABLED:'1',
+    // The capability switches are the owner's decisions and live ONLY in the environment, so a restart must carry them
+    // or the City comes back with both cross-machine channels silently off. Measured 2026-10-08: the reservation's
+    // `startup` record held the five service keys and none of these, while the live City reported both channels
+    // enabled - so the canonical restart would have undone decisions the owner had made.
+    CITY_REMOTE_OPERATION:'1',CITY_REMOTE_OPERATION_ALLOWLIST:'node,git',CITY_REMOTE_OPERATION_WORKSPACES:'C:/',CITY_AGENT_JOB:'1'};
   let owned;
   const launch=async (install,port) => JSON.parse((await run(process.execPath,[resolve(dir,install,'scripts/utopia-client-launcher.mjs'),'--host','127.0.0.1','--port',String(port),'--no-open','--json'],{env,timeout:90000})).stdout);
   const stop=async () => {
@@ -64,6 +69,14 @@ test('two installation launchers share one City across ports and recover the sam
       assert.equal(owned.startup.ROOMS_PORT,'0','restart preserves the original Rooms port setting');
       assert.equal(owned.startup.CITY_ROOMS_DISABLED,'0','repeated start cannot override a running City');
       assert.equal(owned.startup.CITY_DISCOVERY_DISABLED,'1');
+      // THE SAME RESTART PATH MUST PRESERVE THE OWNER'S CAPABILITY DECISIONS. These live only in the environment, and
+      // restart-gateway.ps1 replays them from this record, so this asserts the whole round trip - record, env, record -
+      // rather than the field alone. Without it the City comes back with both cross-machine channels silently OFF and
+      // the far side's requests are refused as if nobody had ever turned them on.
+      assert.equal(owned.startup.CITY_REMOTE_OPERATION,'1','the remote-operation switch survives a restart');
+      assert.equal(owned.startup.CITY_REMOTE_OPERATION_ALLOWLIST,'node,git');
+      assert.equal(owned.startup.CITY_REMOTE_OPERATION_WORKSPACES,'C:/');
+      assert.equal(owned.startup.CITY_AGENT_JOB,'1','the agent-job switch survives a restart');
       await rm(resolve(dir,'client/device-enrollment.json'));
     }
     await stop();

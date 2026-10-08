@@ -1,0 +1,66 @@
+{
+  "schema": "rex890-readiness-check-v1",
+  "at": "2026-10-08T05:09:08.861Z",
+  "artifact": "evidence/raw/rex890-studies/2026-10-08-B/artifact",
+  "city": "http://172.31.12.151:4310",
+  "checks": [
+    {
+      "name": "the package's own checksums verify (12 files)",
+      "status": "PASS",
+      "detail": "all match"
+    },
+    {
+      "name": "the external manifest verifies (13 entries)",
+      "status": "PASS",
+      "detail": "all match"
+    },
+    {
+      "name": "the package carries the trace records it points at",
+      "status": "PASS",
+      "detail": "listed=243 captured=243 source=CITY_TRACE_AT_EXPORT"
+    },
+    {
+      "name": "the City answers with the owner credential",
+      "status": "PASS",
+      "detail": "HTTP 200, 1 online device(s)"
+    },
+    {
+      "name": "every campaign the package names is still readable by id (41)",
+      "status": "PASS",
+      "detail": "all present"
+    },
+    {
+      "name": "the runs still sum to the package's claim (205)",
+      "status": "PASS",
+      "detail": "read 205"
+    },
+    {
+      "name": "every canonical task the runs point at still exists (205)",
+      "status": "PASS",
+      "detail": "all present"
+    }
+  ],
+  "info": {
+    "traceCoverage": {
+      "listed": 243,
+      "captured": 243
+    },
+    "receiptWindow": {
+      "total": 54,
+      "limit": 50,
+      "truncated": true
+    },
+    "packageCampaignsOutsideTheListing": [
+      "campaign-647b74cd-b4d2-415b-ab7b-c9914fbb7697",
+      "campaign-1a4ab016-4447-4ff0-a9cb-401eddd43e7f",
+      "campaign-e0e08faf-57d2-4ffe-a218-63704e342478",
+      "campaign-0213d95d-ae62-4f0c-be8d-6238c0ec6d2c"
+    ],
+    "onlineDevices": [
+      "dev-544adda130594c6fae7d71ddfd0f3b8c"
+    ]
+  },
+  "ready": true,
+  "problems": [],
+  "note": "read-only: no task was created and no campaign was started, so running this does not move what it measures"
+}

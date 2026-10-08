@@ -22,7 +22,8 @@ const probes = [
   ['remote-operation live probe', 'evidence/raw/capability-city-remote-operation/live-probe.mjs'],
   ['agent-job credential probe', 'evidence/raw/capability-city-agent-job/credential-probe.mjs'],
   ['agent-job consumption probe', 'evidence/raw/capability-city-agent-job/consumption-probe.mjs'],
-  ['city auth boundary probe', 'evidence/raw/city-auth-boundary/auth-boundary-probe.mjs']
+  ['city auth boundary probe', 'evidence/raw/city-auth-boundary/auth-boundary-probe.mjs'],
+  ['rex890 readiness check', 'evidence/raw/rex890-studies/2026-10-08-B/readiness-check.mjs']
 ].map(([name, path]) => ({name, path, file: resolve(root, path), source: readFileSync(resolve(root, path), 'utf8')}));
 
 test('PROBES 1: every probe carries no deployment identity and takes its inputs as parameters', () => {

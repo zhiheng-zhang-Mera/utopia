@@ -237,7 +237,18 @@ for (const [name, listed] of Object.entries(pointers)) {
       }
     }
     const resolvable = inWindow.length + inStore.length;
-    if (resolvable < ids.length) EVIDENCE_GAPS.push({what: 'trace comparison incomplete', listed: ids.length, resolvable, storeFailure});
+    // NAME THE REASON, because "trace comparison incomplete" cannot be acted on and the causes are different facts.
+    // Measured on the real City: the study's 206 pointers resolved 206/206 from the durable store earlier on
+    // 2026-10-08 and 0/206 later the same day, with the store's rotation ceiling reached (trace.previous.jsonl exactly
+    // at its 2 MiB limit). The records are not missing because the reader failed - they are missing because the City's
+    // trace retention is bounded and it rolled past them, so an artifact package can outlive the City state it points
+    // into. That is a fact about the package and the City, and a reproduction report must let it read as neither a pass
+    // nor a harness fault.
+    const traceGapReason = storeFailure ? 'TRACE_STORE_UNREADABLE'
+      : (ids.length > 0 && resolvable === 0 ? 'TRACE_RETENTION_PASSED_THE_POINTERS' : 'TRACE_RECORDS_PARTLY_MISSING');
+    if (resolvable < ids.length) EVIDENCE_GAPS.push({what: 'trace comparison incomplete', reason: traceGapReason,
+      listed: ids.length, resolvable, storeFailure,
+      cityTruncated: traceNow?.retentionTruncated ?? null, cityCompleteness: traceNow?.completeness ?? null});
     pointerChecks.traceRecords = {listed: ids.length, presentInRetainedWindow: inWindow.length,
       presentInDurableStore: inStore.length, resolvable, absent: ids.length - resolvable,
       storeScope, storeTruncated, storeFailure,

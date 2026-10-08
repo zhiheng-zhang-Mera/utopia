@@ -114,6 +114,10 @@ const log = (...a) => console.log(...a);
 
 let socket = null;
 const campaignIds = [];
+// The record is written WHATEVER HAPPENS, which is why what it contains is decided outside the try: a study that
+// stopped at phase 1 used to leave nothing on disk but a console tally, so a refusal could not be read back later.
+let summary = null;
+let failure = null;
 try {
   phase('0 the study runs against the resident City, with the real agents');
   const city = await ask('city');
@@ -135,7 +139,12 @@ try {
 
   phase('1 register the experiment (REX-801 manifest)');
   const manifest = {
-    experimentId: 'rex890-dev-multi-device-' + new Date().toISOString().slice(0, 10),
+    // THE EXPERIMENT ID MUST BE FRESH, OR THE STUDY CANNOT BE RUN TWICE. It used to be the date alone, so a second run
+    // on the same day collided with the first: HTTP 409 IMMUTABLE_MANIFEST, because the City is right to refuse an
+    // experiment whose manifest changed under a name it already recorded - and the manifest did change, since the
+    // software identity is now observed rather than remembered. An instrument that cannot be re-run is not an
+    // instrument. The date is kept for readability and a short per-run token makes the record unique.
+    experimentId: `rex890-dev-multi-device-${new Date().toISOString().slice(0, 10)}-${Math.random().toString(36).slice(2, 8)}`,
     question: 'Can the Research Fabric produce a reproducible multi-device artifact with a real injected fault?',
     topology: 'TWO_HOST_MESH', hosts: devices, workers: devices, controlSurfaces: ['rex890-dev-surface'],
     variables: {independent: ['scenario'], dependent: ['completion'], controls: ['taskType']},
@@ -283,7 +292,7 @@ try {
   }
 
   phase('6 the study record');
-  const summary = {
+  summary = {
     schema: 'rex890-dev-study-v1', at: new Date().toISOString(), city: CITY, experimentId: manifest.experimentId,
     manifest, campaignId, replayId: replayId ?? null, ablationId: ablationId ?? null,
     devices: devices, devicesThatExecuted: devicesThatRan, repetitions: REPETITIONS, runs: runs.length,
@@ -293,23 +302,42 @@ try {
     ablationAssignments: ablationRuns.map(r => ({index: r.index, state: r.state, device: r.result?.assignedNodeId ?? null})),
     checks: results,
   };
-  await writeFile(resolve(OUT, 'dev-study.json'), JSON.stringify(summary, null, 2), 'utf8');
-  // THE LOG IS PART OF THE EVIDENCE, so it must say what the run said. This line still read `r.ok` after the check
-  // records moved to carrying a `status` (they need three values now that a deliberate skip is NOT_RUN, not FAIL).
-  // `r.ok` is undefined, so every line of the sidecar read FAIL - a log that lies about a study that passed.
-  await writeFile(resolve(OUT, 'dev-study.log'), results.map(r => `${r.status.padEnd(7)}  ${r.name}  ${r.detail}`).join('\n') + '\n', 'utf8');
 } catch (error) {
-  // AN UNREACHABLE CITY IS AN OUTCOME, NOT A STACK TRACE. A study whose first question is "can I reach the City" used
-  // to die in the fetch with an uncaught exception: no tally, no record on disk, just a Node internal stack. That is
-  // the worst possible shape for an instrument the opposite host has to run, because it cannot tell a bad City
-  // endpoint from a broken study. Named, recorded, and still written out.
-  record('the study ran to the end without an unexpected failure', false, `${error?.message || error?.error?.message || error?.type || String(error)}`);
+  // A MID-STUDY FAILURE IS AN OUTCOME, NOT A STACK TRACE. This used to propagate: no tally, no record on disk, just a
+  // Node internal stack, which is the worst possible shape for an instrument the opposite host has to run because it
+  // cannot tell a bad City endpoint from a broken study. Named, recorded, and still written out below.
+  failure = `${error?.message || error?.error?.message || error?.type || String(error)}`;
+  record('the study ran to the end without an unexpected failure', false, failure);
 } finally {
-  try { socket?.close(); } catch { /* already closed */ }
+  // CLOSE THE SOCKET BEFORE THE LOOP ENDS. Closing the control surface and then calling process.exit() in the same
+  // tick aborts the process on Windows with a native libuv assertion (`!(handle->flags & UV_HANDLE_CLOSING)`,
+  // src\win\async.c), measured 2026-10-08 on the refusal path: exit code 0xC0000409 and no report. The instrument has
+  // to fail legibly, so the close is awaited with a bound.
+  await new Promise(done => {
+    if (!socket) return done();
+    const timer = setTimeout(done, 2000);
+    try { socket.addEventListener('close', () => { clearTimeout(timer); done(); }, {once: true}); socket.close(); }
+    catch { clearTimeout(timer); done(); }
+  });
 }
+// THE RECORD IS WRITTEN WHATEVER HAPPENED. A completed run writes what phases 0-5 measured; a run that stopped early
+// writes the checks it did reach plus the reason, flagged as incomplete, so a refusal is readable afterwards instead of
+// existing only as console output that the next process scrolls away.
+await mkdir(resolve(OUT), {recursive: true});
+const studyRecord = summary ?? {schema: 'rex890-dev-study-v1', at: new Date().toISOString(), city: CITY, incomplete: true, failedBecause: failure, checks: results};
+await writeFile(resolve(OUT, 'dev-study.json'), JSON.stringify(studyRecord, null, 2), 'utf8');
+// THE LOG IS PART OF THE EVIDENCE, so it must say what the run said. This line still read `r.ok` after the check records
+// moved to carrying a `status` (they need three values now that a deliberate skip is NOT_RUN, not FAIL). `r.ok` is
+// undefined, so every line of the sidecar read FAIL - a log that lies about a study that passed.
+await writeFile(resolve(OUT, 'dev-study.log'), results.map(r => `${r.status.padEnd(7)}  ${r.name}  ${r.detail}`).join('\n') + '\n', 'utf8');
 const failed = results.filter(r => r.status === 'FAIL');
 const notRun = results.filter(r => r.status === 'NOT_RUN');
 console.log(`\n${results.length - failed.length - notRun.length}/${results.length} development-study checks pass`);
 if (notRun.length) console.log(`not run (deliberately, and named rather than counted as failures): ${notRun.map(r => r.name).join(' | ')}`);
 if (failed.length) console.log('failed: ' + failed.map(r => r.name).join(' | '));
-process.exit(failed.length ? 1 : 0);
+// NO FORCED process.exit(). Calling it here aborted the process on Windows with a native libuv assertion
+// (`!(handle->flags & UV_HANDLE_CLOSING)`, src\win\async.c) whenever the control surface had just been closed - exit
+// code 0xC0000409 instead of the report that had already been written. Awaiting the socket's close first was not
+// enough, because the abort comes from tearing the loop down during exit, not from the socket. So the status is left
+// for the runtime to honour once the loop drains, which is the same exit code without the race.
+process.exitCode = failed.length ? 1 : 0;

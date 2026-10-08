@@ -12,7 +12,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync, writeFileSync, mkdtempSync, existsSync} from 'node:fs';
-import {spawnSync} from 'node:child_process';
+import {spawnSync, spawn} from 'node:child_process';
+import {createServer} from 'node:http';
+import {WebSocketServer} from 'ws';
 import {tmpdir} from 'node:os';
 import {join, resolve} from 'node:path';
 
@@ -80,4 +82,57 @@ test('STUDY-INSTRUMENT 6: a checkout nobody can attribute is refused before the 
   assert.match(run.stderr, /SOFTWARE_IDENTITY_UNOBSERVABLE/);
   assert.equal(existsSync(join(dir, 'out')), false, 'the study must refuse before creating anything');
   assert.ok(!/phase\('0/.test(run.stdout), 'and before it contacts the City');
+});
+
+test('STUDY-INSTRUMENT 7: the experiment id is fresh, so the study can be run twice on one day',()=>{
+  // Measured 2026-10-08: the id was the DATE alone, so re-running the instrument collided with its own earlier record
+  // and the City answered HTTP 409 IMMUTABLE_MANIFEST. The City is right - an experiment manifest must not change
+  // under a name it already recorded, and it had changed, because the software identity is now observed. An
+  // instrument that cannot be run twice is not an instrument.
+  assert.match(source,/experimentId: `rex890-dev-multi-device-\$\{new Date\(\)\.toISOString\(\)\.slice\(0, 10\)\}-\$\{Math\.random\(\)/,'the id must carry a per-run token');
+});
+
+test('STUDY-INSTRUMENT 8: an experiment the City refuses is REPORTED, not a native abort',async()=>{
+  // Measured 2026-10-08: on the refusal path the study closed its control surface and called process.exit() in the
+  // same tick, and Node aborted on Windows with `Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)`,
+  // src\win\async.c - exit code 0xC0000409 and no report at all. A fixture City that answers /city and refuses
+  // /experiments reproduces that path in a second, with no real City involved.
+  const dir = mkdtempSync(join(tmpdir(), 'rex890-refusing-city-'));
+  writeFileSync(join(dir, 'config.json'), JSON.stringify({token: 'fixture-only'}));
+  const server = createServer((req, res) => {
+    const path = new URL(req.url, 'http://fixture').pathname;
+    res.setHeader('Content-Type', 'application/json');
+    if (path.endsWith('/city')) return res.end(JSON.stringify({cityId: 'fixture-city', nodes: [{id: 'worker-a', online: true}, {id: 'worker-b', online: true}]}));
+    if (path.endsWith('/experiments')) { res.statusCode = 409; return res.end(JSON.stringify({errorCode: 'IMMUTABLE_MANIFEST'})); }
+    res.statusCode = 404; res.end('{}');
+  });
+  const wss = new WebSocketServer({server, handleProtocols: protocols => [...protocols][0]});
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    // ASYNC spawn, not spawnSync: the fixture City lives in THIS process, so a synchronous child would block the very
+    // event loop that has to answer it - the study would wait for a City that can no longer reply, and the case would
+    // fail at its timeout with `status: null` and nothing learned.
+    const run = await new Promise((resolve, reject) => {
+      const child = spawn(process.execPath, [script, '--city', `http://127.0.0.1:${server.address().port}`, '--out', join(dir, 'out'),
+        '--config', join(dir, 'config.json')], {stdio: ['ignore', 'pipe', 'pipe']});
+      let stdout = '', stderr = '';
+      child.stdout.on('data', b => { stdout += b; });
+      child.stderr.on('data', b => { stderr += b; });
+      child.on('error', reject);
+      child.on('close', code => resolve({status: code, stdout, stderr}));
+    });
+    assert.equal(run.status, 1, `the study must report a refused experiment, not abort: exit ${run.status}\n${run.stdout}\n${run.stderr}`);
+    assert.ok(!/Assertion failed|UV_HANDLE_CLOSING/.test(run.stderr), 'no native libuv abort');
+    assert.match(run.stdout, /the experiment registers/);
+    assert.match(run.stdout, /failed: the experiment registers/);
+    // And the run still leaves its record behind, so a refusal is readable after the fact.
+    const record = JSON.parse(readFileSync(join(dir, 'out', 'dev-study.json'), 'utf8'));
+    assert.equal(record.checks.some(c => c.name === 'the experiment registers' && c.status === 'FAIL'), true);
+    assert.match(readFileSync(join(dir, 'out', 'dev-study.log'), 'utf8'), /^FAIL\s+the experiment registers/m);
+  } finally {
+    for (const client of wss.clients) client.terminate();
+    await new Promise(resolve => wss.close(resolve));
+    server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
+  }
 });

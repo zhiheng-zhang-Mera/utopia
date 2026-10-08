@@ -57,6 +57,24 @@ test('CAJ 1: a job is refused by name when it cannot be acted on, and never sile
     'export OPENAI=sk-abcdefghijklmnopqrstuvwx','header Authorization: Bearer abcdefghijklmnop.qrstuvwx']){
     refuses('JOB_INPUT_CREDENTIAL_REFUSED',jobSpec({inputs:[{name:'note',text:secret}]}));
   }
+  // A credential shape must be refused in EVERY STORED FIELD, not only in `inputs`. Measured on a live City
+  // 2026-10-08: the same shape in `inputs[].text` was refused while in `instruction` and in `purpose` it was ACCEPTED,
+  // the job went QUEUED, and the stored record contained it - so the check protected the field nobody types a token
+  // into and missed the two somebody would. Title, instruction, purpose and expect are all persisted.
+  for(const [field,spec] of [['title',jobSpec({title:'push with ghp_abcdefghijklmnopqrstuvwxyz0123456789'})],
+    ['instruction',jobSpec({instruction:'clone the repo using ghp_abcdefghijklmnopqrstuvwxyz0123456789'})],
+    ['purpose',jobSpec({purpose:'authenticate with ghp_abcdefghijklmnopqrstuvwxyz0123456789'})],
+    ['expect',jobSpec({expect:'the report shows ghp_abcdefghijklmnopqrstuvwxyz0123456789'})]]){
+    refuses('JOB_CREDENTIAL_REFUSED',spec);
+  }
+  // The same four shapes that `inputs` already rejected must be rejected in a statement too, so the rule is not one
+  // pattern applied to one field.
+  for(const secret of ['run with github_pat_11ABCDEFG0abcdefghij','export OPENAI=sk-abcdefghijklmnopqrstuvwx',
+    'header Authorization: Bearer abcdefghijklmnop.qrstuvwx']){
+    refuses('JOB_CREDENTIAL_REFUSED',jobSpec({instruction:'do this: '+secret}));
+  }
+  // And a statement that merely names the WORD token is still fine: the rule is about values, not vocabulary.
+  assert.ok(normalizeAgentJob(jobSpec({instruction:'Read the token file yourself and report the count.'}),enabled));
   refuses('JOB_INPUTS_INVALID',jobSpec({inputs:[{name:'both',text:'a',ref:'b'}]}));
   refuses('JOB_INPUTS_INVALID',jobSpec({inputs:[{name:'neither'}]}));
   refuses('JOB_INPUT_TOO_LONG',jobSpec({inputs:[{name:'big',text:'x'.repeat(16001)}]}));

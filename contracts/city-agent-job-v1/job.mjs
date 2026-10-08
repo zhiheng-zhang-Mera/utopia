@@ -73,6 +73,21 @@ const CREDENTIAL_KEY = /(^|_)(token|secret|password|credential|api[_-]?key|autho
 const CREDENTIAL_VALUE = /(?:\bgh[pousr]_[A-Za-z0-9]{8,}|\bgithub_pat_[A-Za-z0-9_]{8,}|\bsk-[A-Za-z0-9_-]{12,}|\bBearer\s+[A-Za-z0-9._~+/-]{8,})/;
 
 /**
+ * A CREDENTIAL MAY NOT BE STORED IN ANY FIELD THAT IS STORED - not only in `inputs`.
+ *
+ * Measured on a live City, 2026-10-08: a credential shape in `inputs[].text` and a credential-shaped input NAME were
+ * both refused by name, while the SAME shape in `instruction` or in `purpose` was ACCEPTED, the job went QUEUED, and
+ * the record the City stores (and the owner's surface shows, and the agent reads) contained it. So the scan protected
+ * the field nobody types a token into and missed the two somebody actually would. Title, instruction, purpose and
+ * expect are all persisted, so all four are scanned here with the same rule `inputs[].text` already used.
+ */
+const rejectCredential = (field, value) => {
+  if (typeof value === 'string' && CREDENTIAL_VALUE.test(value)) {
+    refuse('JOB_CREDENTIAL_REFUSED', `${field} contains what looks like a live credential; a job record is not a secret store`);
+  }
+};
+
+/**
  * Turn a requested job into the frozen form the City persists and an agent reads, or refuse by name.
  * Ownership is NOT checked here: this function is pure, and who may ask is decided by the route that calls it.
  */
@@ -80,8 +95,11 @@ export function normalizeAgentJob(spec, {enabled = false} = {}) {
   if (enabled !== true) refuse('AGENT_JOB_DISABLED', 'agent jobs are not enabled on this City');
   if (spec === null || typeof spec !== 'object' || Array.isArray(spec)) refuse('JOB_SPEC_REQUIRED');
   if (!isText(spec.title, 200)) refuse('JOB_TITLE_REQUIRED', 'a job needs a short title');
+  rejectCredential('title', spec.title);
   if (!isText(spec.instruction, MAX_STATEMENT_LENGTH)) refuse('JOB_INSTRUCTION_REQUIRED', 'a job must say what to do, in words');
+  rejectCredential('instruction', spec.instruction);
   if (!isText(spec.purpose, 500)) refuse('JOB_PURPOSE_REQUIRED', 'a job must say why it is being asked for');
+  rejectCredential('purpose', spec.purpose);
 
   const inputs = spec.inputs === undefined ? [] : spec.inputs;
   if (!Array.isArray(inputs) || inputs.length > MAX_INPUTS) refuse('JOB_INPUTS_INVALID', `inputs must be an array of at most ${MAX_INPUTS} entries`);
@@ -101,6 +119,7 @@ export function normalizeAgentJob(spec, {enabled = false} = {}) {
 
   const expect = spec.expect === undefined ? null : spec.expect;
   if (expect !== null && !isText(expect, 2000)) refuse('JOB_EXPECT_INVALID', 'expect must be a short statement of what the report should contain');
+  rejectCredential('expect', expect);
 
   const deadlineMs = spec.deadlineMs === undefined ? DEFAULT_DEADLINE_MS : spec.deadlineMs;
   if (!Number.isSafeInteger(deadlineMs) || deadlineMs <= 0) refuse('JOB_DEADLINE_INVALID', 'deadlineMs must be a positive integer');

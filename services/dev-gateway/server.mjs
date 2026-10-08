@@ -32,6 +32,7 @@ import { validateTelemetry } from '../../contracts/pairing-v1/descriptor.mjs';
 import { startDiscovery } from './discovery.mjs';
 // The ONE place the City can make another machine run a program. Off by default; the contract owns every refusal.
 import { normalizeRemoteOperation, validateRemoteOperationReceipt, REMOTE_OPERATION_EXPOSURE } from '../../contracts/city-remote-operation-v1/operation.mjs';
+import {prepareOwnerControlAsk} from './owner-control-intents.mjs';
 import { requiredCapabilitiesForTask } from './node-task-capabilities.mjs';
 // The sibling channel: the City hands a remote AGENT a request and takes back a report it cannot verify, so the report
 // must declare what kind of claim it is rather than arriving looking like a verification.
@@ -543,7 +544,8 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
   };
   const actions=createActions({store,rooms,bridge,cityTasks,host:hostId||hostname()});
   // Every routable target with its own truthful availability. Nothing here is BOSS/HNS.
-  const askTargets=async()=>{const roomState=await rooms.probe();return buildTargets({roomState,capabilities:bridge.registry(),cityAvailability:cityAvailability(),roomsAvailable:roomState.available});};
+  const ownerControlContext=req=>({isOwner:!req?.citySession,nodes:store.list('nodes'),remoteOperation:remoteOperationConfig,agentJob:agentJobConfig});
+  const askTargets=async(req)=>{const roomState=await rooms.probe();return buildTargets({roomState,capabilities:bridge.registry(),cityAvailability:cityAvailability(),roomsAvailable:roomState.available,ownerControls:ownerControlContext(req)});};
   const body=async (req,limit=16384)=>{let size=0;const chunks=[];for await(const c of req){size+=c.length;if(size>limit){if(limit===MAX_REQUEST_BYTES)refuse('INPUT_TOO_LARGE',413);fail(413,'Request too large');}chunks.push(c);}try{return JSON.parse(Buffer.concat(chunks).toString('utf8')||'{}');}catch{if(limit===MAX_REQUEST_BYTES)refuse('INVALID_JSON');fail(400,'Invalid JSON');}};
   const required=(table,id)=>store.get(table,id)||fail(404,'Not found');
   // WBC-601: THE EXECUTION BACKEND SEAM.
@@ -1141,8 +1143,11 @@ export async function createGateway({host='127.0.0.1',port=4310,dir='.runtime',t
         out=await actions.create(actionBody);
       }
       // Deterministic Ask / Do. There is no model in this path and no BOSS/HNS route.
-      else if(req.method==='GET' && path==='/api/v0/ask/targets')out={targets:await askTargets()};
-      else if(req.method==='POST' && path==='/api/v0/ask')out={ask:await handleAsk(await body(req),{actions,targets:await askTargets(),roomState:await rooms.probe()})};
+      else if(req.method==='GET' && path==='/api/v0/ask/targets')out={targets:await askTargets(req)};
+      else if(req.method==='POST' && path==='/api/v0/ask'){
+        const request=await body(req);
+        out={ask:prepareOwnerControlAsk(request,ownerControlContext(req))??await handleAsk(request,{actions,targets:await askTargets(req),roomState:await rooms.probe()})};
+      }
       else if(req.method==='POST' && path==='/api/v0/host/join'){
         if(req.citySession||!hostJoin||!isLocalRequest(req))fail(403,'Only the local host owner may change its role');out=await hostJoin.start(await body(req));
       }

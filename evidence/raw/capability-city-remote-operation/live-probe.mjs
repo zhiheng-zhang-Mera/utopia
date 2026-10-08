@@ -21,6 +21,11 @@ const value = (name, fallback = null) => {
 };
 const CITY = value('city');
 const CONFIG = value('config');
+// THE WORKSPACE COMES FROM THE CALLER, NOT FROM THIS FILE. It used to be the checkout path on one particular machine,
+// which made the instrument usable only there - the same defect as a probe that hardcodes the City URL, and a
+// contradiction of the property this capability is supposed to have (system-level, not bound to named hosts). The
+// default is the checkout this file lives in, which is a directory the operator can also name explicitly.
+const CWD = value('cwd', resolve(import.meta.dirname, '..', '..', '..'));
 if (!CITY || !CONFIG) {
   process.stderr.write('live-probe: --city <url> and --config <file holding {"token":"..."}> are both required\n');
   process.exit(2);
@@ -69,7 +74,7 @@ const check = (name, ok, detail) => { results.checks.push({name, ok: ok === true
   console.log(`${ok === true ? 'PASS' : 'FAIL'}  ${name.padEnd(64)} ${detail ?? ''}`); };
 
 // 1. An allowlisted program, described declaratively.
-const allowed = await dispatch({executable: 'git', argv: ['--version'], cwd: 'D:/utopia-remote-op',
+const allowed = await dispatch({executable: 'git', argv: ['--version'], cwd: CWD,
   purpose: 'CAP-CITY-REMOTE-OPERATION-001 live probe: dispatch an allowlisted program and read the receipt', timeoutMs: 30000});
 const allowedRow = allowed.taskId ? await settle(allowed.taskId) : null;
 results.ran.allowed = {...allowed, row: allowedRow};
@@ -80,7 +85,7 @@ check('the City re-checked the receipt and records that it is not an acceptance'
 
 // 2. NO SHELL EXISTS. The metacharacters are ONE argv element, so git must report the whole string as a single unknown
 //    subcommand. If a shell were anywhere in the path, `echo INERT` would have run and stdout would say INERT.
-const noShell = await dispatch({executable: 'git', argv: ['rev-parse;echo INERT'], cwd: 'D:/utopia-remote-op',
+const noShell = await dispatch({executable: 'git', argv: ['rev-parse;echo INERT'], cwd: CWD,
   purpose: 'CAP-CITY-REMOTE-OPERATION-001 live probe: show that ; is data and no shell interprets it', timeoutMs: 30000});
 const noShellRow = noShell.taskId ? await settle(noShell.taskId) : null;
 results.ran.noShell = {...noShell, row: noShellRow};
@@ -93,19 +98,19 @@ check('nothing was interpreted as a second command', noShellRow?.result?.stdout 
 //    REFUSED BY NAME, not silently reduced - which is what the contract's code does, and what its own header comment
 //    said loosely ("clamped"). A caller that believes a too-large number was quietly capped would design against a
 //    guarantee that does not exist.
-const overTimeout = await dispatch({executable: 'git', argv: ['--version'], cwd: 'D:/utopia-remote-op',
+const overTimeout = await dispatch({executable: 'git', argv: ['--version'], cwd: CWD,
   purpose: 'live probe bounds: timeout above the ceiling', timeoutMs: 99999999});
 results.bounds = {overTimeout};
 check('a timeout above the ceiling is refused by name', overTimeout.errorCode === 'TIMEOUT_EXCEEDS_LIMIT' && overTimeout.taskId === null,
   `code=${overTimeout.errorCode} task=${overTimeout.taskId}`);
 
-const overOutput = await dispatch({executable: 'git', argv: ['--version'], cwd: 'D:/utopia-remote-op',
+const overOutput = await dispatch({executable: 'git', argv: ['--version'], cwd: CWD,
   purpose: 'live probe bounds: output cap above the ceiling', timeoutMs: 30000, maxOutputBytes: 99999999});
 results.bounds.overOutput = overOutput;
 check('an output cap above the ceiling is refused by name', overOutput.errorCode === 'OUTPUT_LIMIT_EXCEEDS_LIMIT' && overOutput.taskId === null,
   `code=${overOutput.errorCode} task=${overOutput.taskId}`);
 
-const zeroTimeout = await dispatch({executable: 'git', argv: ['--version'], cwd: 'D:/utopia-remote-op',
+const zeroTimeout = await dispatch({executable: 'git', argv: ['--version'], cwd: CWD,
   purpose: 'live probe bounds: zero timeout', timeoutMs: 0});
 results.bounds.zeroTimeout = zeroTimeout;
 check('a non-positive bound is refused by name', zeroTimeout.errorCode === 'BOUNDS_INVALID' && zeroTimeout.taskId === null,
@@ -113,14 +118,14 @@ check('a non-positive bound is refused by name', zeroTimeout.errorCode === 'BOUN
 
 // Environment injection is refused by PRESENCE, so an EMPTY env object must be refused too - otherwise "no environment
 // injection" would depend on what the object happened to contain.
-const emptyEnv = await dispatch({executable: 'git', argv: ['--version'], cwd: 'D:/utopia-remote-op',
+const emptyEnv = await dispatch({executable: 'git', argv: ['--version'], cwd: CWD,
   purpose: 'live probe bounds: environment override', timeoutMs: 30000, env: {}});
 results.bounds.emptyEnv = emptyEnv;
 check('an environment override is refused even when empty', emptyEnv.errorCode === 'ENVIRONMENT_OVERRIDE_REFUSED' && emptyEnv.taskId === null,
   `code=${emptyEnv.errorCode} task=${emptyEnv.taskId}`);
 
 // The bound has to BIND: a program that outlives its timeout must be killed, and the receipt must say so.
-const slow = await dispatch({executable: 'node', argv: ['-e', 'setTimeout(()=>{}, 15000)'], cwd: 'D:/utopia-remote-op',
+const slow = await dispatch({executable: 'node', argv: ['-e', 'setTimeout(()=>{}, 15000)'], cwd: CWD,
   purpose: 'live probe bounds: a program that outlives its timeout must be stopped', timeoutMs: 1500});
 const slowRow = slow.taskId ? await settle(slow.taskId) : null;
 results.bounds.timedOutRun = {dispatch: slow, row: slowRow};
@@ -128,7 +133,7 @@ check('a program that outlives its timeout is stopped and the receipt says so', 
   `state=${slowRow?.state} timedOut=${JSON.stringify(slowRow?.result?.timedOut)} durationMs=${slowRow?.result?.durationMs}`);
 
 // And the output cap has to bind too: a program that prints more than the cap must come back truncated.
-const loud = await dispatch({executable: 'node', argv: ['-e', "process.stdout.write('x'.repeat(400000))"], cwd: 'D:/utopia-remote-op',
+const loud = await dispatch({executable: 'node', argv: ['-e', "process.stdout.write('x'.repeat(400000))"], cwd: CWD,
   purpose: 'live probe bounds: output beyond the cap must be truncated', timeoutMs: 30000, maxOutputBytes: 4096});
 const loudRow = loud.taskId ? await settle(loud.taskId) : null;
 results.bounds.truncatedRun = {dispatch: loud, row: loudRow};
@@ -141,13 +146,13 @@ check('the audit row carries the purpose, program, argv and workspace', Boolean(
 
 // 4. Typed refusals, each of which must be named AND must leave no task behind.
 const refusals = [
-  ['executable not on the allowlist', {executable: 'powershell', argv: ['-Command', 'echo no'], cwd: 'D:/utopia-remote-op', purpose: 'live probe refusal check', timeoutMs: 30000}, 'EXECUTABLE_NOT_ALLOWED'],
-  ['an absolute path instead of a program name', {executable: 'C:/Windows/System32/cmd.exe', argv: ['/c', 'echo no'], cwd: 'D:/utopia-remote-op', purpose: 'live probe refusal check', timeoutMs: 30000}, 'EXECUTABLE_REQUIRED'],
-  ['a working directory outside every declared workspace root', {executable: 'git', argv: ['--version'], cwd: 'E:/outside-the-roots', purpose: 'live probe refusal check', timeoutMs: 30000}, 'WORKING_DIRECTORY_OUTSIDE_WORKSPACE'],
-  ['a working directory that climbs out with ..', {executable: 'git', argv: ['--version'], cwd: 'D:/utopia-remote-op/../../Windows', purpose: 'live probe refusal check', timeoutMs: 30000}, 'WORKING_DIRECTORY_OUTSIDE_WORKSPACE'],
-  ['no purpose at all', {executable: 'git', argv: ['--version'], cwd: 'D:/utopia-remote-op', timeoutMs: 30000}, 'PURPOSE_REQUIRED'],
-  ['argv is not an array of strings', {executable: 'git', argv: ['--version', 7], cwd: 'D:/utopia-remote-op', purpose: 'live probe refusal check', timeoutMs: 30000}, 'ARGV_INVALID'],
-  ['an argument carrying a NUL byte', {executable: 'git', argv: ['--version\0x'], cwd: 'D:/utopia-remote-op', purpose: 'live probe refusal check', timeoutMs: 30000}, 'ARGV_INVALID']
+  ['executable not on the allowlist', {executable: 'powershell', argv: ['-Command', 'echo no'], cwd: CWD, purpose: 'live probe refusal check', timeoutMs: 30000}, 'EXECUTABLE_NOT_ALLOWED'],
+  ['an absolute path instead of a program name', {executable: '/bin/executable-as-a-path', argv: ['--version'], cwd: CWD, purpose: 'live probe refusal check', timeoutMs: 30000}, 'EXECUTABLE_REQUIRED'],
+  ['a working directory outside every declared workspace root', {executable: 'git', argv: ['--version'], cwd: '/outside-the-roots', purpose: 'live probe refusal check', timeoutMs: 30000}, 'WORKING_DIRECTORY_OUTSIDE_WORKSPACE'],
+  ['a working directory that climbs out with ..', {executable: 'git', argv: ['--version'], cwd: `${CWD}/../../Windows`, purpose: 'live probe refusal check', timeoutMs: 30000}, 'WORKING_DIRECTORY_OUTSIDE_WORKSPACE'],
+  ['no purpose at all', {executable: 'git', argv: ['--version'], cwd: CWD, timeoutMs: 30000}, 'PURPOSE_REQUIRED'],
+  ['argv is not an array of strings', {executable: 'git', argv: ['--version', 7], cwd: CWD, purpose: 'live probe refusal check', timeoutMs: 30000}, 'ARGV_INVALID'],
+  ['an argument carrying a NUL byte', {executable: 'git', argv: ['--version\0x'], cwd: CWD, purpose: 'live probe refusal check', timeoutMs: 30000}, 'ARGV_INVALID']
 ];
 for (const [name, operation, expected] of refusals) {
   const refused = await dispatch(operation);

@@ -1,6 +1,6 @@
 {
   "schema": "city-remote-operation-live-probe-v1",
-  "at": "2026-10-08T03:59:07.601Z",
+  "at": "2026-10-08T04:35:09.822Z",
   "city": "http://172.31.12.151:4310",
   "target": "dev-544adda130594c6fae7d71ddfd0f3b8c",
   "onlineNodes": [
@@ -10,7 +10,7 @@
     {
       "name": "the live City accepted a declarative dispatch",
       "ok": true,
-      "detail": "http=200 task=Q-31c373d0-52e2-4620-b24c-a17cf3a774cd"
+      "detail": "http=200 task=Q-2d7f6669-d818-448b-a3da-f7aef2fad3f4"
     },
     {
       "name": "the program really ran on the named node",
@@ -65,7 +65,7 @@
     {
       "name": "a program that outlives its timeout is stopped and the receipt says so",
       "ok": true,
-      "detail": "state=FAILED timedOut=true durationMs=1541"
+      "detail": "state=FAILED timedOut=true durationMs=1534"
     },
     {
       "name": "output beyond the declared cap comes back truncated",
@@ -75,7 +75,7 @@
     {
       "name": "the audit row carries the purpose, program, argv and workspace",
       "ok": true,
-      "detail": "purpose=\"live probe bounds: output beyond the cap\" executable=node cwd=D:/utopia-remote-op"
+      "detail": "purpose=\"live probe bounds: output beyond the cap\" executable=node cwd=D:\\utopia-remote-op"
     },
     {
       "name": "refused by name: executable not on the allowlist",
@@ -119,29 +119,29 @@
       "actionStatus": "QUEUED",
       "errorCode": null,
       "errorMessage": null,
-      "taskId": "Q-31c373d0-52e2-4620-b24c-a17cf3a774cd",
+      "taskId": "Q-2d7f6669-d818-448b-a3da-f7aef2fad3f4",
       "row": {
         "state": "COMPLETED",
         "assignedNodeId": "dev-544adda130594c6fae7d71ddfd0f3b8c",
         "shell": false,
-        "operationDigest": "f2e313c196e45e2a4e0eb10bcb2c72ee6805ff20aa5c3c26019fdf3ba53b044c",
+        "operationDigest": "8045b8959493571586791b3f344b4e3ce84dbb7129b94596d75a64382a7b159d",
         "purpose": "CAP-CITY-REMOTE-OPERATION-001 live probe: dispatch an allowlisted program and read the receipt",
         "executable": "git",
         "argv": [
           "--version"
         ],
-        "cwd": "D:/utopia-remote-op",
+        "cwd": "D:\\utopia-remote-op",
         "timeoutMs": 30000,
         "maxOutputBytes": 262144,
         "result": {
-          "operationDigest": "f2e313c196e45e2a4e0eb10bcb2c72ee6805ff20aa5c3c26019fdf3ba53b044c",
+          "operationDigest": "8045b8959493571586791b3f344b4e3ce84dbb7129b94596d75a64382a7b159d",
           "state": "COMPLETED",
           "exitCode": 0,
           "timedOut": false,
           "stdout": "git version 2.51.2.windows.1\n",
           "stderr": "",
           "truncated": false,
-          "durationMs": 112,
+          "durationMs": 114,
           "error": null
         },
         "receipt": {
@@ -160,29 +160,29 @@
       "actionStatus": "QUEUED",
       "errorCode": null,
       "errorMessage": null,
-      "taskId": "Q-3adf2aa7-132c-4239-984c-ddbad713f1c9",
+      "taskId": "Q-017ba8e3-8fed-49e8-af0e-2a2dd586b9fd",
       "row": {
         "state": "FAILED",
         "assignedNodeId": "dev-544adda130594c6fae7d71ddfd0f3b8c",
         "shell": false,
-        "operationDigest": "f5dc09ffcf28def729154960a2495338854cdba7dc1c2823202ee82cfbe650c1",
+        "operationDigest": "3e879ed1a0a1b4870f3439facab8b729c2e77f7b229b4499ea1c5076f5d3cfb2",
         "purpose": "CAP-CITY-REMOTE-OPERATION-001 live probe: show that ; is data and no shell interprets it",
         "executable": "git",
         "argv": [
           "rev-parse;echo INERT"
         ],
-        "cwd": "D:/utopia-remote-op",
+        "cwd": "D:\\utopia-remote-op",
         "timeoutMs": 30000,
         "maxOutputBytes": 262144,
         "result": {
-          "operationDigest": "f5dc09ffcf28def729154960a2495338854cdba7dc1c2823202ee82cfbe650c1",
+          "operationDigest": "3e879ed1a0a1b4870f3439facab8b729c2e77f7b229b4499ea1c5076f5d3cfb2",
           "state": "FAILED",
           "exitCode": 1,
           "timedOut": false,
           "stdout": "",
           "stderr": "git: 'rev-parse;echo INERT' is not a git command. See 'git --help'.\n",
           "truncated": false,
-          "durationMs": 144,
+          "durationMs": 143,
           "error": "exit code 1"
         },
         "receipt": {
@@ -222,7 +222,7 @@
       "httpStatus": 200,
       "actionStatus": "REFUSED",
       "errorCode": "WORKING_DIRECTORY_OUTSIDE_WORKSPACE",
-      "errorMessage": "cwd \"E:/outside-the-roots\" is not inside a declared workspace root",
+      "errorMessage": "cwd \"/outside-the-roots\" is not inside a declared workspace root",
       "taskId": null
     },
     {
@@ -231,7 +231,7 @@
       "httpStatus": 200,
       "actionStatus": "REFUSED",
       "errorCode": "WORKING_DIRECTORY_OUTSIDE_WORKSPACE",
-      "errorMessage": "cwd \"D:/utopia-remote-op/../../Windows\" is not inside a declared workspace root",
+      "errorMessage": "cwd \"D:\\utopia-remote-op/../../Windows\" is not inside a declared workspace root",
       "taskId": null
     },
     {
@@ -297,31 +297,31 @@
         "actionStatus": "QUEUED",
         "errorCode": null,
         "errorMessage": null,
-        "taskId": "Q-90bd45a3-03f7-47e0-a3a4-29fe38a8c921"
+        "taskId": "Q-a7c6e7bc-5195-4e14-abea-6fef1b0f8993"
       },
       "row": {
         "state": "FAILED",
         "assignedNodeId": "dev-544adda130594c6fae7d71ddfd0f3b8c",
         "shell": false,
-        "operationDigest": "8bd674484aafe5d315151473ed8eaa5cf5e820e9c8ce580e985d4eb08fd2af83",
+        "operationDigest": "d2ccca3a0778c2aa12ec2b2fcf3f48f237ecbb032207b7e6d2a712cbbaaed5ed",
         "purpose": "live probe bounds: a program that outlives its timeout must be stopped",
         "executable": "node",
         "argv": [
           "-e",
           "setTimeout(()=>{}, 15000)"
         ],
-        "cwd": "D:/utopia-remote-op",
+        "cwd": "D:\\utopia-remote-op",
         "timeoutMs": 1500,
         "maxOutputBytes": 262144,
         "result": {
-          "operationDigest": "8bd674484aafe5d315151473ed8eaa5cf5e820e9c8ce580e985d4eb08fd2af83",
+          "operationDigest": "d2ccca3a0778c2aa12ec2b2fcf3f48f237ecbb032207b7e6d2a712cbbaaed5ed",
           "state": "FAILED",
           "exitCode": null,
           "timedOut": true,
           "stdout": "",
           "stderr": "",
           "truncated": false,
-          "durationMs": 1541,
+          "durationMs": 1534,
           "error": "timed out after 1500 ms"
         },
         "receipt": {
@@ -341,31 +341,31 @@
         "actionStatus": "QUEUED",
         "errorCode": null,
         "errorMessage": null,
-        "taskId": "Q-02f270eb-650b-46a0-9ba1-4462829c4fbd"
+        "taskId": "Q-be647d81-66a4-443c-b270-71367fb1eb51"
       },
       "row": {
         "state": "COMPLETED",
         "assignedNodeId": "dev-544adda130594c6fae7d71ddfd0f3b8c",
         "shell": false,
-        "operationDigest": "522517ff9e88b79b7a4445f88ba143a8a20f888c73129e6136dcf474ca4573fd",
+        "operationDigest": "d4a8f4f3b89bfaef17d0ac0a1dbccef903e9dfdf8429598d754533ff9736e79d",
         "purpose": "live probe bounds: output beyond the cap must be truncated",
         "executable": "node",
         "argv": [
           "-e",
           "process.stdout.write('x'.repeat(400000))"
         ],
-        "cwd": "D:/utopia-remote-op",
+        "cwd": "D:\\utopia-remote-op",
         "timeoutMs": 30000,
         "maxOutputBytes": 4096,
         "result": {
-          "operationDigest": "522517ff9e88b79b7a4445f88ba143a8a20f888c73129e6136dcf474ca4573fd",
+          "operationDigest": "d4a8f4f3b89bfaef17d0ac0a1dbccef903e9dfdf8429598d754533ff9736e79d",
           "state": "COMPLETED",
           "exitCode": 0,
           "timedOut": false,
           "stdout": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
           "stderr": "",
           "truncated": true,
-          "durationMs": 140,
+          "durationMs": 141,
           "error": null
         },
         "receipt": {
